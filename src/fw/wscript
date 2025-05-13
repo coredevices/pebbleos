@@ -653,6 +653,8 @@ def build(bld):
         fw_includes_use.append('stm32_stdlib')
     elif bld.env.MICRO_FAMILY.startswith('NRF'):
         fw_includes_use.append('hal_nordic')
+    elif bld.env.MICRO_FAMILY.startswith('SF32LB'):
+        fw_includes_use.append('hal_sifli')
 
     bld(export_includes=['.',
                          'applib/vendor/uPNG',

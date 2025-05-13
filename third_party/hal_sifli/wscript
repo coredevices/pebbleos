@@ -1,0 +1,48 @@
+def configure(conf):
+    conf.env.append_unique('DEFINES', 'USE_HAL_DRIVER')
+    conf.env.append_unique('DEFINES', 'SOC_BF0_HCPU')
+    conf.env.append_unique('DEFINES', 'HAL_TICK_PER_SECOND=1024')
+    conf.env.append_unique('DEFINES', 'HAL_NMI_HANLDER_OVERRIDED')
+    if conf.env.MICRO_FAMILY == 'SF32LB52':
+        conf.env.append_unique('DEFINES', 'SF32LB52X')
+
+
+def build(bld):
+    micro_sources = bld.path.ant_glob('SiFli-SDK/drivers/hal/*.c', excl=['**/bf0_hal_audcodec.c'])
+
+    if bld.env.MICRO_FAMILY == 'SF32LB52':
+        micro_sources += [
+            'SiFli-SDK/drivers/cmsis/sf32lb52x/bf0_pin_const.c',
+            'sf32lb52/system_bf0_ap.c',
+        ]
+
+    micro_includes = [
+        'SiFli-SDK/customer/boards/include',
+        'SiFli-SDK/drivers/Include',
+        'SiFli-SDK/drivers/cmsis/Include',
+        'SiFli-SDK/external/CMSIS/Include',
+    ]
+
+    if bld.env.MICRO_FAMILY == 'SF32LB52':
+        micro_includes += [
+            'sf32lb52',
+            'SiFli-SDK/drivers/cmsis/sf32lb52x',
+        ]
+
+    bld.env.append_unique(
+        'CFLAGS',
+        [
+            '-Wno-unused-value',
+            '-Wno-unused-variable',
+            '-Wno-unused-function',
+            '-Wno-unused-but-set-variable',
+        ],
+    )
+
+    bld.stlib(
+        source=micro_sources,
+        target='hal_sifli',
+        use=['pblibc'],
+        includes=micro_includes,
+        export_includes=micro_includes
+    )
