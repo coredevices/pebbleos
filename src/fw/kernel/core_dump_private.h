@@ -28,7 +28,7 @@
 // TODO: Do we have an equate for the total size of RAM somewhere else?
 #if PLATFORM_CALCULUS || PLATFORM_ROBERT
 #define COREDUMP_RAM_SIZE (384 * 1024)
-#elif PLATFORM_SILK || PLATFORM_ASTERIX
+#elif PLATFORM_SILK || PLATFORM_ASTERIX || PLATFORM_OBELIX
 #define COREDUMP_RAM_SIZE (256 * 1024)
 #elif PLATFORM_SNOWY || PLATFORM_SPALDING
 #define COREDUMP_RAM_SIZE (192 * 1024)
@@ -47,6 +47,8 @@
 #elif defined(MICRO_FAMILY_STM32F7)
 #define CORE_DUMP_MAX_IMAGES 3
 #elif defined(MICRO_FAMILY_NRF52840)
+#define CORE_DUMP_MAX_IMAGES 2
+#elif defined(MICRO_FAMILY_SF32LB52)
 #define CORE_DUMP_MAX_IMAGES 2
 #else
 #error "Unsupported micro family"
