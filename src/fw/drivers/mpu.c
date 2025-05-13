@@ -35,6 +35,8 @@ extern const uint32_t __SRAM_size__[];
 #if defined(MICRO_FAMILY_NRF52840)
 #include <drivers/nrfx_common.h>
 #define SRAM_BASE (0x20000000UL)
+#elif defined(MICRO_FAMILY_SF32LB)
+#define SRAM_BASE (0x20000000UL)
 #else
 #define SRAM_BASE SRAM1_BASE
 #endif
@@ -60,12 +62,14 @@ static const PermissionMapping s_permission_mappings[] = {
 };
 
 static const uint32_t s_cache_settings[MpuCachePolicyNum] = {
+#if !PLATFORM_OBELIX
   [MpuCachePolicy_NotCacheable] = (0x1 << MPU_RASR_TEX_Pos) | (MPU_RASR_S_Msk),
   [MpuCachePolicy_WriteThrough] = (MPU_RASR_S_Msk | MPU_RASR_C_Msk),
   [MpuCachePolicy_WriteBackWriteAllocate] =
       (0x1 << MPU_RASR_TEX_Pos) | (MPU_RASR_S_Msk | MPU_RASR_C_Msk | MPU_RASR_B_Msk),
   [MpuCachePolicy_WriteBackNoWriteAllocate] =
       (MPU_RASR_S_Msk | MPU_RASR_C_Msk | MPU_RASR_B_Msk),
+#endif
 };
 
 static uint8_t get_permission_value(const MpuRegion* region) {
@@ -137,11 +141,15 @@ void mpu_get_register_settings(const MpuRegion* region, uint32_t *base_address_r
 
 
 void mpu_set_region(const MpuRegion* region) {
+#if PLATFORM_OBELIX
+#else
   uint32_t base_reg, attr_reg;
 
   mpu_get_register_settings(region, &base_reg, &attr_reg);
+
   MPU->RBAR = base_reg;
   MPU->RASR = attr_reg;
+#endif
 }
 
 
@@ -150,7 +158,11 @@ MpuRegion mpu_get_region(int region_num) {
 
   MPU->RNR = region_num;
 
+#if PLATFORM_OBELIX
+  const uint32_t attributes = 8;
+#else
   const uint32_t attributes = MPU->RASR;
+#endif
 
   region.enabled = attributes & 0x1;
 

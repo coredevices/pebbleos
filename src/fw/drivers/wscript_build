@@ -1141,7 +1141,7 @@ if bld.capability('HAS_MICROPHONE'):
 
 
 # FIXME: make generic to Cortex-M
-if mcu_family in ('STM32F2', 'STM32F4', 'STM32F7', 'NRF52840'):
+if mcu_family in ('STM32F2', 'STM32F4', 'STM32F7', 'NRF52840', 'SF32LB'):
     bld.objects(
         name='driver_mpu',
         source=[
