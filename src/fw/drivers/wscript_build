@@ -226,6 +226,7 @@ elif bld.is_obelix():
             'driver_rng',
             'driver_task_watchdog',
             'driver_temperature',
+            'driver_uart',
             'driver_vibe',
             'driver_voltage_monitor',
         ],
@@ -1665,6 +1666,19 @@ elif mcu_family == 'NRF52840':
             'fw_includes',
             'root_includes',
             'hal_nordic',
+        ],
+    )
+elif mcu_family == 'SF32LB':
+    bld.objects(
+        name='driver_uart',
+        source=[
+            'sf32lb/uart.c',
+        ],
+        use=[
+            'freertos',
+            'fw_includes',
+            'root_includes',
+            'hal_sifli',
         ],
     )
 
