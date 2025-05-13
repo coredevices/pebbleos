@@ -45,6 +45,7 @@
 #define STM32F4_COMPATIBLE
 #define STM32F7_COMPATIBLE
 #define NRF5_COMPATIBLE
+#define SF32LB52_COMPATIBLE
 #include <mcu.h>
 
 #define I2C_ERROR_TIMEOUT_MS  (1000)
