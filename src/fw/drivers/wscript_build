@@ -213,6 +213,7 @@ elif bld.is_obelix():
             'driver_button',
             'driver_display',
             'driver_gpio',
+            'driver_flash',
             'driver_gpio_defaults',
             'driver_i2c',
             'driver_imu',
@@ -754,6 +755,23 @@ elif bld.is_asterix():
             'freertos',
             'fw_includes',
             'root_includes',
+        ],
+    )
+elif bld.is_obelix():
+    bld.objects(
+        name='driver_flash',
+        source=[
+            'flash/flash_api.c',
+            'flash/flash_crc.c',
+            'flash/flash_erase.c',
+            'flash/cd_flash_driver.c',
+            'flash/sf32lb52_int_flash.c',
+        ],
+        use=[
+            'freertos',
+            'fw_includes',
+            'root_includes',
+	    'hal_sifli',
         ],
     )
 
