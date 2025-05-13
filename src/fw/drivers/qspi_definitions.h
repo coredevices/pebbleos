@@ -23,21 +23,36 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#if MICRO_FAMILY_SF32LB52
+#include "bf0_hal_dma.h"
+#include "bf0_hal_mpi.h"
+#endif
+
 #define QSPI_NUM_DATA_PINS (4)
 
 typedef struct QSPIPortState {
+#if MICRO_FAMILY_SF32LB52
+  QSPI_FLASH_CTX_T ctx;
+  DMA_HandleTypeDef hdma;
+#else
   SemaphoreHandle_t dma_semaphore;
   int use_count;
+#endif
 } QSPIPortState;
 
 typedef const struct QSPIPort {
   QSPIPortState *state;
-  uint16_t auto_polling_interval;
 #if MICRO_FAMILY_NRF5
+  uint16_t auto_polling_interval;
   uint32_t cs_gpio;
   uint32_t clk_gpio;
   uint32_t data_gpio[QSPI_NUM_DATA_PINS];
+#elif MICRO_FAMILY_SF32LB52
+  qspi_configure_t cfg;
+  uint16_t clk_div;
+  struct dma_config dma;
 #else
+  uint16_t auto_polling_interval;
   uint32_t clock_speed_hz;
   uint32_t clock_ctrl;
   AfConfig cs_gpio;

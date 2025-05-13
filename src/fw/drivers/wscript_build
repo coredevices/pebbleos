@@ -213,6 +213,7 @@ elif bld.is_obelix():
             'driver_button',
             'driver_display',
             'driver_gpio',
+            'driver_flash',
             'driver_gpio_defaults',
             'driver_i2c',
             'driver_imu',
@@ -748,6 +749,23 @@ elif bld.is_asterix():
             'flash/flash_erase.c',
             'flash/cd_flash_driver.c',
             'flash/gd25lq255e.c',
+        ],
+        use=[
+            'driver_qspi',
+            'freertos',
+            'fw_includes',
+            'root_includes',
+        ],
+    )
+elif bld.is_obelix():
+    bld.objects(
+        name='driver_flash',
+        source=[
+            'flash/flash_api.c',
+            'flash/flash_crc.c',
+            'flash/flash_erase.c',
+            'flash/cd_flash_driver.c',
+            'flash/py25q128ha.c',
         ],
         use=[
             'driver_qspi',
@@ -1370,14 +1388,15 @@ elif mcu_family == 'NRF52840':
         ],
     )
 elif mcu_family == 'SF32LB52':
-    # FIXME(SF32LB52): provide working implementation
     bld.objects(
         name='driver_qspi',
         source=[
-            'stubs/qspi.c',
+            'sf32lb52/qspi.c',
         ],
         use=[
             'fw_includes',
+            'root_includes',
+            'hal_sifli',
         ],
     )
 
