@@ -8,6 +8,8 @@ def _recurse(ctx):
         ctx.recurse('hal_stm32')
     elif ctx.env.MICRO_FAMILY.startswith('NRF'):
         ctx.recurse('hal_nordic')
+    elif ctx.env.MICRO_FAMILY.startswith('SF32LB'):
+        ctx.recurse('hal_sifli')
 
     if ctx.env.bt_controller == 'cc2564x':
         ctx.recurse('nimble')
