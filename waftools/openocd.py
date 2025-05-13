@@ -150,6 +150,10 @@ def _get_reset_conf(conf, should_connect_assert_srst):
         return ' '.join(options)
     elif conf.env.MICRO_FAMILY.startswith('NRF52'):
         return 'none'
+    # FIXME(SF32LB52): remove this, SF32LB52 does not support OpenOCD
+    # but build system requires OpenOCD!
+    elif conf.env.MICRO_FAMILY == 'SF32LB52':
+        return 'none'
     else:
         raise Exception("Unsupported microcontroller family: %s" % conf.env.MICRO_FAMILY)
 
@@ -170,6 +174,10 @@ def write_cfg(conf):
         target = 'stm32f7x.cfg'
     elif conf.env.MICRO_FAMILY == 'NRF52840':
         target = 'nrf52.cfg'
+    # FIXME(SF32LB52): remove this, SF32LB52 does not support OpenOCD
+    # but build system requires OpenOCD!
+    elif conf.env.MICRO_FAMILY == 'SF32LB52':
+        target = 'sf32lb52.cfg'
 
     is_pebble_flavor = get_flavor(conf)
 
