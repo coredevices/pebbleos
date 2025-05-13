@@ -22,6 +22,7 @@
 #define STM32F4_COMPATIBLE
 #define STM32F7_COMPATIBLE
 #define NRF5_COMPATIBLE
+#define SF32LB52_COMPATIBLE
 #include <mcu.h>
 
 #include <inttypes.h>
@@ -33,6 +34,15 @@
 
 void NOINLINE delay_us(uint32_t us) {
   nrfx_coredep_delay_us(us);
+}
+
+void delay_init(void) {
+}
+
+#elif MICRO_FAMILY_SF32LB52
+
+void NOINLINE delay_us(uint32_t us) {
+  HAL_Delay_us(us);
 }
 
 void delay_init(void) {
