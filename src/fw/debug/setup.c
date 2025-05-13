@@ -24,12 +24,15 @@
 #define STM32F4_COMPATIBLE
 #define STM32F7_COMPATIBLE
 #define NRF5_COMPATIBLE
+#define SF32LB52_COMPATIBLE
 #include <mcu.h>
 
 void enable_mcu_debugging(void) {
 #ifndef RELEASE
 #if defined(MICRO_FAMILY_NRF52840)
 //  NRF_APPROTECT->APPROTECT.DISABLE = 1;
+#elif defined(MICRO_FAMILY_SF32LB52)
+// TODO(SF32LB52): implement
 #else
   DBGMCU_Config(DBGMCU_SLEEP | DBGMCU_STOP, ENABLE);
   // Stop RTC, IWDG & TIM2 during debugging
@@ -43,6 +46,8 @@ void enable_mcu_debugging(void) {
 void disable_mcu_debugging(void) {
 #if defined(MICRO_FAMILY_NRF52840)
 //  NRF_APPROTECT->APPROTECT.DISABLE = 0;
+#elif MICRO_FAMILY_SF32LB52
+// TODO(SF32LB52): implement
 #else
   DBGMCU->CR = 0;
   DBGMCU->APB1FZ = 0;
