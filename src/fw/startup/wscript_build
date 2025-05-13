@@ -11,6 +11,8 @@ elif bld.is_cutts() or bld.is_robert():
 elif bld.is_asterix():
     sources.append(bld.path.make_node("../../../third_party/hal_nordic/nrfx/mdk/system_nrf52840.c"))
     sources.append(bld.path.make_node("startup_stm32.c")) # good enough
+elif bld.is_obelix():
+    sources.append(bld.path.make_node("startup_sf32lb52.c"))
 else:
     bld.fatal("No clock configuration file specified for this platform")
     
