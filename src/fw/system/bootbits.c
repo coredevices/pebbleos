@@ -25,6 +25,7 @@
 #define STM32F4_COMPATIBLE
 #define STM32F7_COMPATIBLE
 #define NRF5_COMPATIBLE
+#define SF32LB_COMPATIBLE
 #include <mcu.h>
 
 #include <inttypes.h>
@@ -99,7 +100,53 @@ uint32_t boot_version_read(void) {
   return retained_read(BOOTLOADER_VERSION_REGISTER);
 }
 
-#else /* !nrf5 */
+#elif MICRO_FAMILY_SF32LB
+
+// TODO: implement
+
+static uint32_t _bootbits;
+
+void boot_bit_init(void) {
+  _bootbits = BOOT_BIT_INITIALIZED;
+}
+
+void boot_bit_set(BootBitValue bit) {
+  _bootbits |= bit;
+}
+
+void boot_bit_clear(BootBitValue bit) {
+  _bootbits &= ~bit;
+}
+
+bool boot_bit_test(BootBitValue bit) {
+  return _bootbits & bit;
+}
+
+void boot_bit_dump(void) {
+  PBL_LOG(LOG_LEVEL_DEBUG, "0x%"PRIx32, _bootbits);
+}
+
+uint32_t boot_bits_get(void) {
+  return _bootbits;
+}
+
+void command_boot_bits_get(void) {
+  char buffer[32];
+  dbgserial_putstr_fmt(buffer, sizeof(buffer), "bootbits: 0x%"PRIu32, boot_bits_get());
+}
+
+void boot_version_write(void) {
+  if (boot_version_read() == TINTIN_METADATA.version_timestamp) {
+    return;
+  }
+  /* RTC_WriteBackupRegister(BOOTLOADER_VERSION_REGISTER, TINTIN_METADATA.version_timestamp); */
+}
+
+uint32_t boot_version_read(void) {
+  return 0xABCD1234;
+}
+
+#else
 
 void boot_bit_init(void) {
   rtc_init();
