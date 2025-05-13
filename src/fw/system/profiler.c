@@ -20,6 +20,7 @@
 #include "util/size.h"
 
 #define CMSIS_COMPATIBLE
+#define SF32LB52_COMPATIBLE
 #include <mcu.h>
 
 #include <inttypes.h>
@@ -123,8 +124,10 @@ void profiler_node_stop(ProfilerNode *node, uint32_t dwt_cyc_cnt) {
 }
 
 uint32_t profiler_cycles_to_us(uint32_t cycles) {
-#ifdef MICRO_FAMILY_NRF5
+#if defined(MICRO_FAMILY_NRF5)
   uint32_t mhz = NRFX_DELAY_CPU_FREQ_MHZ;
+#elif defined(MICRO_FAMILY_SF32LB52)
+  uint32_t mhz = HAL_RCC_GetHCLKFreq(CORE_ID_HCPU);
 #else
   RCC_ClocksTypeDef clocks;
   RCC_GetClocksFreq(&clocks);
@@ -150,8 +153,10 @@ uint32_t profiler_get_total_duration(bool in_us) {
   }
 
   if (in_us) {
-#ifdef MICRO_FAMILY_NRF5
+#if defined(MICRO_FAMILY_NRF5)
     uint32_t mhz = NRFX_DELAY_CPU_FREQ_MHZ;
+#elif defined(MICRO_FAMILY_SF32LB52)
+    uint32_t mhz = HAL_RCC_GetHCLKFreq(CORE_ID_HCPU);
 #else
     RCC_ClocksTypeDef clocks;
     RCC_GetClocksFreq(&clocks);
@@ -167,8 +172,12 @@ void profiler_print_stats(void) {
   PROFILER_STOP; // Make sure the profiler has been stopped.
   uint32_t total = profiler_get_total_duration(false);
 
-#ifdef MICRO_FAMILY_NRF5
+#if defined(MICRO_FAMILY_NRF5)
   uint32_t mhz = NRFX_DELAY_CPU_FREQ_MHZ;
+  char buf[80];
+  PROF_LOG(buf, sizeof(buf), "CPU Frequency: %"PRIu32"MHz", mhz);
+#elif defined(MICRO_FAMILY_SF32LB52)
+  uint32_t mhz = HAL_RCC_GetHCLKFreq(CORE_ID_HCPU);
   char buf[80];
   PROF_LOG(buf, sizeof(buf), "CPU Frequency: %"PRIu32"MHz", mhz);
 #else
