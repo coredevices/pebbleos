@@ -84,14 +84,14 @@ static AccelRawData s_accel_data = { 0 };
 // Private calibration handlers
 
 static void prv_reset_saved_sample(void) {
-#if !MICRO_FAMILY_NRF5
+#if !MICRO_FAMILY_NRF5 && !MICRO_FAMILY_SF32LB
   RTC_WriteBackupRegister(MAG_Z_CORRECTION_VAL, 0x0);
 #endif
   s_saved_corr_present = false;
 }
 
 static void prv_save_calibration_values(int16_t *corr) {
-#if !MICRO_FAMILY_NRF5
+#if !MICRO_FAMILY_NRF5 && !MICRO_FAMILY_SF32LB
   // first zero out the valid marker
   prv_reset_saved_sample();
 
@@ -113,7 +113,7 @@ static void prv_save_calibration_values(int16_t *corr) {
 // Loads the calibration values.  Returns true if loads successfully,
 // otherwise false.
 static bool prv_load_calibration_values(void) {
-#if MICRO_FAMILY_NRF5
+#if MICRO_FAMILY_NRF5 || MICRO_FAMILY_SF32LB
   return false;
 #else
   uint32_t valxy = RTC_ReadBackupRegister(MAG_XY_CORRECTION_VALS);
