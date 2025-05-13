@@ -31,6 +31,7 @@
 #define STM32F4_COMPATIBLE
 #define STM32F7_COMPATIBLE
 #define NRF5_COMPATIBLE
+#define SF32LB52_COMPATIBLE
 #include <mcu.h>
 
 #include <stdbool.h>
@@ -68,6 +69,10 @@ void enter_stop_mode(void) {
 
   flash_power_up_after_stop_mode();
 
+}
+#elif MICRO_FAMILY_SF32LB52
+void enter_stop_mode(void) {
+  // TODO(SF32LB52): implement
 }
 #else /* STM32 */
 void enter_stop_mode(void) {
