@@ -13,6 +13,9 @@ def build(bld):
     elif bld.env.MICRO_FAMILY == 'NRF52840':
         freertos_port_name = 'ARM_CM4F'
         use_timers = True
+    elif bld.env.MICRO_FAMILY == 'SF32LB':
+        # FIXME: not true, but it allows to boot for now
+        freertos_port_name = 'ARM_CM4F'
     else:
         bld.fatal('Unrecognized env.MICRO_FAMILY value %r' %
                   bld.env.MICRO_FAMILY)
