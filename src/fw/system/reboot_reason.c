@@ -25,6 +25,7 @@
 #define STM32F4_COMPATIBLE
 #define STM32F7_COMPATIBLE
 #define NRF5_COMPATIBLE
+#define SF32LB52_COMPATIBLE
 #include <mcu.h>
 
 #include <inttypes.h>
@@ -37,6 +38,8 @@ _Static_assert(sizeof(RebootReason) == sizeof(uint32_t[6]), "RebootReason is a f
 void reboot_reason_set(RebootReason *reason) {
 #if MICRO_FAMILY_NRF5
   /* XXX(nrf5): WDKWWDR (we really do not have enough NV storage for this, this shoudl go with bootbits). */
+#elif defined MICRO_FAMILY_SF32LB52
+  // TODO(SF32LB52): Add implementation
 #else
   uint32_t *raw = (uint32_t*)reason;
 
@@ -65,6 +68,8 @@ void reboot_reason_set_restarted_safely(void) {
 
 #if MICRO_FAMILY_NRF5
   /* XXX(nrf5): WDKWWDR (we really do not have enough NV storage for this, this shoudl go with bootbits). */
+#elif defined MICRO_FAMILY_SF32LB52
+  // TODO(SF32LB52): Add implementation
 #else
   uint32_t* raw = (uint32_t *)&reason;
   RTC_WriteBackupRegister(REBOOT_REASON_REGISTER_1, *raw);
@@ -74,6 +79,8 @@ void reboot_reason_set_restarted_safely(void) {
 void reboot_reason_get(RebootReason *reason) {
 #if MICRO_FAMILY_NRF5
   /* XXX(nrf5): WDKWWDR (we really do not have enough NV storage for this, this shoudl go with bootbits). */
+#elif defined MICRO_FAMILY_SF32LB52
+  // TODO(SF32LB52): Add implementation
 #else
   uint32_t *raw = (uint32_t *)reason;
   raw[0] = RTC_ReadBackupRegister(REBOOT_REASON_REGISTER_1);
@@ -88,6 +95,8 @@ void reboot_reason_get(RebootReason *reason) {
 void reboot_reason_clear(void) {
 #if MICRO_FAMILY_NRF5
   /* XXX(nrf5): WDKWWDR (we really do not have enough NV storage for this, this shoudl go with bootbits). */
+#elif defined MICRO_FAMILY_SF32LB52
+  // TODO(SF32LB52): Add implementation
 #else
   RTC_WriteBackupRegister(REBOOT_REASON_REGISTER_1, 0);
   RTC_WriteBackupRegister(REBOOT_REASON_REGISTER_2, 0);
@@ -102,6 +111,9 @@ uint32_t reboot_get_slot_of_last_launched_app(void) {
 #if MICRO_FAMILY_NRF5
   /* XXX(nrf5): WDKWWDR (we really do not have enough NV storage for this, this shoudl go with bootbits). */
   return 0;
+#elif defined MICRO_FAMILY_SF32LB52
+  // TODO(SF32LB52): Add implementation
+  return 0;
 #else
   return RTC_ReadBackupRegister(SLOT_OF_LAST_LAUNCHED_APP);
 #endif
@@ -110,6 +122,8 @@ uint32_t reboot_get_slot_of_last_launched_app(void) {
 void reboot_set_slot_of_last_launched_app(uint32_t app_slot) {
 #if MICRO_FAMILY_NRF5
   /* XXX(nrf5): WDKWWDR (we really do not have enough NV storage for this, this shoudl go with bootbits). */
+#elif defined MICRO_FAMILY_SF32LB52
+  // TODO(SF32LB52): Add implementation
 #else
   RTC_WriteBackupRegister(SLOT_OF_LAST_LAUNCHED_APP, app_slot);
 #endif
