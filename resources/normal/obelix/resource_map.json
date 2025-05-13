@@ -1,0 +1,440 @@
+{
+  "comments": "This file contains resource definitions for platform silk",
+  "media": [
+    {
+      "type": "pdc",
+      "name": "VOICE_MICROPHONE_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Microphone.svg",
+      "builtin": true,
+      "_comment": ["Built into firmware to ensure that voice API memory contract is not violated",
+                   "Ensure that if this is moved to resources, images are allocated up front when",
+                   "a dictation session is started"]
+    },
+    {
+      "type": "raw",
+      "name": "NO_EVENTS_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_No_events.pdc",
+      "builtin": true
+    },
+    {
+      "type": "raw",
+      "name": "ALARM_CLOCK_LARGE",
+      "file": "normal/snowy/images/animated_pdcs/Pebble_80x80_Alarm_clock.pdc"
+    },
+    {
+      "type": "raw",
+      "name": "BATTERY_ICON_CHARGING_LARGE",
+      "file": "normal/snowy/images/animated_pdcs/Pebble_80x80_Battery_currently_charging.pdc",
+      "builtin": true
+    },
+    {
+      "type": "raw",
+      "name": "RESULT_DELETED_LARGE",
+      "file": "normal/snowy/images/animated_pdcs/Pebble_80x80_Deleted.pdc"
+    },
+    {
+      "type": "raw",
+      "name": "RESULT_SHREDDED_LARGE",
+      "file": "normal/snowy/images/animated_pdcs/Pebble_80x80_Result_shredded.pdc"
+    },
+    {
+      "type": "raw",
+      "name": "RESULT_DISMISSED_LARGE",
+      "file": "normal/snowy/images/animated_pdcs/Pebble_80x80_Dismiss.pdc"
+    },
+    {
+      "type": "raw",
+      "name": "GENERIC_CONFIRMATION_LARGE",
+      "file": "normal/snowy/images/animated_pdcs/Pebble_80x80_Generic_confirmation.pdc"
+    },
+    {
+      "type": "raw",
+      "name": "INCOMING_PHONE_CALL_LARGE",
+      "file": "normal/snowy/images/animated_pdcs/Pebble_80x80_Incoming_call.pdc"
+    },
+    {
+      "type": "raw",
+      "name": "RESULT_MUTE_LARGE",
+      "file": "normal/snowy/images/animated_pdcs/Pebble_80x80_Mute.pdc",
+      "builtin": true
+    },
+    {
+      "type": "raw",
+      "name": "RESULT_SENT_LARGE",
+      "file": "normal/snowy/images/animated_pdcs/Pebble_80x80_Sent.pdc"
+    },
+    {
+      "type": "raw",
+      "name": "RESULT_UNMUTE_LARGE",
+      "file": "normal/snowy/images/animated_pdcs/Pebble_80x80_Unmute.pdc"
+    },
+    {
+      "type": "png",
+      "name": "BATTERY_CHARGING_ICON",
+      "file": "normal/snowy/images/battery_charging_icon.png"
+    },
+    {
+      "type": "pbi",
+      "name": "MENU_ICON_TICTOC_WATCH",
+      "file": "normal/tintin/images/menu_icon_simplicity_watch.png"
+    },
+    {
+      "type": "pbi8",
+      "name": "ACTION_BAR_ICON_CHECK",
+      "file": "common/base/images/action_bar_icon_check.png",
+      "builtin": false
+    },
+    {
+      "type": "pbi8",
+      "name": "ACTION_BAR_ICON_UP",
+      "file": "normal/base/images/action_bar_icon_up.png",
+      "builtin": false
+    },
+    {
+      "type": "pbi8",
+      "name": "ACTION_BAR_ICON_DOWN",
+      "file": "normal/base/images/action_bar_icon_down.png",
+      "builtin": false
+    },
+    {
+      "type": "pdc",
+      "name": "GENERIC_WARNING_TINY",
+      "file": "normal/base/images/Pebble_25x25_Generic_warning.svg",
+      "builtin": false
+    },
+    {
+      "type": "pdc",
+      "name": "CHECK_INTERNET_CONNECTION_LARGE",
+      "file": "normal/base/images/Pebble_80x80_Check_internet_connection.svg",
+      "builtin": false
+    },
+    {
+      "type": "pdc",
+      "name": "GENERIC_WARNING_LARGE",
+      "file": "common/base/images/Pebble_80x80_Generic_warning.svg",
+      "builtin": false
+    },
+    {
+      "type": "pdc",
+      "name": "WATCH_DISCONNECTED_LARGE",
+      "file": "normal/base/images/Pebble_80x80_Watch_disconnected.svg",
+      "builtin": false
+    },
+    {
+      "type": "png",
+      "name": "HEALTH_ICON_MOON",
+      "file": "normal/snowy/images/health_icon_moon.png"
+    },
+    {
+      "type": "png",
+      "name": "HEALTH_ICON_ROTATED_MOON",
+      "file": "normal/snowy/images/health_icon_rotated_moon.png"
+    },
+    {
+      "type": "pbi",
+      "name": "SYSTEM_FCC_MARK",
+      "file": "normal/snowy/images/system_fcc_mark.png"
+    },
+    {
+      "type": "pbi",
+      "name": "SYSTEM_KCC_MARK",
+      "file": "normal/snowy/images/system_kcc_mark.png"
+    },
+    {
+      "type": "pbi",
+      "name": "SYSTEM_CE_MARK",
+      "file": "normal/snowy/images/system_ce_mark.png"
+    },
+    {
+      "type": "pbi",
+      "name": "SYSTEM_WEEE_MARK",
+      "file": "normal/snowy/images/system_weee_mark.png"
+    },
+    {
+      "type": "pbi",
+      "name": "SYSTEM_R_MARK",
+      "file": "normal/snowy/images/system_r_mark.png"
+    },
+    {
+      "type": "pbi",
+      "name": "SYSTEM_T_MARK",
+      "file": "normal/snowy/images/system_t_mark.png"
+    },
+    {
+      "type": "pbi",
+      "name": "SYSTEM_AUS_RCM_MARK",
+      "file": "normal/silk/images/system_aus_rcm_mark.png"
+    },
+    {
+      "type": "pbi",
+      "name": "SYSTEM_NOM_NYCE_MARK",
+      "file": "normal/silk/images/system_nom_nyce_mark.png"
+    },
+    {
+      "type": "png",
+      "name": "WEATHER_CHANNEL_LOGO",
+      "file": "normal/snowy/images/weather_channel_logo.png"
+    },
+    {
+      "type": "png",
+      "name": "STRIDE_SHOE",
+      "file": "normal/silk/images/stride_shoe.png"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_BIG_OPEN_SMILE_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_big_open_smile.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_BIG_SMILE_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_big_smile.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_HEART_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_heart.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_KISSING_WITH_HEART_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_kissing_with_heart.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_LAUGHING_WITH_TEARS_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_laughing_with_tears.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_SAD_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_sad.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_SMILING_BLUSH_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_smiling_blush.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_SMILING_HEARTS_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_smiling_hearts.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_SMILING_WITH_TEETH_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_smiling_with_teeth.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_THUMBS_UP_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_thumbs_up.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_WINK_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_wink.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "EMOJI_WINK_TONGUE_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Emoji_wink_tongue.svg"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_REVEILLE",
+      "file": "normal/snowy/vibes/reveille.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_HAPTIC_FEEDBACK",
+      "file": "normal/snowy/vibes/haptic_feedback.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_NUDGE_NUDGE",
+      "file": "normal/snowy/vibes/nudge_nudge.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_PULSE",
+      "file": "normal/snowy/vibes/pulse.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_JACKHAMMER",
+      "file": "normal/snowy/vibes/jackhammer.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_MARIO",
+      "file": "normal/snowy/vibes/mario.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_STANDARD_SHORT_LOW",
+      "file": "normal/snowy/vibes/standard_short_low.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_STANDARD_SHORT_HIGH",
+      "file": "normal/snowy/vibes/standard_short_high.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_STANDARD_LONG_LOW",
+      "file": "normal/snowy/vibes/standard_long_low.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_STANDARD_LONG_HIGH",
+      "file": "normal/snowy/vibes/standard_long_high.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_ALARM_LPM",
+      "file": "normal/snowy/vibes/alarm_lpm.json"
+    },
+    {
+      "type": "png",
+      "name": "SMART_ALARM_ICON_BLACK",
+      "file": "normal/snowy/images/sa_list_icon_black.png"
+    },
+    {
+      "type": "pdc",
+      "name": "SMART_ALARM_TINY",
+      "file": "normal/snowy/images/Pebble_25x25_Smart_alarm.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_AMAZON_TINY",
+      "file": "normal/snowy/images/Pebble_25x25_Amazon.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_AMAZON_SMALL",
+      "file": "normal/snowy/images/Pebble_50x50_Amazon.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_AMAZON_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Amazon.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_GOOGLE_MAPS_TINY",
+      "file": "normal/snowy/images/Pebble_25x25_Google_Maps.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_GOOGLE_MAPS_SMALL",
+      "file": "normal/snowy/images/Pebble_50x50_Google_Maps.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_GOOGLE_MAPS_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Google_Maps.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_GOOGLE_PHOTOS_TINY",
+      "file": "normal/snowy/images/Pebble_25x25_Google_Photos.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_GOOGLE_PHOTOS_SMALL",
+      "file": "normal/snowy/images/Pebble_50x50_Google_Photos.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_GOOGLE_PHOTOS_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Google_Photos.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_IOS_PHOTOS_TINY",
+      "file": "normal/snowy/images/Pebble_25x25_iOS_Photos.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_IOS_PHOTOS_SMALL",
+      "file": "normal/snowy/images/Pebble_50x50_iOS_Photos.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_IOS_PHOTOS_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_iOS_Photos.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_LINKEDIN_TINY",
+      "file": "normal/snowy/images/Pebble_25x25_LinkedIn.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_LINKEDIN_SMALL",
+      "file": "normal/snowy/images/Pebble_50x50_LinkedIn.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_LINKEDIN_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_LinkedIn.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_SLACK_TINY",
+      "file": "normal/snowy/images/Pebble_25x25_Slack.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_SLACK_SMALL",
+      "file": "normal/snowy/images/Pebble_50x50_Slack.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_SLACK_LARGE",
+      "file": "normal/snowy/images/Pebble_80x80_Slack.svg"
+    },
+    {
+      "type": "png",
+      "name": "HEALTH_APP_SLEEP",
+      "file": "normal/silk/images/health_app_sleep.png"
+    },
+    {
+      "type": "png",
+      "name": "HEALTH_APP_HR",
+      "file": "normal/silk/images/health_app_hr.png"
+    },
+    {
+      "type": "png",
+      "name": "BLE_HRM_SHARE_REQUEST_LARGE",
+      "file": "normal/silk/images/ble_hrm_share_request.png"
+    },
+    {
+      "type": "pdc",
+      "name": "BLE_HRM_SHARED",
+      "file": "normal/silk/images/ble_hrm_shared.svg"
+    },
+    {
+      "type": "png",
+      "name": "BLE_HRM_NOT_SHARED",
+      "file": "normal/silk/images/ble_hrm_not_shared.png"
+    },
+    {
+      "type": "png",
+      "name": "CONNECTIVITY_SHARING_HRM",
+      "file": "normal/silk/images/ble_hrm_sharing_app_glance.png"
+    },
+    {
+      "type": "pdc",
+      "name": "HEALTH_APP_CROWN",
+      "file": "normal/silk/images/health_app_crown.svg"
+    },
+    {
+     "type": "js",
+     "name": "JS_TICTOC",
+     "file": "normal/base/js/tictoc.js",
+     "builtin": true
+    }
+  ]
+}
