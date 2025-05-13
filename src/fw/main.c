@@ -103,6 +103,7 @@
 #define STM32F4_COMPATIBLE
 #define STM32F7_COMPATIBLE
 #define NRF5_COMPATIBLE
+#define SF32LB_COMPATIBLE
 #include <mcu.h>
 
 #include "FreeRTOS.h"
@@ -249,11 +250,11 @@ int main(void) {
   stop_mode_disable(InhibitorMain);
 
   // Turn off power to internal flash when in stop mode
-#if !MICRO_FAMILY_NRF5
+#if !MICRO_FAMILY_NRF5 && !MICRO_FAMILY_SF32LB
   periph_config_enable(PWR, RCC_APB1Periph_PWR);
 #endif
   pwr_flash_power_down_stop_mode(true /* power_down */);
-#if !MICRO_FAMILY_NRF5
+#if !MICRO_FAMILY_NRF5 && !MICRO_FAMILY_SF32LB
   periph_config_disable(PWR, RCC_APB1Periph_PWR);
 #endif
 
