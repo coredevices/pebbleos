@@ -97,6 +97,8 @@ def _generate_memory_layout(bld):
         ldscript_template = bld.path.find_node('stm32f2xx_flash_fw.ld.template')
     elif bld.is_asterix():
         ldscript_template = bld.path.find_node('nrf52840_flash_fw.ld.template')
+    elif bld.is_obelix():
+        ldscript_template = bld.path.find_node('sf32lb_em525_flash_fw.ld.template')
 
     # Determine bootloader size so we can later calculate FLASH_LENGTH_*
     if bld.env.MICRO_FAMILY == 'STM32F2':
