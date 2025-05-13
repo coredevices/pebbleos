@@ -283,6 +283,24 @@ board_capability_dicts = [
             'HAS_FLASH_OTP',
         },
     },
+    {
+        'boards': [ 'obelix' ],
+        'capabilities':
+        {
+            'HAS_APP_GLANCES',
+            'HAS_CORE_NAVIGATION4',
+            'HAS_HEALTH_TRACKING',
+            'HAS_JAVASCRIPT',
+            'HAS_LAUNCHER4',
+            'HAS_SDK_SHELL4',
+            'HAS_SPRF_V3',
+            'HAS_TEMPERATURE',
+            'HAS_TIMELINE_PEEK',
+            'HAS_VIBE_SCORES',
+            'HAS_WEATHER',
+            'HAS_PUTBYTES_PREACKING',
+        },
+    },
 ]
 
 # Run through again and make sure all sets include only valid keys defined in
