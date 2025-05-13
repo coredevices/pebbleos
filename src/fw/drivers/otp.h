@@ -55,7 +55,7 @@ enum {
 
   NUM_OTP_SLOTS = 16,
 };
-#elif PLATFORM_ASTERIX
+#elif PLATFORM_ASTERIX || PLATFORM_OBELIX
 enum {
   OTP_HWVER = 0,
   OTP_SERIAL = 1,
