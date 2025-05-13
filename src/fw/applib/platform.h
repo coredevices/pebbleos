@@ -33,7 +33,8 @@ typedef enum PlatformType {
     #define PBL_PLATFORM_TYPE_CURRENT PlatformTypeBasalt
   #elif PLATFORM_SPALDING
     #define PBL_PLATFORM_TYPE_CURRENT PlatformTypeChalk
-  #elif PLATFORM_SILK || PLATFORM_ASTERIX
+  // FIXME(OBELIX): Obelix is not diorite
+  #elif PLATFORM_SILK || PLATFORM_ASTERIX || PLATFORM_OBELIX
     #define PBL_PLATFORM_TYPE_CURRENT PlatformTypeDiorite
   #elif PLATFORM_ROBERT || PLATFORM_CALCULUS
     #define PBL_PLATFORM_TYPE_CURRENT PlatformTypeEmery
