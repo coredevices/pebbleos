@@ -224,6 +224,7 @@ elif bld.is_obelix():
             'driver_pwr',
             'driver_qspi',
             'driver_rng',
+            'driver_rtc',
             'driver_task_watchdog',
             'driver_temperature',
             'driver_uart',
@@ -1511,6 +1512,19 @@ elif mcu_family == 'NRF52840':
             'freertos',
             'fw_includes',
             'root_includes',
+        ],
+    )
+elif mcu_family == 'SF32LB':
+    bld.objects(
+        name='driver_rtc',
+        source=[
+            'sf32lb/rtc.c',
+        ],
+        use=[
+            'freertos',
+            'fw_includes',
+            'root_includes',
+	    'hal_sifli',
         ],
     )
 
