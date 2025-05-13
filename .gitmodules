@@ -15,7 +15,7 @@
 	url = https://github.com/NordicSemiconductor/nrfx
 [submodule "third_party/freertos/FreeRTOS-Kernel"]
 	path = third_party/freertos/FreeRTOS-Kernel
-	url = https://github.com/pebble-dev/FreeRTOS-Kernel
+	url = https://github.com/coredevices/FreeRTOS-Kernel
 [submodule "third_party/nanopb/nanopb"]
 	path = third_party/nanopb/nanopb
 	url = https://github.com/nanopb/nanopb

@@ -13,6 +13,8 @@ def build(bld):
     elif bld.env.MICRO_FAMILY == 'NRF52840':
         freertos_port_name = 'ARM_CM4F'
         use_timers = True
+    elif bld.env.MICRO_FAMILY == 'SF32LB52':
+        freertos_port_name = 'ARM_CM33'
     else:
         bld.fatal('Unrecognized env.MICRO_FAMILY value %r' %
                   bld.env.MICRO_FAMILY)
