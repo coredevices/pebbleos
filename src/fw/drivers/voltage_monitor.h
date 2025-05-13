@@ -23,19 +23,26 @@
 #define STM32F4_COMPATIBLE
 #define STM32F7_COMPATIBLE
 #define NRF5_COMPATIBLE
+#define SF32LB52_COMPATIBLE
 #include <mcu.h>
 
 #include "board/board.h"
 
 #define NUM_CONVERSIONS 40
 
-#ifdef MICRO_FAMILY_NRF5
+#if defined(MICRO_FAMILY_NRF5)
 # include <hal/nrf_saadc.h>
 
 typedef const struct VoltageMonitorDevice {
   NRF_SAADC_Type *const adc; ///< One of ADCX. For example ADC1.
   const uint8_t adc_channel; ///< One of ADC_Channel_*
   const nrf_saadc_input_t input;
+} VoltageMonitorDevice;
+
+#elif defined(MICRO_FAMILY_SF32LB52)
+
+// TODO(SF32LB52): Add implementation
+typedef const struct VoltageMonitorDevice {
 } VoltageMonitorDevice;
 
 #else
