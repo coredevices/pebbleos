@@ -1626,6 +1626,19 @@ elif mcu_family == 'NRF52840':
             'hal_nordic',
         ],
     )
+elif mcu_family == 'SF32LB':
+    bld.objects(
+        name='driver_task_watchdog',
+        source=[
+            'task_watchdog.c',
+        ],
+        use=[
+            'driver_watchdog',
+            'freertos',
+            'fw_includes',
+            'root_includes',
+        ],
+    )
 
 if mcu_family in ('STM32F2', 'STM32F4', 'STM32F7'):
     bld.objects(

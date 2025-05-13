@@ -36,6 +36,7 @@
 #define STM32F4_COMPATIBLE
 #define STM32F7_COMPATIBLE
 #define NRF5_COMPATIBLE
+#define SF32LB_COMPATIBLE
 #include <mcu.h>
 
 #include "FreeRTOS.h"
@@ -86,6 +87,9 @@ static uint8_t s_ticks_since_successful_feed = 0;
 #if MICRO_FAMILY_NRF5
 #define WATCHDOG_FREERTOS_IRQn        QDEC_IRQn
 #define WATCHDOG_FREERTOS_IRQHandler  QDEC_IRQHandler
+#elif MICRO_FAMILY_SF32LB
+#define WATCHDOG_FREERTOS_IRQn        2
+#define WATCHDOG_FREERTOS_IRQHandler  NMI_Handler2 
 #else
 #define WATCHDOG_FREERTOS_IRQn        CAN2_SCE_IRQn
 #define WATCHDOG_FREERTOS_IRQHandler  CAN2_SCE_IRQHandler
@@ -173,6 +177,8 @@ void RTC2_IRQHandler(void) {
   s_ticks_since_successful_feed++;
   prv_task_watchdog_feed();
 }
+#elif MICRO_FAMILY_SF32LB
+// TODO: implement
 #else
 void TIM2_IRQHandler(void) {
   // Workaround M3 bug that causes interrupt to fire twice:
@@ -290,6 +296,8 @@ void task_watchdog_init(void) {
   NVIC_EnableIRQ(RTC2_IRQn);
 
   nrf_rtc_task_trigger(NRF_RTC2, NRF_RTC_TASK_START);
+#elif MICRO_FAMILY_SF32LB
+// TODO: implement
 #else
   // The timer is on ABP1 which is clocked by PCLK1
   RCC_ClocksTypeDef clocks;
@@ -339,6 +347,7 @@ void task_watchdog_init(void) {
   // configMAX_SYSCALL_INTERRUPT_PRIORITY or lower, it can at least call FreeRTOS ISR functions.
 #if MICRO_FAMILY_NRF5
   NVIC_SetPriority(WATCHDOG_FREERTOS_IRQn, configMAX_SYSCALL_INTERRUPT_PRIORITY);
+#elif MICRO_FAMILY_SF32LB
 #else
   NVIC_InitStructure.NVIC_IRQChannel = WATCHDOG_FREERTOS_IRQn;
   NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = configMAX_SYSCALL_INTERRUPT_PRIORITY >> 4;
@@ -356,6 +365,8 @@ void task_watchdog_init(void) {
 static void task_watchdog_disable_interrupt() {
 #if MICRO_FAMILY_NRF5
   NVIC_DisableIRQ(RTC2_IRQn);
+#elif MICRO_FAMILY_SF32LB
+// TODO: implement
 #else
   NVIC_DisableIRQ(TIM2_IRQn);
 #endif
@@ -366,6 +377,8 @@ static void task_watchdog_enable_interrupt() {
   taskEXIT_CRITICAL();
 #if MICRO_FAMILY_NRF5
   NVIC_EnableIRQ(RTC2_IRQn);
+#elif MICRO_FAMILY_SF32LB
+// TODO: implement
 #else
   NVIC_EnableIRQ(TIM2_IRQn);
 #endif
@@ -404,7 +417,7 @@ void task_watchdog_mask_clear(PebbleTask task) {
 
 void task_watchdog_step_elapsed_time_ms(uint32_t elapsed_ms) {
   // nRF5 has the RTC running during sleep, and needs no help here
-#if !MICRO_FAMILY_NRF5
+#if !MICRO_FAMILY_NRF5 && !MICRO_FAMILY_SF32LB
   uint32_t timer_ticks = (elapsed_ms * TIMER_CLOCK_HZ) / 1000;
   timer_ticks += TIM2->CNT;
 
@@ -451,7 +464,10 @@ static void prv_task_watchdog_feed(void) {
       reboot_reason_clear();
       // Trigger our lower priority interrupt to fire. If it fires when reboot reason is not RebootReasonCode_Watchdog,
       //  it simply logs a message that the we recovered from a watchdog stall
+#if !MICRO_FAMILY_SF32LB
       NVIC_SetPendingIRQ(WATCHDOG_FREERTOS_IRQn);
+#endif
+
       s_last_warning_message_tick_time = 0;
     }
 
@@ -480,8 +496,9 @@ static void prv_task_watchdog_feed(void) {
     // Trigger our lower priority interrupt to fire. When it sees
     //  RebootReasonCode_Watchdog in the reboot reason, it logs information
     //  about the stuck task
+#if !MICRO_FAMILY_SF32LB
     NVIC_SetPendingIRQ(WATCHDOG_FREERTOS_IRQn);
-
+#endif
     // If the low priority interrupt hasn't reset us by the time 6.5 seconds
     // rolls around (it will issue the reset if executed at least 6 seconds
     // after s_last_successful_feed_time), it likely means that we are stuck in
