@@ -390,6 +390,8 @@ def _get_mfg_paths(bld):
         return ('mfg/robert',)
     elif bld.is_asterix():
         return ('mfg/asterix',)
+    elif bld.is_obelix():
+        return ('mfg/obelix',)
     else:
         bld.fatal('No MFG configuration for board %s' % bld.env.BOARD)
 
