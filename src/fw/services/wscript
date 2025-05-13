@@ -31,7 +31,8 @@ def build(bld):
                 excludes.append('normal/vibes/vibe_score_info.c')
             else:
                 excludes.append('common/legacy/*registry*.c')
-                if bld.is_silk() or bld.is_asterix():
+                # FIXME(OBELIX): obelix should not be here
+                if bld.is_silk() or bld.is_asterix() or bld.is_obelix():
                     excludes.append('common/compositor/default/compositor_modal_transitions.*')
                 else:
                     excludes.append('common/compositor/legacy/compositor_modal_slide_transitions.*')
