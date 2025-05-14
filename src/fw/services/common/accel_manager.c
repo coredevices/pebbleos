@@ -742,7 +742,7 @@ bool accel_manager_run_selftest(void) {
   return rv;
 }
 
-#if !defined(PLATFORM_SILK) && !defined(PLATFORM_ASTERIX)
+#if !defined(PLATFORM_SILK) && !defined(PLATFORM_ASTERIX) && !defined(PLATFORM_OBELIX)
 // Note: This selftest is only used for MFG today. When we start to build out a
 // gyro API, we will need to come up with a more generic way to handle locking
 // for a gyro only part vs gyro + accel part
