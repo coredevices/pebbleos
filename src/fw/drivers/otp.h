@@ -35,7 +35,7 @@ enum {
 
   NUM_OTP_SLOTS = 16,
 };
-#elif PLATFORM_SILK || PLATFORM_ASTERIX || PLATFORM_CALCULUS || PLATFORM_ROBERT
+#elif PLATFORM_SILK || PLATFORM_CALCULUS || PLATFORM_ROBERT
 enum {
   OTP_HWVER1 = 0,
   OTP_HWVER2 = 1,
@@ -54,6 +54,13 @@ enum {
   OTP_PCBA_SERIAL3 = 12,
 
   NUM_OTP_SLOTS = 16,
+};
+#elif PLATFORM_ASTERIX
+enum {
+  OTP_HWVER = 0,
+  OTP_SERIAL = 1,
+  OTP_PCBA_SERIAL = 2,
+  NUM_OTP_SLOTS = 3,
 };
 #else
 #error "OTP Slots not set for platform"
