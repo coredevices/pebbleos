@@ -25,6 +25,12 @@
 static const uint32_t EXPECTED_SPI_FLASH_ID_32MBIT = 0x20bb16;
 static const uint32_t EXPECTED_SPI_FLASH_ID_64MBIT = 0x20bb17;
 
+typedef struct FlashSecurityRegisters {
+  const uint32_t *sec_regs;
+  uint8_t num_sec_regs;
+  uint16_t sec_reg_size;
+} FlashSecurityRegisters;
+
 /**
  * Configure the micro's peripherals to communicate with the flash
  * chip.

@@ -19,6 +19,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "drivers/flash.h"
+
 typedef enum JESD216Dw15QerType {
   JESD216_DW15_QER_NONE = 0,
   JESD216_DW15_QER_S2B1v1 = 1,
@@ -87,6 +89,7 @@ typedef const struct QSPIFlashPart {
         locked_check;  //<! Value block_lock_status instruction should return if sector is locked
     uint8_t protection_enabled_mask;  //<! Mask read_protection_status instr to check if enabled
   } block_lock;
+  FlashSecurityRegisters sec_registers;
   uint32_t reset_latency_ms;
   uint32_t suspend_to_read_latency_us;
   uint32_t standby_to_low_power_latency_us;

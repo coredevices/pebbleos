@@ -6,9 +6,15 @@
 #include "system/passert.h"
 #include "system/status_codes.h"
 #include "util/math.h"
+#include "util/size.h"
 
 #define NRF5_COMPATIBLE
 #include <mcu.h>
+
+static const uint32_t prv_sec_regs[] = {
+  0x00002000,
+  0x00003000,
+};
 
 static QSPIFlashPart QSPI_FLASH_PART = {
     .instructions =
@@ -54,6 +60,11 @@ static QSPIFlashPart QSPI_FLASH_PART = {
         {
             .fast_read = 4,
         },
+    .sec_registers = {
+        .sec_regs = prv_sec_regs,
+        .num_sec_regs = ARRAY_LENGTH(prv_sec_regs),
+        .sec_reg_size = 1024,
+    },
     .supports_block_lock = false,
     .reset_latency_ms = 12,
     .suspend_to_read_latency_us = 20,
