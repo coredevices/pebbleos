@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "drivers/flash/qspi_flash_part_definitions.h"
 #include "system/status_codes.h"
 
 typedef const struct QSPIFlash QSPIFlash;
@@ -83,3 +84,24 @@ status_t qspi_flash_lock_sector(QSPIFlash *dev, uint32_t addr);
 //! Unlock all sectors so they can be written/erased.
 //! Operation is performed by the `block_unlock_all` instruction.
 status_t qspi_flash_unlock_all(QSPIFlash *dev);
+
+//! Read security register
+status_t qspi_flash_read_security_register(QSPIFlash *dev, uint32_t addr, uint8_t *val);
+
+//! Check if the security registers are locked
+status_t qspi_flash_security_registers_are_locked(QSPIFlash *dev, bool *locked);
+
+//! Erase security register
+status_t qspi_flash_erase_security_register(QSPIFlash *dev, uint32_t addr);
+
+//! Write security register
+status_t qspi_flash_write_security_register(QSPIFlash *dev, uint32_t addr, uint8_t val);
+
+//! Obtain security registers information
+const FlashSecurityRegisters *qspi_flash_security_registers_info(QSPIFlash *dev);
+
+#ifdef RECOVERY_FW
+//! Lock security registers
+//! @warning This is a one time operation and will permanently lock the security registers.
+status_t qspi_flash_lock_security_registers(QSPIFlash *dev);
+#endif // RECOVERY_FW
