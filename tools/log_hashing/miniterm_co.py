@@ -92,7 +92,7 @@ def socket_serial_read(self, size=1):
             # just need to get out of recv from time to time to check if
             # still alive
             continue
-        except socket.error, e:
+        except socket.error as e:
             # connection fails -> terminate loop
             raise SerialException('connection failed (%s)' % e)
     return bytes(data)
