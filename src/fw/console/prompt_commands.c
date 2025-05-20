@@ -410,6 +410,101 @@ void command_flash_show_erased_sectors(const char *arg) {
   }
 }
 
+#if CAPABILITY_HAS_FLASH_OTP
+void command_flash_sec_read(const char *address_str) {
+  uint32_t address = strtoul(address_str, NULL, 0);
+  uint8_t val;
+  status_t ret;
+  char buf[64];
+
+  ret = flash_read_security_register(address, &val);
+  if (ret != S_SUCCESS) {
+    prompt_send_response("FAIL: Unable to read security register");
+    return;
+  }
+
+  prompt_send_response_fmt(buf, sizeof(buf), "Security register value: 0x%02x", val);
+}
+
+void command_flash_sec_write(const char *address_str, const char *value_str) {
+  uint32_t address = strtoul(address_str, NULL, 0);
+  uint8_t value = (uint8_t)strtoul(value_str, NULL, 0);
+  status_t ret;
+
+  ret = flash_write_security_register(address, value);
+  if (ret != S_SUCCESS) {
+    prompt_send_response("FAIL: Unable to write security register");
+    return;
+  }
+
+  prompt_send_response("OK");
+}
+
+void command_flash_sec_erase(const char *address_str) {
+  uint32_t address = strtoul(address_str, NULL, 0);
+  status_t ret;
+
+  ret = flash_erase_security_register(address);
+  if (ret != S_SUCCESS) {
+    prompt_send_response("FAIL: Unable to erase security register");
+    return;
+  }
+
+  prompt_send_response("OK");
+}
+
+void command_flash_sec_wipe(void) {
+  const FlashSecurityRegisters *info = flash_security_registers_info();
+  status_t ret;
+
+  for (uint8_t i = 0U; i < info->num_sec_regs; i++) {
+    ret = flash_erase_security_register(info->sec_regs[i]);
+    if (ret != S_SUCCESS) {
+      prompt_send_response("FAIL: Unable to erase security register");
+      return;
+    }
+  }
+
+  prompt_send_response("OK");
+}
+
+void command_flash_sec_info(void) {
+  const FlashSecurityRegisters *info = flash_security_registers_info();
+  bool locked;
+  status_t ret;
+  char buf[64];
+
+  if (info->sec_regs == NULL) {
+    prompt_send_response("No security registers");
+    return;
+  }
+
+  ret = flash_security_registers_are_locked(&locked);
+  if (ret != S_SUCCESS) {
+    prompt_send_response("FAIL: Unable to check security register lock status");
+    return;
+  }
+
+  prompt_send_response_fmt(buf, sizeof(buf), "Security registers are %slocked",
+                           locked ? "" : "not ");
+  prompt_send_response_fmt(buf, sizeof(buf), "Number of security registers: %d", info->num_sec_regs);
+  for (int i = 0; i < info->num_sec_regs; i++) {
+    prompt_send_response_fmt(buf, sizeof(buf), "Security register %d: 0x%08lx", i, info->sec_regs[i]);
+  }
+}
+
+#ifdef RECOVERY_FW
+void command_flash_sec_lock(const char *password) {
+  if (strcmp(password, "l0ckm3f0r3v3r") == 0) {
+    flash_lock_security_registers();
+    prompt_send_response("Flash security registers locked");
+  } else {
+    prompt_send_response("FAIL: Invalid password");
+  }
+}
+#endif // RECOVERY_FW
+#endif // CAPABILITY_HAS_FLASH_OTP
+
 #include "util/rand.h"
 
 static uint32_t prv_xorshift32(uint32_t seed) {
