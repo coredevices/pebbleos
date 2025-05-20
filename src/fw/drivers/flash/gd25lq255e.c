@@ -47,6 +47,7 @@ static QSPIFlashPart QSPI_FLASH_PART = {
         },
     .flag_status_bit_masks =
         {
+            .sec_lock = (1 << 5) | (1 << 4), /* SR2, page 12 */
             .erase_suspend = 1 << 7, /* SR2 SUS1, page 14 */
         },
     .dummy_cycles =

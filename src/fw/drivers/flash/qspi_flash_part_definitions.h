@@ -73,6 +73,7 @@ typedef const struct QSPIFlashPart {
     uint8_t write_enable;
   } status_bit_masks;
   struct {
+    uint8_t sec_lock;
     uint8_t erase_suspend;
   } flag_status_bit_masks;
   struct {
