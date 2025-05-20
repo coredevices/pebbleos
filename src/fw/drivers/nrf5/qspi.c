@@ -490,6 +490,180 @@ status_t qspi_flash_lock_sector(QSPIFlash *dev, uint32_t addr) { return S_SUCCES
 
 status_t qspi_flash_unlock_all(QSPIFlash *dev) { return S_SUCCESS; }
 
+status_t prv_qspi_security_register_check(QSPIFlash *dev, uint32_t addr) {
+  bool addr_valid = false;
+
+  if (dev->state->part->sec_registers.num_sec_regs == 0U) {
+    return E_INVALID_OPERATION;
+  }
+
+  for (uint8_t i = 0U; i < dev->state->part->sec_registers.num_sec_regs; ++i) {
+    if (addr >= dev->state->part->sec_registers.sec_regs[i] &&
+        addr < dev->state->part->sec_registers.sec_regs[i] +
+               dev->state->part->sec_registers.sec_reg_size) {
+      addr_valid = true;
+      break;
+    }
+  }
+
+  if (!addr_valid) {
+    return E_INVALID_ARGUMENT;
+  }
+
+  return S_SUCCESS;
+}
+
+status_t qspi_flash_read_security_register(QSPIFlash *dev, uint32_t addr, uint8_t *val) {
+  status_t ret;
+  nrfx_err_t err;
+  nrf_qspi_cinstr_conf_t instr = NRFX_QSPI_DEFAULT_CINSTR(dev->state->part->instructions.read_sec, 0);
+  uint8_t out[6];
+  uint8_t in[6];
+
+  ret = prv_qspi_security_register_check(dev, addr);
+  if (ret != S_SUCCESS) {
+    return ret;
+  }
+
+  instr.io2_level = true;
+  instr.io3_level = true;
+
+  if (dev->state->part->size > 0x1000000) {
+    instr.length = 7;
+    out[0] = (addr >> 24U);
+    out[1] = (addr >> 16U) & 0xFFU;
+    out[2] = (addr >> 8U) & 0xFFU;
+    out[3] = addr & 0xFFU;
+  } else {
+    instr.length = 6;
+    out[0] = (addr >> 16U) & 0xFFU;
+    out[1] = (addr >> 8U) & 0xFFU;
+    out[2] = addr & 0xFFU;
+  }
+
+  err = nrfx_qspi_cinstr_xfer(&instr, out, in);
+  if (err != NRFX_SUCCESS) {
+    return E_ERROR;
+  }
+
+  if (dev->state->part->size > 0x1000000) {
+    *val = in[5];
+  } else {
+    *val = in[4];
+  }
+
+  return 0;
+}
+
+status_t qspi_flash_security_registers_are_locked(QSPIFlash *dev, bool *locked) {
+  uint8_t sr2;
+
+  prv_read_register(dev->qspi, dev->state->part->instructions.rdsr2, &sr2, 1);
+
+  *locked = !!(sr2 & dev->state->part->flag_status_bit_masks.sec_lock);
+
+  return 0;
+}
+
+status_t qspi_flash_erase_security_register(QSPIFlash *dev, uint32_t addr) {
+  status_t ret;
+  nrfx_err_t err;
+  nrf_qspi_cinstr_conf_t instr = NRFX_QSPI_DEFAULT_CINSTR(dev->state->part->instructions.erase_sec, 0);
+  uint8_t out[4];
+
+  ret = prv_qspi_security_register_check(dev, addr);
+  if (ret != S_SUCCESS) {
+    return ret;
+  }
+
+  instr.io2_level = true;
+  instr.io3_level = true;
+  instr.wren = true;
+
+  if (dev->state->part->size > 0x1000000) {
+    instr.length = 5;
+    out[0] = (addr >> 24U);
+    out[1] = (addr >> 16U) & 0xFFU;
+    out[2] = (addr >> 8U) & 0xFFU;
+    out[3] = addr & 0xFFU;
+  } else {
+    instr.length = 4;
+    out[0] = (addr >> 16U) & 0xFFU;
+    out[1] = (addr >> 8U) & 0xFFU;
+    out[2] = addr & 0xFFU;
+  }
+
+  err = nrfx_qspi_cinstr_xfer(&instr, out, NULL);
+  if (err != NRFX_SUCCESS) {
+    return E_ERROR;
+  }
+
+  while (nrfx_qspi_mem_busy_check() == NRFX_ERROR_BUSY) {
+  }
+
+  return 0;
+}
+
+status_t qspi_flash_write_security_register(QSPIFlash *dev, uint32_t addr, uint8_t val) {
+  status_t ret;
+  nrfx_err_t err;
+  nrf_qspi_cinstr_conf_t instr = NRFX_QSPI_DEFAULT_CINSTR(dev->state->part->instructions.program_sec, 0);
+  uint8_t out[5];
+
+  ret = prv_qspi_security_register_check(dev, addr);
+  if (ret != S_SUCCESS) {
+    return ret;
+  }
+
+  instr.io2_level = true;
+  instr.io3_level = true;
+  instr.wren = true;
+
+  if (dev->state->part->size > 0x1000000) {
+    instr.length = 6;
+    out[0] = (addr >> 24U);
+    out[1] = (addr >> 16U) & 0xFFU;
+    out[2] = (addr >> 8U) & 0xFFU;
+    out[3] = addr & 0xFFU;
+    out[4] = val;
+  } else {
+    instr.length = 5;
+    out[0] = (addr >> 16U) & 0xFFU;
+    out[1] = (addr >> 8U) & 0xFFU;
+    out[2] = addr & 0xFFU;
+    out[3] = val;
+  }
+
+  err = nrfx_qspi_cinstr_xfer(&instr, out, NULL);
+  if (err != NRFX_SUCCESS) {
+    return E_ERROR;
+  }
+
+  while (nrfx_qspi_mem_busy_check() == NRFX_ERROR_BUSY) {
+  }
+
+  return 0;
+}
+
+const FlashSecurityRegisters *qspi_flash_security_registers_info(QSPIFlash *dev) {
+  return &dev->state->part->sec_registers;
+}
+
+#ifdef RECOVERY_FW
+status_t qspi_flash_lock_security_registers(QSPIFlash *dev) {
+  uint8_t sr[2];
+
+  prv_read_register(dev->qspi, dev->state->part->instructions.rdsr1, &sr[0], 1);
+  prv_read_register(dev->qspi, dev->state->part->instructions.rdsr2, &sr[1], 1);
+
+  sr[1] |= dev->state->part->flag_status_bit_masks.sec_lock;
+
+  prv_write_register(dev->qspi, dev->state->part->instructions.wrsr, sr, 2);
+
+  return 0;
+}
+#endif // RECOVERY_FW
+
 #if !RELEASE
 #include "console/prompt.h"
 #include "drivers/flash.h"
