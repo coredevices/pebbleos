@@ -1037,15 +1037,15 @@ if mcu_family in ('STM32F2', 'STM32F4', 'STM32F7'):
             'stm32_stdlib',
         ],
     )
-elif mcu_family == 'NRF52840':
-    # FIXME: provide working implementation
+elif bld.capability('HAS_FLASH_OTP'):
     bld.objects(
         name='driver_otp',
         source=[
-            'stubs/otp.c',
+            'otp_flash.c',
         ],
         use=[
             'fw_includes',
+            'driver_flash',
         ],
     )
 

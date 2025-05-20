@@ -55,6 +55,7 @@ master_capability_set = {
     'HAS_WEATHER',
     'USE_PARALLEL_FLASH',
     'HAS_PUTBYTES_PREACKING',
+    'HAS_FLASH_OTP',
 }
 
 board_capability_dicts = [
@@ -279,6 +280,7 @@ board_capability_dicts = [
             # 'HAS_MAGNETOMETER',
             'HAS_VIBE_DRV2604',
             'HAS_PMIC',
+            'HAS_FLASH_OTP',
         },
     },
 ]
