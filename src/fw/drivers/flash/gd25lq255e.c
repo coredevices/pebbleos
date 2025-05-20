@@ -180,3 +180,29 @@ status_t flash_impl_blank_check_subsector(FlashAddress addr) {
 uint32_t flash_impl_get_typical_sector_erase_duration_ms(void) { return 150; }
 
 uint32_t flash_impl_get_typical_subsector_erase_duration_ms(void) { return 50; }
+
+status_t flash_impl_read_security_register(uint32_t addr, uint8_t *val) {
+  return qspi_flash_read_security_register(QSPI_FLASH, addr, val);
+}
+
+status_t flash_impl_security_registers_are_locked(bool *locked) {
+  return qspi_flash_security_registers_are_locked(QSPI_FLASH, locked);
+}
+
+status_t flash_impl_erase_security_register(uint32_t addr) {
+  return qspi_flash_erase_security_register(QSPI_FLASH, addr);
+}
+
+status_t flash_impl_write_security_register(uint32_t addr, uint8_t val) {
+  return qspi_flash_write_security_register(QSPI_FLASH, addr, val);
+}
+
+const FlashSecurityRegisters *flash_impl_security_registers_info(void) {
+  return qspi_flash_security_registers_info(QSPI_FLASH);
+}
+
+#ifdef RECOVERY_FW
+status_t flash_impl_lock_security_registers(void) {
+  return qspi_flash_lock_security_registers(QSPI_FLASH);
+}
+#endif
