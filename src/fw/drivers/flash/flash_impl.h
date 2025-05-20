@@ -20,6 +20,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "drivers/flash.h"
 #include "system/status_codes.h"
 
 //! Flash Low-Level API
@@ -320,3 +321,54 @@ status_t flash_impl_get_nvram_erase_status(bool *is_subsector,
 void flash_impl_use(void);
 void flash_impl_release(void);
 void flash_impl_release_many(uint32_t num_locks);
+
+//! Read security register
+//!
+//! @param addr The address of the security register to read.
+//!
+//! @param [out] val The value of the security register read.
+//!
+//! @retval S_SUCCESS if the read was successful
+//! @retval StatusCode if the read failed
+status_t flash_impl_read_security_register(uint32_t addr, uint8_t *val);
+
+//! Check if the security registers are locked
+//!
+//! @param [out] locked True if the security registers are locked
+//!
+//! @retval S_SUCCESS if the check was successful
+//! @retval StatusCode if the check failed
+status_t flash_impl_security_registers_are_locked(bool *locked);
+
+//! Erase security register
+//!
+//! @param addr The address of the security register to erase.
+//!
+//! @retval S_SUCCESS if the erase was successful
+//! @retval StatusCode if the erase failed
+status_t flash_impl_erase_security_register(uint32_t addr);
+
+//! Write security register
+//!
+//! @param addr The address of the security register to write.
+//!
+//! @param val The value to write to the security register.
+//!
+//! @retval S_SUCCESS if the write was successful
+//! @retval StatusCode if the write failed
+status_t flash_impl_write_security_register(uint32_t addr, uint8_t val);
+
+//! Obtain security registers information
+//!
+//! @returns The information about the security registers.
+const FlashSecurityRegisters *flash_impl_security_registers_info(void);
+
+#ifdef RECOVERY_FW
+//! Lock security registers
+//!
+//! @warning This is a one time operation and will permanently lock the security registers.
+//!
+//! @retval S_SUCCESS if the lock was successful
+//! @retval StatusCode if the lock failed
+status_t flash_impl_lock_security_registers(void);
+#endif // RECOVERY_FW

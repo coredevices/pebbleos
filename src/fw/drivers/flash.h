@@ -214,3 +214,54 @@ void flash_release(void);
 //! to turn off the flash peripheral if the reference counter reaches 0
 //! param num_locks usually 1, the amount by which the reference counter should be decremented
 void flash_release_many(uint32_t num_locks);
+
+//! Read security register
+//!
+//! @param addr The address of the security register to read.
+//!
+//! @param [out] val The value of the security register read.
+//!
+//! @retval S_SUCCESS if the read was successful
+//! @retval StatusCode if the read failed
+status_t flash_read_security_register(uint32_t addr, uint8_t *val);
+
+//! Check if the security registers are locked
+//!
+//! @param [out] locked True if the security registers are locked
+//!
+//! @retval S_SUCCESS if the check was successful
+//! @retval StatusCode if the check failed
+status_t flash_security_registers_are_locked(bool *locked);
+
+//! Erase security register
+//!
+//! @param addr The address of the security register to erase.
+//!
+//! @retval S_SUCCESS if the erase was successful
+//! @retval StatusCode if the erase failed
+status_t flash_erase_security_register(uint32_t addr);
+
+//! Write security register
+//!
+//! @param addr The address of the security register to write.
+//!
+//! @param val The value to write to the security register.
+//!
+//! @retval S_SUCCESS if the write was successful
+//! @retval StatusCode if the write failed
+status_t flash_write_security_register(uint32_t addr, uint8_t val);
+
+//! Obtain security registers information
+//!
+//! @returns The information about the security registers.
+const FlashSecurityRegisters *flash_security_registers_info(void);
+
+#ifdef RECOVERY_FW
+//! Lock security registers
+//!
+//! @warning This is a one time operation and will permanently lock the security registers.
+//!
+//! @retval S_SUCCESS if the lock was successful
+//! @retval StatusCode if the lock failed
+status_t flash_lock_security_registers(void);
+#endif // RECOVERY_FW

@@ -592,6 +592,62 @@ void flash_release_many(uint32_t num_locks) {
   mutex_unlock(s_flash_lock);
 }
 
+status_t flash_read_security_register(uint32_t addr, uint8_t *val) {
+  status_t status;
+
+  mutex_lock(s_flash_lock);
+  status = flash_impl_read_security_register(addr, val);
+  mutex_unlock(s_flash_lock);
+
+  return status;
+}
+
+status_t flash_security_registers_are_locked(bool *locked) {
+  status_t status;
+
+  mutex_lock(s_flash_lock);
+  status = flash_impl_security_registers_are_locked(locked);
+  mutex_unlock(s_flash_lock);
+
+  return status;
+}
+
+status_t flash_erase_security_register(uint32_t addr) {
+  status_t status;
+
+  mutex_lock(s_flash_lock);
+  status = flash_impl_erase_security_register(addr);
+  mutex_unlock(s_flash_lock);
+
+  return status;
+}
+
+status_t flash_write_security_register(uint32_t addr, uint8_t val) {
+  status_t status;
+
+  mutex_lock(s_flash_lock);
+  status = flash_impl_write_security_register(addr, val);
+  mutex_unlock(s_flash_lock);
+
+  return status;
+}
+
+const FlashSecurityRegisters *flash_security_registers_info(void) {
+  return flash_impl_security_registers_info();
+}
+
+#ifdef RECOVERY_FW
+status_t flash_lock_security_registers(void) {
+  status_t status;
+
+  mutex_lock(s_flash_lock);
+  status = flash_impl_lock_security_registers();
+  mutex_unlock(s_flash_lock);
+
+  return status;
+}
+#endif // RECOVERY_FW
+
 #include "console/prompt.h"
 void command_flash_unprotect(void) {
   flash_impl_unprotect();
