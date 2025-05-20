@@ -3,7 +3,6 @@
 #include "drivers/flash.h"
 #include "flash_region/flash_region.h"
 #include "mfg/mfg_serials.h"
-#include "mfg/snowy/mfg_private.h"
 #include "system/logging.h"
 
 //! Used to version this struct if we have to add additional fields in the future.
@@ -97,21 +96,6 @@ void mfg_info_set_disp_offsets(GPoint p) {
 void mfg_info_update_constant_data(void) {
   // Not implemented
 }
-
-#if CAPABILITY_HAS_BUILTIN_HRM
-bool mfg_info_is_hrm_present(void) {
-#if defined(TARGET_QEMU) || defined(IS_BIGBOARD)
-  return true;
-#else
-  char model[MFG_INFO_MODEL_STRING_LENGTH];
-  mfg_info_get_model(model);
-  if (!strcmp(model, "1002")) { // SilkHR
-    return true;
-  }
-  return false;
-#endif
-}
-#endif
 
 #if MFG_INFO_RECORDS_TEST_RESULTS
 void mfg_info_write_test_result(MfgTest test, bool pass) {
