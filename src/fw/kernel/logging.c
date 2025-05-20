@@ -55,7 +55,7 @@ static bool prv_check_serial_log_enabled(int level) {
 }
 
 #if !PULSE_EVERYWHERE
-#define TIMESTAMP_BUFFER_SIZE 14
+#define TIMESTAMP_BUFFER_SIZE 40
 static void prv_log_timestamp(void) {
   // Enough stack space to use sprintfs?
   uint32_t stack_space = stack_free_bytes();
