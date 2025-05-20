@@ -36,6 +36,9 @@ static QSPIFlashPart QSPI_FLASH_PART = {
             .reset = 0x99,
             .qspi_id = 0x9F, /* single SPI ID */
             .en4b = 0xB7,
+            .erase_sec = 0x44,
+            .program_sec = 0x42,
+            .read_sec = 0x48,
         },
     .status_bit_masks =
         {
