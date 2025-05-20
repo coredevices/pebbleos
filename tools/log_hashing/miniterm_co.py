@@ -15,7 +15,7 @@
 # Stuff we're patching or calling into directly
 from serial.tools.miniterm import main
 from serial import Serial
-from serial.urlhandler.protocol_socket import SocketSerial
+from serial.urlhandler.protocol_socket import Serial as SocketSerial
 from serial.serialutil import SerialException
 
 # Stuff we need

@@ -23,7 +23,9 @@ from datetime import datetime
 import unicodedata as ud
 
 from pebble.loghashing import newlogging
-from .newlogging import get_log_dict_from_file
+
+sys.path.insert(0, os.path.dirname(__file__))
+from newlogging import get_log_dict_from_file
 
 LOG_DICT_KEY_CORE_ID = 'core_'
 
