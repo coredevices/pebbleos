@@ -21,12 +21,6 @@
 #include "console/prompt.h"
 #include "util/size.h"
 
-#if MICRO_FAMILY_NRF5
-// HACK: see below
-#undef UNUSED
-#include <hal/nrf_ficr.h>
-#endif
-
 static const uint8_t OTP_SERIAL_SLOT_INDICES[] = {
     OTP_SERIAL1, OTP_SERIAL2, OTP_SERIAL3, OTP_SERIAL4, OTP_SERIAL5
 };
@@ -49,12 +43,6 @@ static const char DUMMY_PCBA_SERIAL[MFG_PCBA_SERIAL_NUMBER_SIZE + 1] = "XXXXXXXX
 static void mfg_print_feedback(const MfgSerialsResult result, const uint8_t index, const char *value, const char *name);
 
 const char* mfg_get_serial_number(void) {
-#if MICRO_FAMILY_NRF5
-  // HACK: we don't have OTP storage on Asterix yet, so we make one up here using FICR.DEVICEID
-  static char nrf5_serial[MFG_SERIAL_NUMBER_SIZE + 1] = "_NRFXXXXXXXX";
-  snprintf(nrf5_serial, sizeof(nrf5_serial), "_NRF%08lx", nrf_ficr_deviceid_get(NRF_FICR, 0));
-  return nrf5_serial;
-#else
   // Trying from "most recent" slot to "least recent":
   for (int i = ARRAY_LENGTH(OTP_SERIAL_SLOT_INDICES) - 1; i >= 0; --i) {
     const uint8_t index = OTP_SERIAL_SLOT_INDICES[i];
@@ -63,7 +51,6 @@ const char* mfg_get_serial_number(void) {
     }
   }
   return DUMMY_SERIAL;
-#endif
 }
 
 const char* mfg_get_hw_version(void) {
