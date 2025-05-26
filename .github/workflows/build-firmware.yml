@@ -59,3 +59,20 @@ jobs:
           path: |
             build/**/*.elf
             build/**/*.pbz
+
+      - name: Get Build ID
+        id: build_id
+        run: |
+          echo "BUILD_ID=$(arm-none-eabi-readelf -n build/src/fw/tintin_fw.elf | sed -n -e 's/^.*Build ID: //p')" >> "$GITHUB_OUTPUT"
+
+      - name: Upload log hash dictionary
+        uses: Noelware/s3-action@2.3.1
+        with:
+          access-key-id: ${{ secrets.LOG_HASH_BUCKET_KEY_ID }}
+          secret-key: ${{ secrets.LOG_HASH_BUCKET_SECRET }}
+          endpoint: ${{ vars.LOG_HASH_BUCKET_ENDPOINT }}
+          bucket: ${{ vars.LOG_HASH_BUCKET_NAME }}
+          files: |
+            build/src/fw/tintin_fw_loghash_dict.json
+          path-format: ${{ steps.build_id.outputs.BUILD_ID }}-${{ github.sha }}-normal.json
+
