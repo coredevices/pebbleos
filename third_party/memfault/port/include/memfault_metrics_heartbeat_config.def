@@ -1,0 +1,7 @@
+// Battery voltage has millivolt precision.
+MEMFAULT_METRICS_KEY_DEFINE_WITH_SCALE_VALUE(battery_v, kMemfaultMetricType_Unsigned, 1000)
+
+// libc heap usage
+MEMFAULT_METRICS_KEY_DEFINE_WITH_SCALE_VALUE(memory_pct_max, kMemfaultMetricType_Unsigned, 100)
+
+#include "ports/freertos/config/memfault_metrics_heartbeat_freertos_config.def"
