@@ -305,6 +305,9 @@ def _link_firmware(bld, sources):
                          '-Wl,--wrap=free',
                          '-Wl,--undefined=__wrap_free'])
 
+    # For Memfault build id, we want to make sure LTO does not force inline
+    fw_linkflags.append('-Wl,--require-defined=g_memfault_build_id')
+
     uses = ['applib',
             'board',
             'bt_driver',
@@ -318,6 +321,7 @@ def _link_firmware(bld, sources):
             'libbtutil',
             'libos',
             'libutil',
+            'memfault',
             'nanopb',
             'pblibc',
             'root_includes',
@@ -644,7 +648,8 @@ def build(bld):
                      'root_includes',
                      'freertos_includes',
                      'idl_includes',
-                     'nanopb_includes']
+                     'nanopb_includes',
+                     'memfault_includes']
 
     if bld.env.MICRO_FAMILY.startswith('STM32'):
         fw_includes_use.append('stm32_stdlib')
