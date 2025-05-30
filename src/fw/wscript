@@ -97,6 +97,8 @@ def _generate_memory_layout(bld):
         ldscript_template = bld.path.find_node('stm32f2xx_flash_fw.ld.template')
     elif bld.is_asterix():
         ldscript_template = bld.path.find_node('nrf52840_flash_fw.ld.template')
+    elif bld.is_obelix():
+        ldscript_template = bld.path.find_node('sf32lb_em525_flash_fw.ld.template')
 
     # Determine bootloader size so we can later calculate FLASH_LENGTH_*
     if bld.env.MICRO_FAMILY == 'STM32F2':
@@ -118,6 +120,14 @@ def _generate_memory_layout(bld):
         bootloader_size = '32K'
         flash_size = '2048K'
 
+    elif bld.env.MICRO_FAMILY == 'SF32LB':
+        # We use XIP flash, so the bootloader does not have to be taken into account.
+        bootloader_size = '0K'
+        if bld.is_obelix() and bld.variant == 'prf':
+            flash_size = '512K'
+        else:
+            flash_size = '3072K'
+
     elif bld.env.MICRO_FAMILY == 'NRF52840':
         bootloader_size = '32K'
         if bld.is_asterix() and bld.variant == 'prf':
@@ -132,6 +142,8 @@ def _generate_memory_layout(bld):
         flash_origin = '0x00200000'
     elif bld.env.MICRO_FAMILY == 'NRF52840':
         flash_origin = '0x00000000'
+    elif bld.env.MICRO_FAMILY == 'SF32LB':
+        flash_origin = '0x12020000'
     else:
         flash_origin = '0x08000000'
 
@@ -224,6 +236,11 @@ def _generate_memory_layout(bld):
         app_ram_size_4x = APP_RAM_SIZES['diorite']
         retained_size = 256
         total_ram = (0x20000000 + retained_size, 256 * 1024 - retained_size)
+    elif bld.is_obelix():
+        app_ram_size_2x = APP_RAM_SIZES['aplite']
+        app_ram_size_3x = APP_RAM_SIZES['aplite']
+        app_ram_size_4x = APP_RAM_SIZES['diorite']
+        total_ram = (0x20000000, 512 * 1024)
     else:
         bld.fatal("No set of supported SDK platforms defined for this board")
 
@@ -388,6 +405,8 @@ def _get_mfg_paths(bld):
         return ('mfg/robert',)
     elif bld.is_asterix():
         return ('mfg/asterix',)
+    elif bld.is_obelix():
+        return ('mfg/obelix',)
     else:
         bld.fatal('No MFG configuration for board %s' % bld.env.BOARD)
 
@@ -653,6 +672,8 @@ def build(bld):
         fw_includes_use.append('stm32_stdlib')
     elif bld.env.MICRO_FAMILY.startswith('NRF'):
         fw_includes_use.append('hal_nordic')
+    elif bld.env.MICRO_FAMILY.startswith('SF32LB'):
+        fw_includes_use.append('hal_sifli')
 
     bld(export_includes=['.',
                          'applib/vendor/uPNG',

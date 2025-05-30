@@ -86,6 +86,12 @@ static jerry_value_t prv_get_platform_name(void) {
 #  define ASTERIX_MODEL(model_str) NULL
 #endif // PLATFORM_ASTERIX
 
+#if PLATFORM_OBELIX
+#  define OBELIX_MODEL(model_str) model_str
+#else
+#  define OBELIX_MODEL(model_str) NULL
+#endif // PLATFORM_OBELIX
+
 #if PLATFORM_ROBERT
 #  define ROBERT_MODEL(model_str) model_str
 #else
@@ -197,6 +203,9 @@ static jerry_value_t prv_get_model_name(void) {
         break;
       case WATCH_INFO_COLOR_COREDEVICES_C2D_WHITE:
         model_name = ASTERIX_MODEL("coredevices_c2d_white");
+        break;
+      case WATCH_INFO_COLOR_COREDEVICES_CT2_BLACK:
+        model_name = OBELIX_MODEL("coredevices_ct2_black");
         break;
       case WATCH_INFO_COLOR_UNKNOWN:
       case WATCH_INFO_COLOR__MAX:

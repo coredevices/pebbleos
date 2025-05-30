@@ -21,6 +21,9 @@ def _recurse(ctx):
         ctx.recurse('qemu')
     elif ctx.env.bt_controller == 'nrf52':
         ctx.recurse('nimble')
+    elif ctx.env.bt_controller == 'sf32lb':
+        # TODO: replace with nimble once supported
+        ctx.recurse('stub')
     else:
         ctx.fatal('Invalid bt controller {}'.format(ctx.env.bt_controller))
 
@@ -28,7 +31,14 @@ def _recurse(ctx):
 def options(opt):
     opt.add_option('--bt_controller', action='store', default=None,
                    help='Override Bluetooth controller to build for',
-                   choices=['da14681-01', 'da14681-00', 'cc2564x', 'qemu', 'nrf52'])
+                   choices=[
+                       'da14681-01',
+                       'da14681-00',
+                       'cc2564x',
+                       'qemu',
+                       'nrf52',
+                       'sf32lb',
+                   ])
 
 
 def configure(conf):

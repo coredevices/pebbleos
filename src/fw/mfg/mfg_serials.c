@@ -21,7 +21,7 @@
 #include "console/prompt.h"
 #include "util/size.h"
 
-#if PLATFORM_ASTERIX
+#if PLATFORM_ASTERIX || PLATFORM_OBELIX
 static const uint8_t OTP_SERIAL_SLOT_INDICES[] = {
   OTP_SERIAL,
 };
