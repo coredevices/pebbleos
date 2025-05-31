@@ -200,6 +200,7 @@ SECTIONS {
      * The variable TINTIN_BUILD_ID is provided, so that the values can be used
      * in the firmware code. See src/core/util/version.c for its use. */
     .note.gnu.build-id : {
+        __start_gnu_build_id_start = .;
         PROVIDE(TINTIN_BUILD_ID = .);
         KEEP(*(.note.gnu.build-id))
     } >FLASH

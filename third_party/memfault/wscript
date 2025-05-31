@@ -1,0 +1,56 @@
+def configure(conf):
+    # For Memfault build id, we want to make sure LTO does not force inline
+    # Ideally this would be set in this wscript somewhere, but I can't figure
+    # out how to do it effectively, RIP.
+    # conf.env.append_value("LINKFLAGS", ["-Wl,--require-defined=g_memfault_build_id"])
+    pass
+
+
+def build(bld):
+    memfault_includes = [
+        "memfault-firmware-sdk/",
+        "memfault-firmware-sdk/components/include",
+        "memfault-firmware-sdk/ports/include",
+    ]
+
+    memfault_sources = bld.path.ant_glob(
+        [
+            "memfault-firmware-sdk/components/core/src/*.c",
+            "memfault-firmware-sdk/components/metrics/src/*.c",
+            "memfault-firmware-sdk/components/util/src/*.c",
+            # todo, figure out memfault support for FreeRTOS V8.2.1
+            # "memfault-firmware-sdk/ports/freertos/src/*.c",
+        ]
+    )
+
+    port_includes = [
+        "port/include",
+    ]
+    port_sources = bld.path.ant_glob(
+        [
+            "port/src/*.c",
+        ]
+    )
+
+    bld(
+        export_includes=[
+            *memfault_includes,
+            *port_includes,
+        ],
+        name="memfault_includes",
+    )
+
+    bld.stlib(
+        target="memfault",
+        includes=port_includes,
+        source=[
+            *memfault_sources,
+            *port_sources,
+        ],
+        export_includes=memfault_includes,
+        use=[
+            "memfault_includes",
+            "freertos",
+            "fw_includes",
+        ],
+    )
