@@ -20,6 +20,8 @@
 #define BT_VENDOR_NAME "Core Devices LLC"
 
 extern UARTDevice * const DBG_UART;
+extern QSPIPort * const QSPI;
+extern QSPIFlash * const QSPI_FLASH;
 extern const VoltageMonitorDevice * VOLTAGE_MONITOR_BATTERY;
 extern const BoardConfigPower BOARD_CONFIG_POWER;
 extern const BoardConfig BOARD_CONFIG;

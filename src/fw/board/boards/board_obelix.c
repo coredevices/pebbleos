@@ -67,6 +67,32 @@ UARTDevice *const DBG_UART = &DBG_UART_DEVICE;
 IRQ_MAP(USART1, uart_irq_handler, DBG_UART);
 IRQ_MAP(DMAC1_CH1, uart_dma_irq_handler, DBG_UART);
 
+static QSPIPortState s_qspi_port_state;
+static QSPIPort QSPI_PORT = {
+    .state = &s_qspi_port_state,
+    .cfg = {
+      .Instance = FLASH2,
+      .line = HAL_FLASH_QMODE,
+      .base = FLASH2_BASE_ADDR,
+      .msize = 16,
+      .SpiMode = SPI_MODE_NOR,
+    },
+    .clk_div = 5U,
+    .dma = {
+      .Instance = DMA1_Channel2,
+      .dma_irq = DMAC1_CH2_IRQn,
+      .request = DMA_REQUEST_1,
+    },
+};
+QSPIPort *const QSPI = &QSPI_PORT;
+
+static QSPIFlashState s_qspi_flash_state;
+static QSPIFlash QSPI_FLASH_DEVICE = {
+    .state = &s_qspi_flash_state,
+    .qspi = &QSPI_PORT,
+};
+QSPIFlash *const QSPI_FLASH = &QSPI_FLASH_DEVICE;
+
 const BoardConfigPower BOARD_CONFIG_POWER = {
   .low_power_threshold = 5U,
   .battery_capacity_hours = 100U,
