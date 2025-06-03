@@ -173,6 +173,8 @@ static void dump_gpio_configuration_state(void) {
 #endif /* DUMP_GPIO_CFG_STATE */
 
 int main(void) {
+  board_early_init();
+
   gpio_init_all();
 
 #if defined(MICRO_FAMILY_STM32F4) && !defined(LOW_POWER_DEBUG)
@@ -404,8 +406,6 @@ static NOINLINE void prv_main_task_init(void) {
   task_init();
 
   memory_layout_setup_mpu();
-
-  board_early_init();
 
   display_show_splash_screen();
 
