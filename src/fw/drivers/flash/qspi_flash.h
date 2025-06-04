@@ -19,11 +19,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "drivers/flash/qspi_flash_definitions.h"
 #include "drivers/flash/qspi_flash_part_definitions.h"
 #include "system/status_codes.h"
-
-typedef const struct QSPIFlash QSPIFlash;
-typedef const struct QSPIFlashPart QSPIFlashPart;
 
 //! Initialize the QSPI flash
 //! @param coredump_mode If true, don't use anything that might not be available mid-crash, such
