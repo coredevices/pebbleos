@@ -35,7 +35,6 @@
 #include "kernel/util/factory_reset.h"
 #include "kernel/util/sleep.h"
 #include "kernel/util/stop.h"
-#include "memfault/metrics/metrics.h"
 #include "mfg/mfg_apps/mfg_flash_test.h"
 #include "process_management/app_manager.h"
 #include "process_management/worker_manager.h"
@@ -62,7 +61,9 @@
 #include <bluetooth/responsiveness.h>
 #include <bluetooth/gatt_discovery.h>
 
-#include <memfault/components.h>
+#if MEMFAULT
+#include "memfault/components.h"
+#endif
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -1325,6 +1326,7 @@ void command_ble_core_dump(const char *command) {
   bt_driver_core_dump(option);
 }
 
+#if MEMFAULT
 void command_mflt_export(void) {
   memfault_data_export_dump_chunks();
 }
@@ -1341,6 +1343,7 @@ void command_mflt_device_info(void) {
   memfault_build_info_dump();
   memfault_device_info_dump();
 }
+#endif  // MEMFAULT
 
 #if PERFORMANCE_TESTS
 // for task_watchdog_bit_set_all

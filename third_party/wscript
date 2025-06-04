@@ -17,6 +17,9 @@ def _recurse(ctx):
 
     ctx.recurse('memfault')
 
+def options(opt):
+    opt.recurse('memfault')
+
 def configure(conf):
     _recurse(conf)
 

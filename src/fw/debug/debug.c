@@ -26,7 +26,9 @@
 #include "kernel/logging_private.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
+#if MEMFAULT
 #include "memfault/core/platform/core.h"
+#endif
 #include "mfg/mfg_serials.h"
 #include "process_management/app_manager.h"
 #include "services/common/analytics/analytics.h"
@@ -203,7 +205,9 @@ void debug_init(McuRebootReason mcu_reboot_reason) {
 
   debug_reboot_reason_print(mcu_reboot_reason);
 
+  #if MEMFAULT
   memfault_platform_boot();
+  #endif
 }
 
 void debug_print_last_launched_app(void) {

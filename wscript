@@ -60,6 +60,7 @@ def options(opt):
     opt.recurse('src/fw')
     opt.recurse('src/idl')
     opt.recurse('sdk')
+    opt.recurse('third_party')
     opt.add_option('--board', action='store',
                    choices=[ 'bb2',
                              'ev2_4',

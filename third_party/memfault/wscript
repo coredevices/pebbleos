@@ -1,12 +1,28 @@
+def options(opt):
+    opt.add_option(
+        "--no-memfault", action="store_true", help="Disable Memfault integration"
+    )
+
+
 def configure(conf):
-    # For Memfault build id, we want to make sure LTO does not force inline
-    # Ideally this would be set in this wscript somewhere, but I can't figure
-    # out how to do it effectively, RIP.
-    # conf.env.append_value("LINKFLAGS", ["-Wl,--require-defined=g_memfault_build_id"])
-    pass
+    conf.env.no_memfault = conf.options.no_memfault
+
+    if not conf.options.no_memfault:
+        # For Memfault build id, we want to make sure LTO does not force inline
+        # TODO for some reason, this is applying to jerryscript link step, which we don't want.
+        # conf.env.append_value(
+        #     "LINKFLAGS", ["-Wl,--require-defined=g_memfault_build_id"]
+        # )
+        pass
+
+    MEMFAULT = 0 if conf.options.no_memfault else 1
+    conf.env.append_value("DEFINES", [f"MEMFAULT={MEMFAULT}"])
 
 
 def build(bld):
+    if bld.env.no_memfault:
+        return
+
     memfault_includes = [
         "memfault-firmware-sdk/",
         "memfault-firmware-sdk/components/include",
