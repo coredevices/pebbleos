@@ -15,7 +15,7 @@ def configure(conf):
         # )
         pass
 
-    MEMFAULT = 0 if conf.options.no_memfault else 1
+    MEMFAULT = int(not conf.env.no_memfault)
     conf.env.append_value("DEFINES", [f"MEMFAULT={MEMFAULT}"])
 
 
