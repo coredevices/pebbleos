@@ -19,6 +19,7 @@
 #define BT_VENDOR_ID 0x0EEA
 #define BT_VENDOR_NAME "Core Devices LLC"
 
+extern UARTDevice * const DBG_UART;
 extern const VoltageMonitorDevice * VOLTAGE_MONITOR_BATTERY;
 extern const BoardConfigPower BOARD_CONFIG_POWER;
 extern const BoardConfig BOARD_CONFIG;

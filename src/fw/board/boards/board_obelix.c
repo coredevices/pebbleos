@@ -25,6 +25,48 @@
 
 #define HCPU_FREQ_MHZ 240
 
+static UARTDeviceState s_dbg_uart_state = {
+  .huart = {
+    .Instance = USART1,
+    .Init = {
+      .WordLength = UART_WORDLENGTH_8B,
+      .StopBits = UART_STOPBITS_1,
+      .Parity = UART_PARITY_NONE,
+      .HwFlowCtl = UART_HWCONTROL_NONE,
+      .OverSampling = UART_OVERSAMPLING_16,
+    },
+  },
+  .hdma = {
+    .Instance = DMA1_Channel1,
+    .Init = {
+      .Request = DMA_REQUEST_5,
+    },
+  },
+};
+
+static UARTDevice DBG_UART_DEVICE = {
+    .state = &s_dbg_uart_state,
+    .tx = {
+        .pad = PAD_PA19,
+        .func = USART1_TXD,
+        .flags = PIN_NOPULL,
+    },
+    .rx = {
+        .pad = PAD_PA18,
+        .func = USART1_RXD,
+        .flags = PIN_PULLUP,
+    },
+    .irqn = USART1_IRQn,
+    .irq_priority = 5,
+    .dma_irqn = DMAC1_CH1_IRQn,
+    .dma_irq_priority = 5,
+};
+
+UARTDevice *const DBG_UART = &DBG_UART_DEVICE;
+
+IRQ_MAP(USART1, uart_irq_handler, DBG_UART);
+IRQ_MAP(DMAC1_CH1, uart_dma_irq_handler, DBG_UART);
+
 const BoardConfigPower BOARD_CONFIG_POWER = {
   .low_power_threshold = 5U,
   .battery_capacity_hours = 100U,
