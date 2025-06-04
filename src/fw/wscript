@@ -328,6 +328,10 @@ def _link_firmware(bld, sources):
             'tinymt32',
             'upng']
 
+    if not bld.options.no_memfault:
+        fw_linkflags.append('-Wl,--require-defined=g_memfault_build_id')
+        uses.append('memfault')
+
     ldscript = _generate_memory_layout(bld)
 
     if bld.env.NO_LINK:
@@ -648,6 +652,9 @@ def build(bld):
                      'freertos_includes',
                      'idl_includes',
                      'nanopb_includes']
+
+    if not bld.options.no_memfault:
+        fw_includes_use.append('memfault_includes')
 
     if bld.env.MICRO_FAMILY.startswith('STM32'):
         fw_includes_use.append('stm32_stdlib')

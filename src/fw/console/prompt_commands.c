@@ -61,6 +61,10 @@
 #include <bluetooth/responsiveness.h>
 #include <bluetooth/gatt_discovery.h>
 
+#if MEMFAULT
+#include "memfault/components.h"
+#endif
+
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -1321,6 +1325,25 @@ void command_ble_core_dump(const char *command) {
 
   bt_driver_core_dump(option);
 }
+
+#if MEMFAULT
+void command_mflt_export(void) {
+  memfault_data_export_dump_chunks();
+}
+
+void command_mflt_heartbeat(void) {
+  memfault_metrics_heartbeat_debug_trigger();
+}
+
+void command_mflt_metrics_dump(void) {
+  memfault_metrics_heartbeat_debug_print();
+}
+
+void command_mflt_device_info(void) {
+  memfault_build_info_dump();
+  memfault_device_info_dump();
+}
+#endif  // MEMFAULT
 
 #if PERFORMANCE_TESTS
 // for task_watchdog_bit_set_all
