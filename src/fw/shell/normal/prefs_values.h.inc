@@ -37,4 +37,5 @@
   PREFS_MACRO(PREF_KEY_TIMELINE_SETTINGS_OPENED, s_timeline_settings_opened)
   PREFS_MACRO(PREF_KEY_TIMELINE_PEEK_ENABLED, s_timeline_peek_enabled)
   PREFS_MACRO(PREF_KEY_TIMELINE_PEEK_BEFORE_TIME_M, s_timeline_peek_before_time_m)
+  PREFS_MACRO(PREF_KEY_TIMELINE_PAST_ON_UP, s_timeline_past_on_up)
 #endif

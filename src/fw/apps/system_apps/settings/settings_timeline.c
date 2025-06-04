@@ -47,6 +47,7 @@ typedef struct SettingsTimelinePeekData {
 } SettingsTimelinePeekData;
 
 typedef enum TimelinePeekMenuIndex {
+  TimelinePeekMenuIndex_PastOnUp,
   TimelinePeekMenuIndex_Toggle,
   TimelinePeekMenuIndex_Timing,
 
@@ -147,6 +148,13 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       subtitle = s_before_time_strings[
           prv_before_time_min_to_index(timeline_peek_prefs_get_before_time())];
       break;
+    case TimelinePeekMenuIndex_PastOnUp:
+      /// Shows up in the Timeline settings as the title for the menu item that controls if
+      /// the up button launches Health or Timeline Past.
+      title = i18n_noop("Past on Up Button");
+      subtitle = timeline_prefs_get_past_on_up() ? i18n_noop("On") :
+                                                   i18n_noop("Off");
+      break;
     case TimelinePeekMenuIndexCount:
       break;
   }
@@ -163,6 +171,9 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       goto done;
     case TimelinePeekMenuIndex_Timing:
       prv_push_before_time_menu(data);
+      goto done;
+    case TimelinePeekMenuIndex_PastOnUp:
+      timeline_prefs_set_past_on_up(!timeline_prefs_get_past_on_up());
       goto done;
     case TimelinePeekMenuIndexCount:
       break;

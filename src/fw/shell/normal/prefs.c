@@ -170,6 +170,9 @@ static bool s_should_prompt_display_calibration = true;
 #define PREF_KEY_TIMELINE_SETTINGS_OPENED "timelineSettingsOpened"
 static uint8_t s_timeline_settings_opened = 0;
 
+#define PREF_KEY_TIMELINE_PAST_ON_UP "timelinePastOnUp"
+static bool s_timeline_past_on_up = false;
+
 #define PREF_KEY_TIMELINE_PEEK_ENABLED "timelineQuickViewEnabled"
 static bool s_timeline_peek_enabled = true;
 
@@ -417,6 +420,11 @@ static bool prv_set_s_should_prompt_display_calibration(bool should_prompt) {
 #if CAPABILITY_HAS_TIMELINE_PEEK
 static uint8_t prv_set_s_timeline_settings_opened(uint8_t *version) {
   s_timeline_settings_opened = *version;
+  return true;
+}
+
+static bool prv_set_s_timeline_past_on_up(bool *enabled){
+  s_timeline_past_on_up = *enabled;
   return true;
 }
 
@@ -1154,6 +1162,14 @@ void timeline_prefs_set_settings_opened(uint8_t version) {
 
 uint8_t timeline_prefs_get_settings_opened(void) {
   return s_timeline_settings_opened;
+}
+
+void timeline_prefs_set_past_on_up(bool enabled) {
+  prv_pref_set(PREF_KEY_TIMELINE_PAST_ON_UP, &enabled, sizeof(enabled));
+}
+
+bool timeline_prefs_get_past_on_up(void) {
+  return s_timeline_past_on_up;
 }
 
 void timeline_peek_prefs_set_enabled(bool enabled) {
