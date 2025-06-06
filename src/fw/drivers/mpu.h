@@ -21,15 +21,22 @@
 
 #include "freertos_types.h"
 
-typedef enum MpuCachePolicy {
-  MpuCachePolicy_Invalid,
+#ifdef MICRO_FAMILY_SF32LB52
+#define MPU_ARMV8
+#endif
 
+typedef enum MpuCachePolicy {
+  // FIXME(SF32LB52): system_bf0_ap.c uses now up to 4 attributes as MPU is not fully implemented.
+#ifdef MICRO_FAMILY_SF32LB52
+  MpuCachePolicy_Reserved0,
+  MpuCachePolicy_Reserved1,
+  MpuCachePolicy_Reserved2,
+  MpuCachePolicy_Reserved3,
+#endif
   MpuCachePolicy_NotCacheable,
   MpuCachePolicy_WriteThrough,
   MpuCachePolicy_WriteBackWriteAllocate,
   MpuCachePolicy_WriteBackNoWriteAllocate,
-
-  MpuCachePolicyNum
 } MpuCachePolicy;
 
 typedef struct MpuRegion {
@@ -37,12 +44,15 @@ typedef struct MpuRegion {
   bool enabled:1;
   uintptr_t base_address;
   uint32_t size;
-  uint8_t disabled_subregions; // 8 bits, each disables 1/8 of the region.
   MpuCachePolicy cache_policy;
   bool priv_read:1;
   bool priv_write:1;
   bool user_read:1;
   bool user_write:1;
+  // FIXME(SF32LB52): ARMv8 MPU does not support subregions, analyze possible solutions
+#ifndef MPU_ARMV8
+  uint8_t disabled_subregions; // 8 bits, each disables 1/8 of the region.
+#endif
 } MpuRegion;
 
 void mpu_enable(void);

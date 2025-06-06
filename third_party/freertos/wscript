@@ -34,6 +34,14 @@ def build(bld):
 
     freertos_defines = [f'FREERTOS_USE_TIMERS={int(use_timers)}']
 
+    # FIXME(SF32LB52): Add valid regions once MPU can be used
+    # This currently results in 0 regions!
+    if bld.env.MICRO_FAMILY == 'SF32LB52':
+        freertos_defines += [
+            'FREERTOS_FIRST_MPU_REGION=8',
+            'FREERTOS_LAST_MPU_REGION=7',
+        ]
+
     bld(export_includes=freertos_includes,
         export_defines=freertos_defines,
         name='freertos_includes')

@@ -28,7 +28,14 @@
 #include <string.h>
 
 
-static const char* const MEMORY_REGION_NAMES[8] = {
+static const char* const MEMORY_REGION_NAMES[] = {
+  // FIXME(SF32LB52): system_bf0_ap.c uses now up to 4 regions as MPU is not fully implemented.
+#ifdef MICRO_FAMILY_SF32LB52
+  "RESERVED0",
+  "RESERVED1",
+  "RESERVED2",
+  "RESERVED3",
+#endif
   "UNPRIV_FLASH",
   "UNPRIV_RO_BSS",
   "UNPRIV_RO_DATA",
@@ -41,11 +48,9 @@ static const char* const MEMORY_REGION_NAMES[8] = {
 
 
 void memory_layout_dump_mpu_regions_to_dbgserial(void) {
-  static const int NUM_REGIONS = 8;
-
   char buffer[90];
 
-  for (int i = 0; i < NUM_REGIONS; ++i) {
+  for (size_t i = 0; i < ARRAY_LENGTH(MEMORY_REGION_NAMES); ++i) {
     MpuRegion region = mpu_get_region(i);
 
     if (!region.enabled) {
@@ -60,11 +65,13 @@ void memory_layout_dump_mpu_regions_to_dbgserial(void) {
         region.priv_read ? 'R' : ' ', region.priv_write ? 'W' : ' ',
         region.user_read ? 'R' : ' ', region.user_write ? 'W' : ' ');
 
+#ifndef MPU_ARMV8
     if (region.disabled_subregions) {
       PBL_LOG_FROM_FAULT_HANDLER_FMT(
           buffer, sizeof(buffer),
           "  Disabled Subregions: %02x", region.disabled_subregions);
     }
+#endif
   }
 }
 
@@ -157,7 +164,9 @@ static const MpuRegion s_app_region = {
   .enabled = true,
   .base_address = MPU_REGION_APP_BASE_ADDRESS,
   .size = MPU_REGION_APP_SIZE,
+#ifndef MPU_ARMV8
   .disabled_subregions = MPU_REGION_APP_DISABLED_SUBREGIONS,
+#endif
   .cache_policy = MpuCachePolicy_WriteBackWriteAllocate,
   .priv_read = true,
   .priv_write = true,
@@ -168,7 +177,9 @@ static const MpuRegion s_worker_region = {
   .enabled = true,
   .base_address = MPU_REGION_WORKER_BASE_ADDRESS,
   .size = MPU_REGION_WORKER_SIZE,
+#ifndef MPU_ARMV8
   .disabled_subregions = MPU_REGION_WORKER_DISABLED_SUBREGIONS,
+#endif
   .cache_policy = MpuCachePolicy_WriteBackWriteAllocate,
   .priv_read = true,
   .priv_write = true,
@@ -214,6 +225,7 @@ void memory_layout_setup_mpu(void) {
   // Flash parts...
   // Read only for executing code and loading data out of.
 
+#ifndef MICRO_FAMILY_SF32LB52
   // Unprivileged flash, by default anyone can read any part of flash.
   mpu_set_region(&s_microflash_region);
 
@@ -223,6 +235,7 @@ void memory_layout_setup_mpu(void) {
 
   mpu_set_region(&s_readonly_bss_region);
   mpu_set_region(&s_isr_stack_guard_region);
+#endif
 
   mpu_enable();
 }
