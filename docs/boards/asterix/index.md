@@ -16,10 +16,16 @@ Asterix B2B connector pinout
 
 The "Core B2B v2" board has been designed as a companion programming board.
 It is based on the [Raspberry Pi Debug Probe](https://www.raspberrypi.com/documentation/microcontrollers/debug-probe.html).
+Software for the `Core B2B v2` board is available in the [Core B2B v2 repository](https://github.com/coredevices/asterix_b2b2_fw).
 Below you can find a picture on how it is connected, and a list of its main features.
 
 ```{figure} images/asterix-programming.webp
 Asterix and Core B2B v2
+```
+
+```{warning}
+External connectors (SWD/UART) expose 1.8V signals.
+Do not use any adapter that does not operate at 1.8V, or there is a **risk of damage**!
 ```
 
 1. Asterix B2B connector
