@@ -3,6 +3,8 @@ def configure(conf):
         conf.env.append_unique('DEFINES', 'NRF52840_XXAA')
     if conf.is_asterix():
         conf.env.append_unique('DEFINES', 'NRF_CONFIG_NFCT_PINS_AS_GPIOS')
+        conf.env.append_unique('DEFINES', 'NRFX_I2S_ENABLED=1')
+        conf.env.append_unique('DEFINES', 'NRFX_I2S0_ENABLED=1')
         conf.env.append_unique('DEFINES', 'NRFX_GPIOTE_ENABLED=1')
         conf.env.append_unique('DEFINES', 'NRFX_GPIOTE_CONFIG_NUM_OF_EVT_HANDLERS=4')
         conf.env.append_unique('DEFINES', 'NRFX_PPI_ENABLED=1')
