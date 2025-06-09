@@ -15,34 +15,48 @@ def build(bld):
             'SiFli-SDK/drivers/cmsis/sf32lb52x/bf0_pin_const.c',
             'sf32lb52/system_bf0_ap.c',
         ]
-
-    micro_includes = [
-        'SiFli-SDK/customer/boards/include',
-        'SiFli-SDK/drivers/Include',
-        'SiFli-SDK/drivers/cmsis/Include',
-        'SiFli-SDK/external/CMSIS/Include',
-    ]
-
-    if bld.env.MICRO_FAMILY == 'SF32LB52':
-        micro_includes += [
+        micro_sources += bld.path.ant_glob('SiFli-SDK/drivers/cmsis/sf32lb52x/bf0_pin_const.c')
+        micro_sources += bld.path.ant_glob('SiFli-SDK/drivers/cmsis/sf32lb52x/bf0_lcpu_init.c')
+        micro_sources += bld.path.ant_glob('SiFli-SDK/drivers/cmsis/sf32lb52x/lcpu_patch.c')
+        micro_sources += bld.path.ant_glob('SiFli-SDK/drivers/cmsis/sf32lb52x/lcpu_patch_rev_b.c')
+        micro_sources += bld.path.ant_glob('SiFli-SDK/drivers/cmsis/sf32lb52x/bt_rf_fulcal.c')
+        micro_sources += bld.path.ant_glob('SiFli-SDK/drivers/cmsis/sf32lb52x/bt_rf_cw_config.c')
+        micro_sources += bld.path.ant_glob('SiFli-SDK/drivers/cmsis/sf32lb52x/bt_power_config.c')
+        micro_sources += bld.path.ant_glob('SiFli-SDK/drivers/cmsis/sf32lb52x/lcpu_config_type.c')
+        micro_sources += bld.path.ant_glob('SiFli-SDK/customer/boards/eh-lb52xu/*.c')
+        
+        micro_includes = [
             'sf32lb52',
+            'SiFli-SDK/customer/boards/include',
+            'SiFli-SDK/customer/boards/eh-lb52xu',
+            'SiFli-SDK/drivers/Include',
+            'SiFli-SDK/drivers/cmsis/Include',
             'SiFli-SDK/drivers/cmsis/sf32lb52x',
+            'SiFli-SDK/external/CMSIS/Include',
         ]
-
-    bld.env.append_unique(
-        'CFLAGS',
-        [
-            '-Wno-unused-value',
-            '-Wno-unused-variable',
-            '-Wno-unused-function',
-            '-Wno-unused-but-set-variable',
-        ],
-    )
-
-    bld.stlib(
-        source=micro_sources,
-        target='hal_sifli',
-        use=['pblibc'],
-        includes=micro_includes,
-        export_includes=micro_includes
-    )
+        micro_sources += bld.path.ant_glob('SiFli-SDK/middleware/ipc_queue/common/circular_buf.c')
+        micro_sources += bld.path.ant_glob('SiFli-SDK/middleware/ipc_queue/common/ipc_hw.c')
+        micro_sources += bld.path.ant_glob('SiFli-SDK/middleware/ipc_queue/common/ipc_queue.c')
+        micro_sources += bld.path.ant_glob('SiFli-SDK/middleware/ipc_queue/porting/sf32lb52x/hcpu/ipc_hw_port.c')
+        micro_includes += ['SiFli-SDK/middleware/include',
+                          'SiFli-SDK/middleware/ipc_queue/common',
+                          'SiFli-SDK/middleware/ipc_queue/porting/sf32lb52x/hcpu'
+                          ]                          
+        bld.env.append_unique(
+            'CFLAGS',
+            [
+                    '-Wno-unused-value',
+                    '-Wno-unused-variable',
+                    '-Wno-unused-function',
+                    '-Wno-unused-but-set-variable',
+                    '-Wno-sign-compare'
+            ],
+        )
+        
+        bld.stlib(
+            source=micro_sources,
+            target='hal_sifli',
+            use=['pblibc'],
+            includes=micro_includes,
+            export_includes=micro_includes
+        )

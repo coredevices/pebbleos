@@ -25,9 +25,30 @@
 
 #define HCPU_FREQ_MHZ 240
 
+#define USING_UART1
+
+#ifdef USING_UART1
+#define UART_INST USART1
+#define UART_TX PAD_PA19
+#define UART_RX PAD_PA18
+#define UART_IRQ USART1_IRQn
+#define UART_TX_FUNC USART1_TXD
+#define UART_RX_FUNC USART1_RXD
+
+#define UART_DMAREQ DMA_REQUEST_5
+#else
+#define UART_INST USART3
+#define UART_TX PAD_PA20
+#define UART_RX PAD_PA27
+#define UART_IRQ USART3_IRQn
+#define UART_TX_FUNC USART3_TXD
+#define UART_RX_FUNC USART3_RXD
+#define UART_DMAREQ DMA_REQUEST_27
+#endif
+
 static UARTDeviceState s_dbg_uart_state = {
   .huart = {
-    .Instance = USART1,
+    .Instance = UART_INST,
     .Init = {
       .WordLength = UART_WORDLENGTH_8B,
       .StopBits = UART_STOPBITS_1,
@@ -39,7 +60,7 @@ static UARTDeviceState s_dbg_uart_state = {
   .hdma = {
     .Instance = DMA1_Channel1,
     .Init = {
-      .Request = DMA_REQUEST_5,
+      .Request = UART_DMAREQ,
     },
   },
 };
@@ -47,16 +68,16 @@ static UARTDeviceState s_dbg_uart_state = {
 static UARTDevice DBG_UART_DEVICE = {
     .state = &s_dbg_uart_state,
     .tx = {
-        .pad = PAD_PA19,
-        .func = USART1_TXD,
+        .pad = UART_TX,
+        .func = UART_TX_FUNC,
         .flags = PIN_NOPULL,
     },
     .rx = {
-        .pad = PAD_PA18,
-        .func = USART1_RXD,
+        .pad = UART_RX,
+        .func = UART_RX_FUNC,
         .flags = PIN_PULLUP,
     },
-    .irqn = USART1_IRQn,
+    .irqn = UART_IRQ,
     .irq_priority = 5,
     .dma_irqn = DMAC1_CH1_IRQn,
     .dma_irq_priority = 5,
