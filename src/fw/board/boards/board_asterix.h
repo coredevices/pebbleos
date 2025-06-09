@@ -254,3 +254,4 @@ extern MicDevice * const MIC;
 extern I2CSlavePort * const I2C_NPM1300;
 extern I2CSlavePort * const I2C_DRV2604;
 extern I2CSlavePort * const I2C_OPT3001;
+extern I2CSlavePort * const I2C_DA7212;
