@@ -409,9 +409,7 @@ static NOINLINE void prv_main_task_init(void) {
 
   memory_layout_setup_mpu();
 
-#if !defined(MICRO_FAMILY_SF32LB52)
   board_early_init();
-#endif
 
   display_show_splash_screen();
 

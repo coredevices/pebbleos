@@ -178,6 +178,7 @@ def _generate_memory_layout(bld):
         # FIXME: The runtime_reserved size could be reduced for diorite
         'diorite': AppRamSize(66 * 1024, 30 * 1024),
         'emery': AppRamSize(130 * 1024, 62 * 1024),
+        'sf32lb': AppRamSize(128 * 1024, 64 * 1024),
     }
     APP_UNSUPPORTED = AppRamSize(0, 0)
 
@@ -238,10 +239,10 @@ def _generate_memory_layout(bld):
         total_ram = (0x20000000 + retained_size, 256 * 1024 - retained_size)
     elif bld.is_obelix():
         # FIXME(OBELIX): Obelix is not diorite
-        app_ram_size_2x = APP_RAM_SIZES['aplite']
+        app_ram_size_2x = APP_RAM_SIZES['sf32lb']
         app_ram_size_3x = APP_RAM_SIZES['aplite']
         app_ram_size_4x = APP_RAM_SIZES['diorite']
-        total_ram = (0x20000000, 512 * 1024)
+        total_ram = (0x20000000, 480 * 1024)
     else:
         bld.fatal("No set of supported SDK platforms defined for this board")
 

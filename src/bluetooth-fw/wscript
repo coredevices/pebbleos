@@ -22,8 +22,7 @@ def _recurse(ctx):
     elif ctx.env.bt_controller == 'nrf52':
         ctx.recurse('nimble')
     elif ctx.env.bt_controller == 'sf32lb52':
-        # TODO(SF32LB52): replace with nimble once supported
-        ctx.recurse('stub')
+        ctx.recurse('nimble')
     else:
         ctx.fatal('Invalid bt controller {}'.format(ctx.env.bt_controller))
 

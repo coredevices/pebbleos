@@ -69,6 +69,15 @@ def build(bld):
             'port/include/cc2564x',
         ] + nimble_includes
 
+    elif bld.env.bt_controller == 'sf32lb52':
+        nimble_sources += [
+            'transport/hci_mbox.c',
+            'transport/lcpu_52x.c',
+        ]
+        nimble_includes = [
+            'port/include/sf32lb52',
+        ] + nimble_includes
+        
     elif bld.env.bt_controller == 'nrf52':
         nimble_sources += bld.path.ant_glob([
             'mynewt-nimble/nimble/controller/src/*.c',

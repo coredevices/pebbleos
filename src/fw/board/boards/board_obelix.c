@@ -25,9 +25,28 @@
 
 #define HCPU_FREQ_MHZ 240
 
+#define USING_UART1_CONSOLE
+#ifdef USING_UART1_CONSOLE
+#define UART_INST USART1
+#define UART_TX PAD_PA19
+#define UART_TX_FUNC USART1_TXD
+#define UART_RX PAD_PA18
+#define UART_RX_FUNC USART1_RXD
+#define UART_DMAREQ DMA_REQUEST_5
+#define UART_IRQ_NUM USART1_IRQn
+#else
+#define UART_INST USART3
+#define UART_TX PAD_PA20
+#define UART_TX_FUNC USART3_TXD
+#define UART_RX PAD_PA27
+#define UART_RX_FUNC USART3_RXD
+#define UART_DMAREQ DMA_REQUEST_27
+#define UART_IRQ_NUM USART3_IRQn
+#endif
+
 static UARTDeviceState s_dbg_uart_state = {
   .huart = {
-    .Instance = USART1,
+    .Instance = UART_INST,
     .Init = {
       .WordLength = UART_WORDLENGTH_8B,
       .StopBits = UART_STOPBITS_1,
@@ -39,7 +58,7 @@ static UARTDeviceState s_dbg_uart_state = {
   .hdma = {
     .Instance = DMA1_Channel1,
     .Init = {
-      .Request = DMA_REQUEST_5,
+      .Request = UART_DMAREQ,
       .IrqPrio = 5,
     },
   },
@@ -48,16 +67,16 @@ static UARTDeviceState s_dbg_uart_state = {
 static UARTDevice DBG_UART_DEVICE = {
     .state = &s_dbg_uart_state,
     .tx = {
-        .pad = PAD_PA19,
-        .func = USART1_TXD,
+        .pad = UART_TX,
+        .func = UART_TX_FUNC,
         .flags = PIN_NOPULL,
     },
     .rx = {
-        .pad = PAD_PA18,
-        .func = USART1_RXD,
+        .pad = UART_RX,
+        .func = UART_RX_FUNC,
         .flags = PIN_PULLUP,
     },
-    .irqn = USART1_IRQn,
+    .irqn = UART_IRQ_NUM,
     .irq_priority = 5,
     .dma_irqn = DMAC1_CH1_IRQn,
     .dma_irq_priority = 5,
@@ -65,8 +84,89 @@ static UARTDevice DBG_UART_DEVICE = {
 
 UARTDevice *const DBG_UART = &DBG_UART_DEVICE;
 
+#ifdef USING_UART1_CONSOLE
 IRQ_MAP(USART1, uart_irq_handler, DBG_UART);
+#else
+IRQ_MAP(USART3, uart_irq_handler, DBG_UART);
+#endif
+
 IRQ_MAP(DMAC1_CH1, uart_dma_irq_handler, DBG_UART);
+
+
+// Raw UART --------------------------------------------------------------
+#undef UART_INST 
+#undef UART_TX 
+#undef UART_TX_FUNC
+#undef UART_RX 
+#undef UART_RX_FUNC
+#undef UART_DMAREQ 
+#undef UART_IRQ_NUM
+
+#ifndef USING_UART1_CONSOLE
+#define UART_INST USART1
+#define UART_TX PAD_PA19
+#define UART_TX_FUNC USART1_TXD
+#define UART_RX PAD_PA18
+#define UART_RX_FUNC USART1_RXD
+#define UART_DMAREQ DMA_REQUEST_5
+#define UART_IRQ_NUM USART1_IRQn
+#else
+#define UART_INST USART3
+#define UART_TX PAD_PA20
+#define UART_TX_FUNC USART3_TXD
+#define UART_RX PAD_PA27
+#define UART_RX_FUNC USART3_RXD
+#define UART_DMAREQ DMA_REQUEST_27
+#define UART_IRQ_NUM USART3_IRQn
+#endif
+
+static UARTDeviceState s_raw_uart_state = {
+  .huart = {
+    .Instance = UART_INST,
+    .Init = {
+      .WordLength = UART_WORDLENGTH_8B,
+      .StopBits = UART_STOPBITS_1,
+      .Parity = UART_PARITY_NONE,
+      .HwFlowCtl = UART_HWCONTROL_NONE,
+      .OverSampling = UART_OVERSAMPLING_16,
+    },
+  },
+  .hdma = {
+    .Instance = DMA1_Channel1,
+    .Init = {
+      .Request = UART_DMAREQ,
+      .IrqPrio = 5,
+    },
+  },
+};
+
+static UARTDevice RAW_UART_DEVICE = {
+    .state = &s_raw_uart_state,
+    .tx = {
+        .pad = UART_TX,
+        .func = UART_TX_FUNC,
+        .flags = PIN_NOPULL,
+    },
+    .rx = {
+        .pad = UART_RX,
+        .func = UART_RX_FUNC,
+        .flags = PIN_PULLUP,
+    },
+    .irqn = UART_IRQ_NUM,
+    .irq_priority = 5,
+    .dma_irqn = DMAC1_CH1_IRQn,
+    .dma_irq_priority = 5,
+};
+UARTDevice *const RAW_UART = &RAW_UART_DEVICE;
+
+#ifndef USING_UART1_CONSOLE
+IRQ_MAP(USART1, uart_irq_handler, RAW_UART);
+#else
+IRQ_MAP(USART3, uart_irq_handler, RAW_UART);
+#endif
+
+/**********************************************************************************************/
+
 
 static QSPIPortState s_qspi_port_state;
 static QSPIPort QSPI_PORT = {

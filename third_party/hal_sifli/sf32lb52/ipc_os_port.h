@@ -14,15 +14,42 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef IPC_OS_PORT_H
+#define IPC_OS_PORT_H
+#include <stdint.h>
+#include <bf0_hal.h>
 
-#define BT_VENDOR_ID 0x0EEA
-#define BT_VENDOR_NAME "Core Devices LLC"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-extern UARTDevice * const DBG_UART;
-extern UARTDevice * const RAW_UART;
-extern QSPIPort * const QSPI;
-extern QSPIFlash * const QSPI_FLASH;
-extern const VoltageMonitorDevice * VOLTAGE_MONITOR_BATTERY;
-extern const BoardConfigPower BOARD_CONFIG_POWER;
-extern const BoardConfig BOARD_CONFIG;
+void vPortEnterCritical( void );
+void vPortExitCritical( void );
+
+
+
+__STATIC_FORCEINLINE int os_interrupt_disable(void)
+{
+  vPortEnterCritical();
+  return 0;
+}
+
+#define os_interrupt_enable(mask)   vPortExitCritical()
+
+#define os_interrupt_enter()        
+#define os_interrupt_exit()         
+
+
+/// @}  file
+
+#ifdef __cplusplus
+}
+#endif
+
+
+
+
+/// @}
+#endif
+
+
