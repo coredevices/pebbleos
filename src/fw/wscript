@@ -487,6 +487,9 @@ def _build_recovery(bld):
     if 'MFG_INFO_RECORDS_TEST_RESULTS' not in bld.env.DEFINES:
         excludes.extend('mfg/results_ui.c')
 
+    if not bld.is_asterix():
+        excludes.extend(['apps/prf_apps/mfg_speaker_*.c'])
+
     if bld.is_silk():
         bld.env.append_value('DEFINES', ['QSPI_DMA_DISABLE=1'])
 

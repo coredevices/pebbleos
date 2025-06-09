@@ -28,6 +28,7 @@
 #include "apps/prf_apps/mfg_hrm_app.h"
 #include "apps/prf_apps/mfg_program_color_app.h"
 #include "apps/prf_apps/mfg_runin_app.h"
+#include "apps/prf_apps/mfg_speaker_app.h"
 #include "apps/prf_apps/mfg_vibe_app.h"
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
@@ -97,6 +98,12 @@ static void prv_select_vibe(int index, void *context) {
 static void prv_select_als(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_als_app_get_info());
 }
+
+#if PLATFORM_ASTERIX
+static void prv_select_speaker(int index, void *context) {
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_speaker_app_get_info());
+}
+#endif
 
 #if !PLATFORM_SILK && !PLATFORM_ASTERIX
 static void prv_select_bt_sig_rf(int index, void *context) {
@@ -202,6 +209,9 @@ static size_t prv_create_menu_items(SimpleMenuItem** out_menu_items) {
 #endif
 #if BT_CONTROLLER_DA14681
     { .title = "Test BTLE",         .callback = prv_select_btle },
+#endif
+#if PLATFORM_ASTERIX
+    { .title = "Test Speaker",          .callback = prv_select_speaker },
 #endif
     { .title = "Certification",     .callback = prv_select_certification },
     { .title = "Program Color",     .callback = prv_select_program_color },
