@@ -161,6 +161,8 @@ static const I2CSlavePort I2C_SLAVE_DA7212 = {
 
 I2CSlavePort *const I2C_DA7212 = &I2C_SLAVE_DA7212;
 
+IRQ_MAP_NRFX(I2S, nrfx_i2s_0_irq_handler);
+
 /* PERIPHERAL ID 11 */
 
 /* sensor SPI bus */
@@ -179,6 +181,7 @@ void board_early_init(void) {
   nrf_gpio_cfg_output(15);
   nrf_gpio_cfg_output(16);
   nrf_gpio_pin_set(15);
+  
   nrf_gpio_pin_set(16);
 
   nrf_clock_lf_src_set(NRF_CLOCK, NRF_CLOCK_LFCLK_XTAL);
