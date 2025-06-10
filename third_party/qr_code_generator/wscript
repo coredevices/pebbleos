@@ -1,0 +1,22 @@
+def configure(conf):
+    pass
+
+
+def build(bld):
+    sources = ['QR-Code-generator/c/qrcodegen.c']
+    includes = ['QR-Code-generator/c']
+
+    bld.env.append_unique(
+        'CFLAGS',
+        [
+            '-Wno-type-limits',
+        ],
+    )
+
+    bld.stlib(
+        source=sources,
+        includes=includes,
+        export_includes=includes,
+        target='qr_code_generator',
+        use=['pblibc'],
+    )

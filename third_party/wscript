@@ -3,6 +3,7 @@ def _recurse(ctx):
     ctx.recurse('freertos')
     ctx.recurse('nanopb')
     ctx.recurse('tinymt')
+    ctx.recurse('qr_code_generator')
 
     if ctx.env.MICRO_FAMILY.startswith('STM32'):
         ctx.recurse('hal_stm32')

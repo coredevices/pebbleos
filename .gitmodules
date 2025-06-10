@@ -31,3 +31,6 @@
 [submodule "third_party/memfault/memfault-firmware-sdk"]
 	path = third_party/memfault/memfault-firmware-sdk
 	url = https://github.com/memfault/memfault-firmware-sdk.git
+[submodule "third_party/qr_code_generator/QR-Code-generator"]
+	path = third_party/qr_code_generator/QR-Code-generator
+	url = https://github.com/nayuki/QR-Code-generator
