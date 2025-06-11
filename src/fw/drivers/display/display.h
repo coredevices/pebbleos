@@ -39,6 +39,8 @@ uint32_t display_baud_rate_change(uint32_t new_frequency_hz);
 
 void display_clear(void);
 
+void display_set_enabled(bool enabled);
+
 void display_update(NextRowCallback nrcb, UpdateCompleteCallback uccb);
 
 bool display_update_in_progress(void);
