@@ -92,6 +92,7 @@ NORETURN enter_standby(RebootReasonCode reason) {
 
   // Wipe display
   display_clear();
+  display_set_enabled(false);
 
   /* skip BT teardown if BT isn't working */
   system_reset_prepare(reason == RebootReasonCode_DialogBootFault);
