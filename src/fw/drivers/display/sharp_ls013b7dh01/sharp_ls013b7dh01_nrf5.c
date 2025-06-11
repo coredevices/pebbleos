@@ -210,6 +210,10 @@ void display_clear(void) {
   prv_disable_chip_select();
 }
 
+void display_set_enabled(bool enabled) {
+    gpio_output_set(&BOARD_CONFIG_DISPLAY.on_ctrl, enabled);
+}
+
 bool display_update_in_progress(void) {
   if (xSemaphoreTake(s_dma_update_in_progress_semaphore, 0) == pdPASS) {
     xSemaphoreGive(s_dma_update_in_progress_semaphore);

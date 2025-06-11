@@ -479,6 +479,10 @@ void display_clear(void) {
   }
 }
 
+void display_set_enabled(bool enabled) {
+  // TODO: Implement this function to enable/disable the display.
+}
+
 void display_pulse_vcom(void) { }
 
 //! @return false if there are no more lines to transfer, true if a new line transfer was started

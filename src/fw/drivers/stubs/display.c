@@ -10,6 +10,9 @@ void display_init(void) {
 void display_clear(void) {
 }
 
+void display_set_enabled(bool enabled) {
+}
+
 bool display_update_in_progress(void) {
   return true;
 }
