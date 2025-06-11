@@ -12,6 +12,7 @@
 #include "drivers/i2c.h"
 #include "drivers/periph_config.h"
 #include "kernel/events.h"
+#include "kernel/util/delay.h"
 #include "os/mutex.h"
 #include "services/common/system_task.h"
 #include "system/logging.h"
@@ -194,7 +195,12 @@ bool pmic_power_off(void) {
     return false;
   }
 
-  return true;
+  // Give enough time for the PMIC to fully power down (tPWRDN = 100ms).
+  // We will die here, if we do not, return false and let upper layers handle
+  // the shutdown failure.
+  delay_us(100000);
+
+  return false;
 }
 
 bool pmic_full_power_off(void) {
