@@ -61,4 +61,6 @@ typedef struct NotificationWindowData {
   Layer dnd_icon_layer;
   GBitmap dnd_icon;
   bool dnd_icon_visible;
+  
+  EventedTimerID vibration_timer_id; //!< Timer for delayed vibration on notification
 } NotificationWindowData;

@@ -57,6 +57,7 @@ enum NotificationsItem {
 #endif
   NotificationsItemTextSize,
   NotificationsItemWindowTimeout,
+  NotificationsItemDelayedVibration,
   NotificationsItem_Count,
 };
 
@@ -185,7 +186,7 @@ static void prv_text_size_menu_push(SettingsNotificationsData *data) {
       true /* icons_enabled */, s_text_size_names, data);
 }
 
-// Text Size
+// Window Timeout
 ////////////////////////
 
 // NOTE: Keep the following two arrays in sync and with the same size.
@@ -246,6 +247,33 @@ static void prv_window_timeout_menu_push(SettingsNotificationsData *data) {
       data);
 }
 
+// Vibration Timing
+////////////////////////
+
+static const char *s_vibration_timing_options[] = {
+  i18n_noop("Immediately"),
+  i18n_noop("After animation")
+};
+
+static void prv_delayed_vibration_menu_select(OptionMenu *option_menu, int selection, void *context) {
+  alerts_set_delayed_vibration(selection == 1);  // 0 = Immediately, 1 = After animation
+  app_window_stack_remove(&option_menu->window, true /* animated */);
+}
+
+static void prv_delayed_vibration_menu_push(SettingsNotificationsData *data) {
+  const OptionMenuCallbacks callbacks = {
+    .select = prv_delayed_vibration_menu_select,
+  };
+  
+  const char *title = i18n_noop("Vibrate...");
+  const int index = alerts_get_delayed_vibration() ? 1 : 0;
+  
+  settings_option_menu_push(
+      title, OptionMenuContentType_SingleLine, index, &callbacks,
+      ARRAY_LENGTH(s_vibration_timing_options), true /* icons_enabled */, 
+      s_vibration_timing_options, data);
+}
+
 // Menu Layer Callbacks
 ////////////////////////
 
@@ -290,6 +318,11 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       subtitle = s_window_timeouts_labels[prv_window_timeout_get_selection_index()];
       break;
     }
+    case NotificationsItemDelayedVibration: {
+      title = i18n_noop("Vibrate...");
+      subtitle = alerts_get_delayed_vibration() ? i18n_noop("After animation") : i18n_noop("Immediately");
+      break;
+    }
     default:
       WTF;
   }
@@ -323,6 +356,9 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       break;
     case NotificationsItemWindowTimeout:
       prv_window_timeout_menu_push(data);
+      break;
+    case NotificationsItemDelayedVibration:
+      prv_delayed_vibration_menu_push(data);
       break;
     default:
       WTF;

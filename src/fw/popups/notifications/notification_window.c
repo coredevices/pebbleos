@@ -181,6 +181,7 @@ static void prv_cleanup_timers(NotificationWindowData *data) {
   prv_cleanup_timer(&data->pop_timer_id);
   prv_cancel_reminder_watchdog(data);
   prv_cleanup_timer(&data->peek_layer_timer);
+  prv_cleanup_timer(&data->vibration_timer_id);
 }
 
 static void prv_pop_notification_window(NotificationWindowData *data) {
@@ -1136,6 +1137,31 @@ static void prv_dnd_status_changed(bool dnd_is_active) {
 // Notification Window API
 ///////////////////////////
 
+// Function to handle delayed vibration
+static void prv_delayed_vibration_callback(void *context) {
+  NotificationWindowData *data = context;
+  data->vibration_timer_id = EVENTED_TIMER_INVALID_ID;
+  
+  // Only vibrate if the notification window is still active
+  if (!s_in_use) {
+    return;
+  }
+  
+#if CAPABILITY_HAS_VIBE_SCORES
+  VibeScore *score = vibe_client_get_score(VibeClient_Notifications);
+  if (score) {
+    vibe_score_do_vibe(score);
+    vibe_score_destroy(score);
+  }
+#else
+  vibes_short_pulse();
+#endif
+  
+  // Timestamp set after call to vibrate since if something fails,
+  // its better to have no vibe blocking then vibe blocking and no vibrations.
+  alerts_set_notification_vibe_timestamp();
+}
+
 static void prv_init_notification_window(bool is_modal) {
   NotificationWindowData *data = &s_notification_window_data;
 
@@ -1152,6 +1178,7 @@ static void prv_init_notification_window(bool is_modal) {
   data->is_modal = is_modal;
   data->notification_app_id = UUID_INVALID;
   data->peek_layer_timer = EVENTED_TIMER_INVALID_ID;
+  data->vibration_timer_id = EVENTED_TIMER_INVALID_ID;
   data->peek_animation = NULL;
   data->peek_layer = NULL;
   data->peek_icon_info = (TimelineResourceInfo) {
@@ -1369,18 +1396,29 @@ static void prv_handle_notification_added_common(Uuid *id, NotificationType type
 
   alerts_incoming_alert_analytics();
   if (alerts_should_vibrate_for_type(prv_alert_type_for_notification_type(type))) {
-#if CAPABILITY_HAS_VIBE_SCORES
-    VibeScore *score = vibe_client_get_score(VibeClient_Notifications);
-    if (score) {
-      vibe_score_do_vibe(score);
-      vibe_score_destroy(score);
+    // Use different delay times based on whether this is the first notification
+    uint32_t delay_ms = 1000; // Default to 1 second for the first notification
+    
+    // If we already have notifications in the list, this is a subsequent notification
+    if (notifications_presented_list_count() > 1) {
+      delay_ms = 200; // 0.2 seconds for subsequent notifications
     }
-#else
-    vibes_short_pulse();
-#endif
-    // Timestamp set after call to vibrate since if something fails,
-    // its better to have no vibe blocking then vibe blocking and no vibrations.
-    alerts_set_notification_vibe_timestamp();
+    
+    // Always create a new timer for each notification instead of rescheduling
+    // This ensures each notification gets its own vibration
+    if (data->vibration_timer_id != EVENTED_TIMER_INVALID_ID) {
+      // Cancel any existing timer first to avoid conflicts
+      evented_timer_cancel(data->vibration_timer_id);
+      data->vibration_timer_id = EVENTED_TIMER_INVALID_ID;
+    }
+    
+    // Schedule a delayed vibration
+    // This allows the notification to be displayed before the vibration occurs
+    data->vibration_timer_id = evented_timer_register(
+        delay_ms,
+        false, // non-repeating timer
+        prv_delayed_vibration_callback,
+        data);
   }
 
   if (alerts_should_enable_backlight_for_type(prv_alert_type_for_notification_type(type))) {

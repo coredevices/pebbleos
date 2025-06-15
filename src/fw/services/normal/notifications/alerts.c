@@ -126,6 +126,14 @@ void alerts_set_notification_window_timeout_ms(uint32_t timeout_ms) {
   alerts_preferences_set_notification_window_timeout_ms(timeout_ms);
 }
 
+bool alerts_get_delayed_vibration(void) {
+  return alerts_preferences_get_delayed_vibration();
+}
+
+void alerts_set_delayed_vibration(bool enable) {
+  alerts_preferences_set_delayed_vibration(enable);
+}
+
 void alerts_init() {
   alerts_preferences_init();
   do_not_disturb_init();

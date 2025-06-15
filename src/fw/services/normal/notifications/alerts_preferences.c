@@ -73,6 +73,9 @@ static uint32_t s_first_use_complete = 0;
 #define PREF_KEY_NOTIF_WINDOW_TIMEOUT "notifWindowTimeout"
 static uint32_t s_notif_window_timeout_ms = NOTIF_WINDOW_TIMEOUT_DEFAULT;
 
+#define PREF_KEY_DELAYED_VIBRATION "delayedVibration"
+static bool s_delayed_vibration_enabled = true;
+
 ///////////////////////////////////
 //! Legacy preference keys
 ///////////////////////////////////
@@ -285,6 +288,7 @@ void alerts_preferences_init(void) {
                s_dnd_schedule[WeekendSchedule].enabled);
   RESTORE_PREF(PREF_KEY_FIRST_USE_COMPLETE, s_first_use_complete);
   RESTORE_PREF(PREF_KEY_NOTIF_WINDOW_TIMEOUT, s_notif_window_timeout_ms);
+  RESTORE_PREF(PREF_KEY_DELAYED_VIBRATION, s_delayed_vibration_enabled);
 #undef RESTORE_PREF
 
   prv_migrate_legacy_dnd_schedule(&file);
@@ -460,6 +464,15 @@ bool alerts_preferences_dnd_is_smart_enabled(void) {
 void alerts_preferences_dnd_set_smart_enabled(bool enable) {
   s_do_not_disturb_smart_dnd_enabled = enable;
   SET_PREF(PREF_KEY_DND_SMART_ENABLED, s_do_not_disturb_smart_dnd_enabled);
+}
+
+bool alerts_preferences_get_delayed_vibration(void) {
+  return s_delayed_vibration_enabled;
+}
+
+void alerts_preferences_set_delayed_vibration(bool enable) {
+  s_delayed_vibration_enabled = enable;
+  SET_PREF(PREF_KEY_DELAYED_VIBRATION, s_delayed_vibration_enabled);
 }
 
 void analytics_external_collect_alerts_preferences(void) {
