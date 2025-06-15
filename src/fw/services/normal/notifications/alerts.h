@@ -43,3 +43,9 @@ bool alerts_should_vibrate_for_type(AlertType type);
 //! When vibrating for an incoming notification, call this function to prevent multiple vibes
 //! within a short period of time.
 void alerts_set_notification_vibe_timestamp();
+
+//! Get whether delayed vibration for notifications is enabled
+bool alerts_get_delayed_vibration(void);
+
+//! Set whether delayed vibration for notifications is enabled
+void alerts_set_delayed_vibration(bool enable);
