@@ -40,6 +40,7 @@ static UARTDeviceState s_dbg_uart_state = {
     .Instance = DMA1_Channel1,
     .Init = {
       .Request = DMA_REQUEST_5,
+      .IrqPrio = 5,
     },
   },
 };

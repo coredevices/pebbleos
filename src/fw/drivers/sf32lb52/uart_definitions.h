@@ -17,6 +17,7 @@ typedef struct UARTState {
   uint32_t rx_dma_index;
   UART_HandleTypeDef huart;
   DMA_HandleTypeDef hdma;
+  const void *dev;
 } UARTDeviceState;
 
 typedef const struct UARTDevice {
