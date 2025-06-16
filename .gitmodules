@@ -28,3 +28,6 @@
 [submodule "third_party/hal_sifli/SiFli-SDK"]
 	path = third_party/hal_sifli/SiFli-SDK
 	url = https://github.com/coredevices/SiFli-SDK.git
+[submodule "third_party/memfault/memfault-firmware-sdk"]
+	path = third_party/memfault/memfault-firmware-sdk
+	url = https://github.com/memfault/memfault-firmware-sdk.git

@@ -1,0 +1,78 @@
+def options(opt):
+    opt.add_option(
+        "--memfault",
+        choices=["0", "1"],
+        help="Enable Memfault integration. Enabled by default for Asterix and Obelix boards",
+    )
+
+
+def configure(conf):
+    conf.env.memfault = conf.options.memfault
+    if not conf.env.memfault:
+        conf.env.memfault = int(conf.is_asterix() or conf.is_obelix())
+    else:
+        conf.env.memfault = int(conf.env.memfault)
+
+    if conf.env.memfault:
+        # For Memfault build id, we want to make sure LTO does not force inline
+        # TODO for some reason, this is applying to jerryscript link step, which we don't want.
+        # conf.env.append_value(
+        #     "LINKFLAGS", ["-Wl,--require-defined=g_memfault_build_id"]
+        # )
+        pass
+
+    MEMFAULT = conf.env.memfault
+    conf.env.append_value("DEFINES", [f"MEMFAULT={MEMFAULT}"])
+
+
+def build(bld):
+    if not bld.env.memfault:
+        return
+
+    memfault_includes = [
+        "memfault-firmware-sdk/",
+        "memfault-firmware-sdk/components/include",
+        "memfault-firmware-sdk/ports/include",
+    ]
+
+    memfault_sources = bld.path.ant_glob(
+        [
+            "memfault-firmware-sdk/components/core/src/*.c",
+            "memfault-firmware-sdk/components/metrics/src/*.c",
+            "memfault-firmware-sdk/components/util/src/*.c",
+            # todo, figure out memfault support for FreeRTOS V8.2.1
+            # "memfault-firmware-sdk/ports/freertos/src/*.c",
+        ]
+    )
+
+    port_includes = [
+        "port/include",
+    ]
+    port_sources = bld.path.ant_glob(
+        [
+            "port/src/*.c",
+        ]
+    )
+
+    bld(
+        export_includes=[
+            *memfault_includes,
+            *port_includes,
+        ],
+        name="memfault_includes",
+    )
+
+    bld.stlib(
+        target="memfault",
+        includes=port_includes,
+        source=[
+            *memfault_sources,
+            *port_sources,
+        ],
+        export_includes=memfault_includes,
+        use=[
+            "memfault_includes",
+            "freertos",
+            "fw_includes",
+        ],
+    )

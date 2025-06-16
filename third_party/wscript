@@ -17,6 +17,11 @@ def _recurse(ctx):
     elif ctx.env.bt_controller == 'nrf52':
         ctx.recurse('nimble')
 
+    ctx.recurse('memfault')
+
+def options(opt):
+    opt.recurse('memfault')
+
 def configure(conf):
     _recurse(conf)
 

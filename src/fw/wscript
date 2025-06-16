@@ -1,22 +1,21 @@
-from waflib import Build, Task
-from waflib.Tools.ccroot import link_task
-from waflib.TaskGen import before_method, feature
-import waflib.Logs
-
-import waftools.asm
-import waftools.compress
-import waftools.gitinfo
-import waftools.ldscript
-import waftools.objcopy
-import waftools.generate_log_strings_json
-import waftools.generate_timezone_data
-import tools.mpu_calc
-
 import collections
 import json
 import os
 
+import waflib.Logs
+from waflib import Build, Task
 from waflib.Configure import conf
+from waflib.TaskGen import before_method, feature
+from waflib.Tools.ccroot import link_task
+
+import tools.mpu_calc
+import waftools.asm
+import waftools.compress
+import waftools.generate_log_strings_json
+import waftools.generate_timezone_data
+import waftools.gitinfo
+import waftools.ldscript
+import waftools.objcopy
 
 
 @feature("c")
@@ -346,6 +345,10 @@ def _link_firmware(bld, sources):
             'tinymt32',
             'upng']
 
+    if bld.env.memfault:
+        fw_linkflags.append('-Wl,--require-defined=g_memfault_build_id')
+        uses.append('memfault')
+
     ldscript = _generate_memory_layout(bld)
 
     if bld.env.NO_LINK:
@@ -671,6 +674,9 @@ def build(bld):
                      'freertos_includes',
                      'idl_includes',
                      'nanopb_includes']
+
+    if bld.options.memfault:
+        fw_includes_use.append('memfault_includes')
 
     if bld.env.MICRO_FAMILY.startswith('STM32'):
         fw_includes_use.append('stm32_stdlib')
