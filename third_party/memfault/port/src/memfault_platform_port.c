@@ -16,7 +16,11 @@
 #include "os/mutex.h"
 #include "services/common/clock.h"
 #include "services/common/new_timer/new_timer.h"
+#include "services/common/system_task.h"
+#include "services/normal/data_logging/data_logging_service.h"
 #include "system/logging.h"
+
+DataLoggingSessionRef s_chunks_session = NULL;
 
 // Buffer used to store formatted string for output
 #define MEMFAULT_DEBUG_LOG_BUFFER_SIZE_BYTES \
@@ -127,6 +131,59 @@ void memfault_lock(void) {
 
 void memfault_unlock(void) {
   mutex_unlock_recursive(s_memfault_lock);
+}
+
+#define MAX_CHUNK_SIZE 250
+
+// Datalogging packet sizes are fixed, so we need a wrapper to include the (variable) chunk size.
+typedef struct PACKED {
+  uint32_t length;
+  uint8_t buf[MAX_CHUNK_SIZE];
+} ChunkWrapper;
+
+static void prv_create_dls_session() {
+  if (s_chunks_session) {
+    return;
+  }
+  Uuid system_uuid = UUID_SYSTEM;
+  bool resume = false;
+  uint32_t item_length = sizeof(ChunkWrapper);
+  bool buffered = false;
+  s_chunks_session = dls_create(
+      DlsSystemTagMemfaultChunksSession, DATA_LOGGING_BYTE_ARRAY, item_length, buffered, resume, &system_uuid);
+}
+
+static void prv_memfault_gather_chunks() {
+  if (!dls_initialized()) {
+    // We need to wait until data logging is initialized before we can add chunks
+    PBL_LOG(LOG_LEVEL_INFO, "!dls_initialized");
+    return;
+  }
+
+  prv_create_dls_session();
+  if (!s_chunks_session) {
+    PBL_LOG(LOG_LEVEL_INFO, "!s_chunks_session");
+    return;
+  }
+
+  ChunkWrapper wrapper;
+  bool data_available = true;
+  size_t buf_len;
+
+  while (data_available) {
+    // always reset buf_len to the size of the output buffer before calling
+    // memfault_packetizer_get_chunk
+    buf_len = MAX_CHUNK_SIZE;
+    data_available = memfault_packetizer_get_chunk(wrapper.buf, &buf_len);
+    wrapper.length = buf_len;
+
+    if (data_available) {
+      bool res = dls_log(s_chunks_session, &wrapper, 1);
+      if (res != DATA_LOGGING_SUCCESS) {
+        break;
+      }
+    }
+  }
 }
 
 int memfault_platform_boot(void) {
@@ -244,6 +301,7 @@ static TimerID s_memfault_heartbeat_timer;
 static void prv_memfault_metrics_timer_cb(void *data) {
   MemfaultPlatformTimerCallback *callback = (MemfaultPlatformTimerCallback *)data;
   callback();
+  system_task_add_callback(prv_memfault_gather_chunks, NULL);
 }
 
 bool memfault_platform_metrics_timer_boot(uint32_t period_sec,
