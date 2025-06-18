@@ -22,6 +22,7 @@ def _recurse(ctx):
 
 def options(opt):
     opt.recurse('memfault')
+    opt.recurse('nimble')
 
 def configure(conf):
     _recurse(conf)

@@ -1,5 +1,21 @@
+def options(opt):
+    opt.add_option(
+        "--nimble-hci-sf32lb52-trace",
+        choices=['none', 'binary', 'log'],
+        default='none',
+        help="Enable SF32LB52 HCI tracing",
+    )
+
 def configure(conf):
-    pass
+    if (
+        conf.env.MICRO_FAMILY == 'SF32LB52' and
+        conf.options.nimble_hci_sf32lb52_trace != 'none'
+    ):
+        conf.env.append_value('DEFINES', ['NIMBLE_HCI_SF32LB52_TRACE'])
+        if conf.options.nimble_hci_sf32lb52_trace == 'log':
+            conf.env.append_value('DEFINES', ['NIMBLE_HCI_SF32LB52_TRACE_LOG'])
+        else:
+            conf.env.append_value('DEFINES', ['NIMBLE_HCI_SF32LB52_TRACE_BINARY'])
 
 def build(bld):
     nimble_includes = [
