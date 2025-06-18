@@ -109,6 +109,17 @@ def build(bld):
 
         nimble_use.append('hal_nordic')
 
+    elif bld.env.bt_controller == 'sf32lb52':
+        nimble_sources += [
+            'transport/hci_sf32lb52.c',
+            '../nonfree/pebbleos-nonfree/sf32lb52/lcpu_52x.c',
+        ]
+
+        nimble_includes = [
+            'port/include/sf32lb52',
+        ] + nimble_includes
+
+
     bld.objects(
         source=nimble_sources,
         target='nimble',
