@@ -40,6 +40,7 @@
         "applib/ui/number_window.h",
         "applib/ui/option_menu_window.h",
         "applib/ui/property_animation_private.h",
+        "applib/ui/qr_code.h",
         "applib/ui/rotate_bitmap_layer.h",
         "applib/ui/scroll_layer.h",
         "applib/ui/selection_layer.h",
@@ -277,6 +278,12 @@
         "size_3x_padding": 12,
         "size_3x": 876,
         "dependencies": ["Window", "StatusBarLayer", "MenuLayer", "GBitmap", "GBitmap"],
+        "_comment": "Not exported yet (only 3.x)"
+    }, {
+        "name": "QRCode",
+        "size_3x_padding": 0,
+        "size_3x": 72,
+        "dependencies": ["Layer"],
         "_comment": "Not exported yet (only 3.x)"
     }]
 }

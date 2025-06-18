@@ -92,6 +92,7 @@ def build(bld):
                    'libbtutil_includes',
                    'fw_includes',
                    'upng',
+                   'qr_code_generator',
                    'jerry_port_includes',
                    'jerry_runtime_config',
                    'jerry_common_config',
