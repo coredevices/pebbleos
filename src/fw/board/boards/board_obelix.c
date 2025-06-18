@@ -68,6 +68,31 @@ UARTDevice *const DBG_UART = &DBG_UART_DEVICE;
 IRQ_MAP(USART1, uart_irq_handler, DBG_UART);
 IRQ_MAP(DMAC1_CH1, uart_dma_irq_handler, DBG_UART);
 
+#ifdef NIMBLE_HCI_SF32LB52_TRACE_BINARY
+static UARTDeviceState s_hci_trace_uart_state = {
+  .huart = {
+    .Instance = USART3,
+    .Init = {
+      .WordLength = UART_WORDLENGTH_8B,
+      .StopBits = UART_STOPBITS_1,
+      .Parity = UART_PARITY_NONE,
+      .HwFlowCtl = UART_HWCONTROL_NONE,
+      .OverSampling = UART_OVERSAMPLING_16,
+    },
+  },
+};
+
+static UARTDevice HCI_TRACE_UART_DEVICE = {
+    .state = &s_hci_trace_uart_state,
+    .tx = {
+        .pad = PAD_PA20,
+        .func = USART3_TXD,
+        .flags = PIN_NOPULL,
+    },
+};
+UARTDevice *const HCI_TRACE_UART = &HCI_TRACE_UART_DEVICE;
+#endif // NIMBLE_HCI_SF32LB52_TRACE_BINARY
+
 static QSPIPortState s_qspi_port_state;
 static QSPIPort QSPI_PORT = {
     .state = &s_qspi_port_state,
