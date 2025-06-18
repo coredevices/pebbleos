@@ -12,18 +12,13 @@ def uses_dialog_bluetooth(ctx):
 
 
 def _recurse(ctx):
-    if ctx.env.bt_controller == 'cc2564x':
+    if ctx.env.bt_controller in ('cc2564x', 'nrf52', 'sf32lb52'):
         ctx.recurse('nimble')
     elif ctx.uses_dialog_bluetooth():
         # TODO: replace with real FW
         ctx.recurse('stub')
     elif ctx.env.bt_controller == 'qemu':
         ctx.recurse('qemu')
-    elif ctx.env.bt_controller == 'nrf52':
-        ctx.recurse('nimble')
-    elif ctx.env.bt_controller == 'sf32lb52':
-        # TODO(SF32LB52): replace with nimble once supported
-        ctx.recurse('stub')
     else:
         ctx.fatal('Invalid bt controller {}'.format(ctx.env.bt_controller))
 
