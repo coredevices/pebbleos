@@ -42,6 +42,7 @@
 #include "applib/ui/kino/kino_layer.h"
 #include "applib/ui/kino/kino_reel.h"
 #include "applib/ui/layer.h"
+#include "applib/ui/qr_code.h"
 #include "applib/ui/text_layer.h"
 #include "applib/ui/window.h"
 #include "applib/ui/window_private.h"
@@ -68,10 +69,13 @@
 typedef struct RecoveryFUAppData {
   Window launch_app_window;
 
+#if PLATFORM_ASTERIX
+  QRCode qr_code;
+#else
   KinoLayer kino_layer;
-
   TextLayer url_text_layer;
   char url_text_buffer[URL_BUFFER_SIZE];
+#endif
   bool is_showing_version;
   TextLayer name_text_layer;
   char name_text_buffer[NAME_BUFFER_SIZE];
@@ -94,6 +98,10 @@ typedef struct RecoveryFUAppData {
 
   GettingStartedButtonComboState button_combo_state;
 } RecoveryFUAppData;
+
+#if PLATFORM_ASTERIX
+static const char *s_qr_url = "https://app.repebble.com/qr";
+#endif
 
 // Unfortunately, the event_service_client_subscribe doesn't take a void *context...
 static RecoveryFUAppData *s_fu_app_data;
@@ -160,6 +168,7 @@ static void prv_click_configure(void* context) {
 ////////////////////////////////////////////////////////////
 // Windows
 
+#if !PLATFORM_ASTERIX
 static void prv_update_background_image_and_url_text(RecoveryFUAppData *data) {
   uint32_t icon_res_id;
   const char *url_string;
@@ -169,16 +178,6 @@ static void prv_update_background_image_and_url_text(RecoveryFUAppData *data) {
   int16_t icon_y_offset;
   int16_t text_y_offset;
 
-#if PLATFORM_ASTERIX
-  icon_res_id = RESOURCE_ID_LAUNCH_APP;
-  icon_x_offset = 17;
-  icon_y_offset = 22;
-  text_y_offset = 124;
-
-  // Icon is a QR with URL to install/launch app
-  url_string = "";
-  background = GColorWhite;
-#else
   // Have we gone through first use before? If not, show first use UI. Otherwise show recovery UI.
   const bool first_use_is_complete = shared_prf_storage_get_getting_started_complete();
 
@@ -225,7 +224,6 @@ static void prv_update_background_image_and_url_text(RecoveryFUAppData *data) {
     url_string = "pebble.com/app";
     background = PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite);
   }
-#endif
 
   // Create the icon
   KinoReel *icon_reel = kino_reel_create_with_resource(icon_res_id);
@@ -246,6 +244,7 @@ static void prv_update_background_image_and_url_text(RecoveryFUAppData *data) {
   data->url_text_layer.layer.frame.origin.y = text_y_offset;
   text_layer_set_text(&data->url_text_layer, url_string);
 }
+#endif
 
 static void prv_update_name_text(RecoveryFUAppData *data) {
   const GAPLEConnection *gap_conn = gap_le_connection_any();
@@ -278,8 +277,9 @@ static void prv_update_name_text(RecoveryFUAppData *data) {
   }
   text_layer_set_text(&data->name_text_layer, data->name_text_buffer);
 
+#if !PLATFORM_ASTERIX
   // Set the name font
-#if !PLATFORM_ROBERT && !PLATFORM_CALCULUS && !PLATFORM_ASTERIX
+#if !PLATFORM_ROBERT && !PLATFORM_CALCULUS
   const bool first_use_is_complete = shared_prf_storage_get_getting_started_complete();
   const char *name_font_key;
   if (first_use_is_complete || data->has_pebble_mobile_app_connected || data->is_showing_version) {
@@ -317,11 +317,33 @@ static void prv_update_name_text(RecoveryFUAppData *data) {
 #endif
   const GRect frame = { { text_x_offset, text_y_offset }, content_size };
   layer_set_frame(&data->name_text_layer.layer, &frame);
+#endif
 }
 
 static void prv_window_load(Window* window) {
   struct RecoveryFUAppData *data = (struct RecoveryFUAppData*) window_get_user_data(window);
 
+#if PLATFORM_ASTERIX
+  QRCode* qr_code = &data->qr_code;
+  qr_code_init_with_parameters(qr_code,
+                               &GRect(10, 10, window->layer.bounds.size.w - 20,
+                                      window->layer.bounds.size.h - 30),
+                               s_qr_url, strlen(s_qr_url), QRCodeECCMedium,
+                               GColorBlack, GColorWhite);
+  layer_add_child(&window->layer, &qr_code->layer);
+
+  TextLayer* name_text_layer = &data->name_text_layer;
+  text_layer_init_with_parameters(name_text_layer,
+                                  &GRect(0, window->layer.bounds.size.h - 20,
+                                         window->layer.bounds.size.w, 20),
+                                  NULL, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                                  GColorBlack, GColorWhite, GTextAlignmentCenter,
+                                  GTextOverflowModeTrailingEllipsis);
+  layer_add_child(&window->layer, &name_text_layer->layer);
+  data->is_showing_version = false;
+
+  prv_update_name_text(data);
+#else
   KinoLayer *kino_layer = &data->kino_layer;
   kino_layer_init(kino_layer, &window->layer.bounds);
   layer_add_child(&window->layer, &kino_layer->layer);
@@ -355,6 +377,7 @@ static void prv_window_load(Window* window) {
 
   prv_update_background_image_and_url_text(data);
   prv_update_name_text(data);
+#endif
 }
 
 static void prv_push_window(struct RecoveryFUAppData* data) {
@@ -405,7 +428,9 @@ static void prv_pebble_mobile_app_event_handler(PebbleEvent *event, void *contex
     s_fu_app_data->has_pebble_mobile_app_connected = true;
     gap_le_device_name_request_all();
   }
+#if !PLATFORM_ASTERIX
   prv_update_background_image_and_url_text(s_fu_app_data);
+#endif
   prv_update_name_text(s_fu_app_data);
 }
 
@@ -477,7 +502,9 @@ static void handle_deinit(void) {
 
   getting_started_button_combo_deinit(&data->button_combo_state);
 
+#if !PLATFORM_ASTERIX
   kino_layer_deinit(&data->kino_layer);
+#endif
 
   event_service_client_unsubscribe(&data->pebble_mobile_app_event_info);
   event_service_client_unsubscribe(&data->bt_connection_event_info);
