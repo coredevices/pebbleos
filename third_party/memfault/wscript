@@ -13,14 +13,6 @@ def configure(conf):
     else:
         conf.env.memfault = int(conf.env.memfault)
 
-    if conf.env.memfault:
-        # For Memfault build id, we want to make sure LTO does not force inline
-        # TODO for some reason, this is applying to jerryscript link step, which we don't want.
-        # conf.env.append_value(
-        #     "LINKFLAGS", ["-Wl,--require-defined=g_memfault_build_id"]
-        # )
-        pass
-
     MEMFAULT = conf.env.memfault
     conf.env.append_value("DEFINES", [f"MEMFAULT={MEMFAULT}"])
 
