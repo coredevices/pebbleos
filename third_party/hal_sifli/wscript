@@ -10,9 +10,20 @@ def configure(conf):
 def build(bld):
     micro_sources = bld.path.ant_glob('SiFli-SDK/drivers/hal/*.c', excl=['**/bf0_hal_audcodec.c'])
 
+    micro_sources += [
+        'SiFli-SDK/middleware/ipc_queue/common/circular_buf.c',
+        'SiFli-SDK/middleware/ipc_queue/common/ipc_hw.c',
+        'SiFli-SDK/middleware/ipc_queue/common/ipc_queue.c',
+    ]
+
     if bld.env.MICRO_FAMILY == 'SF32LB52':
         micro_sources += [
             'SiFli-SDK/drivers/cmsis/sf32lb52x/bf0_pin_const.c',
+            'SiFli-SDK/drivers/cmsis/sf32lb52x/bf0_lcpu_init.c',
+            'SiFli-SDK/drivers/cmsis/sf32lb52x/lcpu_patch.c',
+            'SiFli-SDK/drivers/cmsis/sf32lb52x/lcpu_patch_rev_b.c',
+            'SiFli-SDK/drivers/cmsis/sf32lb52x/bt_rf_fulcal.c',
+            'SiFli-SDK/middleware/ipc_queue/porting/sf32lb52x/hcpu/ipc_hw_port.c',
             'sf32lb52/system_bf0_ap.c',
         ]
 
@@ -21,12 +32,15 @@ def build(bld):
         'SiFli-SDK/drivers/Include',
         'SiFli-SDK/drivers/cmsis/Include',
         'SiFli-SDK/external/CMSIS/Include',
+        'SiFli-SDK/middleware/include',
+        'SiFli-SDK/middleware/ipc_queue/common',
     ]
 
     if bld.env.MICRO_FAMILY == 'SF32LB52':
         micro_includes += [
             'sf32lb52',
             'SiFli-SDK/drivers/cmsis/sf32lb52x',
+            'SiFli-SDK/middleware/ipc_queue/porting/sf32lb52x/hcpu',
         ]
 
     bld.env.append_unique(
