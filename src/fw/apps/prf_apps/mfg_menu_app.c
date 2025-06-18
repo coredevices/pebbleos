@@ -20,6 +20,7 @@
 #include "applib/ui/window_private.h"
 #include "apps/prf_apps/mfg_accel_app.h"
 #include "apps/prf_apps/mfg_als_app.h"
+#include "apps/prf_apps/mfg_bt_device_name_app.h"
 #include "apps/prf_apps/mfg_bt_sig_rf_app.h"
 #include "apps/prf_apps/mfg_btle_app.h"
 #include "apps/prf_apps/mfg_button_app.h"
@@ -67,6 +68,10 @@ static GBitmap *s_menu_icons[2];
 //! Callback to run from the kernel main task
 static void prv_launch_app_cb(void *data) {
   app_manager_launch_new_app(&(AppLaunchConfig) { .md = data });
+}
+
+static void prv_select_bt_device_name(int index, void *context) {
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_bt_device_name_app_get_info());
 }
 
 #if PBL_ROUND
@@ -186,7 +191,7 @@ static size_t prv_create_menu_items(SimpleMenuItem** out_menu_items) {
 
   // Define a const blueprint on the stack.
   const SimpleMenuItem s_menu_items[] = {
-    { .title = "BT Device Name" },
+    { .title = "BT Device Name",    .callback = prv_select_bt_device_name },
     { .title = "Device Serial" },
 #if PBL_ROUND
     { .title = "Calibrate Display", .callback = prv_select_calibrate_display },
