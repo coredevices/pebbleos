@@ -240,7 +240,10 @@ def _generate_memory_layout(bld):
         app_ram_size_2x = APP_RAM_SIZES['aplite']
         app_ram_size_3x = APP_RAM_SIZES['aplite']
         app_ram_size_4x = APP_RAM_SIZES['diorite']
-        total_ram = (0x20000000, 512 * 1024)
+        # We have 512K of SRAM, last 1K reserved for LCPU IPC
+        # FIXME(SF32LB52): due to MPU find_subregions_for_region assuming
+        # ARMv7 subregion limitations, we need to reserve 32K!
+        total_ram = (0x20000000, (512 - 32) * 1024)
     else:
         bld.fatal("No set of supported SDK platforms defined for this board")
 
