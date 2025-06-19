@@ -1,9 +1,6 @@
 import waftools.cc2564_service_pack_convert
 
 
-def configure(conf):
-    pass
-
 def build(bld):
     service_pack_bin_bld_node = bld.srcnode.get_bld().make_node(
         'resources/common/raw/bt_patch.bin'

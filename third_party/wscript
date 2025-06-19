@@ -1,31 +1,34 @@
-def _recurse(ctx):
-    ctx.recurse('cmsis_core')
-    ctx.recurse('freertos')
-    ctx.recurse('nanopb')
-    ctx.recurse('tinymt')
-    ctx.recurse('qr_code_generator')
-
-    if ctx.env.MICRO_FAMILY.startswith('STM32'):
-        ctx.recurse('hal_stm32')
-    elif ctx.env.MICRO_FAMILY.startswith('NRF'):
-        ctx.recurse('hal_nordic')
-    elif ctx.env.MICRO_FAMILY.startswith('SF32'):
-        ctx.recurse('hal_sifli')
-
-    if ctx.env.bt_controller in ('cc2564x', 'nrf52', 'sf32lb52'):
-        ctx.recurse('nimble')
-
-    if ctx.env.bt_controller == 'cc2564x':
-        ctx.recurse('ti_bt_sp')
-
-    ctx.recurse('memfault')
-
 def options(opt):
     opt.recurse('memfault')
     opt.recurse('nimble')
 
+
 def configure(conf):
-    _recurse(conf)
+    conf.recurse('hal_nordic')
+    conf.recurse('hal_sifli')
+    conf.recurse('hal_stm32')
+    conf.recurse('memfault')
+    conf.recurse('nimble')
+
 
 def build(bld):
-    _recurse(bld)
+    bld.recurse('cmsis_core')
+    bld.recurse('freertos')
+    bld.recurse('nanopb')
+    bld.recurse('tinymt')
+    bld.recurse('qr_code_generator')
+
+    if bld.env.MICRO_FAMILY.startswith('STM32'):
+        bld.recurse('hal_stm32')
+    elif bld.env.MICRO_FAMILY.startswith('NRF'):
+        bld.recurse('hal_nordic')
+    elif bld.env.MICRO_FAMILY.startswith('SF32'):
+        bld.recurse('hal_sifli')
+
+    if bld.env.bt_controller in ('cc2564x', 'nrf52', 'sf32lb52'):
+        bld.recurse('nimble')
+
+    if bld.env.bt_controller == 'cc2564x':
+        bld.recurse('ti_bt_sp')
+
+    bld.recurse('memfault')

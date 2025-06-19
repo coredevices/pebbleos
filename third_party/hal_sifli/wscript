@@ -1,8 +1,10 @@
 def configure(conf):
-    conf.env.append_unique('DEFINES', 'USE_HAL_DRIVER')
-    conf.env.append_unique('DEFINES', 'SOC_BF0_HCPU')
-    conf.env.append_unique('DEFINES', 'HAL_TICK_PER_SECOND=1024')
-    conf.env.append_unique('DEFINES', 'HAL_NMI_HANLDER_OVERRIDED')
+    if conf.env.MICRO_FAMILY.startswith('SF32'):
+        conf.env.append_unique('DEFINES', 'USE_HAL_DRIVER')
+        conf.env.append_unique('DEFINES', 'SOC_BF0_HCPU')
+        conf.env.append_unique('DEFINES', 'HAL_TICK_PER_SECOND=1024')
+        conf.env.append_unique('DEFINES', 'HAL_NMI_HANLDER_OVERRIDED')
+
     if conf.env.MICRO_FAMILY == 'SF32LB52':
         conf.env.append_unique('DEFINES', 'SF32LB52X')
 
