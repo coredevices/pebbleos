@@ -136,7 +136,19 @@ exit:
   return size;
 }
 
-bool qspi_flash_check_whoami(QSPIFlash *dev) { return true; }
+bool qspi_flash_check_whoami(QSPIFlash *dev) { 
+  QSPI_FLASH_CTX_T *ctx = &dev->qspi->state->ctx;
+  uint32_t id = ctx->dev_id;
+
+  if (id == dev->state->part->qspi_id_value) {
+    PBL_LOG(LOG_LEVEL_INFO, "Flash is %s", dev->state->part->name);
+    return true;
+  } else {
+    PBL_LOG(LOG_LEVEL_ERROR, "Flash isn't expected %s (whoami: 0x%" PRIx32 ")",
+            dev->state->part->name, id);
+    return false;
+  }
+}
 
 status_t qspi_flash_write_protection_enable(QSPIFlash *dev) { return S_NO_ACTION_REQUIRED; }
 
