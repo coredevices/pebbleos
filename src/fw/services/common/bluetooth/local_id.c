@@ -44,7 +44,7 @@ static void prv_set_default_device_name(void) {
 #if (PLATFORM_SNOWY || PLATFORM_SPALDING || PLATFORM_ROBERT)
   const char *s_local_default_device_name_format = "Pebble Time %02X%02X";
   const char *s_local_default_le_device_name_format = "Pebble Time LE %02X%02X";
-#elif PLATFORM_ASTERIX
+#elif PLATFORM_ASTERIX || PLATFORM_OBELIX
   const char *s_local_default_device_name_format = "Core %02X%02X";
   const char *s_local_default_le_device_name_format = "Core %02X%02X";
 #else
