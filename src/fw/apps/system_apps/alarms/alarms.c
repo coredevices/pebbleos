@@ -439,9 +439,18 @@ static void prv_handle_init(void) {
   event_service_client_subscribe(&data->alarm_event_info);
 
   if (prv_are_alarms_scheduled(data)) {
+    int list_idx = 1; // Default to first alarm entry in list
+    if (app_launch_reason() == APP_LAUNCH_TIMELINE_ACTION) {
+      AlarmId alarm_id = (AlarmId)app_launch_get_args();
+      list_idx = prv_get_list_idx_of_alarm_id(data, alarm_id);
+      if (list_idx == 0) {
+        list_idx = 1; // Default to first alarm if idx not found
+      }
+    }
+
     app_window_stack_push(&data->window, true);
-    menu_layer_set_selected_index(&data->menu_layer, MenuIndex(0, 1),
-                                  PBL_IF_RECT_ELSE(MenuRowAlignNone, MenuRowAlignCenter), false);
+    menu_layer_set_selected_index(&data->menu_layer, MenuIndex(0, list_idx),
+                                  MenuRowAlignCenter, false);
   } else {
     Window *editor = alarm_editor_create_new_alarm(prv_handle_alarm_editor_complete, data);
     app_window_stack_push(editor, true);

@@ -42,8 +42,9 @@ static void prv_set_pin_attributes(AttributeList *list, AlarmType type, AlarmKin
 }
 
 // ----------------------------------------------------------------------------------------------
-static void prv_set_edit_action_attributes(AttributeList *list) {
+static void prv_set_edit_action_attributes(AttributeList *list, AlarmId id) {
   attribute_list_add_cstring(list, AttributeIdTitle, i18n_get("Edit", list));
+  attribute_list_add_uint32(list, AttributeIdLaunchCode, (uint32_t) id);
 }
 
 // ----------------------------------------------------------------------------------------------
@@ -53,10 +54,11 @@ void alarm_pin_add(time_t alarm_time, AlarmId id, AlarmType type, AlarmKind kind
     .num_actions = num_actions,
     .actions = task_zalloc_check(sizeof(TimelineItemAction) * num_actions),
   };
+
   AttributeList edit_attr_list = {0};
-  prv_set_edit_action_attributes(&edit_attr_list);
+  prv_set_edit_action_attributes(&edit_attr_list, id);
   action_group.actions[0] = (TimelineItemAction) {
-    .id = (uint8_t) id, // id is guarenteed to be valid here, and we only support 10 alarms
+    .id = (uint8_t) id, // id is guaranteed to be valid here, and we only support 10 alarms
     .type = TimelineItemActionTypeOpenWatchApp,
     .attr_list = edit_attr_list,
   };
