@@ -22,9 +22,6 @@
 [submodule "third_party/tinymt/TinyMT"]
 	path = third_party/tinymt/TinyMT
 	url = https://github.com/MersenneTwister-Lab/TinyMT
-[submodule "third_party/pebble-nonfree"]
-	path = third_party/pebble-nonfree
-	url = https://github.com/pebble-dev/pebble-nonfree.git
 [submodule "third_party/hal_sifli/SiFli-SDK"]
 	path = third_party/hal_sifli/SiFli-SDK
 	url = https://github.com/coredevices/SiFli-SDK.git
@@ -34,3 +31,6 @@
 [submodule "third_party/qr_code_generator/QR-Code-generator"]
 	path = third_party/qr_code_generator/QR-Code-generator
 	url = https://github.com/nayuki/QR-Code-generator
+[submodule "third_party/nonfree/pebbleos-nonfree"]
+	path = third_party/nonfree/pebbleos-nonfree
+	url = https://github.com/coredevices/pebbleos-nonfree
