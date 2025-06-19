@@ -439,7 +439,7 @@
     {
       "type": "raw",
       "name": "AS7000_FW_IMAGE",
-      "file": "../third_party/nonfree/pebbleos-nonfree/drivers/hrm/as7000/as7000_fw_image.bin",
+      "file": "../third_party/nonfree/pebbleos-nonfree/as7000/as7000_fw_image.bin",
       "builtin": true
     }
   ]
