@@ -76,3 +76,6 @@ bool alerts_preferences_dnd_is_smart_enabled(void);
 
 void alerts_preferences_dnd_set_smart_enabled(bool enable);
 
+bool alerts_preferences_get_delayed_vibration(void);
+
+void alerts_preferences_set_delayed_vibration(bool enable);
