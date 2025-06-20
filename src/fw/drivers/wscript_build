@@ -305,12 +305,23 @@ if mcu_family in ('STM32F4', 'STM32F7'):
             'stm32_stdlib',
         ],
     )
-elif mcu_family in ('NRF52840', 'SF32LB52'):
-    # FIXME(NRF52840,SF32LB52): provide working implementation
+elif mcu_family in ('NRF52840'):
+    # FIXME(NRF52840): provide working implementation
     bld.objects(
         name='driver_temperature',
         source=[
             'stubs/temperature.c',
+        ],
+        use=[
+            'fw_includes',
+        ],
+    )
+elif mcu_family in ('SF32LB52'):
+    # FIXME(SF32LB52): provide working implementation
+    bld.objects(
+        name='driver_temperature',
+        source=[
+            'sf32lb52/temperature.c',
         ],
         use=[
             'fw_includes',
