@@ -24,6 +24,8 @@
 #include "comm/ble/gap_le_device_name.h"
 #include "comm/ble/gap_le_connect.h"
 #include "drivers/backlight.h"
+#include "mfg/mfg_info.h"
+#include "mfg/mfg_serials.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
 
@@ -60,9 +62,11 @@
 
 #include <bluetooth/classic_connect.h>
 
+#include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 
+#define QR_URL_BUFFER_SIZE 72
 #define URL_BUFFER_SIZE 32
 #define NAME_BUFFER_SIZE (BT_DEVICE_NAME_BUFFER_SIZE + 2)
 
@@ -71,6 +75,7 @@ typedef struct RecoveryFUAppData {
 
 #if PLATFORM_ASTERIX
   QRCode qr_code;
+  char qr_url_buffer[QR_URL_BUFFER_SIZE];
 #else
   KinoLayer kino_layer;
   TextLayer url_text_layer;
@@ -100,7 +105,7 @@ typedef struct RecoveryFUAppData {
 } RecoveryFUAppData;
 
 #if PLATFORM_ASTERIX
-static const char *s_qr_url = "https://app.repebble.com/qr";
+static const char *s_qr_url_fmt = "https://app.repebble.com/qr?sn=%s&model=%s";
 #endif
 
 // Unfortunately, the event_service_client_subscribe doesn't take a void *context...
@@ -324,11 +329,19 @@ static void prv_window_load(Window* window) {
   struct RecoveryFUAppData *data = (struct RecoveryFUAppData*) window_get_user_data(window);
 
 #if PLATFORM_ASTERIX
+  char serial_number[MFG_SERIAL_NUMBER_SIZE + 1];
+  char model_name[MFG_INFO_MODEL_STRING_LENGTH];
+
+  mfg_info_get_serialnumber(serial_number, sizeof(serial_number));
+  mfg_info_get_model(model_name);
+
+  snprintf(data->qr_url_buffer, QR_URL_BUFFER_SIZE, s_qr_url_fmt, serial_number, model_name);
+
   QRCode* qr_code = &data->qr_code;
   qr_code_init_with_parameters(qr_code,
                                &GRect(10, 10, window->layer.bounds.size.w - 20,
                                       window->layer.bounds.size.h - 30),
-                               s_qr_url, strlen(s_qr_url), QRCodeECCMedium,
+                               data->qr_url_buffer, strlen(data->qr_url_buffer), QRCodeECCMedium,
                                GColorBlack, GColorWhite);
   layer_add_child(&window->layer, &qr_code->layer);
 
