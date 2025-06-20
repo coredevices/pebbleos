@@ -5,6 +5,9 @@ on:
     tags:
       - v*
 
+env:
+  MEMFAULT_CLI_VERSION: "1.6.0"
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -83,6 +86,7 @@ jobs:
         run: |
           mkdir -p artifacts
           cp build/src/fw/tintin_fw.hex artifacts/firmware_${{ matrix.board }}_${{github.ref_name}}.hex
+          cp build/src/fw/tintin_fw.elf artifacts/firmware_${{ matrix.board }}_${{github.ref_name}}.elf
           cp build/*.pbz artifacts
 
       - name: Get Build ID
@@ -146,6 +150,27 @@ jobs:
         with:
           name: artifacts-${{ matrix.board }}
           path: artifacts
+
+      - name: Upload to Memfault
+        run: |
+          pip install memfault-cli==${MEMFAULT_CLI_VERSION}
+
+          memfault \
+            --org-token ${{ secrets.MEMFAULT_ORG_TOKEN }} \
+            --org ${{ secrets.MEMFAULT_ORG }} \
+            --project ${{ secrets.MEMFAULT_PROJECT }} \
+            upload-mcu-symbols \
+            artifacts/firmware_${{ matrix.board }}_${{github.ref_name}}.elf
+
+          memfault \
+            --org-token ${{ secrets.MEMFAULT_ORG_TOKEN }} \
+            --org ${{ secrets.MEMFAULT_ORG }} \
+            --project ${{ secrets.MEMFAULT_PROJECT }} \
+            upload-ota-payload \
+            --hardware-version ${{ matrix.board }} \
+            --software-type pebbleos \
+            --software-version ${{ github.ref_name }} \
+            artifacts/normal_${{ matrix.board }}_${{ github.ref_name }}.pbz
 
   release:
     runs-on: ubuntu-24.04
