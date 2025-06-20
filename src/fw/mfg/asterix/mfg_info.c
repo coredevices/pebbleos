@@ -41,7 +41,7 @@ static MfgData prv_fetch_struct(void) {
   if (result.data_version != CURRENT_DATA_VERSION) {
       result.data_version = CURRENT_DATA_VERSION;
       result.color = WATCH_INFO_COLOR_COREDEVICES_C2D_BLACK;
-      strncpy(result.model, "1002", sizeof(result.model));
+      strncpy(result.model, "asterix", sizeof(result.model));
       result.model[MFG_INFO_MODEL_STRING_LENGTH - 1] = '\0';
   }
 
