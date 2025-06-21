@@ -1601,6 +1601,9 @@ def _check_firmware_image_size(ctx, path):
         ctx.fatal('Cannot check firmware size against unknown micro family "{}"'
                   .format(ctx.env.MICRO_FAMILY))
 
+    if ctx.env.QEMU:
+        max_firmware_size = (4096 - 16) * BYTES_PER_K
+
     if firmware_size > max_firmware_size:
         raise FirmwareTooLargeException('Firmware is too large! Size is 0x%x should be less than 0x%x' \
                                         % (firmware_size, max_firmware_size))
