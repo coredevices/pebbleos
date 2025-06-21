@@ -11,6 +11,7 @@
 #include "memfault/ports/freertos.h"
 #include "memfault/ports/freertos_coredump.h"
 #include "memfault/ports/reboot_reason.h"
+#include "memfault_chunk_collector.h"
 
 #include "mfg/mfg_serials.h"
 #include "os/mutex.h"
@@ -152,6 +153,7 @@ int memfault_platform_boot(void) {
 
   memfault_build_info_dump();
   memfault_device_info_dump();
+  init_memfault_chunk_collection();
   MEMFAULT_LOG_INFO("Memfault Initialized!");
 
   return 0;
