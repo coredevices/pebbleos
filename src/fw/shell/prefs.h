@@ -111,6 +111,8 @@ void shell_prefs_set_should_prompt_display_calibration(bool should_prompt);
 
 uint8_t timeline_prefs_get_settings_opened(void);
 void timeline_prefs_set_settings_opened(uint8_t version);
+void timeline_prefs_set_past_on_up(bool enabled);
+bool timeline_prefs_get_past_on_up(void);
 void timeline_peek_prefs_set_enabled(bool enabled);
 bool timeline_peek_prefs_get_enabled(void);
 void timeline_peek_prefs_set_before_time(uint16_t before_time_m);

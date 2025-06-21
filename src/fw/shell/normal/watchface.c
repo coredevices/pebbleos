@@ -34,6 +34,7 @@
 #include "services/normal/notifications/do_not_disturb.h"
 #include "system/logging.h"
 #include "system/passert.h"
+#include "shell/prefs.h"
 
 #define QUICK_LAUNCH_HOLD_MS (400)
 
@@ -122,16 +123,20 @@ static void prv_launch_launcher_app(ClickRecognizerRef recognizer, void *data) {
 }
 
 #if CAPABILITY_HAS_CORE_NAVIGATION4
-static void prv_launch_health_app(ClickRecognizerRef recognizer, void *data) {
-  prv_launch_app_via_button(&(AppLaunchEventConfig) {
-    .id = APP_ID_HEALTH_APP,
-  }, recognizer);
+static void prv_launch_health_or_timeline(ClickRecognizerRef recognizer, void *data) {
+  if(timeline_prefs_get_past_on_up()) {
+    prv_launch_timeline(recognizer, data);
+  } else {
+    prv_launch_app_via_button(&(AppLaunchEventConfig) {
+      .id = APP_ID_HEALTH_APP,
+    }, recognizer);
+  }
 }
 #endif // CAPABILITY_HAS_CORE_NAVIGATION4
 
 static ClickHandler prv_get_up_click_handler(void) {
 #if CAPABILITY_HAS_CORE_NAVIGATION4
-  return prv_launch_health_app;
+  return prv_launch_health_or_timeline;
 #else
   return prv_launch_timeline;
 #endif // CAPABILITY_HAS_CORE_NAVIGATION4
