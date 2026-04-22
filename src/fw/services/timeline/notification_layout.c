@@ -626,7 +626,7 @@ static NOINLINE void prv_card_render_internal(NotificationLayout *layout, GConte
     .text_flow = PBL_IF_ROUND_ELSE(true, false),
     .paging = PBL_IF_ROUND_ELSE(true, false),
   };
-  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   (text_visible ? graphics_text_node_draw :
                   graphics_text_node_get_size)(layout->view_node, ctx, &box, &config,
                                                &layout->view_size);

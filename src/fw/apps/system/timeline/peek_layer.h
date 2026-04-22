@@ -99,6 +99,9 @@ ImmutableAnimation *peek_layer_create_play_section_animation(PeekLayer *peek_lay
 //! Set the background color of the peek layer.
 void peek_layer_set_background_color(PeekLayer *peek_layer, GColor color);
 
+//! Set the text color of all peek layer text fields.
+void peek_layer_set_text_color(PeekLayer *peek_layer, GColor color);
+
 //! Sets the text of the peek layer text fields. The text is copied over.
 //! See the individual text field setters for more information about each field.
 void peek_layer_set_fields(PeekLayer *peek_layer, const char *number, const char *title,

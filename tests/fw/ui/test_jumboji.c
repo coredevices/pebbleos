@@ -27,6 +27,7 @@
 #include "stubs_pin_db.h"
 #include "stubs_resources.h"
 #include "stubs_shell_prefs.h"
+#include "stubs_system_theme.h"
 #include "stubs_text_node.h"
 #include "stubs_timeline_item.h"
 #include "stubs_timeline_resources.h"
