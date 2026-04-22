@@ -9,14 +9,15 @@
 #include "process_management/app_install_types.h"
 #include "process_management/app_manager.h"
 #include "pbl/services/compositor/compositor_transitions.h"
+#include "shell/prefs.h"
 
-#define WATCHFACE_SHUTTER_COLOR GColorWhite
 #define HEALTH_SHUTTER_COLOR PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite)
 #define ACTION_SHUTTER_COLOR PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite)
 
 static const CompositorTransition *prv_get_watchface_compositor_animation(
     CompositorTransitionDirection direction) {
-  return PBL_IF_RECT_ELSE(compositor_shutter_transition_get(direction, WATCHFACE_SHUTTER_COLOR),
+  return PBL_IF_RECT_ELSE(compositor_shutter_transition_get(direction,
+                                                            shell_prefs_get_theme_highlight_color()),
                           compositor_port_hole_transition_app_get(direction));
 }
 

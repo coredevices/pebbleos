@@ -4,6 +4,7 @@
 #pragma once
 
 #include "applib/fonts/fonts.h"
+#include "applib/graphics/gtypes.h"
 #include "applib/platform.h"
 #include "applib/preferred_content_size.h"
 
@@ -96,3 +97,14 @@ PreferredContentSize system_theme_get_default_content_size_for_runtime_platform(
 //! platform
 PreferredContentSize system_theme_convert_host_content_size_to_runtime_platform(
     PreferredContentSize size);
+
+//! @return true if the current app context should render in dark mode (system apps only).
+bool system_theme_is_dark_mode(void);
+
+//! @return The background color appropriate for the current theme (black in dark mode on color
+//!         displays, white otherwise).
+GColor system_theme_get_bg_color(void);
+
+//! @return The foreground color appropriate for the current theme (white in dark mode on color
+//!         displays, black otherwise).
+GColor system_theme_get_fg_color(void);
