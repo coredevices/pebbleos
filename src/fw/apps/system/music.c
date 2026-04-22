@@ -822,7 +822,9 @@ static void prv_no_music_window_click_config(void *context) {
 static MusicNoMusicWindow *prv_create_no_music_window(void) {
   MusicNoMusicWindow *window = app_malloc_check(sizeof(MusicNoMusicWindow));
   window_init(&window->window, WINDOW_NAME("NoMusicWindow"));
-  window_set_background_color(&window->window, PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite));
+  window_set_background_color(&window->window, PBL_IF_COLOR_ELSE(
+    system_theme_is_dark_mode() ? GColorDarkGray : GColorLightGray,
+    GColorWhite));
   window_set_window_handlers(&window->window, &(WindowHandlers) {
       .unload = prv_unload_no_music_window
   });
@@ -845,7 +847,7 @@ static MusicNoMusicWindow *prv_create_no_music_window(void) {
                                   &NO_MUSIC_TEXT_RECT,
                                   i18n_get("START PLAYBACK\nON YOUR PHONE", window),
                                   fonts_get_system_font(config->no_music_font_key),
-                                  GColorBlack, GColorClear, GTextAlignmentCenter,
+                                  system_theme_get_fg_color(), GColorClear, GTextAlignmentCenter,
                                   GTextOverflowModeTrailingEllipsis);
   layer_add_child(&window->window.layer, &window->bitmap_layer.layer);
   layer_add_child(&window->window.layer, &window->text_layer.layer);
@@ -985,7 +987,7 @@ static void prv_configure_music_text_layer(
     TextLayer *text_layer, char* text_buffer, const GRect *rect, int16_t y_offset,
     GTextAlignment align, GFont font) {
   text_layer_init_with_parameters(text_layer, rect, text_buffer, font,
-                                  GColorBlack, GColorClear, align, GTextOverflowModeFill);
+                                  system_theme_get_fg_color(), GColorClear, align, GTextOverflowModeFill);
   layer_set_bounds(&text_layer->layer, &GRect(0, -y_offset,
                                               rect->size.w, rect->size.h + y_offset));
 }
@@ -1418,7 +1420,9 @@ static void prv_apply_art_appearance(MusicAppData *data) {
 static void prv_init_ui(Window *window) {
   MusicAppData *data = window_get_user_data(window);
 
-  window_set_background_color(window, PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite));
+  window_set_background_color(window, PBL_IF_COLOR_ELSE(
+    system_theme_is_dark_mode() ? GColorDarkGray : GColorLightGray,
+    GColorWhite));
 
   const GSize WINDOW_SIZE = window->layer.bounds.size;
 
@@ -1501,7 +1505,7 @@ static void prv_init_ui(Window *window) {
 
   progress_layer_init(&data->track_pos_bar, &track_rect);
   progress_layer_set_background_color(&data->track_pos_bar,
-                                      PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite));
+                                      PBL_IF_COLOR_ELSE(system_theme_get_bg_color(), GColorWhite));
   progress_layer_set_foreground_color(&data->track_pos_bar,
                                       PBL_IF_COLOR_ELSE(GColorRed, GColorBlack));
   progress_layer_set_corner_radius(&data->track_pos_bar, config->track_corner_radius);
@@ -1520,7 +1524,7 @@ static void prv_init_ui(Window *window) {
                                                           WINDOW_SIZE.w);
   status_layer_frame.size.w = STATUS_BAR_LAYER_WIDTH;
   layer_set_frame(&status_layer->layer, &status_layer_frame);
-  status_bar_layer_set_colors(&data->status_layer, GColorClear, GColorBlack);
+  status_bar_layer_set_colors(&data->status_layer, GColorClear, system_theme_get_fg_color());
   layer_add_child(&data->window.layer, &status_layer->layer);
 
   music_get_pos(&data->track_pos, &data->track_length);

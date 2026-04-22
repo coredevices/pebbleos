@@ -17,6 +17,7 @@
 #include "pbl/services/timeline/timeline.h"
 #include "resource/resource_ids.auto.h"
 #include <pbl/logging/logging.h>
+#include "shell/system_theme.h"
 
 // Health app versions
 // 0: Invalid (app was never opened)
@@ -84,8 +85,8 @@ static void prv_show_insights_onboarding_dialog(void) {
       "Insights Onboarding",
       RESOURCE_ID_HEALTH_ICON_MOON,
       text,
-      GColorBlack,
-      GColorWhite,
+      system_theme_get_fg_color(),
+      system_theme_get_bg_color(),
       NULL,
       RESOURCE_ID_ACTION_BAR_ICON_CHECK,
       expandable_dialog_close_cb);

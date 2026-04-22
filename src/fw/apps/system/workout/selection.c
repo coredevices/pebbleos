@@ -176,7 +176,7 @@ WorkoutSelectionWindow *workout_selection_push(SelectWorkoutCallback select_work
     .draw_row = prv_draw_row_callback,
     .select_click = prv_select_callback,
   });
-  menu_layer_set_normal_colors(menu_layer, GColorWhite, GColorBlack);
+  menu_layer_set_normal_colors(menu_layer, system_theme_get_bg_color(), system_theme_get_fg_color());
   menu_layer_set_highlight_colors(menu_layer,
                                   PBL_IF_COLOR_ELSE(GColorYellow, GColorBlack),
                                   PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite));

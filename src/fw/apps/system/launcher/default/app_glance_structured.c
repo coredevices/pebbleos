@@ -13,6 +13,7 @@
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/timeline/attribute.h"
 #include "shell/prefs.h"
+#include "shell/system_theme.h"
 #include "system/passert.h"
 #include "pbl/util/attributes.h"
 #include "pbl/util/string.h"
@@ -87,16 +88,9 @@ static void prv_structured_glance_icon_bitmap_processor_post_func(
 
 GColor launcher_app_glance_structured_get_highlight_color(
     LauncherAppGlanceStructured *structured_glance) {
-#if PBL_COLOR
-  if (structured_glance->glance.is_highlighted) {
-    GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-    return gcolor_legible_over(highlight_bg);
-  } else {
-    return GColorBlack;
-  }
-#else
-  return structured_glance->glance.is_highlighted ? GColorWhite : GColorBlack;
-#endif
+  return structured_glance->glance.is_highlighted ?
+      gcolor_legible_over(shell_prefs_get_theme_highlight_color()) :
+      system_theme_get_fg_color();
 }
 
 static GColor prv_get_icon_tint_color(LauncherAppGlanceStructured *structured_glance) {
@@ -362,7 +356,7 @@ static GTextNode *prv_create_structured_glance_title_subtitle_node(
   GTextNode *title_node = prv_structured_glance_create_title_text_node(structured_glance);
   // We require a valid title node
   PBL_ASSERTN(title_node);
-  
+
   // Push the margin a bit closer
 #if PBL_DISPLAY_HEIGHT >= 200 && PBL_RECT
   title_node->margin.h = -3;

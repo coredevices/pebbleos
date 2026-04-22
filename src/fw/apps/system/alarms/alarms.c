@@ -360,7 +360,7 @@ static void prv_push_alarms_app_opened_dialog(AlarmsAppData *data) {
   const char *header = i18n_get("Smart Alarm", data);
   ExpandableDialog *expandable_dialog = expandable_dialog_create_with_params(
       header, RESOURCE_ID_SMART_ALARM_TINY, first_use_text,
-      GColorBlack, GColorWhite, NULL, RESOURCE_ID_ACTION_BAR_ICON_CHECK,
+      system_theme_get_fg_color(), system_theme_get_bg_color(), NULL, RESOURCE_ID_ACTION_BAR_ICON_CHECK,
       prv_alarms_app_opened_click_handler);
 
   expandable_dialog_set_action_bar_background_color(expandable_dialog, ALARMS_APP_HIGHLIGHT_COLOR);
@@ -410,8 +410,6 @@ static void prv_handle_init(void) {
   layer_add_child(&data->window.layer, menu_layer_get_layer(&data->menu_layer));
 
   status_bar_layer_init(&data->status_layer);
-  status_bar_layer_set_colors(&data->status_layer, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack),
-                              PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite));
   status_bar_layer_set_separator_mode(&data->status_layer, StatusBarLayerSeparatorModeNone);
   layer_add_child(&data->window.layer, status_bar_layer_get_layer(&data->status_layer));
 

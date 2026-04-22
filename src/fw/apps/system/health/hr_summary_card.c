@@ -24,6 +24,8 @@
 #define HEALTH_X_OFFSET ((DISP_COLS - LEGACY_2X_DISP_COLS) / 2)
 #define HEALTH_Y_OFFSET ((DISP_ROWS - LEGACY_2X_DISP_ROWS) / 2)
 
+#include "shell/system_theme.h"
+
 typedef struct HealthHrSummaryCardData {
   HealthData *health_data;
   HealthProgressBar progress_bar;
@@ -44,8 +46,8 @@ typedef struct HealthHrSummaryCardData {
 #define PROGRESS_BACKGROUND_COLOR (PBL_IF_COLOR_ELSE(GColorDarkCandyAppleRed, GColorBlack))
 #define PROGRESS_OUTLINE_COLOR (PBL_IF_COLOR_ELSE(GColorClear, GColorBlack))
 
-#define TEXT_COLOR (PBL_IF_COLOR_ELSE(GColorBulgarianRose, GColorBlack))
-#define CARD_BACKGROUND_COLOR (PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite))
+#define TEXT_COLOR (PBL_IF_COLOR_ELSE(GColorBulgarianRose, system_theme_get_fg_color()))
+#define CARD_BACKGROUND_COLOR (system_theme_get_bg_color())
 
 
 static void prv_pulsing_heart_timer_cb(void *context) {
@@ -192,6 +194,19 @@ static void prv_hr_detail_card_unload_callback(Window *window) {
 // API Functions
 //
 
+static bool prv_recolor_pulsing_heart_cb(GDrawCommand *command, uint32_t index, void *context) {
+  GColor stroke = gdraw_command_get_stroke_color(command);
+  GColor fill = gdraw_command_get_fill_color(command);
+
+  if (gcolor_equal(stroke, GColorBlack)) {
+    gdraw_command_set_stroke_color(command, GColorWhite);
+  }
+  if (gcolor_equal(fill, GColorWhite)) {
+    gdraw_command_set_fill_color(command, GColorClear);
+  }
+  return true;
+}
+
 Layer *health_hr_summary_card_create(HealthData *health_data) {
   // create base layer
   Layer *base_layer = layer_create_with_data(GRectZero, sizeof(HealthHrSummaryCardData));
@@ -218,6 +233,17 @@ Layer *health_hr_summary_card_create(HealthData *health_data) {
 #endif
     .timestamp_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
   };
+
+  if (system_theme_is_dark_mode() && data->pulsing_heart) {
+    const uint32_t num_frames = gdraw_command_sequence_get_num_frames(data->pulsing_heart);
+    for (uint32_t i = 0; i < num_frames; i++) {
+      GDrawCommandFrame *f = gdraw_command_sequence_get_frame_by_index(data->pulsing_heart, i);
+      if (f) {
+        gdraw_command_list_iterate(gdraw_command_frame_get_command_list(f),
+                                   prv_recolor_pulsing_heart_cb, NULL);
+      }
+    }
+  }
 
   data->pulsing_heart_timer = app_timer_register(0, prv_pulsing_heart_timer_cb, base_layer);
 
