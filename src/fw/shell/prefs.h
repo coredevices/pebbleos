@@ -276,3 +276,24 @@ void shell_prefs_set_music_show_progress_bar(bool enable);
 
 bool shell_prefs_get_music_show_album_art(void);
 void shell_prefs_set_music_show_album_art(bool enable);
+
+typedef struct DarkModeSchedule {
+  uint8_t from_hour;
+  uint8_t from_minute;
+  uint8_t to_hour;
+  uint8_t to_minute;
+} DarkModeSchedule;
+
+typedef enum DarkMode {
+  DarkModeOff = 0,
+  DarkModeOn = 1,
+  DarkModeAmbient = 2,  // Follows the ambient light sensor; dark mode when ambient light is low
+  DarkModeScheduled = 3, // Follows the configured start/end time schedule
+  DarkModeCount
+} DarkMode;
+
+DarkMode shell_prefs_get_dark_mode(void);
+void shell_prefs_set_dark_mode(DarkMode mode);
+
+void shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule_out);
+void shell_prefs_set_dark_mode_schedule(const DarkModeSchedule *schedule);

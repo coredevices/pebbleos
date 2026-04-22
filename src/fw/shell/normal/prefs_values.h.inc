@@ -73,3 +73,5 @@
   PREFS_MACRO(PREF_KEY_MUSIC_SHOW_VOLUME_CONTROLS, s_music_show_volume_controls)
   PREFS_MACRO(PREF_KEY_MUSIC_SHOW_PROGRESS_BAR, s_music_show_progress_bar)
   PREFS_MACRO(PREF_KEY_MUSIC_SHOW_ALBUM_ART, s_music_show_album_art)
+  PREFS_MACRO(PREF_KEY_DARK_MODE, s_dark_mode)
+  PREFS_MACRO(PREF_KEY_DARK_MODE_SCHEDULE, s_dark_mode_schedule)
