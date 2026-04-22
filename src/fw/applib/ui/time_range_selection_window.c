@@ -100,7 +100,7 @@ static void prv_text_layer_init(Window *window, TextLayer *text_layer, GRect *re
                                 const char *i18n_str) {
   const GFont subtitle_font = system_theme_get_font_for_default_size(TextStyleFont_Subtitle);
   text_layer_init_with_parameters(text_layer, rect, i18n_get(i18n_str, window),
-                                  subtitle_font, GColorBlack, GColorClear, GTextAlignmentCenter,
+                                  subtitle_font, system_theme_get_fg_color(), GColorClear, GTextAlignmentCenter,
                                   GTextOverflowModeTrailingEllipsis);
   layer_add_child(&window->layer, &text_layer->layer);
 }

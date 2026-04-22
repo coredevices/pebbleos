@@ -20,6 +20,7 @@
 #include "process_management/process_manager.h"
 #include "process_state/app_state/app_state.h"
 #include <pbl/logging/logging.h>
+#include "shell/system_theme.h"
 #include "system/passert.h"
 #include "syscall/syscall.h"
 
@@ -90,8 +91,8 @@ void prv_render_legacy2_system_status_bar(GContext *ctx, Window *window) {
     grect_clip(&ctx->draw_state.clip_box, &window->layer.frame);
 
     StatusBarLayerConfig config = {
-        .foreground_color = GColorWhite,
-        .background_color = GColorBlack,
+        .foreground_color = system_theme_get_fg_color(),
+        .background_color = system_theme_get_bg_color(),
         .mode = StatusBarLayerModeClock,
     };
     GRect frame = window->layer.frame;
@@ -186,7 +187,7 @@ void window_init(Window *window, const char* debug_name) {
   window->is_fullscreen = fullscreen;
   window->layer.window = window;
   window->layer.update_proc = window_do_layer_update_proc;
-  window->background_color = GColorWhite;
+  window->background_color = system_theme_get_bg_color();
   window->in_click_config_provider = false;
   window->is_waiting_for_click_config = false;
   window->parent_window_stack = NULL;

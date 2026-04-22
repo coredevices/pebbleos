@@ -29,8 +29,10 @@
 #include "stubs_passert.h"
 #include "stubs_pbl_malloc.h"
 #include "stubs_pebble_tasks.h"
-#include "stubs_ui_window.h"
 #include "stubs_process_manager.h"
+#include "stubs_shell_prefs.h"
+#include "stubs_system_theme.h"
+#include "stubs_ui_window.h"
 #include "stubs_unobstructed_area.h"
 #include "stubs_vibes.h"
 
