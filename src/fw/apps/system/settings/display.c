@@ -27,11 +27,17 @@
 #include <string.h>
 #include <inttypes.h>
 
+#include "applib/ui/time_range_selection_window.h"
+#include "pbl/services/clock.h"
+
 // Forward decl so the parent menu can push the Backlight submenu.
 static void prv_backlight_submenu_push(void);
 
 typedef struct SettingsDisplayData {
   SettingsCallbacks callbacks;
+#if !CAPABILITY_HAS_THEMING
+  TimeRangeSelectionWindowData schedule_window;
+#endif
 } SettingsDisplayData;
 
 typedef struct SettingsBacklightData {
@@ -559,6 +565,10 @@ enum SettingsDisplayItem {
 #ifdef CONFIG_APP_SCALING
   SettingsDisplayLegacyAppMode,
 #endif
+#if !CAPABILITY_HAS_THEMING
+  SettingsDisplayDarkMode,
+  SettingsDisplayDarkModeSchedule,
+#endif
   NumSettingsDisplayItems
 };
 
@@ -575,8 +585,82 @@ static bool prv_display_item_is_visible(uint16_t item) {
     return touch_is_globally_enabled();
   }
 #endif
+#if !CAPABILITY_HAS_THEMING
+  if (item == SettingsDisplayDarkModeSchedule) {
+    return shell_prefs_get_dark_mode() == DarkModeScheduled;
+  }
+#endif
   return true;
 }
+
+#if !CAPABILITY_HAS_THEMING
+static const char * const s_dark_mode_labels[] = {
+  [DarkModeOff] = i18n_noop("Off"),
+  [DarkModeOn] = i18n_noop("On"),
+  [DarkModeAmbient] = i18n_noop("Ambient"),
+  [DarkModeScheduled] = i18n_noop("Schedule"),
+};
+
+static void prv_dark_mode_schedule_window_push(SettingsDisplayData *data);
+
+static void prv_dark_mode_menu_select(OptionMenu *option_menu, int selection, void *context) {
+  SettingsDisplayData *data = settings_option_menu_get_context(context);
+  const DarkMode mode = (DarkMode)selection;
+  shell_prefs_set_dark_mode(mode);
+  if (mode == DarkModeScheduled) {
+    app_window_stack_remove(&option_menu->window, false /* animated */);
+    prv_dark_mode_schedule_window_push(data);
+  } else {
+    app_window_stack_remove(&option_menu->window, true /* animated */);
+  }
+  settings_menu_reload_data(SettingsMenuItemDisplay);
+  settings_menu_mark_dirty(SettingsMenuItemDisplay);
+}
+
+static void prv_dark_mode_menu_push(SettingsDisplayData *data) {
+  const int index = (int)shell_prefs_get_dark_mode();
+  const OptionMenuCallbacks callbacks = {
+    .select = prv_dark_mode_menu_select,
+  };
+  const char *title = PBL_IF_RECT_ELSE(i18n_noop("DARK MODE"), i18n_noop("Dark Mode"));
+  settings_option_menu_push(
+      title, OptionMenuContentType_SingleLine, index, &callbacks,
+      ARRAY_LENGTH(s_dark_mode_labels), true /* icons_enabled */,
+      (const char **)s_dark_mode_labels, data);
+}
+
+static void prv_complete_dark_mode_schedule(TimeRangeSelectionWindowData *schedule_window, void *data) {
+  DarkModeSchedule schedule = {
+    .from_hour = schedule_window->from.hour,
+    .from_minute = schedule_window->from.minute,
+    .to_hour = schedule_window->to.hour,
+    .to_minute = schedule_window->to.minute,
+  };
+  if (schedule.from_hour == schedule.to_hour && schedule.from_minute == schedule.to_minute) {
+    if ((schedule.to_minute = (schedule.to_minute + 1) % 60) == 0) {
+      schedule.to_hour = (schedule.to_hour + 1) % 24;
+    }
+  }
+  shell_prefs_set_dark_mode_schedule(&schedule);
+  settings_menu_reload_data(SettingsMenuItemDisplay);
+  settings_menu_mark_dirty(SettingsMenuItemDisplay);
+  const bool animated = true;
+  app_window_stack_remove(&schedule_window->window, animated);
+}
+
+static void prv_dark_mode_schedule_window_push(SettingsDisplayData *data) {
+  DarkModeSchedule schedule;
+  shell_prefs_get_dark_mode_schedule(&schedule);
+  TimeRangeSelectionWindowData *schedule_window = &data->schedule_window;
+  time_range_selection_window_init(schedule_window, PBL_IF_COLOR_ELSE(GColorCobaltBlue, GColorBlack),
+                                   prv_complete_dark_mode_schedule, data);
+  schedule_window->from.hour = schedule.from_hour;
+  schedule_window->from.minute = schedule.from_minute;
+  schedule_window->to.hour = schedule.to_hour;
+  schedule_window->to.minute = schedule.to_minute;
+  app_window_stack_push(&schedule_window->window, true);
+}
+#endif
 
 static uint16_t prv_display_item_from_row(uint16_t row) {
   uint16_t visible_row = 0;
@@ -623,6 +707,14 @@ static void prv_display_select_click_cb(SettingsCallbacks *context, uint16_t row
       prv_legacy_app_mode_menu_push((SettingsDisplayData*)context);
       break;
 #endif
+#if !CAPABILITY_HAS_THEMING
+    case SettingsDisplayDarkMode:
+      prv_dark_mode_menu_push((SettingsDisplayData *)context);
+      break;
+    case SettingsDisplayDarkModeSchedule:
+      prv_dark_mode_schedule_window_push((SettingsDisplayData *)context);
+      break;
+#endif
     default:
       WTF;
   }
@@ -635,6 +727,7 @@ static void prv_display_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
   SettingsDisplayData *data = (SettingsDisplayData*) context;
   const char *title = NULL;
   const char *subtitle = NULL;
+  char time_buf[32];
   switch (prv_display_item_from_row(row)) {
     case SettingsDisplayBacklight:
       title = i18n_noop("Backlight");
@@ -670,6 +763,23 @@ static void prv_display_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       subtitle = s_legacy_app_mode_labels[shell_prefs_get_legacy_app_render_mode()];
       break;
 #endif
+#if !CAPABILITY_HAS_THEMING
+    case SettingsDisplayDarkMode:
+      title = i18n_noop("Dark Mode");
+      subtitle = s_dark_mode_labels[shell_prefs_get_dark_mode()];
+      break;
+    case SettingsDisplayDarkModeSchedule: {
+      title = i18n_noop("Schedule Time");
+      DarkModeSchedule schedule;
+      shell_prefs_get_dark_mode_schedule(&schedule);
+      clock_format_time(time_buf, sizeof(time_buf), schedule.from_hour, schedule.from_minute, true);
+      strcat(time_buf, " - ");
+      const size_t len = strlen(time_buf);
+      clock_format_time(time_buf + len, sizeof(time_buf) - len, schedule.to_hour, schedule.to_minute, true);
+      subtitle = time_buf;
+      break;
+    }
+#endif
     default:
       WTF;
   }
@@ -688,6 +798,9 @@ static uint16_t prv_display_num_rows_cb(SettingsCallbacks *context) {
 
 static void prv_display_deinit_cb(SettingsCallbacks *context) {
   SettingsDisplayData *data = (SettingsDisplayData*) context;
+#if !CAPABILITY_HAS_THEMING
+  time_range_selection_window_deinit(&data->schedule_window);
+#endif
   i18n_free_all(data);
   app_free(data);
 }

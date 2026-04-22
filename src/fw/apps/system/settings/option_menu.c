@@ -42,7 +42,7 @@ OptionMenu *settings_option_menu_create(
     .title = i18n_get(i18n_title_key, option_menu),
     .content_type = content_type,
     .choice = choice,
-    .status_colors = { GColorWhite, GColorBlack },
+    .status_colors = { system_theme_get_bg_color(), system_theme_get_fg_color() },
     .highlight_colors = { highlight_bg, gcolor_legible_over(highlight_bg) },
     .icons_enabled = icons_enabled,
   };
