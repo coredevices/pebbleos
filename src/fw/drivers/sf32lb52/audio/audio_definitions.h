@@ -36,9 +36,13 @@ typedef struct AudioState {
   uint8_t tx_instanc;
   bool    tx_rbf_enable;
   uint16_t tx_buffer_size;
-  uint8_t *circ_buffer_storage; 
+  uint8_t *circ_buffer_storage;
   CircularBuffer circ_buffer;
   AudioTransCB trans_cb;
+  //! Raw (unaligned) pointer returned by kernel_malloc for the AUDCODEC DAC
+  //! DMA buffer. haudcodec->buf[] is bumped up to a cache-line boundary so
+  //! dcache_flush() of one half can't touch the other half's lines.
+  uint8_t *raw_dac_buffer;
 } AudioDeviceState;
 
 typedef const struct AudioDevice {
