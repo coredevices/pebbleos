@@ -3,6 +3,7 @@
 
 #include "audio_definitions.h"
 #include "kernel/pbl_malloc.h"
+#include "mcu/cache.h"
 #include "system/passert.h"
 #include "system/logging.h"
 #include "util/misc.h"
@@ -319,10 +320,17 @@ bool audec_init(AudioDevice* audio_device) {
 
     if (haudcodec->buf[HAL_AUDCODEC_DAC_CH0] == NULL)
     {
-        haudcodec->buf[HAL_AUDCODEC_DAC_CH0] = kernel_malloc(haudcodec->bufSize);
+        // Over-allocate so the DMA buffer can start on a cache-line boundary.
+        // Each half is consumed by DMA while the CPU fills the other half;
+        // dcache_flush() of one half must not touch lines that belong to the
+        // half currently being DMA'd, so both halves need to be aligned.
+        const size_t cache_align = dcache_line_size();
+        state->raw_dac_buffer = kernel_malloc(haudcodec->bufSize + cache_align - 1U);
+        PBL_ASSERT(state->raw_dac_buffer, "allocated mem error");
+        haudcodec->buf[HAL_AUDCODEC_DAC_CH0] =
+            (uint8_t *)(((uintptr_t)state->raw_dac_buffer + cache_align - 1U) &
+                        ~(uintptr_t)(cache_align - 1U));
         memset(haudcodec->buf[HAL_AUDCODEC_DAC_CH0], 0, haudcodec->bufSize);
-        PBL_ASSERT(haudcodec->buf[HAL_AUDCODEC_DAC_CH0], "allocated mem error");
-
     }
     state->queue_buf[HAL_AUDCODEC_DAC_CH0] = haudcodec->buf[HAL_AUDCODEC_DAC_CH0];
     HAL_AUDCODEC_Config_TChanel(haudcodec, 0, &haudcodec->Init.dac_cfg);
@@ -345,6 +353,10 @@ void audec_start(AudioDevice* audio_device, AudioTransCB cb) {
     prv_bf0_audio_pll_config(audio_device, &codec_dac_clk_config[haudcodec->Init.samplerate_index]);
     HAL_AUDCODEC_Config_TChanel(haudcodec, 0, &haudcodec->Init.dac_cfg);
     HAL_NVIC_SetPriority(audio_device->audec_dma_irq, audio_device->irq_priority, 0);
+    // The buffer was memset() to zero by the CPU at init and is again at stop;
+    // those writes may still be sitting in D-cache. Push them to RAM so the
+    // codec DMA reads silence on the first transfer instead of stale memory.
+    dcache_flush(haudcodec->buf[HAL_AUDCODEC_DAC_CH0], haudcodec->bufSize);
     HAL_AUDCODEC_Transmit_DMA(haudcodec, haudcodec->buf[HAL_AUDCODEC_DAC_CH0], haudcodec->bufSize, HAL_AUDCODEC_DAC_CH0);
     HAL_NVIC_EnableIRQ(audio_device->audec_dma_irq);
     state->tx_instanc = HAL_AUDCODEC_DAC_CH0;
@@ -441,6 +453,11 @@ static void prv_dma_request_processing(AudioDeviceState* state) {
         PBL_ASSERT(bytes_copied == trans_size, "circ buffer read err");
         circular_buffer_consume(&state->circ_buffer, bytes_copied);
     }
+    // Codec DMA reads this half-buffer next time it wraps; flush the CPU-side
+    // writes (memset for underrun and circular_buffer_copy above) so the DAC
+    // doesn't replay stale RAM contents. We always flush a full half because
+    // any bytes we didn't touch were already memset() to silence.
+    dcache_flush(state->queue_buf[HAL_AUDCODEC_DAC_CH0], CFG_AUDIO_PLAYBACK_PIPE_SIZE);
     uint32_t free_size = circular_buffer_get_write_space_remaining(&state->circ_buffer);
     if(state->trans_cb && free_size >= CFG_AUDIO_PLAYBACK_PIPE_SIZE) {
         bool system_task_switch_context = false;
