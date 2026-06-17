@@ -60,8 +60,8 @@ typedef struct __attribute__((__packed__)) {
 //    7: Added heart rate bpm
 //   12: Added total heart rate weight
 //   13: Added heart rate zone
-//   14: ... (NYI, you decide!)
-#define ALG_DLS_MINUTES_RECORD_VERSION  13
+//   14: Added SpO2 percent and quality
+#define ALG_DLS_MINUTES_RECORD_VERSION  14
 
 _Static_assert((ALG_DLS_MINUTES_RECORD_VERSION & (1 << 2)) > 0,
                "Android 3.10-4.0 requires bit 2 to be set");
@@ -87,6 +87,10 @@ typedef struct __attribute__((__packed__)) {
 
   // New fields added in version 13
   uint8_t heart_rate_zone;           // the hr zone for this minute
+
+  // New fields added in version 14
+  uint8_t spo2_percent;              // blood oxygen saturation (%) measured this minute, 0 = none
+  uint8_t spo2_quality;              // SpO2 signal quality (HeartRateQuality enum), 0 = none
 } AlgMinuteDLSSample;
 
 

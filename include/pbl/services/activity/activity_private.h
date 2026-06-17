@@ -61,6 +61,13 @@ typedef uint32_t ActivityScalarStore;
 // Turn off the HR device after we've received X excellent quality samples
 #define ACTIVITY_MIN_NUM_EXCELLENT_SAMPLES_SHORT_CIRCUIT (5)
 
+// Turn off the sensor after we've received X good quality SpO2 samples. SpO2 needs a stable
+// signal to converge, so this is lower than the HR short-circuit count.
+#define ACTIVITY_MIN_NUM_GOOD_SPO2_SAMPLES_SHORT_CIRCUIT (3)
+
+// Maximum time to leave the sensor on per SpO2 measurement before giving up
+#define ACTIVITY_DEFAULT_SPO2_ON_TIME_SEC (60)
+
 // The minimum number of samples needed before we can approximate the user's HR zone
 #define ACTIVITY_MIN_NUM_SAMPLES_FOR_HR_ZONE (5)
 
@@ -327,6 +334,20 @@ typedef struct {
 } ActivityHRSupport;
 
 typedef struct {
+  HRMSessionRef hrm_session;          // The HRM session we use for SpO2
+
+  bool currently_sampling;            // Are we actively sampling SpO2
+  uint32_t toggled_sampling_at_ts;    // When we last toggled our sampling rate
+                                      // (from time_get_uptime_seconds)
+  uint16_t num_good_quality_samples;  // good-quality SpO2 samples in the current session
+
+  // Latest valid reading waiting to be written into the next minute record (0 = none pending).
+  // The minute handler consumes and clears these, so each measurement is logged exactly once.
+  uint8_t pending_percent;            // SpO2 % saturation
+  uint8_t pending_quality;            // quality on the 0-7 HeartRateQuality scale
+} ActivitySpO2Support;
+
+typedef struct {
   // Mutex for serializing access to these globals
   PebbleRecursiveMutex *mutex;
 
@@ -363,6 +384,9 @@ typedef struct {
 
   // Heart rate support
   ActivityHRSupport hr;
+
+  // Blood oxygen (SpO2) support
+  ActivitySpO2Support spo2;
 
   // Most recent values from prv_get_day()
   uint16_t cur_day_index;
@@ -520,6 +544,11 @@ HRZone activity_metrics_prv_get_hr_zone(void);
 
 //! Reset the average / median heart rate and hr zone
 void activity_metrics_prv_reset_hr_stats(void);
+
+//! Consume the latest pending SpO2 reading for the current minute record. Writes the SpO2 percent
+//! and quality (0-7 HeartRateQuality scale) to the out params (0 if none pending) and clears the
+//! pending state, so each reading is logged to exactly one minute.
+void activity_metrics_prv_get_spo2_sample(uint8_t *percent_out, uint8_t *quality_out);
 
 //! Feed in a new heart rate sample that will be used to update the median. This updates
 //! the value returned by activity_metrics_prv_get_median_hr_bpm().

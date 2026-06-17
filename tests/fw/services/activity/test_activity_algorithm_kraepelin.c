@@ -228,6 +228,11 @@ void activity_metrics_prv_get_median_hr_bpm(int32_t *median, int32_t *total_weig
 
 }
 
+void activity_metrics_prv_get_spo2_sample(uint8_t *percent_out, uint8_t *quality_out) {
+  *percent_out = 0;
+  *quality_out = 0;
+}
+
 void activity_metrics_prv_reset_hr_stats(void) {
   s_activity_next_heart_rate_bpm = 0;
   s_activity_next_heart_rate_zone = 0;
