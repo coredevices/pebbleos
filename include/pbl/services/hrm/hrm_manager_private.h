@@ -41,6 +41,8 @@ typedef struct HRMSubscriberState {
   HRMFeature features;        // what features the subscriber is interested in
 
   RtcTicks last_valid_bpm_ticks; // tick count the last time this subscriber received valid HR reading
+  RtcTicks attempt_start_ticks;  // tick count when this subscriber last (re)started trying for a
+                                 // reading; bounds how long an unserved subscriber keeps the sensor on
 } HRMSubscriberState;
 
 // HRM manager expects to be update at 1Hz. To the system task, we can currently
@@ -63,6 +65,12 @@ typedef struct HRMSubscriberState {
 // Comfortably above a normal serve cycle (spin-up plus a few seconds), far below the battery
 // impact threshold.
 #define HRM_MAX_UNSERVED_TIME_SEC 120
+
+// Maximum time the sensor stays on for a subscriber that has never received a usable reading.
+// After this window the subscriber backs off to its requested update interval, so requesting a
+// feature the sensor can't currently serve (e.g. SpO2 in poor signal) doesn't pin the sensor on
+// indefinitely.
+#define HRM_UNSERVED_ATTEMPT_MAX_SEC 60
 
 struct HRMManagerState {
   PebbleRecursiveMutex *lock;
@@ -95,6 +103,8 @@ struct HRMManagerState {
                                    // Normal, etc.) allows the sensor to be turned on
   bool enabled_charging_state;     // Ture if we aren't plugged in / charging
 
+  HRMFeature active_features;      // Features the sensor is currently sampling (0 when off). Only
+                                   // one optical path (green BPM/HRV or red/IR SpO2) runs at a time.
 };
 
 //! Subscription for KernelBG or KernelMain clients.
