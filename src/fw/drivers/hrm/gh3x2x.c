@@ -113,6 +113,12 @@ void gh3x2x_print_fmt(const char *fmt, ...) {
 #endif
 }
 
+// Absolute physiological bounds for a wrist HR reading. The Goodix algorithm can occasionally emit
+// a spurious out-of-range value (motion artifact, unstable signal right after a sensor restart);
+// treat anything outside this range as no valid reading so it never reaches the UI as a real BPM.
+#define GH3X2X_HR_MIN_PLAUSIBLE_BPM 25
+#define GH3X2X_HR_MAX_PLAUSIBLE_BPM 240
+
 void gh3x2x_hr_result_report(uint8_t bpm, uint8_t quality) {
   HRMData hrm_data = {0};
 
@@ -122,6 +128,10 @@ void gh3x2x_hr_result_report(uint8_t bpm, uint8_t quality) {
 
   if (!HRM->state->is_wear) {
     hrm_data.hrm_quality = HRMQuality_OffWrist;
+  } else if (bpm < GH3X2X_HR_MIN_PLAUSIBLE_BPM || bpm > GH3X2X_HR_MAX_PLAUSIBLE_BPM) {
+    // Implausible reading: report as worst quality with no BPM so consumers discard it.
+    PBL_LOG_WRN("GH3X2X dropping implausible BPM %" PRIu8, bpm);
+    hrm_data.hrm_quality = HRMQuality_Worst;
   } else {
     hrm_data.hrm_bpm = bpm;
 
@@ -141,29 +151,36 @@ void gh3x2x_hr_result_report(uint8_t bpm, uint8_t quality) {
   hrm_manager_new_data_cb(&hrm_data);
 }
 
-void gh3x2x_spo2_result_report(uint8_t pct, uint8_t quality) {
+void gh3x2x_spo2_result_report(uint8_t pct, uint8_t confidence, uint8_t valid_level,
+                               uint8_t invalid_flg, int32_t r_val) {
   HRMData hrm_data = {0};
 
-  PBL_LOG_DBG("GH3X2X SpO2 %" PRIu8 " (quality=%" PRIu8 ", wear=%u)", pct, quality, HRM->state->is_wear);
+  // Surface the full algorithm result so we can tell a real reading from a rejected one. Fires on
+  // every SpO2 sample, so keep it at DBG.
+  PBL_LOG_DBG("GH3X2X SpO2 pct=%" PRIu8 " conf=%" PRIu8 " valid=%" PRIu8 " invalid=%" PRIu8
+              " r=%" PRId32 " wear=%u",
+              pct, confidence, valid_level, invalid_flg, r_val, HRM->state->is_wear);
 
   hrm_data.features = HRMFeature_SpO2;
 
+  // Always carry the raw algorithm values through for debugging.
+  hrm_data.spo2_percent = pct;
+  hrm_data.spo2_confidence = confidence;
+  hrm_data.spo2_valid_level = valid_level;
+  hrm_data.spo2_invalid = (invalid_flg != 0);
+
   if (!HRM->state->is_wear) {
     hrm_data.spo2_quality = HRMQuality_OffWrist;
+  } else if (confidence >= 98U) {
+    hrm_data.spo2_quality = HRMQuality_Excellent;
+  } else if (confidence >= 90U) {
+    hrm_data.spo2_quality = HRMQuality_Good;
+  } else if (confidence >= 80U) {
+    hrm_data.spo2_quality = HRMQuality_Acceptable;
+  } else if (confidence >= 70U) {
+    hrm_data.spo2_quality = HRMQuality_Poor;
   } else {
-    hrm_data.spo2_percent = pct;
-
-    if (quality >= 98U) {
-      hrm_data.spo2_quality = HRMQuality_Excellent;
-    } else if (quality >= 90U) {
-      hrm_data.spo2_quality = HRMQuality_Good;
-    } else if (quality >= 80U) {
-      hrm_data.spo2_quality = HRMQuality_Acceptable;
-    } else if (quality >= 70U) {
-      hrm_data.spo2_quality = HRMQuality_Poor;
-    } else {
-      hrm_data.spo2_quality = HRMQuality_Worst;
-    }
+    hrm_data.spo2_quality = HRMQuality_Worst;
   }
 
   hrm_manager_new_data_cb(&hrm_data);
@@ -499,7 +516,16 @@ bool hrm_enable(HRMDevice *dev, HRMFeature features) {
 
   s_hrm_int_flag = false;
 
-  dev->state->work_mode = GH3X2X_FUNCTION_HR | GH3X2X_FUNCTION_SOFT_ADT_GREEN;
+  // Keep the two measurements on separate optical paths so we never fire green
+  // and red at the same time (which looks orange): SpO2 uses the red/IR path
+  // with IR-based wear detection, HR uses the green path with green wear
+  // detection. Wear detection comes from the SOFT_ADT function on each path, so
+  // the green HR function is not needed during an SpO2 measurement.
+  if (features & HRMFeature_SpO2) {
+    dev->state->work_mode = GH3X2X_FUNCTION_SPO2 | GH3X2X_FUNCTION_SOFT_ADT_IR;
+  } else {
+    dev->state->work_mode = GH3X2X_FUNCTION_HR | GH3X2X_FUNCTION_SOFT_ADT_GREEN;
+  }
 #ifdef CONFIG_MFG
   dev->state->work_mode = GH3X2X_FUNCTION_HR | GH3X2X_FUNCTION_SPO2 | GH3X2X_FUNCTION_SOFT_ADT_IR;
 #endif

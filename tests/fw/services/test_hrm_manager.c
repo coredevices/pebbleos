@@ -44,6 +44,7 @@ extern TimerID prv_get_timer_id(void);
 extern bool prv_can_turn_sensor_on(void);
 extern void prv_charger_event_cb(PebbleEvent *e);
 extern uint32_t prv_get_dropped_events_count(void);
+extern HRMFeature prv_select_active_path(HRMFeature wanted, HRMFeature active);
 
 
 // -----------------------------------------------------------------------------
@@ -104,6 +105,11 @@ QueueHandle_t pebble_task_get_to_queue(PebbleTask task) {
 static bool s_activity_prefs_heart_rate_is_enabled = true;
 bool activity_prefs_heart_rate_is_enabled(void) {
   return s_activity_prefs_heart_rate_is_enabled;
+}
+
+static bool s_activity_prefs_blood_oxygen_is_enabled = false;
+bool activity_prefs_blood_oxygen_is_enabled(void) {
+  return s_activity_prefs_blood_oxygen_is_enabled;
 }
 
 bool battery_is_usb_connected(void) {
@@ -245,6 +251,33 @@ void test_hrm_manager__feature_change_restarts_sensor(void) {
   sys_hrm_manager_unsubscribe(session_ref);
   fake_system_task_callbacks_invoke_pending();
   cl_assert_equal_b(hrm_is_enabled(HRM), false);
+}
+
+// The green (BPM/HRV) and red/IR (SpO2) optical paths are mutually exclusive in hardware. When both
+// are due the manager must serve exactly one path at a time and hand off to the other once the
+// running path's subscribers are served, instead of one starving the other.
+void test_hrm_manager__select_active_path(void) {
+  // Only one path due -> sample it, untouched.
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM, 0), HRMFeature_BPM);
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_SpO2, 0), HRMFeature_SpO2);
+  cl_assert_equal_i(prv_select_active_path(0, 0), 0);
+
+  // Cold start with both paths due (nothing running yet) -> SpO2 goes first.
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM | HRMFeature_SpO2, 0), HRMFeature_SpO2);
+
+  // SpO2 already running and both still due -> keep SpO2 (don't cut its measurement short).
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM | HRMFeature_SpO2, HRMFeature_SpO2),
+                    HRMFeature_SpO2);
+
+  // SpO2 served and backed off (only BPM left due) while SpO2 was running -> hand off to BPM.
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM, HRMFeature_SpO2), HRMFeature_BPM);
+
+  // BPM already running and both still due -> keep the green path running.
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM | HRMFeature_SpO2, HRMFeature_BPM),
+                    HRMFeature_BPM);
+
+  // BPM served and backed off (only SpO2 left due) while BPM was running -> hand off to SpO2.
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_SpO2, HRMFeature_BPM), HRMFeature_SpO2);
 }
 
 // When we cleanup after an app process, its subscription, if any, should get an expriration time
@@ -437,8 +470,9 @@ void test_hrm_manager__no_feature_callbacks(void) {
   prv_fake_send_new_data();
   fake_system_task_callbacks_invoke_pending();
 
-  // HRM should be enabled, subscriber should exist, no callbacks triggered.
-  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+  // A subscriber with no requested features is ignored entirely: it must not power the sensor on,
+  // but the subscription still exists and receives no callbacks.
+  cl_assert_equal_b(hrm_is_enabled(HRM), false);
   cl_assert(prv_get_subscriber_state_from_ref(session_ref));
 
   cl_assert_equal_i(s_event_count, 0);

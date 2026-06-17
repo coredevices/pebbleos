@@ -148,6 +148,9 @@ typedef struct {
  
   uint8_t spo2_percent;
   HRMQuality spo2_quality;
+  uint8_t spo2_confidence;   //!< raw algorithm confidence coefficient (debug)
+  uint8_t spo2_valid_level;  //!< raw algorithm valid level (debug)
+  bool spo2_invalid;         //!< raw algorithm invalid flag (debug)
 
 #ifdef CONFIG_MFG
   double ctr[6];
