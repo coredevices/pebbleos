@@ -40,6 +40,8 @@ enum SettingsHealthItem {
 #ifdef CONFIG_HRM
     SettingsHealthHRMonitoringInterval,
     SettingsHealthHRActivityTracking,
+    SettingsHealthBloodOxygenEnabled,
+    SettingsHealthSpO2MonitoringInterval,
 #endif
     NumSettingsHealthItems
 };
@@ -59,6 +61,26 @@ static void prv_hrm_interval_menu_push(SettingsHealthData *data) {
         .select = prv_hrm_interval_menu_select,
     };
     const char *title = i18n_noop("HR Monitoring");
+    settings_option_menu_push(
+        title, OptionMenuContentType_SingleLine, index, &callbacks,
+        ARRAY_LENGTH(s_hrm_interval_labels), true /* icons_enabled */,
+        s_hrm_interval_labels, data);
+}
+
+// SpO2 Interval option menu
+/////////////////////////////
+
+static void prv_spo2_interval_menu_select(OptionMenu *option_menu, int selection, void *context) {
+    activity_prefs_set_spo2_measurement_interval((HRMonitoringInterval)selection);
+    app_window_stack_remove(&option_menu->window, true /*animated*/);
+}
+
+static void prv_spo2_interval_menu_push(SettingsHealthData *data) {
+    const int index = (int)activity_prefs_get_spo2_measurement_interval();
+    const OptionMenuCallbacks callbacks = {
+        .select = prv_spo2_interval_menu_select,
+    };
+    const char *title = i18n_noop("Blood Oxygen");
     settings_option_menu_push(
         title, OptionMenuContentType_SingleLine, index, &callbacks,
         ARRAY_LENGTH(s_hrm_interval_labels), true /* icons_enabled */,
@@ -117,6 +139,22 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
                 ? i18n_noop("On") : i18n_noop("Off");
             break;
         }
+        case SettingsHealthBloodOxygenEnabled: {
+            title = i18n_noop("Blood Oxygen");
+            subtitle = activity_prefs_blood_oxygen_is_enabled()
+                ? i18n_noop("On") : i18n_noop("Off");
+            break;
+        }
+        case SettingsHealthSpO2MonitoringInterval: {
+            title = i18n_noop("SpO2 Monitoring");
+            HRMonitoringInterval interval = activity_prefs_get_spo2_measurement_interval();
+            if (interval >= HRMonitoringIntervalCount) {
+                subtitle = i18n_noop("Unknown");
+            } else {
+                subtitle = s_hrm_interval_labels[interval];
+            }
+            break;
+        }
 #endif
         default:
             WTF;
@@ -149,6 +187,13 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
         case SettingsHealthHRActivityTracking:
             activity_prefs_set_hrm_activity_tracking_enabled(
                 !activity_prefs_hrm_activity_tracking_is_enabled());
+            break;
+        case SettingsHealthBloodOxygenEnabled:
+            activity_prefs_set_blood_oxygen_enabled(
+                !activity_prefs_blood_oxygen_is_enabled());
+            break;
+        case SettingsHealthSpO2MonitoringInterval:
+            prv_spo2_interval_menu_push((SettingsHealthData*)context);
             break;
 #endif
         default:

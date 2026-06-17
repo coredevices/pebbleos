@@ -36,6 +36,10 @@ bool WEAK activity_prefs_heart_rate_is_enabled(void) {
   return true;
 }
 
+bool WEAK activity_prefs_blood_oxygen_is_enabled(void) {
+  return false;
+}
+
 bool activity_get_metric_typical(ActivityMetric metric, DayInWeek day, int32_t *value_out) {
   return false;
 }

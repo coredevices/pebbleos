@@ -272,6 +272,15 @@ static uint8_t s_alarms_app_opened = 0;
 #define PREF_KEY_ACTIVITY_HRM_PREFERENCES "hrmPreferences"
 static ActivityHRMSettings s_activity_hrm_preferences = ACTIVITY_HRM_DEFAULT_PREFERENCES;
 
+#define PREF_KEY_ACTIVITY_SPO2_PREFERENCES "spo2Preferences"
+static ActivitySpO2Settings s_activity_spo2_preferences = ACTIVITY_SPO2_DEFAULT_PREFERENCES;
+
+// Blood oxygen on/off. Synced from the phone (and the on-watch toggle) as a
+// single bool byte under its own key, mirroring the mobile app's
+// `bloodOxygenPreferences` blob. Opt-in: default off until enabled.
+#define PREF_KEY_BLOOD_OXYGEN_PREFERENCES "bloodOxygenPreferences"
+static bool s_blood_oxygen_enabled = false;
+
 #define PREF_KEY_ACTIVITY_HEART_RATE_PREFERENCES "heartRatePreferences"
 static HeartRatePreferences s_activity_hr_preferences = ACTIVITY_HEART_RATE_DEFAULT_PREFERENCES;
 
@@ -743,6 +752,24 @@ static bool prv_set_s_activity_hrm_preferences(ActivityHRMSettings *new_settings
 #if BLE_HRM_SERVICE
   ble_hrm_handle_activity_prefs_heart_rate_is_enabled(new_settings->enabled);
 #endif // BLE_HRM_SERVICE
+  return true;
+}
+
+static bool prv_set_s_activity_spo2_preferences(ActivitySpO2Settings *new_settings) {
+  s_activity_spo2_preferences = *new_settings;
+
+#ifdef CONFIG_HRM
+  hrm_manager_handle_prefs_changed();
+#endif // CONFIG_HRM
+  return true;
+}
+
+static bool prv_set_s_blood_oxygen_enabled(bool *enabled) {
+  s_blood_oxygen_enabled = *enabled;
+
+#ifdef CONFIG_HRM
+  hrm_manager_handle_prefs_changed();
+#endif // CONFIG_HRM
   return true;
 }
 
@@ -2022,6 +2049,35 @@ void activity_prefs_set_hrm_activity_tracking_enabled(bool enabled) {
     s_activity_hrm_preferences.activity_tracking_enabled = enabled;
     prv_pref_set(PREF_KEY_ACTIVITY_HRM_PREFERENCES, &s_activity_hrm_preferences,
                  sizeof(s_activity_hrm_preferences));
+    hrm_manager_handle_prefs_changed();
+  }
+}
+
+bool activity_prefs_blood_oxygen_is_enabled(void) {
+  return s_blood_oxygen_enabled;
+}
+
+void activity_prefs_set_blood_oxygen_enabled(bool enabled) {
+  if (s_blood_oxygen_enabled != enabled) {
+    // prv_pref_set runs prv_set_s_blood_oxygen_enabled, which updates the global
+    // and re-evaluates the sensor; writing the key also syncs it to the phone.
+    prv_pref_set(PREF_KEY_BLOOD_OXYGEN_PREFERENCES, &enabled, sizeof(enabled));
+  }
+}
+
+HRMonitoringInterval activity_prefs_get_spo2_measurement_interval(void) {
+  uint8_t interval = s_activity_spo2_preferences.measurement_interval;
+  if (interval >= HRMonitoringIntervalCount) {
+    return HRMonitoringInterval_10Min;
+  }
+  return (HRMonitoringInterval)interval;
+}
+
+void activity_prefs_set_spo2_measurement_interval(HRMonitoringInterval interval) {
+  if (s_activity_spo2_preferences.measurement_interval != (uint8_t)interval) {
+    s_activity_spo2_preferences.measurement_interval = (uint8_t)interval;
+    prv_pref_set(PREF_KEY_ACTIVITY_SPO2_PREFERENCES, &s_activity_spo2_preferences,
+                 sizeof(s_activity_spo2_preferences));
     hrm_manager_handle_prefs_changed();
   }
 }

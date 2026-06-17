@@ -107,6 +107,7 @@ static const char *s_syncable_settings[] = {
   "alarmsAppOpened",
   "hrmPreferences",
   "heartRatePreferences",
+  "bloodOxygenPreferences",
 
   // Menu wrap around preferences
   "menuScrollWrapAround",
