@@ -66,6 +66,13 @@ typedef struct PACKED ActivityHRMSettings {
   bool activity_tracking_enabled; // HR tracking during detected activities (walk/run)
 } ActivityHRMSettings;
 
+// Activity SpO2 (blood oxygen) Settings Struct, for storing to prefs.
+// The on/off bit is synced from the phone under its own key
+// (PREF_KEY_BLOOD_OXYGEN_PREFERENCES); only the watch-local interval lives here.
+typedef struct PACKED ActivitySpO2Settings {
+  uint8_t measurement_interval; // HRMonitoringInterval value
+} ActivitySpO2Settings;
+
 // Default values, taken from http://www.cdc.gov/nchs/fastats/body-measurements.htm
 #define ACTIVITY_DEFAULT_HEIGHT_MM                1620    // 5'3.8"
 // dag - decagram (10 g)
@@ -96,6 +103,10 @@ typedef struct PACKED ActivityHRMSettings {
   .enabled = true, \
   .measurement_interval = HRMonitoringInterval_10Min, \
   .activity_tracking_enabled = false, \
+}
+
+#define ACTIVITY_SPO2_DEFAULT_PREFERENCES { \
+  .measurement_interval = HRMonitoringInterval_10Min, \
 }
 
 // We consider values outside of this range to be invalid
@@ -410,6 +421,11 @@ uint8_t activity_prefs_heart_get_zone3_threshold(void);
 //! Return true if the HRM is enabled, false if not
 bool activity_prefs_heart_rate_is_enabled(void);
 
+//! Return true if blood oxygen (SpO2) monitoring is enabled, false if not. Declared unconditionally
+//! (like activity_prefs_heart_rate_is_enabled) because the HRM manager gates sensor power on it
+//! regardless of CONFIG_HRM.
+bool activity_prefs_blood_oxygen_is_enabled(void);
+
 #ifdef CONFIG_HRM
 //! Get the HRM measurement interval setting
 //! @return the current HRMonitoringInterval value
@@ -424,6 +440,17 @@ bool activity_prefs_hrm_activity_tracking_is_enabled(void);
 
 //! Enable or disable HR tracking during detected activities (walk/run)
 void activity_prefs_set_hrm_activity_tracking_enabled(bool enabled);
+
+//! Enable or disable blood oxygen (SpO2) monitoring
+void activity_prefs_set_blood_oxygen_enabled(bool enabled);
+
+//! Get the SpO2 measurement interval setting
+//! @return the current HRMonitoringInterval value
+HRMonitoringInterval activity_prefs_get_spo2_measurement_interval(void);
+
+//! Set the SpO2 measurement interval
+//! @param interval the desired HRMonitoringInterval value
+void activity_prefs_set_spo2_measurement_interval(HRMonitoringInterval interval);
 #endif
 
 //! Get the current and (optionally) historical values for a given metric. The caller passes
