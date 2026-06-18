@@ -61,12 +61,14 @@ typedef uint32_t ActivityScalarStore;
 // Turn off the HR device after we've received X excellent quality samples
 #define ACTIVITY_MIN_NUM_EXCELLENT_SAMPLES_SHORT_CIRCUIT (5)
 
-// Turn off the sensor after we've received X good quality SpO2 samples. SpO2 needs a stable
-// signal to converge, so this is lower than the HR short-circuit count.
-#define ACTIVITY_MIN_NUM_GOOD_SPO2_SAMPLES_SHORT_CIRCUIT (3)
+// Turn off the sensor after this many good-quality SpO2 samples. Kept low because a good reading is
+// hard-won on the wrist - waiting for more just burns the on-time window.
+#define ACTIVITY_MIN_NUM_GOOD_SPO2_SAMPLES_SHORT_CIRCUIT (2)
 
-// Maximum time to leave the sensor on per SpO2 measurement before giving up
-#define ACTIVITY_DEFAULT_SPO2_ON_TIME_SEC (60)
+// Maximum time to leave the sensor on per SpO2 measurement before giving up. Longer than the HR
+// window: SpO2 needs more time on the wrist to converge. The short-circuit ends it early once a
+// couple of good samples land, so this only extends the struggling case.
+#define ACTIVITY_DEFAULT_SPO2_ON_TIME_SEC (120)
 
 // The minimum number of samples needed before we can approximate the user's HR zone
 #define ACTIVITY_MIN_NUM_SAMPLES_FOR_HR_ZONE (5)
