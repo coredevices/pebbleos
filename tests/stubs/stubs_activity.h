@@ -40,6 +40,10 @@ bool WEAK activity_prefs_blood_oxygen_is_enabled(void) {
   return false;
 }
 
+bool WEAK activity_prefs_blood_oxygen_activity_tracking_is_enabled(void) {
+  return false;
+}
+
 bool activity_get_metric_typical(ActivityMetric metric, DayInWeek day, int32_t *value_out) {
   return false;
 }

@@ -318,7 +318,10 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
       // or a dormant background SpO2 session) can't light its LED or turn the sensor on. A
       // subscriber left with no enabled features is ignored entirely.
       HRMFeature allowed_features = (HRMFeature)~0;
-      if (!activity_prefs_blood_oxygen_is_enabled()) {
+      // SpO2 is allowed if daily monitoring is on, OR if the during-activities opt-in is on (it
+      // works independently of the daily toggle).
+      if (!activity_prefs_blood_oxygen_is_enabled() &&
+          !activity_prefs_blood_oxygen_activity_tracking_is_enabled()) {
         allowed_features &= ~HRMFeature_SpO2;
       }
       if (!activity_prefs_heart_rate_is_enabled()) {
