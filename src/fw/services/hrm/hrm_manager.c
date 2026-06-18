@@ -173,10 +173,14 @@ T_STATIC bool prv_can_turn_sensor_on(void) {
   return true;
 #endif
 
+  // Keep this in sync with the `allowed_features` mask in prv_update_hrm_enable_system_cb(): a pref
+  // that can allow a feature there has to be able to turn the sensor on here, or that feature's
+  // reader silently never runs.
   return s_manager_state.enabled_run_level &&
          s_manager_state.enabled_charging_state &&
          (activity_prefs_heart_rate_is_enabled() ||
-          activity_prefs_blood_oxygen_is_enabled());
+          activity_prefs_blood_oxygen_is_enabled() ||
+          activity_prefs_blood_oxygen_activity_tracking_is_enabled());
 }
 
 // The GH3X2X lights one optical path at a time: SpO2 uses the red/IR LEDs, BPM/HRV use the green
@@ -321,7 +325,11 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
 #if !defined(CONFIG_IS_BIGBOARD) && !defined(CONFIG_RECOVERY_FW)
       // Same exemption as prv_can_turn_sensor_on(): bigboards and the recovery firmware don't gate
       // the sensor on user prefs, and don't link the pref accessors at all.
-      if (!activity_prefs_blood_oxygen_is_enabled()) {
+      //
+      // SpO2 is allowed if daily monitoring is on, OR if the during-activities opt-in is on (it
+      // works independently of the daily toggle).
+      if (!activity_prefs_blood_oxygen_is_enabled() &&
+          !activity_prefs_blood_oxygen_activity_tracking_is_enabled()) {
         allowed_features &= ~HRMFeature_SpO2;
       }
       // HRV shares the green LED with BPM, so the heart rate pref gates both. Without this an HRV
