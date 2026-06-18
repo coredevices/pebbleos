@@ -175,6 +175,14 @@ bool activity_algorithm_get_steps(uint32_t *steps);
 //! @param enable true to start tracking, false to stop tracking
 void activity_algorithm_enable_activity_tracking(bool enable);
 
+//! @return true if a continuous HRM session is currently active for a detected activity (i.e.
+//! HR-during-activities is sampling right now). Used to drive activity-triggered SpO2 sampling.
+bool activity_algorithm_activity_hrm_is_active(void);
+
+//! Pause or resume the continuous activity HRM session so the optical path is free for a periodic
+//! SpO2 reading during an activity. No-op if no activity HR session is active.
+void activity_algorithm_activity_hrm_set_paused(bool paused);
+
 //! Return the most recent stepping rate computed. This rate is returned as a number of steps
 //! and an elapsed time.
 //! @param[out] steps the number of steps taken during the last 'elapsed_sec' is returned in this

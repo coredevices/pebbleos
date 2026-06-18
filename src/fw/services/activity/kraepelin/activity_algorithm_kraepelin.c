@@ -1070,6 +1070,29 @@ void activity_algorithm_enable_activity_tracking(bool enable) {
   prv_unlock();
 }
 
+bool activity_algorithm_activity_hrm_is_active(void) {
+  if (!s_alg_state || !s_alg_state->k_state) {
+    return false;
+  }
+  if (!prv_lock()) {
+    return false;
+  }
+  const bool rv = kalg_activity_hrm_is_active(s_alg_state->k_state);
+  prv_unlock();
+  return rv;
+}
+
+void activity_algorithm_activity_hrm_set_paused(bool paused) {
+  if (!s_alg_state || !s_alg_state->k_state) {
+    return;
+  }
+  if (!prv_lock()) {
+    return;
+  }
+  kalg_activity_hrm_set_paused(s_alg_state->k_state, paused);
+  prv_unlock();
+}
+
 // ----------------------------------------------------------------------------------------------
 // This structure contains the context used by the activity_algorithm_get_minute_history() call
 typedef struct {

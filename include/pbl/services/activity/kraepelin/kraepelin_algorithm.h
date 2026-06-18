@@ -158,3 +158,10 @@ void kalg_get_sleep_stats(KAlgState *state, KAlgOngoingSleepStats *stats);
 //! @param kalg_state the state structure passed into kalg_init
 //! @param enable true to start tracking, false to stop tracking
 void kalg_enable_activity_tracking(KAlgState *kalg_state, bool enable);
+
+//! @return true if a continuous HRM session is currently active for a detected activity
+bool kalg_activity_hrm_is_active(KAlgState *kalg_state);
+
+//! Pause or resume the continuous activity HRM session(s) by idling / restoring their update
+//! interval. Used to free the shared optical path for a periodic SpO2 reading during an activity.
+void kalg_activity_hrm_set_paused(KAlgState *kalg_state, bool paused);
