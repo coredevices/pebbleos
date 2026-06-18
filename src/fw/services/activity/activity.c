@@ -135,6 +135,13 @@ static void prv_heart_rate_subscription_update(uint32_t now_ts) {
   }
 
   if (should_toggle) {
+    // Don't start a measurement while SpO2 is mid-measurement: HR and SpO2 share one optical path,
+    // so overlapping windows make the manager ping-pong between them and re-pay the sensor spin-up,
+    // which stops either from converging. Defer and retry next tick (without resetting the period).
+    if (!s_activity_state.hr.currently_sampling && s_activity_state.spo2.currently_sampling) {
+      return;
+    }
+
     // Check to see if the watch is face up or face down. If it is assume the watch is off wrist
     // The z-axis is encoded in the 4 most significant bits of the orientation
     const uint8_t z_axis = s_activity_state.last_orientation >> 4;
@@ -314,6 +321,12 @@ static void prv_spo2_subscription_update(uint32_t now_ts) {
   }
 
   if (should_toggle) {
+    // Don't start while HR is mid-measurement (shared optical path - see prv_heart_rate_subscription
+    // _update). HR runs first each tick so it wins ties; SpO2 takes its turn once HR finishes.
+    if (!s_activity_state.spo2.currently_sampling && s_activity_state.hr.currently_sampling) {
+      return;
+    }
+
     // Skip sampling if the watch looks to be off-wrist (lying flat), same heuristic as HR
     const uint8_t z_axis = s_activity_state.last_orientation >> 4;
     const bool watch_is_flat = z_axis == 0 || z_axis == 8;
@@ -368,14 +381,13 @@ T_STATIC void prv_spo2_subscription_cb(PebbleHRMEvent *hrm_event, void *context)
   const HRMQuality quality = hrm_event->spo2.quality;
   ACTIVITY_LOG_DEBUG("SpO2: %"PRIu8"%%, qual: %d", pct, (int)quality);
 
-  if (quality >= HRMQuality_Good) {
-    s_activity_state.spo2.num_good_quality_samples++;
-  }
-
-  // Stash real on-wrist readings so the next minute record carries them to the phone (the minute
-  // data-logging stream is durable and bulk-synced, unlike a live feed). Skip off-wrist/invalid/
-  // zero samples - they aren't real measurements.
+  // A reading the algorithm accepted (not invalid), on-wrist, with a plausible percent is a usable
+  // measurement: count it toward the short-circuit AND stash it for the next minute record. The
+  // algorithm's own invalid flag is the right gate - the confidence-derived quality grade is a
+  // relative score, and requiring "Good" left algorithm-valid readings uncounted, so the sensor
+  // never stopped firing even while it was handing us readings.
   if (!hrm_event->spo2.invalid && quality != HRMQuality_OffWrist && pct > 0) {
+    s_activity_state.spo2.num_good_quality_samples++;
     s_activity_state.spo2.pending_percent = pct;
     s_activity_state.spo2.pending_quality = prv_spo2_health_quality(quality);
   }
