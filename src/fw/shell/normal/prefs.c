@@ -281,6 +281,12 @@ static ActivitySpO2Settings s_activity_spo2_preferences = ACTIVITY_SPO2_DEFAULT_
 #define PREF_KEY_BLOOD_OXYGEN_PREFERENCES "bloodOxygenPreferences"
 static bool s_blood_oxygen_enabled = false;
 
+// Blood oxygen during activities opt-in. Synced from the phone like the other health toggles, and
+// only meaningful when HR-during-activities is on (enforced in the settings UI). Opt-in: default
+// off.
+#define PREF_KEY_BLOOD_OXYGEN_ACTIVITY_PREFERENCES "bloodOxygenActivityPreferences"
+static bool s_blood_oxygen_activity_enabled = false;
+
 #define PREF_KEY_ACTIVITY_HEART_RATE_PREFERENCES "heartRatePreferences"
 static HeartRatePreferences s_activity_hr_preferences = ACTIVITY_HEART_RATE_DEFAULT_PREFERENCES;
 
@@ -766,6 +772,15 @@ static bool prv_set_s_activity_spo2_preferences(ActivitySpO2Settings *new_settin
 
 static bool prv_set_s_blood_oxygen_enabled(bool *enabled) {
   s_blood_oxygen_enabled = *enabled;
+
+#ifdef CONFIG_HRM
+  hrm_manager_handle_prefs_changed();
+#endif // CONFIG_HRM
+  return true;
+}
+
+static bool prv_set_s_blood_oxygen_activity_enabled(bool *enabled) {
+  s_blood_oxygen_activity_enabled = *enabled;
 
 #ifdef CONFIG_HRM
   hrm_manager_handle_prefs_changed();
@@ -2072,6 +2087,16 @@ void activity_prefs_set_blood_oxygen_enabled(bool enabled) {
     // prv_pref_set runs prv_set_s_blood_oxygen_enabled, which updates the global
     // and re-evaluates the sensor; writing the key also syncs it to the phone.
     prv_pref_set(PREF_KEY_BLOOD_OXYGEN_PREFERENCES, &enabled, sizeof(enabled));
+  }
+}
+
+bool activity_prefs_blood_oxygen_activity_tracking_is_enabled(void) {
+  return s_blood_oxygen_activity_enabled;
+}
+
+void activity_prefs_set_blood_oxygen_activity_tracking_enabled(bool enabled) {
+  if (s_blood_oxygen_activity_enabled != enabled) {
+    prv_pref_set(PREF_KEY_BLOOD_OXYGEN_ACTIVITY_PREFERENCES, &enabled, sizeof(enabled));
   }
 }
 
