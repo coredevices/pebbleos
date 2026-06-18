@@ -70,6 +70,12 @@ typedef uint32_t ActivityScalarStore;
 // couple of good samples land, so this only extends the struggling case.
 #define ACTIVITY_DEFAULT_SPO2_ON_TIME_SEC (120)
 
+// Activity-triggered SpO2 (SpO2 during detected activities): how often to interrupt continuous HR
+// for one SpO2 point, how long to give each attempt, and how long to let HR recover before a retry.
+#define ACTIVITY_SPO2_ACTIVITY_INTERVAL_SEC (5 * SECONDS_PER_MINUTE)
+#define ACTIVITY_SPO2_ACTIVITY_ATTEMPT_SEC  (35)
+#define ACTIVITY_SPO2_ACTIVITY_BACKOFF_SEC  (SECONDS_PER_MINUTE)
+
 // The minimum number of samples needed before we can approximate the user's HR zone
 #define ACTIVITY_MIN_NUM_SAMPLES_FOR_HR_ZONE (5)
 
@@ -349,6 +355,21 @@ typedef struct {
   uint8_t pending_quality;            // quality on the 0-7 HeartRateQuality scale
 } ActivitySpO2Support;
 
+// Phases of the activity-triggered SpO2 reader (SpO2 during detected activities).
+typedef enum {
+  ActivitySpO2ActPhase_Idle = 0,      // not in an eligible activity
+  ActivitySpO2ActPhase_Wait,          // HR sampling; counting down to the next attempt
+  ActivitySpO2ActPhase_Sampling,      // HR paused, sampling SpO2 (bounded attempt budget)
+  ActivitySpO2ActPhase_Backoff,       // last attempt failed; HR resumed for a breather, then retry
+} ActivitySpO2ActPhase;
+
+typedef struct {
+  HRMSessionRef hrm_session;          // dedicated SpO2 session, only sampled during an attempt
+  ActivitySpO2ActPhase phase;
+  uint32_t phase_started_ts;          // uptime (s) when the current phase began
+  bool got_reading;                   // a valid SpO2 reading landed during this attempt
+} ActivitySpO2ActivitySupport;
+
 typedef struct {
   // Mutex for serializing access to these globals
   PebbleRecursiveMutex *mutex;
@@ -389,6 +410,9 @@ typedef struct {
 
   // Blood oxygen (SpO2) support
   ActivitySpO2Support spo2;
+
+  // Blood oxygen during detected activities
+  ActivitySpO2ActivitySupport activity_spo2;
 
   // Most recent values from prv_get_day()
   uint16_t cur_day_index;
