@@ -72,6 +72,12 @@ typedef struct HRMSubscriberState {
 // indefinitely.
 #define HRM_UNSERVED_ATTEMPT_MAX_SEC 60
 
+// Max time one optical path may hold the sensor while the other is also due, before a hand-off is
+// forced. A safety valve against a path that never yields on its own (SpO2 in poor signal, or an
+// app polling at a fixed interval). Must be shorter than a managed measurement window
+// (ACTIVITY_DEFAULT_*_ON_TIME_SEC) so the waiting path gets its turn before it backs off.
+#define HRM_PATH_MAX_SLICE_SEC 30
+
 struct HRMManagerState {
   PebbleRecursiveMutex *lock;
   ListNode *subscribers;
@@ -105,6 +111,10 @@ struct HRMManagerState {
 
   HRMFeature active_features;      // Features the sensor is currently sampling (0 when off). Only
                                    // one optical path (green BPM/HRV or red/IR SpO2) runs at a time.
+  RtcTicks active_path_start_ticks; // tick count when the current optical path was enabled; bounds
+                                    // how long it may hold the sensor while the other path waits.
+  HRMFeature last_conflict_winner; // path that won the most recent fresh-session conflict; the next
+                                   // conflict alternates away from it so the two never phase-lock.
 };
 
 //! Subscription for KernelBG or KernelMain clients.

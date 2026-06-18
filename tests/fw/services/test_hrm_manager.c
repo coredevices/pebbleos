@@ -257,27 +257,36 @@ void test_hrm_manager__feature_change_restarts_sensor(void) {
 // are due the manager must serve exactly one path at a time and hand off to the other once the
 // running path's subscribers are served, instead of one starving the other.
 void test_hrm_manager__select_active_path(void) {
-  // Only one path due -> sample it, untouched.
-  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM, 0), HRMFeature_BPM);
-  cl_assert_equal_i(prv_select_active_path(HRMFeature_SpO2, 0), HRMFeature_SpO2);
-  cl_assert_equal_i(prv_select_active_path(0, 0), 0);
-
-  // Cold start with both paths due (nothing running yet) -> SpO2 goes first.
-  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM | HRMFeature_SpO2, 0), HRMFeature_SpO2);
+  // Only one path due -> sample it, untouched (round-robin state is irrelevant).
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM, 0, 0), HRMFeature_BPM);
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_SpO2, 0, 0), HRMFeature_SpO2);
+  cl_assert_equal_i(prv_select_active_path(0, 0, 0), 0);
 
   // SpO2 already running and both still due -> keep SpO2 (don't cut its measurement short).
-  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM | HRMFeature_SpO2, HRMFeature_SpO2),
-                    HRMFeature_SpO2);
+  cl_assert_equal_i(
+      prv_select_active_path(HRMFeature_BPM | HRMFeature_SpO2, HRMFeature_SpO2, 0),
+      HRMFeature_SpO2);
 
   // SpO2 served and backed off (only BPM left due) while SpO2 was running -> hand off to BPM.
-  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM, HRMFeature_SpO2), HRMFeature_BPM);
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM, HRMFeature_SpO2, 0), HRMFeature_BPM);
 
   // BPM already running and both still due -> keep the green path running.
-  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM | HRMFeature_SpO2, HRMFeature_BPM),
-                    HRMFeature_BPM);
+  cl_assert_equal_i(
+      prv_select_active_path(HRMFeature_BPM | HRMFeature_SpO2, HRMFeature_BPM, 0),
+      HRMFeature_BPM);
 
   // BPM served and backed off (only SpO2 left due) while BPM was running -> hand off to SpO2.
-  cl_assert_equal_i(prv_select_active_path(HRMFeature_SpO2, HRMFeature_BPM), HRMFeature_SpO2);
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_SpO2, HRMFeature_BPM, 0), HRMFeature_SpO2);
+
+  // Round-robin on a fresh session (sensor off) with both due: alternate away from last winner so
+  // the two schedulers can't phase-lock on one path.
+  const HRMFeature both = HRMFeature_BPM | HRMFeature_SpO2;
+  // No previous winner -> SpO2 goes first.
+  cl_assert_equal_i(prv_select_active_path(both, 0, 0), HRMFeature_SpO2);
+  // SpO2 won last -> BPM goes first this time.
+  cl_assert_equal_i(prv_select_active_path(both, 0, HRMFeature_SpO2), HRMFeature_BPM);
+  // BPM won last -> SpO2 goes first this time.
+  cl_assert_equal_i(prv_select_active_path(both, 0, HRMFeature_BPM), HRMFeature_SpO2);
 }
 
 // When we cleanup after an app process, its subscription, if any, should get an expriration time
