@@ -169,15 +169,21 @@ void gh3x2x_spo2_result_report(uint8_t pct, uint8_t confidence, uint8_t valid_le
   hrm_data.spo2_valid_level = valid_level;
   hrm_data.spo2_invalid = (invalid_flg != 0);
 
+  // Map the algorithm confidence coefficient (0-100) onto our quality scale. Thresholds are tuned
+  // to what this sensor actually produces on the wrist; the old 90/98 cut-offs were unreachable, so
+  // nothing ever scored Good and no downstream gate fired. A reading the algorithm rejects
+  // (invalid_flg) is never treated as usable.
   if (!HRM->state->is_wear) {
     hrm_data.spo2_quality = HRMQuality_OffWrist;
-  } else if (confidence >= 98U) {
+  } else if (invalid_flg) {
+    hrm_data.spo2_quality = HRMQuality_Worst;
+  } else if (confidence >= 85U) {
     hrm_data.spo2_quality = HRMQuality_Excellent;
-  } else if (confidence >= 90U) {
+  } else if (confidence >= 65U) {
     hrm_data.spo2_quality = HRMQuality_Good;
-  } else if (confidence >= 80U) {
+  } else if (confidence >= 45U) {
     hrm_data.spo2_quality = HRMQuality_Acceptable;
-  } else if (confidence >= 70U) {
+  } else if (confidence >= 25U) {
     hrm_data.spo2_quality = HRMQuality_Poor;
   } else {
     hrm_data.spo2_quality = HRMQuality_Worst;
@@ -516,13 +522,14 @@ bool hrm_enable(HRMDevice *dev, HRMFeature features) {
 
   s_hrm_int_flag = false;
 
-  // Keep the two measurements on separate optical paths so we never fire green
-  // and red at the same time (which looks orange): SpO2 uses the red/IR path
-  // with IR-based wear detection, HR uses the green path with green wear
-  // detection. Wear detection comes from the SOFT_ADT function on each path, so
-  // the green HR function is not needed during an SpO2 measurement.
+  // One optical path at a time so we never fire green and red together (looks orange). SpO2 runs
+  // the red/IR path alone: co-running SOFT_ADT shares IR frame time and perturbs the SpO2 AGC,
+  // badly degrading signal quality. With no ADT there is no live wear signal, so assume worn - the
+  // activity scheduler gates on an accel off-wrist heuristic, and a truly off-wrist sample comes
+  // back flagged invalid (Worst quality). HR uses the green path with green wear detection.
   if (features & HRMFeature_SpO2) {
-    dev->state->work_mode = GH3X2X_FUNCTION_SPO2 | GH3X2X_FUNCTION_SOFT_ADT_IR;
+    dev->state->work_mode = GH3X2X_FUNCTION_SPO2;
+    dev->state->is_wear = true;
   } else {
     dev->state->work_mode = GH3X2X_FUNCTION_HR | GH3X2X_FUNCTION_SOFT_ADT_GREEN;
   }
