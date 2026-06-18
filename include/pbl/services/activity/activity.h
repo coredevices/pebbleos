@@ -426,6 +426,11 @@ bool activity_prefs_heart_rate_is_enabled(void);
 //! regardless of CONFIG_HRM.
 bool activity_prefs_blood_oxygen_is_enabled(void);
 
+//! Return true if blood oxygen sampling during detected activities is enabled. Opt-in, only
+//! meaningful alongside HR-during-activities. Declared unconditionally; the HRM manager reads it
+//! to allow the SpO2 path during activities even when daily SpO2 monitoring is off.
+bool activity_prefs_blood_oxygen_activity_tracking_is_enabled(void);
+
 #ifdef CONFIG_HRM
 //! Get the HRM measurement interval setting
 //! @return the current HRMonitoringInterval value
@@ -443,6 +448,9 @@ void activity_prefs_set_hrm_activity_tracking_enabled(bool enabled);
 
 //! Enable or disable blood oxygen (SpO2) monitoring
 void activity_prefs_set_blood_oxygen_enabled(bool enabled);
+
+//! Enable or disable blood oxygen sampling during detected activities
+void activity_prefs_set_blood_oxygen_activity_tracking_enabled(bool enabled);
 
 //! Get the SpO2 measurement interval setting
 //! @return the current HRMonitoringInterval value

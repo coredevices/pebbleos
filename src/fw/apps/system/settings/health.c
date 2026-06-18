@@ -42,6 +42,7 @@ enum SettingsHealthItem {
     SettingsHealthHRActivityTracking,
     SettingsHealthBloodOxygenEnabled,
     SettingsHealthSpO2MonitoringInterval,
+    SettingsHealthBloodOxygenActivityTracking,
 #endif
     NumSettingsHealthItems
 };
@@ -155,6 +156,17 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
             }
             break;
         }
+        case SettingsHealthBloodOxygenActivityTracking: {
+            title = i18n_noop("Blood O2 During Activity");
+            if (!activity_prefs_hrm_activity_tracking_is_enabled()) {
+                // Requires HR During Activity to be on first.
+                subtitle = i18n_noop("Needs HR During Activity");
+            } else {
+                subtitle = activity_prefs_blood_oxygen_activity_tracking_is_enabled()
+                    ? i18n_noop("On") : i18n_noop("Off");
+            }
+            break;
+        }
 #endif
         default:
             WTF;
@@ -184,16 +196,28 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
         case SettingsHealthHRMonitoringInterval:
             prv_hrm_interval_menu_push((SettingsHealthData*)context);
             break;
-        case SettingsHealthHRActivityTracking:
-            activity_prefs_set_hrm_activity_tracking_enabled(
-                !activity_prefs_hrm_activity_tracking_is_enabled());
+        case SettingsHealthHRActivityTracking: {
+            bool new_value = !activity_prefs_hrm_activity_tracking_is_enabled();
+            activity_prefs_set_hrm_activity_tracking_enabled(new_value);
+            if (!new_value) {
+                // Blood O2 in activity depends on HR in activity; clear it when the parent goes off.
+                activity_prefs_set_blood_oxygen_activity_tracking_enabled(false);
+            }
             break;
+        }
         case SettingsHealthBloodOxygenEnabled:
             activity_prefs_set_blood_oxygen_enabled(
                 !activity_prefs_blood_oxygen_is_enabled());
             break;
         case SettingsHealthSpO2MonitoringInterval:
             prv_spo2_interval_menu_push((SettingsHealthData*)context);
+            break;
+        case SettingsHealthBloodOxygenActivityTracking:
+            // Only togglable once HR During Activity is on (see draw); otherwise ignore the press.
+            if (activity_prefs_hrm_activity_tracking_is_enabled()) {
+                activity_prefs_set_blood_oxygen_activity_tracking_enabled(
+                    !activity_prefs_blood_oxygen_activity_tracking_is_enabled());
+            }
             break;
 #endif
         default:
