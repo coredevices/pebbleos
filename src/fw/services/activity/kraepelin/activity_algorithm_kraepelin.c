@@ -1070,6 +1070,20 @@ void activity_algorithm_enable_activity_tracking(bool enable) {
   prv_unlock();
 }
 
+bool activity_algorithm_activity_hrm_is_active(void) {
+  if (!s_alg_state || !s_alg_state->k_state) {
+    return false;
+  }
+  return kalg_activity_hrm_is_active(s_alg_state->k_state);
+}
+
+void activity_algorithm_activity_hrm_set_paused(bool paused) {
+  if (!s_alg_state || !s_alg_state->k_state) {
+    return;
+  }
+  kalg_activity_hrm_set_paused(s_alg_state->k_state, paused);
+}
+
 // ----------------------------------------------------------------------------------------------
 // This structure contains the context used by the activity_algorithm_get_minute_history() call
 typedef struct {

@@ -2180,3 +2180,26 @@ void kalg_enable_activity_tracking(KAlgState *kalg_state, bool enable) {
   kalg_state->disable_activity_session_tracking = !enable;
   prv_reset_state(kalg_state);
 }
+
+bool kalg_activity_hrm_is_active(KAlgState *kalg_state) {
+#ifdef CONFIG_HRM
+  return (kalg_state->walk_state.hrm_session != HRM_INVALID_SESSION_REF) ||
+         (kalg_state->run_state.hrm_session != HRM_INVALID_SESSION_REF);
+#else
+  return false;
+#endif
+}
+
+void kalg_activity_hrm_set_paused(KAlgState *kalg_state, bool paused) {
+#ifdef CONFIG_HRM
+  // Idle the activity HR session(s) (interval = 1 day) to free the optical path, or restore the
+  // 1 s continuous rate. The subscriber stays alive either way, so resuming is immediate.
+  const uint32_t interval_s = paused ? (24u * SECONDS_PER_HOUR) : 1u;
+  if (kalg_state->walk_state.hrm_session != HRM_INVALID_SESSION_REF) {
+    sys_hrm_manager_set_update_interval(kalg_state->walk_state.hrm_session, interval_s, 0);
+  }
+  if (kalg_state->run_state.hrm_session != HRM_INVALID_SESSION_REF) {
+    sys_hrm_manager_set_update_interval(kalg_state->run_state.hrm_session, interval_s, 0);
+  }
+#endif
+}

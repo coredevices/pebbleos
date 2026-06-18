@@ -99,6 +99,12 @@ BatteryChargeState battery_get_charge_state(void) {
 
 void kalg_enable_activity_tracking(KAlgState *kalg_state, bool enable) {}
 
+bool kalg_activity_hrm_is_active(KAlgState *kalg_state) {
+  return false;
+}
+
+void kalg_activity_hrm_set_paused(KAlgState *kalg_state, bool paused) {}
+
 bool activity_tracking_on(void) {
   return true;
 }
