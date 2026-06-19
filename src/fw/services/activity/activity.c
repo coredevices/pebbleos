@@ -43,6 +43,7 @@
 #include "pbl/services/activity/activity_calculators.h"
 #include "pbl/services/activity/activity_insights.h"
 #include "pbl/services/activity/activity_private.h"
+#include "pbl/services/activity/workout_service.h"
 
 PBL_LOG_MODULE_DEFINE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 
@@ -156,7 +157,7 @@ static void prv_heart_rate_subscription_update(uint32_t now_ts) {
 
     const bool should_be_sampling = !s_activity_state.hr.currently_sampling && !watch_is_flat;
     if (!s_activity_state.hr.currently_sampling && watch_is_flat) {
-      PBL_LOG_INFO("Not subscribing to HRM: watch is flat(ish)");
+      PBL_LOG_DBG("Not subscribing to HRM: watch is flat(ish)");
     }
 
     // Pick the subscription rate (essentially ON and OFF)
@@ -440,9 +441,11 @@ static void prv_spo2_deinit(void) {
 // HR and grab one SpO2 point. Independent of the daily SpO2 schedule and the daily SpO2 toggle.
 #ifdef CONFIG_HRM
 // Pause the continuous activity HR and turn our dedicated SpO2 session on (sampling), or the
-// reverse (resume HR, idle SpO2).
+// reverse (resume HR, idle SpO2). Pauses both the auto-activity HR and a manual workout's HR (each
+// a no-op if that one isn't running) so SpO2 owns the optical path for the attempt.
 static void prv_activity_spo2_set_sampling(bool sampling) {
   activity_algorithm_activity_hrm_set_paused(sampling);
+  workout_service_set_hrm_paused(sampling);
   const uint32_t interval = sampling ? ACTIVITY_HRM_SUBSCRIPTION_ON_PERIOD_SEC
                                      : ACTIVITY_HRM_SUBSCRIPTION_OFF_PERIOD_SEC;
   sys_hrm_manager_set_update_interval(s_activity_state.activity_spo2.hrm_session, interval,
@@ -457,16 +460,28 @@ static void prv_activity_spo2_start_attempt(uint32_t now_ts) {
   prv_activity_spo2_set_sampling(true);
 }
 
+// Red/IR SpO2 is more motion-sensitive than green HR, so only attempt it while the optical signal is
+// clean enough that a reading can plausibly succeed. When the green HR signal is poor (motion, poor
+// contact) a SpO2 attempt would just burn the red/IR LED and force HR to re-converge for nothing, so
+// we defer until a calmer moment. This only trims the during-activity bonus points; the independent
+// daily SpO2 schedule is unaffected.
+static bool prv_activity_spo2_signal_clean_enough(void) {
+  return s_activity_state.hr.metrics.current_quality >= HRMQuality_Acceptable;
+}
+
 // Drive the activity SpO2 state machine. Called from the minute handler (backstop) and from the HR
 // / SpO2 data callbacks (1 Hz while the relevant sensor is on, giving precise sub-minute timing).
 static void prv_activity_spo2_update(uint32_t now_ts) {
   ActivitySpO2ActivitySupport *as = &s_activity_state.activity_spo2;
 
-  // Eligible only while the opt-in is on, HR-during-activities is on, and an activity HR session is
-  // actually running right now.
+  // Run while the blood-oxygen-during-activities opt-in is on AND we're in an activity: either an
+  // auto-detected one with a running HR session (which needs HR-during-activities), or a manually
+  // started workout. The manual workout path only needs the SpO2 opt-in.
+  const bool auto_active = activity_prefs_hrm_activity_tracking_is_enabled() &&
+                           activity_algorithm_activity_hrm_is_active();
+  const bool workout_active = workout_service_is_workout_ongoing();
   const bool eligible = activity_prefs_blood_oxygen_activity_tracking_is_enabled() &&
-                        activity_prefs_hrm_activity_tracking_is_enabled() &&
-                        activity_algorithm_activity_hrm_is_active();
+                        (auto_active || workout_active);
 
   if (!eligible) {
     if (as->phase != ActivitySpO2ActPhase_Idle) {
@@ -485,7 +500,10 @@ static void prv_activity_spo2_update(uint32_t now_ts) {
       as->phase_started_ts = now_ts;
       break;
     case ActivitySpO2ActPhase_Wait:
-      if (now_ts - as->phase_started_ts >= ACTIVITY_SPO2_ACTIVITY_INTERVAL_SEC) {
+      // Wait until the interval elapses AND the signal is clean enough to attempt; if it stays
+      // noisy we defer (re-checked each 1 Hz tick) rather than burn the red/IR LED for nothing.
+      if (now_ts - as->phase_started_ts >= ACTIVITY_SPO2_ACTIVITY_INTERVAL_SEC &&
+          prv_activity_spo2_signal_clean_enough()) {
         prv_activity_spo2_start_attempt(now_ts);
       }
       break;
@@ -503,7 +521,10 @@ static void prv_activity_spo2_update(uint32_t now_ts) {
       }
       break;
     case ActivitySpO2ActPhase_Backoff:
-      if (now_ts - as->phase_started_ts >= ACTIVITY_SPO2_ACTIVITY_BACKOFF_SEC) {
+      // Retry only once the signal is clean enough too, so a sustained noisy spell doesn't keep
+      // re-paying the red/IR LED + HR re-convergence for doomed attempts.
+      if (now_ts - as->phase_started_ts >= ACTIVITY_SPO2_ACTIVITY_BACKOFF_SEC &&
+          prv_activity_spo2_signal_clean_enough()) {
         prv_activity_spo2_start_attempt(now_ts);
       }
       break;
@@ -546,9 +567,11 @@ static void prv_activity_spo2_init(void) {
 
 static void prv_activity_spo2_deinit(void) {
 #ifdef CONFIG_HRM
-  // Make sure HR isn't left paused if we tear down mid-attempt.
+  // Make sure HR isn't left paused if we tear down mid-attempt. Mirror set_sampling(): an attempt
+  // pauses both the auto-activity HR and a manual workout's HR, so resume both here too.
   if (s_activity_state.activity_spo2.phase == ActivitySpO2ActPhase_Sampling) {
     activity_algorithm_activity_hrm_set_paused(false);
+    workout_service_set_hrm_paused(false);
   }
   sys_hrm_manager_unsubscribe(s_activity_state.activity_spo2.hrm_session);
   s_activity_state.activity_spo2.phase = ActivitySpO2ActPhase_Idle;
