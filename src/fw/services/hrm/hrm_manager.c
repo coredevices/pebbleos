@@ -263,6 +263,9 @@ static bool prv_sensor_enable(HRMFeature features) {
   s_manager_state.sensor_on_since_ticks = rtc_get_ticks();
   s_manager_state.unserved_timeout_logged = false;
   s_manager_state.active_path_start_ticks = rtc_get_ticks();
+  // Re-apply the current activity scene so a sensor power-cycle never drops back to the default
+  // (least motion-tolerant) HR model while an activity is in progress.
+  hrm_set_activity_scene(HRM, s_manager_state.activity_scene);
   // Track HRM on-time
   PBL_ANALYTICS_TIMER_START(hrm_on_time_ms);
   return true;
@@ -755,6 +758,15 @@ unlock:
 
 void hrm_manager_handle_prefs_changed(void) {
   system_task_add_callback(prv_update_hrm_enable_system_cb, NULL);
+}
+
+void hrm_manager_set_activity_scene(HRMActivityScene scene) {
+  mutex_lock_recursive(s_manager_state.lock);
+  s_manager_state.activity_scene = scene;
+  // Apply immediately too: if the sensor is already on (e.g. a continuous workout HR session) the
+  // algorithm should switch scenes without waiting for the next power cycle.
+  hrm_set_activity_scene(HRM, scene);
+  mutex_unlock_recursive(s_manager_state.lock);
 }
 
 void hrm_manager_init(void) {

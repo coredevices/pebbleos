@@ -6,6 +6,7 @@
 #include "hrm_manager.h"
 
 #include "applib/event_service_client.h"
+#include "pbl/services/hrm/hrm_activity_scene.h"
 #include <pbl/drivers/rtc.h>
 #include "freertos_types.h"
 #include "kernel/events.h"
@@ -20,8 +21,11 @@
 typedef void (*HRMSubscriberCallback)(PebbleHRMEvent *event, void *context);
 
 // We need roughly this many seconds of "spin up" time to get a good reading from the HR sensor
-// right after turning it on
-#define HRM_SENSOR_SPIN_UP_SEC 20
+// right after turning it on. The Goodix EXCLUSIVE HR model's earliest output lands ~9s in, so 12s
+// keeps a small margin above that without the dead time of the old 20s budget. Only affects when the
+// sensor pre-warms ahead of a future-due subscriber; a due-now subscriber (e.g. workout start) turns
+// it on immediately regardless.
+#define HRM_SENSOR_SPIN_UP_SEC 12
 
 typedef struct AccelServiceState AccelServiceState;
 
@@ -54,8 +58,9 @@ typedef struct HRMSubscriberState {
 #define HRM_MANAGER_ACCEL_MANAGER_SAMPLES_PER_UPDATE 4
 
 // After every HRM_CHECK_SENSOR_DISABLE_COUNT calls to hrm_manager_new_data_cb(), we check to see
-// if we should disable the sensor.
-#define HRM_CHECK_SENSOR_DISABLE_COUNT 10
+// if we should disable the sensor. Kept low so a served subscriber doesn't keep the LED lit (and
+// block the other optical path) for many seconds of extra on-time.
+#define HRM_CHECK_SENSOR_DISABLE_COUNT 3
 
 // After this many consecutive hrm_enable failures, stop trying until reboot
 #define HRM_MAX_ENABLE_FAILURES 3
@@ -69,8 +74,9 @@ typedef struct HRMSubscriberState {
 // Maximum time the sensor stays on for a subscriber that has never received a usable reading.
 // After this window the subscriber backs off to its requested update interval, so requesting a
 // feature the sensor can't currently serve (e.g. SpO2 in poor signal) doesn't pin the sensor on
-// indefinitely.
-#define HRM_UNSERVED_ATTEMPT_MAX_SEC 60
+// indefinitely. This bounds the first-reading acquisition; 45s is ample margin over typical HR/SpO2
+// convergence, and trims the high-current red/IR LED from the previous 60s when a reading is doomed.
+#define HRM_UNSERVED_ATTEMPT_MAX_SEC 45
 
 // Max time one optical path may hold the sensor while the other is also due, before a hand-off is
 // forced. A safety valve against a path that never yields on its own (SpO2 in poor signal, or an
@@ -115,6 +121,9 @@ struct HRMManagerState {
                                     // how long it may hold the sensor while the other path waits.
   HRMFeature last_conflict_winner; // path that won the most recent fresh-session conflict; the next
                                    // conflict alternates away from it so the two never phase-lock.
+
+  HRMActivityScene activity_scene; // Activity context applied to the sensor's HR algorithm so it can
+                                   // use a motion-tuned model. Re-applied whenever the sensor powers on.
 };
 
 //! Subscription for KernelBG or KernelMain clients.
@@ -131,5 +140,10 @@ struct HRMManagerState {
 //! @param context the context pointer for the callback
 //! @return the HRMSessionRef for this subscription. NULL on failure
 HRMSessionRef hrm_manager_subscribe_with_callback(AppInstallId app_id, uint32_t update_interval_s,
-                                                  uint16_t expire_s, HRMFeature features,
-                                                  HRMSubscriberCallback callback, void *context);
+                                                   uint16_t expire_s, HRMFeature features,
+                                                   HRMSubscriberCallback callback, void *context);
+
+//! Set the activity context the HR algorithm should optimize for (see HRMActivityScene). Stored and
+//! re-applied on every sensor power-on, so callers don't need to re-arm it across sensor cycles.
+//! Safe to call from any task.
+void hrm_manager_set_activity_scene(HRMActivityScene scene);
