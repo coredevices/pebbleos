@@ -67,8 +67,10 @@ typedef uint32_t ActivityScalarStore;
 
 // Maximum time to leave the sensor on per SpO2 measurement before giving up. Longer than the HR
 // window: SpO2 needs more time on the wrist to converge. The short-circuit ends it early once a
-// couple of good samples land, so this only extends the struggling case.
-#define ACTIVITY_DEFAULT_SPO2_ON_TIME_SEC (120)
+// couple of good samples land, so this only bounds the struggling case - where the high-current
+// red/IR LED would otherwise run for a long time handing back nothing usable. 90s is still ample
+// margin over the ~30s SpO2 typically needs to converge.
+#define ACTIVITY_DEFAULT_SPO2_ON_TIME_SEC (90)
 
 // Activity-triggered SpO2 (SpO2 during detected activities): how often to interrupt continuous HR
 // for one SpO2 point, how long to give each attempt, and how long to let HR recover before a retry.
