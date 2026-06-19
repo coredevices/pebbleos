@@ -7,6 +7,7 @@
 #include "pbl/services/activity/activity_calculators.h"
 #include "pbl/services/activity/workout_service.h"
 #include "pbl/services/hrm/hrm_manager.h"
+#include "drivers/hrm.h"
 #include "process_management/app_install_types.h"
 #include "util/time/time.h"
 #include "util/units.h"
@@ -104,6 +105,14 @@ bool sys_hrm_manager_unsubscribe(HRMSessionRef ref) {
 bool sys_hrm_manager_set_update_interval(HRMSessionRef session, uint32_t update_interval_s,
                                          uint16_t expire_s) {
   s_hrm_expiration = expire_s;
+  return true;
+}
+
+void hrm_manager_set_activity_scene(HRMActivityScene scene) { (void)scene; }
+
+bool sys_hrm_manager_set_features(HRMSessionRef session, HRMFeature features) {
+  (void)session;
+  (void)features;
   return true;
 }
 

@@ -44,7 +44,7 @@ extern TimerID prv_get_timer_id(void);
 extern bool prv_can_turn_sensor_on(void);
 extern void prv_charger_event_cb(PebbleEvent *e);
 extern uint32_t prv_get_dropped_events_count(void);
-extern HRMFeature prv_select_active_path(HRMFeature wanted, HRMFeature active);
+extern HRMFeature prv_select_active_path(HRMFeature wanted, HRMFeature active, HRMFeature last_winner);
 
 
 // -----------------------------------------------------------------------------
@@ -65,6 +65,7 @@ bool hrm_enable(HRMDevice *dev, HRMFeature features) {
 }
 void hrm_disable(HRMDevice *dev) { s_hrm_state.enabled = false; }
 bool hrm_is_enabled(HRMDevice *dev) { return s_hrm_state.enabled; }
+void hrm_set_activity_scene(HRMDevice *dev, HRMActivityScene scene) { (void)dev; (void)scene; }
 
 // -----------------------------------------------------------------------------
 // Queue Fakes
@@ -110,6 +111,11 @@ bool activity_prefs_heart_rate_is_enabled(void) {
 static bool s_activity_prefs_blood_oxygen_is_enabled = false;
 bool activity_prefs_blood_oxygen_is_enabled(void) {
   return s_activity_prefs_blood_oxygen_is_enabled;
+}
+
+static bool s_activity_prefs_blood_oxygen_activity_tracking_is_enabled = false;
+bool activity_prefs_blood_oxygen_activity_tracking_is_enabled(void) {
+  return s_activity_prefs_blood_oxygen_activity_tracking_is_enabled;
 }
 
 bool battery_is_usb_connected(void) {
