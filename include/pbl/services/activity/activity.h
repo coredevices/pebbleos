@@ -449,6 +449,11 @@ void activity_prefs_set_hrm_activity_tracking_enabled(bool enabled);
 //! Enable or disable blood oxygen (SpO2) monitoring
 void activity_prefs_set_blood_oxygen_enabled(bool enabled);
 
+//! Temporarily allow the SpO2 path without touching the user's stored preference. RAM only: it is
+//! never written to the pref store or synced to the phone, and any reset clears it. Used by the
+//! SpO2 test app so a force-kill can't strand daily SpO2 sampling switched on.
+void activity_prefs_set_blood_oxygen_override(bool enabled);
+
 //! Enable or disable blood oxygen sampling during detected activities
 void activity_prefs_set_blood_oxygen_activity_tracking_enabled(bool enabled);
 

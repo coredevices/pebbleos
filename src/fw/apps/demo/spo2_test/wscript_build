@@ -1,0 +1,12 @@
+# SPDX-Copyright-Text: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+bld.stlib(
+    use=['fw_includes'],
+    includes=['.'],
+    source=['spo2_test.c'],
+    target='demo_app_spo2_test',
+)
+bld.env.FW_APPS.append('demo_app_spo2_test')
+
+# vim:filetype=python

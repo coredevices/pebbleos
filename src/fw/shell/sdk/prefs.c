@@ -265,6 +265,9 @@ bool activity_prefs_blood_oxygen_is_enabled(void) {
 void activity_prefs_set_blood_oxygen_enabled(bool enabled) {
 }
 
+void activity_prefs_set_blood_oxygen_override(bool enabled) {
+}
+
 bool activity_prefs_blood_oxygen_activity_tracking_is_enabled(void) {
   return false;
 }

@@ -2068,8 +2068,18 @@ void activity_prefs_set_hrm_activity_tracking_enabled(bool enabled) {
   }
 }
 
+// RAM-only override (see activity_prefs_set_blood_oxygen_override). Deliberately not persisted.
+static bool s_blood_oxygen_override = false;
+
 bool activity_prefs_blood_oxygen_is_enabled(void) {
-  return s_blood_oxygen_enabled;
+  return s_blood_oxygen_enabled || s_blood_oxygen_override;
+}
+
+void activity_prefs_set_blood_oxygen_override(bool enabled) {
+  if (s_blood_oxygen_override != enabled) {
+    s_blood_oxygen_override = enabled;
+    hrm_manager_handle_prefs_changed();
+  }
 }
 
 void activity_prefs_set_blood_oxygen_enabled(bool enabled) {

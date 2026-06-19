@@ -92,6 +92,8 @@ if bld.env.CONFIG_DEMO_APP_SCROLL:
     bld.recurse('scroll')
 if bld.env.CONFIG_DEMO_APP_SIMPLE_MENU:
     bld.recurse('simple_menu')
+if bld.env.CONFIG_DEMO_APP_SPO2_TEST:
+    bld.recurse('spo2_test')
 if bld.env.CONFIG_DEMO_APP_STATUSBAR:
     bld.recurse('statusbar')
 if bld.env.CONFIG_DEMO_APP_STROKE_WIDTH:
