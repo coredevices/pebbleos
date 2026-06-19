@@ -15,6 +15,7 @@
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/services/evented_timer.h"
+#include "pbl/services/hrm/hrm_manager_private.h"
 #include "pbl/services/regular_timer.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
@@ -30,6 +31,10 @@ PBL_LOG_MODULE_DECLARE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 #define WORKOUT_ACTIVE_HR_SUBSCRIPTION_TS_EXPIRE (SECONDS_PER_HOUR)
 #define WORKOUT_ABANDONED_NOTIFICATION_TIMEOUT_MS (55 * MS_PER_MINUTE)
 #define WORKOUT_ABANDON_WORKOUT_TIMEOUT_MS (5 * MS_PER_MINUTE)
+
+// Number of recent raw BPM samples used to reject motion-driven spikes in the live workout HR.
+// Small so it tracks real rapid changes (intervals) while still discarding single-sample outliers.
+#define WORKOUT_HR_SMOOTH_N 3
 
 //! Allocated when a Workout is started
 typedef struct CurrentWorkoutData {
@@ -50,6 +55,11 @@ typedef struct CurrentWorkoutData {
   int32_t hr_zone_time_s[HRZoneCount];
   int32_t hr_samples_sum;
   int32_t hr_samples_count;
+
+  // Ring of recent raw BPMs used to median-filter the live HR for display during movement.
+  uint8_t bpm_ring[WORKOUT_HR_SMOOTH_N];
+  uint8_t bpm_ring_count;
+  uint8_t bpm_ring_head;
 
   // Step count total from the last HealthEventMovementUpdate
   int32_t last_event_step_count;
@@ -127,6 +137,44 @@ static void prv_reset_hr_data(void) {
   s_workout_data.current_workout->current_bpm = 0;
   s_workout_data.current_workout->current_hr_zone = HRZone_Zone0;
   s_workout_data.current_workout->current_bpm_timestamp_ts = now_ts;
+  // Drop any buffered samples so a stale pre-off-wrist value can't leak back into the live HR.
+  s_workout_data.current_workout->bpm_ring_count = 0;
+  s_workout_data.current_workout->bpm_ring_head = 0;
+}
+
+#ifdef CONFIG_HRM
+// Map a workout type onto the HR algorithm's activity scene, so it uses a motion-tuned model.
+static HRMActivityScene prv_scene_for_workout_type(ActivitySessionType type) {
+  switch (type) {
+    case ActivitySessionType_Walk:
+      return HRMActivityScene_Walk;
+    case ActivitySessionType_Run:
+      return HRMActivityScene_Run;
+    case ActivitySessionType_Open:
+      return HRMActivityScene_HighIntensity;
+    default:
+      return HRMActivityScene_Default;
+  }
+}
+#endif // CONFIG_HRM
+
+// Median of the last `count` raw BPMs in the ring (insertion order), used to discard motion spikes.
+static uint8_t prv_median_bpm(uint8_t *ring, uint8_t count, uint8_t head) {
+  uint8_t buf[WORKOUT_HR_SMOOTH_N];
+  for (uint8_t i = 0; i < count; i++) {
+    const uint8_t idx = (uint8_t)((head + WORKOUT_HR_SMOOTH_N - count + i) % WORKOUT_HR_SMOOTH_N);
+    buf[i] = ring[idx];
+  }
+  for (uint8_t i = 1; i < count; i++) {
+    const uint8_t v = buf[i];
+    int8_t j = (int8_t)(i - 1);
+    while (j >= 0 && buf[j] > v) {
+      buf[j + 1] = buf[j];
+      j--;
+    }
+    buf[j + 1] = v;
+  }
+  return buf[count / 2];
 }
 
 // ---------------------------------------------------------------------------------------
@@ -174,8 +222,26 @@ static void prv_handle_heart_rate_update(HealthEventHeartRateUpdateData *event) 
     prv_reset_hr_data();
   } else if (event->quality >= HRMQuality_Worst) {
     const int prev_bpm_timestamp_ts = wrkt_data->current_bpm_timestamp_ts;
+    const uint8_t raw_bpm = event->current_bpm;
 
-    wrkt_data->current_bpm = event->current_bpm;
+    // The live displayed HR is median-filtered over the last few samples to reject motion spikes,
+    // which are the main source of jitter during a workout. When the signal is clean we take the
+    // raw value directly (and clear the ring) so we don't lag genuine rapid changes like interval
+    // surges. The session average below still accumulates the raw value for accuracy.
+    if (event->quality >= HRMQuality_Good) {
+      wrkt_data->bpm_ring_count = 0;
+      wrkt_data->bpm_ring_head = 0;
+      wrkt_data->current_bpm = raw_bpm;
+    } else {
+      wrkt_data->bpm_ring[wrkt_data->bpm_ring_head] = raw_bpm;
+      wrkt_data->bpm_ring_head = (uint8_t)((wrkt_data->bpm_ring_head + 1) % WORKOUT_HR_SMOOTH_N);
+      if (wrkt_data->bpm_ring_count < WORKOUT_HR_SMOOTH_N) {
+        wrkt_data->bpm_ring_count++;
+      }
+      wrkt_data->current_bpm =
+          prv_median_bpm(wrkt_data->bpm_ring, wrkt_data->bpm_ring_count, wrkt_data->bpm_ring_head);
+    }
+
     wrkt_data->current_hr_zone = hr_util_get_hr_zone(wrkt_data->current_bpm);
     wrkt_data->current_bpm_timestamp_ts = time_get_uptime_seconds();
 
@@ -184,7 +250,7 @@ static void prv_handle_heart_rate_update(HealthEventHeartRateUpdateData *event) 
       wrkt_data->hr_zone_time_s[wrkt_data->current_hr_zone] +=
           wrkt_data->current_bpm_timestamp_ts - prev_bpm_timestamp_ts;
       wrkt_data->hr_samples_count++;
-      wrkt_data->hr_samples_sum += event->current_bpm;
+      wrkt_data->hr_samples_sum += raw_bpm;
     }
   }
   return;
@@ -284,6 +350,20 @@ unlock:
 // ---------------------------------------------------------------------------------------
 void workout_service_init(void) {
   s_workout_data.s_workout_mutex = mutex_create_recursive();
+}
+
+// ---------------------------------------------------------------------------------------
+// Pause / resume the workout's HR sampling so the optical path is free for a periodic SpO2 reading
+// during a manual workout (mirrors the auto-activity HR pause). Uses set_features rather than
+// set_update_interval so the session's interval/expiration are preserved. KernelBG-safe.
+void workout_service_set_hrm_paused(bool paused) {
+#ifdef CONFIG_HRM
+  prv_lock();
+  {
+    sys_hrm_manager_set_features(s_workout_data.hrm_session, paused ? 0 : HRMFeature_BPM);
+  }
+  prv_unlock();
+#endif // CONFIG_HRM
 }
 
 // ---------------------------------------------------------------------------------------
@@ -401,6 +481,12 @@ bool workout_service_start_workout(ActivitySessionType type) {
     // Finally tell our algorithm it should stop automatically tracking activities
     activity_algorithm_enable_activity_tracking(false /* disable */);
 
+#ifdef CONFIG_HRM
+    // Switch the HR algorithm to a motion-tuned model for this workout type. Auto activity tracking
+    // is disabled above, so there's no competing scene source while the workout runs.
+    hrm_manager_set_activity_scene(prv_scene_for_workout_type(type));
+#endif
+
     PBL_LOG_INFO("Starting a workout with type: %d", type);
     prv_put_event(PebbleWorkoutEvent_Started);
   }
@@ -501,6 +587,8 @@ bool workout_service_stop_workout(void) {
     // the user's preferred rate within a bounded window, regardless of when the app actually exits.
     sys_hrm_manager_set_update_interval(s_workout_data.hrm_session, 1,
                                         WORKOUT_ENDED_HR_SUBSCRIPTION_TS_EXPIRE);
+    // Back to the general-purpose HR model now that the workout is over.
+    hrm_manager_set_activity_scene(HRMActivityScene_Default);
 #endif // CONFIG_HRM
 
     PBL_LOG_INFO("Stopping a workout with type: %d", wrkt->type);

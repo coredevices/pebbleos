@@ -56,6 +56,8 @@ bool sys_hrm_manager_set_update_interval(HRMSessionRef session, uint32_t update_
   return true;
 }
 
+void hrm_manager_set_activity_scene(HRMActivityScene scene) { (void)scene; }
+
 bool activity_prefs_hrm_activity_tracking_is_enabled(void) {
   return s_hrm_activity_tracking_enabled;
 }
