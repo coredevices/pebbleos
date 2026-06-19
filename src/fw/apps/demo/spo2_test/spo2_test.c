@@ -184,7 +184,9 @@ const PebbleProcessMd *spo2_test_get_app_info(void) {
     .common.uuid = { 0x6d, 0x6c, 0x3b, 0x0e, 0x2a, 0x4f, 0x4c, 0x91,
                      0x9b, 0x2d, 0x1f, 0x77, 0x84, 0x3c, 0x5e, 0xa1 },
     .common.main_func = &prv_main,
+    // Hidden from the launcher: launched from the Settings -> System -> Debugging menu instead, so
+    // it sits behind the developer prompt and stays out of the way for normal users.
+    .common.visibility = ProcessVisibilityHidden,
   };
-  // Only show in launcher if an HRM is present.
   return (sys_hrm_manager_is_hrm_present()) ? (const PebbleProcessMd *)&s_spo2_test_app_info : NULL;
 }
