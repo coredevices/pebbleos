@@ -2006,6 +2006,23 @@ static void prv_hrm_subscription_cb(PebbleHRMEvent *hrm_event, void *context) {
 }
 #endif
 
+#ifdef CONFIG_HRM
+// Recompute the HR algorithm's activity scene from whichever auto-detected walk/run session is
+// sampling HR. Run dominates walk (higher intensity); neither active -> default model. Manual
+// workouts disable auto-tracking, so this never races the workout's own scene. Runs on KernelBG.
+static void prv_update_activity_hrm_scene(KAlgState *alg_state) {
+  const bool run_active = alg_state->run_state.hrm_session != HRM_INVALID_SESSION_REF;
+  const bool walk_active = alg_state->walk_state.hrm_session != HRM_INVALID_SESSION_REF;
+  HRMActivityScene scene = HRMActivityScene_Default;
+  if (run_active) {
+    scene = HRMActivityScene_Run;
+  } else if (walk_active) {
+    scene = HRMActivityScene_Walk;
+  }
+  hrm_manager_set_activity_scene(scene);
+}
+#endif
+
 // ------------------------------------------------------------------------------------------
 // Process the minute data for walk or run activity detection
 static void prv_step_activity_update(KAlgState *alg_state, KAlgStepActivityState *state,
@@ -2059,6 +2076,8 @@ static void prv_step_activity_update(KAlgState *alg_state, KAlgStepActivityState
                activity_prefs_hrm_activity_tracking_is_enabled()) {
       state->hrm_session = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID,
           1 /* update interval */, hrm_expire_s, HRMFeature_BPM, prv_hrm_subscription_cb, NULL);
+      // A new auto-detected activity just enabled HR: switch the algorithm to a motion-tuned scene.
+      prv_update_activity_hrm_scene(alg_state);
     }
 #endif
 
@@ -2102,6 +2121,11 @@ static void prv_step_activity_update(KAlgState *alg_state, KAlgStepActivityState
                     state->distance_mm);
       }
       prv_reset_step_activity_state(state);
+#ifdef CONFIG_HRM
+      // This activity's HR session is gone; recompute the scene so it follows whichever activity
+      // (if any) is still running, or drops back to the default model.
+      prv_update_activity_hrm_scene(alg_state);
+#endif
     } else {
       // This was an inactive minute, but the activity is still considered ongoing, so accumulate
       // whatever steps, calories we have in this minute
