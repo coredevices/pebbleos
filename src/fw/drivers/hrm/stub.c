@@ -18,3 +18,8 @@ void hrm_disable(HRMDevice *dev) {
 bool hrm_is_enabled(HRMDevice *dev) {
     return dev->state->enabled;
 }
+
+void hrm_set_activity_scene(HRMDevice *dev, HRMActivityScene scene) {
+    (void)dev;
+    (void)scene;
+}

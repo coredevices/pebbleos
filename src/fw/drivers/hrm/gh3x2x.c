@@ -19,6 +19,7 @@
 #include "gh_demo.h"
 #include "gh_demo_inner.h"
 #include "gh3x2x_demo_mp.h"
+#include "goodix_hba.h"
 #endif // HRM_USE_GH3X2X
 
 PBL_LOG_MODULE_DEFINE(driver_hrm_gh3x2x, CONFIG_DRIVER_HRM_LOG_LEVEL);
@@ -31,8 +32,16 @@ void gh3026_reset_pin_ctrl(uint8_t pin_level) {
 
 #ifdef HRM_USE_GH3X2X
 
+// Defined in the Goodix algo demo layer (gh3x2x_demo_algo_call_hr.c); selects the HR algorithm's
+// activity "scene" (read on every frame). Not declared in any shipped header, forward-declared here.
+extern void Gh3x2xSetHbaMode(GS32 nHbaScenario);
+
 #define GH3X2X_LOG_ENABLE 0
-#define GH3X2X_FIFO_WATERMARK_CONFIG 80
+// FIFO read batch size. In normal interrupt mode the hardware IRQ fires when this many samples
+// accumulate, so it sets the end-to-end latency and update cadence. Lower = snappier first reading
+// and finer-grained HR/SpO2 updates, at the cost of more frequent I2C bursts. 25 samples ~= 1s at
+// the 25 Hz rate (was 80 ~= 3.2s).
+#define GH3X2X_FIFO_WATERMARK_CONFIG 25
 #define GH3X2X_HR_SAMPLING_RATE 25
 #define GH3X2X_HRV_SAMPLING_RATE 100
 // The Goodix HRV algorithm reports at most 4 RR intervals per result
@@ -587,4 +596,27 @@ void hrm_disable(HRMDevice *dev) {
 
 bool hrm_is_enabled(HRMDevice *dev) {
   return dev->state->enabled;
+}
+
+void hrm_set_activity_scene(HRMDevice *dev, HRMActivityScene scene) {
+#ifdef HRM_USE_GH3X2X
+  (void)dev;
+  // The Goodix EXCLUSIVE HR model ships per-activity "scenes" that are far more motion-tolerant
+  // than the default (e.g. high-HR running, high-intensity combine). Without this call the
+  // algorithm always runs the DEFAULT scene, which is where most movement-driven inaccuracy comes
+  // from. Gh3x2xSetHbaMode() writes a global the algorithm reads on every frame, so it is safe to
+  // flip live (no re-init) and idempotent.
+  static const GS32 s_scene_map[] = {
+      [HRMActivityScene_Default] = HBA_SCENES_DEFAULT,
+      [HRMActivityScene_Walk] = HBA_SCENES_WALKING_OUTSIDE,
+      [HRMActivityScene_Run] = HBA_SCENES_RUNNING_HIGH_HR,
+      [HRMActivityScene_HighIntensity] = HBA_SCENES_HIGH_INTENSITY_COMBINE,
+  };
+  const GS32 goodix_scene =
+      (scene <= HRMActivityScene_HighIntensity) ? s_scene_map[scene] : HBA_SCENES_DEFAULT;
+  Gh3x2xSetHbaMode(goodix_scene);
+#else
+  (void)dev;
+  (void)scene;
+#endif
 }

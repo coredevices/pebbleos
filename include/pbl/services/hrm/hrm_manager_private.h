@@ -6,6 +6,7 @@
 #include "hrm_manager.h"
 
 #include "applib/event_service_client.h"
+#include "pbl/services/hrm/hrm_activity_scene.h"
 #include <pbl/drivers/rtc.h>
 #include "freertos_types.h"
 #include "kernel/events.h"
@@ -19,9 +20,10 @@
 
 typedef void (*HRMSubscriberCallback)(PebbleHRMEvent *event, void *context);
 
-// We need roughly this many seconds of "spin up" time to get a good reading from the HR sensor
-// right after turning it on
-#define HRM_SENSOR_SPIN_UP_SEC 20
+// Seconds of "spin up" time needed for a good reading right after turning the sensor on. The Goodix
+// EXCLUSIVE HR model's earliest output lands ~9s in, so 12s leaves a small margin. Only affects
+// sensor pre-warm ahead of a future-due subscriber; a due-now subscriber turns it on immediately.
+#define HRM_SENSOR_SPIN_UP_SEC 12
 
 typedef struct AccelServiceState AccelServiceState;
 
@@ -52,8 +54,9 @@ typedef struct HRMSubscriberState {
 #define HRM_MANAGER_ACCEL_MANAGER_SAMPLES_PER_UPDATE 4
 
 // After every HRM_CHECK_SENSOR_DISABLE_COUNT calls to hrm_manager_new_data_cb(), we check to see
-// if we should disable the sensor.
-#define HRM_CHECK_SENSOR_DISABLE_COUNT 10
+// if we should disable the sensor. Kept low so a served subscriber doesn't keep the LED lit (and
+// block the other optical path) for many seconds of extra on-time.
+#define HRM_CHECK_SENSOR_DISABLE_COUNT 3
 
 // After this many consecutive hrm_enable failures, stop trying until reboot
 #define HRM_MAX_ENABLE_FAILURES 3
@@ -107,6 +110,9 @@ struct HRMManagerState {
                                    // optical path (green BPM/HRV or red/IR SpO2) runs at a time.
   HRMFeature last_conflict_winner; // path that won the most recent fresh-session conflict; the next
                                    // conflict alternates away from it so the two never phase-lock.
+
+  HRMActivityScene activity_scene; // Activity context for the sensor's HR algorithm (motion-tuned
+                                   // model). Re-applied whenever the sensor powers on.
 };
 
 //! Subscription for KernelBG or KernelMain clients.
@@ -123,5 +129,10 @@ struct HRMManagerState {
 //! @param context the context pointer for the callback
 //! @return the HRMSessionRef for this subscription. NULL on failure
 HRMSessionRef hrm_manager_subscribe_with_callback(AppInstallId app_id, uint32_t update_interval_s,
-                                                  uint16_t expire_s, HRMFeature features,
-                                                  HRMSubscriberCallback callback, void *context);
+                                                   uint16_t expire_s, HRMFeature features,
+                                                   HRMSubscriberCallback callback, void *context);
+
+//! Set the activity context the HR algorithm should optimize for (see HRMActivityScene). Stored and
+//! re-applied on every sensor power-on, so callers don't need to re-arm it across sensor cycles.
+//! Safe to call from any task.
+void hrm_manager_set_activity_scene(HRMActivityScene scene);
