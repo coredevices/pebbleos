@@ -36,6 +36,7 @@ bool s_hrm_activity_tracking_enabled = true;
 
 HRMSessionRef hrm_manager_subscribe_with_callback(AppInstallId app_id, uint32_t update_interval_s,
                                                   uint16_t expire_s, HRMFeature features,
+                                                  bool low_latency,
                                                   HRMSubscriberCallback callback, void *context) {
   s_hrm_live_subscriptions++;
   s_hrm_last_expire_s = expire_s;

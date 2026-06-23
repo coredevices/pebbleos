@@ -16,8 +16,11 @@ void hrm_init(HRMDevice *dev);
 //! Enable the HRM, sampling the PPG functions needed for the requested features
 //! @param dev the HRM device to enable
 //! @param features bitmask of HRMFeature values the sensor should collect
+//! @param low_latency true for live-display sessions that need prompt updates (workout / foreground
+//!   app); false for background daily logging, where the FIFO can be drained less often to save
+//!   MCU/I2C wakeups since only the final reading matters
 //! @return true if successfully enabled, false if initialization failed
-bool hrm_enable(HRMDevice *dev, HRMFeature features);
+bool hrm_enable(HRMDevice *dev, HRMFeature features, bool low_latency);
 
 //! Disable the HRM
 void hrm_disable(HRMDevice *dev);

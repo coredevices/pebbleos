@@ -2092,7 +2092,7 @@ static void prv_step_activity_update(KAlgState *alg_state, KAlgStepActivityState
     } else if (duration_secs >= min_duration_for_hrm &&
                activity_prefs_hrm_activity_tracking_is_enabled()) {
       state->hrm_session = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID,
-          hrm_interval_s, KALG_ACTIVITY_HRM_EXPIRE_S, HRMFeature_BPM,
+          hrm_interval_s, KALG_ACTIVITY_HRM_EXPIRE_S, HRMFeature_BPM, false /*low_latency*/,
           prv_hrm_subscription_cb, NULL);
       // A new auto-detected activity just enabled HR: switch the algorithm to a motion-tuned scene.
       prv_update_activity_hrm_scene(alg_state);

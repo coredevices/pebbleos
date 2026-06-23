@@ -40,6 +40,8 @@ typedef struct HRMSubscriberState {
   uint32_t update_interval_s; // How often to send updates to this subscriber
   time_t expire_utc;          // This subscription will expire at this time
   bool sent_expiration_event; // true after we've sent a HRMEvent_SubscriptionExpiring event
+  bool low_latency;           // true if this consumer needs the prompt FIFO cadence (foreground
+                              // app, BLE HR relay); false for background logging
   HRMFeature features;        // what features the subscriber is interested in
 
   RtcTicks last_valid_bpm_ticks; // tick count the last time this subscriber received valid HR reading
@@ -125,12 +127,17 @@ struct HRMManagerState {
 //! @param expire_s after this many seconds, this subscription will automatically expire. Pass 0
 //!   for no expiration.
 //! @param features A bitfield of the features the subscriber would like updates for
+//! @param low_latency true if this consumer shows/streams live data and needs prompt updates (e.g.
+//!   the BLE HR relay); false for background logging, which lets the sensor drain the FIFO less
+//!   often to save power. App/worker subscriptions (via sys_hrm_manager_app_subscribe) are always
+//!   treated as low latency.
 //! @param callback the KernelBG callback to call when an HRM event is available
 //! @param context the context pointer for the callback
 //! @return the HRMSessionRef for this subscription. NULL on failure
 HRMSessionRef hrm_manager_subscribe_with_callback(AppInstallId app_id, uint32_t update_interval_s,
                                                    uint16_t expire_s, HRMFeature features,
-                                                   HRMSubscriberCallback callback, void *context);
+                                                   bool low_latency, HRMSubscriberCallback callback,
+                                                   void *context);
 
 //! Set the activity context the HR algorithm should optimize for (see HRMActivityScene). Stored and
 //! re-applied on every sensor power-on, so callers don't need to re-arm it across sensor cycles.

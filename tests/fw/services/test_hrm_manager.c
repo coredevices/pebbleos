@@ -57,7 +57,8 @@ static struct {
   int enable_count;
 } s_hrm_state;
 
-bool hrm_enable(HRMDevice *dev, HRMFeature features) {
+bool hrm_enable(HRMDevice *dev, HRMFeature features, bool low_latency) {
+  (void)low_latency;
   s_hrm_state.enabled = true;
   s_hrm_state.features = features;
   s_hrm_state.enable_count++;
@@ -391,6 +392,7 @@ void test_hrm_manager__kernel_expiration(void) {
   const uint16_t expire_s = SECONDS_PER_MINUTE;
   HRMSessionRef session_ref = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1,
                                                                   expire_s, HRMFeature_BPM,
+                                                                  false /*low_latency*/,
                                                                   prv_fake_hrm_1_cb, NULL);
   prv_fake_send_new_data();
   fake_system_task_callbacks_invoke_pending();
@@ -540,6 +542,7 @@ void test_hrm_manager__system_task_data_callback(void) {
   const uint16_t expire_s = SECONDS_PER_MINUTE;
   HRMSessionRef session_ref = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1,
                                                                   expire_s, HRMFeature_BPM,
+                                                                  false /*low_latency*/,
                                                                   prv_fake_hrm_1_cb, NULL);
 
   fake_system_task_callbacks_invoke_pending();
@@ -570,10 +573,12 @@ void test_hrm_manager__multiple_system_task_data_callbacks(void) {
   const uint16_t expire_s = SECONDS_PER_MINUTE;
   HRMSessionRef session_ref_1 = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1,
                                                                   expire_s, HRMFeature_BPM,
+                                                                  false /*low_latency*/,
                                                                   prv_fake_hrm_1_cb, NULL);
   fake_system_task_callbacks_invoke_pending();
   HRMSessionRef session_ref_2 = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1,
                                                                   expire_s, HRMFeature_BPM,
+                                                                  false /*low_latency*/,
                                                                   prv_fake_hrm_2_cb, NULL);
   fake_system_task_callbacks_invoke_pending();
   prv_fake_send_new_data();
@@ -938,6 +943,7 @@ void test_hrm_manager__immediate_off_wrist(void) {
   const uint16_t expire_s = SECONDS_PER_MINUTE;
   HRMSessionRef session_ref = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1,
                                                                   expire_s, HRMFeature_BPM,
+                                                                  false /*low_latency*/,
                                                                   prv_fake_hrm_1_cb, NULL);
   fake_system_task_callbacks_invoke_pending();
 
