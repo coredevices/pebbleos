@@ -673,6 +673,20 @@ bool activity_algorithm_test_fill_minute_file(void) {
   return true;
 }
 
+// Activity-SpO2 / HR-pause APIs referenced by activity.c. Stubbed to keep the auto-activity HR
+// path idle so these tests exercise only the daily HR/SpO2 schedulers.
+bool activity_algorithm_activity_hrm_is_active(void) {
+  return false;
+}
+
+void activity_algorithm_activity_hrm_set_paused(bool paused) {
+  (void)paused;
+}
+
+void workout_service_set_hrm_paused(bool paused) {
+  (void)paused;
+}
+
 // We simulate the activity_algorithm_get_minute_history() call to return data that reflects
 // that we record chunks of ALG_MINUTES_PER_RECORD minutes at a time. If we don't ask on a
 // ALG_MINUTES_PER_RECORD minute boundary, we will have up to ALG_MINUTES_PER_RECORD minutes
