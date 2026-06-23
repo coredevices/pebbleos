@@ -55,6 +55,13 @@ typedef uint32_t ActivityScalarStore;
 // Default HeartRate sampling ON time
 #define ACTIVITY_DEFAULT_HR_ON_TIME_SEC (60)
 
+// If by this point in an HR measurement window we still have no valid BPM reading at all, give up
+// early instead of running the full ON_TIME. The EXCLUSIVE HR model converges in ~9s, so nothing by
+// here means poor contact / off-wrist / heavy motion - more green-LED time won't help. Any reading
+// (even Acceptable quality) keeps sampling toward the normal short-circuit, so this only trims the
+// back half of the window in the doomed case, never the converging one.
+#define ACTIVITY_HR_EARLY_ABORT_SEC (40)
+
 // Turn off the HR device after we've received X good quality samples
 #define ACTIVITY_MIN_NUM_GOOD_SAMPLES_SHORT_CIRCUIT (10)
 
@@ -71,6 +78,13 @@ typedef uint32_t ActivityScalarStore;
 // red/IR LED would otherwise run for a long time handing back nothing usable. 90s is still ample
 // margin over the ~30s SpO2 typically needs to converge.
 #define ACTIVITY_DEFAULT_SPO2_ON_TIME_SEC (90)
+
+// If by this point in a SpO2 measurement window the algorithm has accepted zero samples, give up
+// early rather than run the full ON_TIME burning the high-current red/IR LED for nothing. A
+// converging SpO2 reading lands accepted samples well before here; none by this point means poor
+// contact / motion / off-wrist, where the rest of the window is wasted. Cuts the most expensive
+// optical path in exactly the case that yields no reading, leaving the converging case untouched.
+#define ACTIVITY_SPO2_EARLY_ABORT_SEC (45)
 
 // Activity-triggered SpO2 (SpO2 during detected activities): how often to interrupt continuous HR
 // for one SpO2 point, how long to give each attempt, and how long to let HR recover before a retry.

@@ -128,7 +128,17 @@ static void prv_heart_rate_subscription_update(uint32_t now_ts) {
         (s_activity_state.hr.num_good_quality_samples >= ACTIVITY_MIN_NUM_GOOD_SAMPLES_SHORT_CIRCUIT);
     const bool excellent_samples_req_met =
         (s_activity_state.hr.num_excellent_samples >= ACTIVITY_MIN_NUM_EXCELLENT_SAMPLES_SHORT_CIRCUIT);
-    if ((turn_off_at <= now_ts) || good_samples_req_met || excellent_samples_req_met) {
+    // Doomed-case early abort: no valid reading at all by the cutoff means the signal isn't
+    // converging (off-wrist / no contact), so stop wasting green-LED time on the back half of the
+    // window. Keyed on last_sample_ts (uptime of the last valid BPM) vs the window start, NOT the
+    // sample counters: those are zeroed every minute by reset_hr_stats(), and the minute handler
+    // resets them just before calling this check, so a count-based test would false-abort a healthy
+    // window straddling a minute boundary. last_sample_ts survives the reset, so "no sample since the
+    // window opened" is the true doomed signal; any reading keeps sampling toward the short-circuit.
+    const bool early_abort =
+        (now_ts >= last_toggled_ts + ACTIVITY_HR_EARLY_ABORT_SEC) &&
+        (s_activity_state.hr.last_sample_ts < last_toggled_ts);
+    if ((turn_off_at <= now_ts) || good_samples_req_met || excellent_samples_req_met || early_abort) {
       should_toggle = true;
     }
   } else {
@@ -321,7 +331,12 @@ static void prv_spo2_subscription_update(uint32_t now_ts) {
     const bool good_samples_req_met =
         (s_activity_state.spo2.num_good_quality_samples >=
          ACTIVITY_MIN_NUM_GOOD_SPO2_SAMPLES_SHORT_CIRCUIT);
-    if ((turn_off_at <= now_ts) || good_samples_req_met) {
+    // Doomed-case early abort: the algorithm has accepted nothing by the cutoff, so the red/IR LED
+    // is burning for a reading that isn't going to converge. Bail instead of running to ON_TIME.
+    const bool early_abort =
+        (now_ts >= last_toggled_ts + ACTIVITY_SPO2_EARLY_ABORT_SEC) &&
+        (s_activity_state.spo2.num_good_quality_samples == 0);
+    if ((turn_off_at <= now_ts) || good_samples_req_met || early_abort) {
       should_toggle = true;
     }
   } else {
