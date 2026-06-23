@@ -361,7 +361,15 @@ static void prv_spo2_subscription_update(uint32_t now_ts) {
     const uint8_t z_axis = s_activity_state.last_orientation >> 4;
     const bool watch_is_flat = z_axis == 0 || z_axis == 8;
 
-    const bool should_be_sampling = !s_activity_state.spo2.currently_sampling && !watch_is_flat;
+    // Also skip if the green HR path recently reported off-wrist: that PPG signal is far more
+    // reliable than the accel "flat" heuristic, and SpO2 runs with hardware wear-detection disabled,
+    // so an off-wrist attempt would just burn the high-current red/IR LED until the algorithm
+    // rejects it. is_hrm_offwrist fails open (only true on fresh positive off-wrist evidence), so
+    // this never blocks a genuine on-wrist reading or a config where HR sampling isn't running.
+    const bool hrm_offwrist = activity_metrics_prv_is_hrm_offwrist(rtc_get_time());
+
+    const bool should_be_sampling =
+        !s_activity_state.spo2.currently_sampling && !watch_is_flat && !hrm_offwrist;
 
     const uint32_t desired_interval_sec = (should_be_sampling)
                                           ? ACTIVITY_HRM_SUBSCRIPTION_ON_PERIOD_SEC
