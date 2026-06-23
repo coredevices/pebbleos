@@ -256,7 +256,7 @@ static void prv_heart_rate_init(void) {
   s_activity_state.hr.toggled_sampling_at_ts = time_get_uptime_seconds();
   s_activity_state.hr.hrm_session = hrm_manager_subscribe_with_callback(
       INSTALL_ID_INVALID, ACTIVITY_HRM_SUBSCRIPTION_OFF_PERIOD_SEC, 0 /*expire_s*/, HRMFeature_BPM,
-      prv_hrm_subscription_cb, NULL);
+      false /*low_latency*/, prv_hrm_subscription_cb, NULL);
   PBL_ASSERTN(s_activity_state.hr.hrm_session != HRM_INVALID_SESSION_REF);
 
   s_activity_state.hr.log_session = protobuf_log_hr_create(NULL);
@@ -421,7 +421,7 @@ static void prv_spo2_init(void) {
   s_activity_state.spo2.toggled_sampling_at_ts = time_get_uptime_seconds();
   s_activity_state.spo2.hrm_session = hrm_manager_subscribe_with_callback(
       INSTALL_ID_INVALID, ACTIVITY_HRM_SUBSCRIPTION_OFF_PERIOD_SEC, 0 /*expire_s*/,
-      HRMFeature_SpO2, prv_spo2_subscription_cb, NULL);
+      HRMFeature_SpO2, false /*low_latency*/, prv_spo2_subscription_cb, NULL);
   PBL_ASSERTN(s_activity_state.spo2.hrm_session != HRM_INVALID_SESSION_REF);
 #endif // CONFIG_HRM
 }
@@ -560,7 +560,7 @@ static void prv_activity_spo2_init(void) {
   s_activity_state.activity_spo2.phase = ActivitySpO2ActPhase_Idle;
   s_activity_state.activity_spo2.hrm_session = hrm_manager_subscribe_with_callback(
       INSTALL_ID_INVALID, ACTIVITY_HRM_SUBSCRIPTION_OFF_PERIOD_SEC, 0 /*expire_s*/,
-      HRMFeature_SpO2, prv_activity_spo2_subscription_cb, NULL);
+      HRMFeature_SpO2, false /*low_latency*/, prv_activity_spo2_subscription_cb, NULL);
   PBL_ASSERTN(s_activity_state.activity_spo2.hrm_session != HRM_INVALID_SESSION_REF);
 #endif // CONFIG_HRM
 }

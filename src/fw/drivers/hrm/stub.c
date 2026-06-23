@@ -6,7 +6,7 @@
 void hrm_init(HRMDevice *dev) {
 }
 
-bool hrm_enable(HRMDevice *dev, HRMFeature features) {
+bool hrm_enable(HRMDevice *dev, HRMFeature features, bool low_latency) {
     dev->state->enabled = true;
     return true;
 }
