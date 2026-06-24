@@ -25,6 +25,7 @@
 #include "stubs_bt_lock.h"
 #include "stubs_logging.h"
 #include "stubs_passert.h"
+#include "stubs_workout_service.h"
 
 void gap_le_slave_reconnect_hrm_restart(void) {
 }
