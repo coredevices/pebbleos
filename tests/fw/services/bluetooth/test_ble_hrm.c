@@ -37,6 +37,11 @@ bool activity_prefs_heart_rate_is_enabled(void) {
   return s_activity_prefs_heart_rate_is_enabled;
 }
 
+static bool s_activity_prefs_ble_hrm_sharing_is_enabled;
+bool activity_prefs_ble_hrm_sharing_is_enabled(void) {
+  return s_activity_prefs_ble_hrm_sharing_is_enabled;
+}
+
 static bool s_bt_driver_hrm_service_is_enabled;
 static int s_bt_driver_hrm_service_enable_call_count;
 void bt_driver_hrm_service_enable(bool enable) {
@@ -183,6 +188,7 @@ void test_ble_hrm__initialize(void) {
     s_connections[i] = NULL;
   }
   s_activity_prefs_heart_rate_is_enabled = true;
+  s_activity_prefs_ble_hrm_sharing_is_enabled = true;
   s_bt_driver_hrm_service_is_enabled = true;
   s_last_num_permitted_devices = 0;
   memset(s_last_permitted_devices, 0, sizeof(s_last_permitted_devices));
@@ -477,18 +483,18 @@ void test_ble_hrm__handle_hrm_event(void) {
 void test_ble_hrm__handle_activity_pref_hrm_changes(void) {
   cl_assert_equal_b(true, s_bt_driver_hrm_service_is_enabled);
   cl_assert_equal_i(0, s_bt_driver_hrm_service_enable_call_count);
-  ble_hrm_handle_activity_prefs_heart_rate_is_enabled(false);
+  ble_hrm_handle_ble_hrm_sharing_enabled(false);
   cl_assert_equal_i(1, s_bt_driver_hrm_service_enable_call_count);
   cl_assert_equal_b(false, s_bt_driver_hrm_service_is_enabled);
 
   // Disabled, again -- would lead to another call to bt_driver_hrm_service_enable(),
   // the BT driver lib keeps track of whether it's enabled and is expected to ignore the call.
-  ble_hrm_handle_activity_prefs_heart_rate_is_enabled(false);
+  ble_hrm_handle_ble_hrm_sharing_enabled(false);
   cl_assert_equal_i(2, s_bt_driver_hrm_service_enable_call_count);
   cl_assert_equal_b(false, s_bt_driver_hrm_service_is_enabled);
 
   // Enable
-  ble_hrm_handle_activity_prefs_heart_rate_is_enabled(true);
+  ble_hrm_handle_ble_hrm_sharing_enabled(true);
   cl_assert_equal_i(3, s_bt_driver_hrm_service_enable_call_count);
   cl_assert_equal_b(true, s_bt_driver_hrm_service_is_enabled);
 }

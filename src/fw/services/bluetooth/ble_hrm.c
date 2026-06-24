@@ -68,7 +68,7 @@ static bool prv_hw_and_sw_supports_hrm(void) {
 
 bool ble_hrm_is_supported_and_enabled(void) {
   return (prv_hw_and_sw_supports_hrm() &&
-          activity_prefs_heart_rate_is_enabled());
+          activity_prefs_ble_hrm_sharing_is_enabled());
 }
 
 static void prv_reset_subscriptions(void);
@@ -114,7 +114,7 @@ static HrmSharingPermission prv_get_permission_by_device(const BTDeviceInternal 
   return p->permission;
 }
 
-void ble_hrm_handle_activity_prefs_heart_rate_is_enabled(bool is_enabled) {
+void ble_hrm_handle_ble_hrm_sharing_enabled(bool is_enabled) {
   if (!prv_hw_and_sw_supports_hrm()) {
     return;
   }

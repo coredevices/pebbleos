@@ -740,9 +740,9 @@ static bool prv_set_s_activity_hrm_preferences(ActivityHRMSettings *new_settings
 #ifdef CONFIG_HRM
   hrm_manager_handle_prefs_changed();
 #endif // CONFIG_HRM
-#if BLE_HRM_SERVICE
-  ble_hrm_handle_activity_prefs_heart_rate_is_enabled(new_settings->enabled);
-#endif // BLE_HRM_SERVICE
+#ifdef CONFIG_BLE_HRM_SERVICE
+  ble_hrm_handle_ble_hrm_sharing_enabled(new_settings->ble_hrm_sharing_enabled);
+#endif // CONFIG_BLE_HRM_SERVICE
   return true;
 }
 
@@ -2021,6 +2021,21 @@ void activity_prefs_set_hrm_activity_tracking_enabled(bool enabled) {
     prv_pref_set(PREF_KEY_ACTIVITY_HRM_PREFERENCES, &s_activity_hrm_preferences,
                  sizeof(s_activity_hrm_preferences));
     hrm_manager_handle_prefs_changed();
+  }
+}
+
+bool activity_prefs_ble_hrm_sharing_is_enabled(void) {
+  return s_activity_hrm_preferences.ble_hrm_sharing_enabled;
+}
+
+void activity_prefs_ble_hrm_sharing_set_enabled(bool enabled) {
+  if (s_activity_hrm_preferences.ble_hrm_sharing_enabled != enabled) {
+    s_activity_hrm_preferences.ble_hrm_sharing_enabled = enabled;
+    prv_pref_set(PREF_KEY_ACTIVITY_HRM_PREFERENCES, &s_activity_hrm_preferences,
+                 sizeof(s_activity_hrm_preferences));
+#ifdef CONFIG_BLE_HRM_SERVICE
+    ble_hrm_handle_ble_hrm_sharing_enabled(enabled);
+#endif
   }
 }
 #endif
