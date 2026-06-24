@@ -17,6 +17,7 @@
 #include "pbl/services/hrm/hrm_manager_private.h"
 #include "pbl/services/regular_timer.h"
 #include "pbl/services/activity/activity.h"
+#include "pbl/services/activity/workout_service.h"
 #include "shell/system_app_ids.auto.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
@@ -72,6 +73,7 @@ bool ble_hrm_is_supported_and_enabled(void) {
 }
 
 static void prv_reset_subscriptions(void);
+static void prv_update_subscription(GAPLEConnection *connection, bool is_subscribed);
 
 static bool prv_free_permission_for_each_cb(ListNode *node, void *unused) {
   kernel_free(node);
@@ -120,8 +122,11 @@ void ble_hrm_handle_ble_hrm_sharing_enabled(bool is_enabled) {
   }
   PBL_LOG_INFO("BLE HRM sharing prefs updated: is_enabled=%u", is_enabled);
 
-  if (!is_enabled) {
+  if (is_enabled && workout_service_is_workout_ongoing()) {
+    gap_le_slave_reconnect_hrm_restart();
+  } else {
     prv_reset_subscriptions();
+    gap_le_slave_reconnect_hrm_stop();
   }
   bt_driver_hrm_service_enable(is_enabled);
 }
@@ -340,6 +345,13 @@ void ble_hrm_revoke_sharing_permission_for_connection(GAPLEConnection *connectio
 
 }
 
+static void prv_disconnect_hrm_subscriber_cb(GAPLEConnection *connection, void *unused) {
+  if (prv_is_sharing(connection)) {
+    prv_update_subscription(connection, false);
+    prv_disconnect_to_kill_subscription(connection);
+  }
+}
+
 static void prv_revoke_gap_le_connection_for_each_cb(GAPLEConnection *connection, void *unused) {
   prv_update_permission(connection, HrmSharingPermission_Declined);
   prv_disconnect_to_kill_subscription(connection);
@@ -388,6 +400,7 @@ static void prv_reset_subscriptions(void) {
   if (s_ble_hrm_subscription_count) {
     s_ble_hrm_subscription_count = 0;
     prv_stop_popup_timer();
+    prv_put_sharing_state_updated_event(0);
     bt_unlock();
 
     prv_execute_on_kernel_main(prv_stop_hrm_kernel_main);
@@ -444,9 +457,49 @@ void ble_hrm_handle_disconnection(GAPLEConnection *connection) {
   // Just leave the permission until we reboot, toggle airplane mode or the user manually revokes.
 }
 
+static EventServiceInfo s_ble_hrm_workout_event_info;
+
+static void prv_handle_workout_event(PebbleEvent *e, void *context) {
+  if (!s_ble_hrm_is_inited) {
+    return;
+  }
+  const PebbleWorkoutEvent *workout_event = &e->workout;
+  bt_lock();
+  {
+    if (workout_event->type == PebbleWorkoutEvent_Started) {
+      if (ble_hrm_is_supported_and_enabled()) {
+        gap_le_slave_reconnect_hrm_restart();
+      }
+    } else if (workout_event->type == PebbleWorkoutEvent_Stopped) {
+      gap_le_slave_reconnect_hrm_stop();
+      gap_le_connection_for_each(prv_disconnect_hrm_subscriber_cb, NULL);
+    }
+  }
+  bt_unlock();
+}
+
+static void prv_subscribe_workout_events(void *unused) {
+  event_service_client_subscribe(&s_ble_hrm_workout_event_info);
+  if (ble_hrm_is_supported_and_enabled() && workout_service_is_workout_ongoing()) {
+    bt_lock();
+    gap_le_slave_reconnect_hrm_restart();
+    bt_unlock();
+  }
+}
+
+static void prv_unsubscribe_workout_events(void *unused) {
+  event_service_client_unsubscribe(&s_ble_hrm_workout_event_info);
+}
+
 void ble_hrm_init(void) {
   s_ble_hrm_is_inited = true;
   s_ble_hrm_timer = (RegularTimerInfo) {};
+
+  s_ble_hrm_workout_event_info = (EventServiceInfo) {
+    .type = PEBBLE_WORKOUT_EVENT,
+    .handler = prv_handle_workout_event,
+  };
+  prv_execute_on_kernel_main(prv_subscribe_workout_events);
 }
 
 void ble_hrm_deinit(void) {
@@ -454,6 +507,7 @@ void ble_hrm_deinit(void) {
   gap_le_slave_reconnect_hrm_stop();
   prv_reset_subscriptions();
   prv_free_all_permissions();
+  prv_execute_on_kernel_main(prv_unsubscribe_workout_events);
 }
 
 // For unit testing
