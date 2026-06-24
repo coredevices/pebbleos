@@ -35,4 +35,14 @@ config GH3X2X_TUNING_SERVICE_ENABLED
       Build the GH3X2X heart-rate sensor tuning GATT service, used to
       tune the sensor over BLE. Off by default.
 
+config BLE_HRM_SERVICE
+    bool "BLE Heart Rate Monitor service"
+    depends on BT_FW_NIMBLE && HRM
+    default y if BT_FW_NIMBLE && HRM && !RECOVERY_FW
+    help
+      Expose the GATT Heart Rate Service (0x180D) over BLE so fitness
+      apps like Strava can subscribe to heart-rate measurements. Requires
+      an HRM sensor driver (CONFIG_HRM) and a NimBLE Bluetooth backend.
+      Off in the recovery firmware, which has no HRM-sharing UI.
+
 endmenu
