@@ -26,6 +26,7 @@ clar(bld,
      sources_ant_glob=(
       "src/fw/services/bluetooth/ble_hrm.c "
       "tests/fakes/fake_events.c "
+      "tests/fakes/fake_workout_service.c "
      ),
      test_sources_ant_glob="test_ble_hrm.c",
      defines=['CONFIG_HRM'])
