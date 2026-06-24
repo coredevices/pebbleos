@@ -45,11 +45,9 @@ extern void Gh3x2xSetHbaMode(GS32 nHbaScenario);
 // Latency-sensitive sessions (live workout / foreground app HR display): IRQ every ~1s so on-screen
 // values update promptly. 25 samples ~= 1s at the 25 Hz rate.
 #define GH3X2X_FIFO_WATERMARK_LOW_LATENCY 25
-// FIFO watermark for background daily HR/SpO2 logging, where nobody is watching a live number and
-// only the final reading matters. Draining the FIFO every ~3s instead of every ~1s cuts the MCU
-// wake + I2C burst count ~3x across each measurement window for no LED or accuracy cost (the
-// algorithm still converges on the same samples, just delivered in larger batches). Stays well
-// under the part's FIFO depth (the original firmware used 80 here).
+// Background daily HR/SpO2 logging: nobody watches a live number, so drain every ~3s instead of
+// ~1s. Cuts MCU wake + I2C bursts ~3x per window at no LED/accuracy cost (same samples, larger
+// batches). Well under the part's FIFO depth (original firmware used 80).
 #define GH3X2X_FIFO_WATERMARK_BACKGROUND 75
 #define GH3X2X_HR_SAMPLING_RATE 25
 #define GH3X2X_HRV_SAMPLING_RATE 100
@@ -540,11 +538,11 @@ bool hrm_enable(HRMDevice *dev, HRMFeature features, bool low_latency) {
 
   s_hrm_int_flag = false;
 
-  // One optical path at a time so we never fire green and red together (looks orange). SpO2 runs
-  // the red/IR path alone: co-running SOFT_ADT shares IR frame time and perturbs the SpO2 AGC,
-  // badly degrading signal quality. With no ADT there is no live wear signal, so assume worn - the
-  // activity scheduler gates on an accel off-wrist heuristic, and a truly off-wrist sample comes
-  // back flagged invalid (Worst quality). HR uses the green path with green wear detection.
+  // One optical path at a time (green + red together looks orange). SpO2 runs red/IR alone:
+  // co-running SOFT_ADT shares IR frame time and perturbs the SpO2 AGC. With no ADT there is no
+  // wear signal, so assume worn - the activity scheduler gates on an accel off-wrist heuristic and
+  // a truly off-wrist sample comes back flagged invalid. HR uses the green path with green wear
+  // detection.
   if (features & HRMFeature_SpO2) {
     dev->state->work_mode = GH3X2X_FUNCTION_SPO2;
     dev->state->is_wear = true;

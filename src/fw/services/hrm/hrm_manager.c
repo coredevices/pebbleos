@@ -358,10 +358,9 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
           subscriber_age_ticks = cur_ticks - state->last_valid_bpm_ticks;
         } else {
           // Never got a usable reading yet. Stay due (sensor on) only during the first
-          // HRM_UNSERVED_ATTEMPT_MAX_SEC of each interval period; outside that window, back off to
-          // the requested interval. This still gives a fresh subscriber an immediate first attempt
-          // but stops a feature we can't currently serve (e.g. SpO2 in poor signal) from pinning
-          // the sensor on forever.
+          // HRM_UNSERVED_ATTEMPT_MAX_SEC of each interval period, then back off to the requested
+          // interval. Gives a fresh subscriber an immediate first attempt but stops a feature we
+          // can't currently serve (e.g. SpO2 in poor signal) from pinning the sensor on forever.
           const int64_t phase_ticks = (interval_ticks > 0)
               ? ((int64_t)(cur_ticks - state->attempt_start_ticks) % interval_ticks)
               : 0;
