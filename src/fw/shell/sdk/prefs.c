@@ -257,6 +257,13 @@ bool activity_prefs_hrm_activity_tracking_is_enabled(void) {
 
 void activity_prefs_set_hrm_activity_tracking_enabled(bool enabled) {
 }
+
+bool activity_prefs_ble_hrm_sharing_is_enabled(void) {
+  return false;
+}
+
+void activity_prefs_ble_hrm_sharing_set_enabled(bool enabled) {
+}
 #endif
 
 ActivityInsightSettings *activity_prefs_get_sleep_reward_settings(void) {
