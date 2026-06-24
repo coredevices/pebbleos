@@ -134,6 +134,7 @@ static const char * prv_string_for_debug_tag(GAPLEAdvertisingJobTag tag) {
   switch (tag) {
     case GAPLEAdvertisingJobTagDiscovery: return "DIS";
     case GAPLEAdvertisingJobTagReconnection: return "RCN";
+    case GAPLEAdvertisingJobTagHRMReconnection: return "HRM";
     default: return "?";
   }
 }
@@ -254,8 +255,10 @@ static void prv_cycle_timer_callback(void *unused) {
       goto unlock;
     }
 
-    if (s_is_connected) {
-      // Don't do anything if connected
+    // Don't cycle advertising while connected, unless the current job is
+    // an HRM reconnect job which must stay discoverable to fitness apps.
+    if (s_is_connected &&
+        s_current->tag != GAPLEAdvertisingJobTagHRMReconnection) {
       goto unlock;
     }
 
@@ -630,7 +633,8 @@ void bt_driver_handle_host_resynced(void) {
     s_current_ad_data = NULL;
     s_is_advertising = false;
 
-    if (s_current && !s_is_connected) {
+    if (s_current && (!s_is_connected ||
+                       s_current->tag == GAPLEAdvertisingJobTagHRMReconnection)) {
       prv_perform_next_job(true /* force refresh */);
     }
   }
