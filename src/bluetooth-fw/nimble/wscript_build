@@ -2,6 +2,9 @@ excludes = []
 if not bld.env.CONFIG_GH3X2X_TUNING_SERVICE_ENABLED:
     excludes.extend(['gh3x2x_tuning_service.c'])
 
+if not bld.env.CONFIG_BLE_HRM_SERVICE:
+    excludes.extend(['hrm_service.c'])
+
 driver_source = bld.path.ant_glob(['*.c'], excl=excludes)
 
 bld.objects(
