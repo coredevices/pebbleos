@@ -352,6 +352,10 @@ static void prv_disconnect_hrm_subscriber_cb(GAPLEConnection *connection, void *
   }
 }
 
+static void prv_clear_connection_subscription_cb(GAPLEConnection *connection, void *unused) {
+  connection->hrm_service_is_subscribed = false;
+}
+
 static void prv_revoke_gap_le_connection_for_each_cb(GAPLEConnection *connection, void *unused) {
   prv_update_permission(connection, HrmSharingPermission_Declined);
   prv_disconnect_to_kill_subscription(connection);
@@ -398,6 +402,7 @@ static void prv_update_subscription(GAPLEConnection *connection, bool is_subscri
 static void prv_reset_subscriptions(void) {
   bt_lock();
   if (s_ble_hrm_subscription_count) {
+    gap_le_connection_for_each(prv_clear_connection_subscription_cb, NULL);
     s_ble_hrm_subscription_count = 0;
     prv_stop_popup_timer();
     prv_put_sharing_state_updated_event(0);

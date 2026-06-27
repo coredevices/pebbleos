@@ -608,3 +608,25 @@ void test_ble_hrm__init_with_ongoing_workout_restarts_advert(void) {
   cl_assert_equal_i(1, s_gap_le_slave_reconnect_hrm_restart_call_count);
   cl_assert(fake_event_service_get_info(PEBBLE_WORKOUT_EVENT)->handler);
 }
+
+void test_ble_hrm__toggle_off_then_disconnect_no_count_corruption(void) {
+  // Device A subscribes and is granted:
+  bt_driver_cb_hrm_service_update_subscription(s_device_a, true);
+  prv_assert_permissions_ui_and_respond(true /* is_granted */);
+  cl_assert_equal_b(true, ble_hrm_is_sharing());
+
+  // User toggles sharing off:
+  ble_hrm_handle_ble_hrm_sharing_enabled(false);
+  cl_assert_equal_b(false, ble_hrm_is_sharing());
+
+  // Device A disconnects -- must not corrupt the subscription count:
+  ble_hrm_handle_disconnection(&s_conn_a);
+  cl_assert_equal_b(false, ble_hrm_is_sharing());
+
+  // Re-subscribe should work correctly (count 0 -> 1):
+  bt_driver_cb_hrm_service_update_subscription(s_device_a, true);
+  // Permission was not cleared by toggle-off, so no new prompt:
+  cl_assert_equal_p(NULL, s_last_sharing_request);
+  cl_assert_equal_b(true, ble_hrm_is_sharing_to_connection(&s_conn_a));
+  cl_assert_equal_b(true, ble_hrm_is_sharing());
+}
