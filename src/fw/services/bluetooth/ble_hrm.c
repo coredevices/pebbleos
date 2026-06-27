@@ -14,7 +14,6 @@
 #include "popups/ble_hrm/ble_hrm_sharing_popup.h"
 #include "process_management/app_manager.h"
 #include "pbl/services/analytics/analytics.h"
-#include "pbl/services/hrm/hrm_manager_private.h"
 #include "pbl/services/regular_timer.h"
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/activity/workout_service.h"
@@ -41,10 +40,7 @@ typedef struct BLEHRMSharingRequest {
 static bool s_ble_hrm_is_inited;
 static int s_ble_hrm_subscription_count;
 static RegularTimerInfo s_ble_hrm_timer;
-static struct {
-  EventServiceInfo service_info;
-  HRMSessionRef manager_session;
-} s_ble_hrm_session;
+static EventServiceInfo s_ble_hrm_event_info;
 
 typedef enum {
   HrmSharingPermission_Unknown,
@@ -175,21 +171,21 @@ static size_t prv_copy_sharing_devices(BTDeviceInternal *devices_out,
   return (max_devices - ctx.slots_left);
 }
 
-static void prv_ble_hrm_handle_hrm_data(PebbleEvent *e, void *context) {
+static void prv_handle_health_event(PebbleEvent *e, void *context) {
   if (!s_ble_hrm_is_inited) {
     return;
   }
   if (s_ble_hrm_subscription_count == 0) {
     return;
   }
-  PBL_ASSERTN(e->type == PEBBLE_HRM_EVENT);
-  const PebbleHRMEvent *const hrm_event = &e->hrm;
-  if (hrm_event->event_type != HRMEvent_BPM) {
+  PBL_ASSERTN(e->type == PEBBLE_HEALTH_SERVICE_EVENT);
+  const PebbleHealthEvent *const health_event = &e->health_event;
+  if (health_event->type != HealthEventHeartRateUpdate) {
     return;
   }
   const BleHrmServiceMeasurement measurement = {
-    .bpm = hrm_event->bpm.bpm,
-    .is_on_wrist = (hrm_event->bpm.quality >= HRMQuality_Worst),
+    .bpm = health_event->data.heart_rate_update.current_bpm,
+    .is_on_wrist = (health_event->data.heart_rate_update.quality >= HRMQuality_Worst),
   };
 
   BTDeviceInternal sharing_to_devices[4];
@@ -200,22 +196,16 @@ static void prv_ble_hrm_handle_hrm_data(PebbleEvent *e, void *context) {
 
 static void prv_start_hrm_kernel_main(void *unused) {
   PBL_LOG_INFO("BLE HRM sharing started");
-  s_ble_hrm_session.service_info = (EventServiceInfo) {
-    .type = PEBBLE_HRM_EVENT,
-    .handler = prv_ble_hrm_handle_hrm_data,
+  s_ble_hrm_event_info = (EventServiceInfo) {
+    .type = PEBBLE_HEALTH_SERVICE_EVENT,
+    .handler = prv_handle_health_event,
   };
-  event_service_client_subscribe(&s_ble_hrm_session.service_info);
-  s_ble_hrm_session.manager_session =
-      hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1 /*update_interval_s*/,
-                                          0 /*expire_s*/, HRMFeature_BPM, NULL, NULL);
-
+  event_service_client_subscribe(&s_ble_hrm_event_info);
 }
 
 static void prv_stop_hrm_kernel_main(void *unused) {
   PBL_LOG_INFO("BLE HRM sharing stopped");
-  sys_hrm_manager_unsubscribe(s_ble_hrm_session.manager_session);
-  event_service_client_unsubscribe(&s_ble_hrm_session.service_info);
-
+  event_service_client_unsubscribe(&s_ble_hrm_event_info);
 }
 
 static void prv_execute_on_kernel_main(CallbackEventCallback cb) {
