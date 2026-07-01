@@ -290,6 +290,13 @@ clar(ctx,
     override_includes=['dummy_board'])
 
 clar(ctx,
+    sources_ant_glob = " ".join([
+        " src/fw/services/voice/voice_recording_playback.c"]),
+    defines=["CONFIG_MIC"],
+    test_sources_ant_glob = "test_voice_recording_playback.c",
+    override_includes=['dummy_board'])
+
+clar(ctx,
     sources_ant_glob = \
     "  src/fw/flash_region/flash_region.c" \
     "  src/fw/flash_region/filesystem_regions.c" \

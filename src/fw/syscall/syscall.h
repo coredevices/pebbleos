@@ -17,6 +17,7 @@
 #include "applib/fonts/fonts.h"
 #include "applib/graphics/gtypes.h"
 #include "applib/ui/window_stack_animation.h"
+#include "applib/voice/audio_recording.h"
 
 #include "comm/ble/gap_le_scan.h"
 
@@ -103,6 +104,14 @@ void sys_speaker_set_volume(uint8_t volume);
 uint8_t sys_speaker_get_state(void);
 void sys_speaker_register_finish(void);
 bool sys_speaker_is_muted(void);
+
+AudioRecordingId sys_audio_recording_start(void);
+void sys_audio_recording_stop(AudioRecordingId recording_id);
+void sys_audio_recording_cancel(AudioRecordingId recording_id);
+bool sys_audio_recording_is_active(void);
+bool sys_audio_recording_play(AudioRecordingId recording_id);
+void sys_audio_recording_stop_playback(void);
+bool sys_audio_recording_is_playing(void);
 
 void sys_get_app_uuid(Uuid *uuid);
 bool sys_app_is_watchface(void);

@@ -46,5 +46,17 @@ void audio_recording_cancel(AudioRecordingId recording_id);
 //! @return true if a recording is currently capturing audio.
 bool audio_recording_is_active(void);
 
+//! Play a stored recording back through the watch speaker.
+//! @param recording_id  id of a stored recording (e.g. from \ref audio_recording_stop)
+//! @return true if playback started, false if the recording does not exist, a
+//! recording or another playback is in progress, or the platform has no speaker.
+bool audio_recording_play(AudioRecordingId recording_id);
+
+//! Stop playback started by \ref audio_recording_play.
+void audio_recording_stop_playback(void);
+
+//! @return true if a recording is currently being played back.
+bool audio_recording_is_playing(void);
+
 //!   @} // end addtogroup AudioRecording
 //! @} // end addtogroup Microphone

@@ -1080,6 +1080,18 @@
               "type": "function",
               "name": "audio_recording_is_active",
               "addedRevision": "106"
+            }, {
+              "type": "function",
+              "name": "audio_recording_play",
+              "addedRevision": "106"
+            }, {
+              "type": "function",
+              "name": "audio_recording_stop_playback",
+              "addedRevision": "106"
+            }, {
+              "type": "function",
+              "name": "audio_recording_is_playing",
+              "addedRevision": "106"
             }
           ]
         }, {

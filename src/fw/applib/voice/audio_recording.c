@@ -3,11 +3,11 @@
 
 #include "audio_recording.h"
 
-#include "pbl/services/voice/voice_recording.h"
+#include "syscall/syscall.h"
 
 AudioRecordingId audio_recording_start(void) {
 #ifdef CONFIG_MIC
-  return sys_voice_recording_start();
+  return sys_audio_recording_start();
 #else
   return AUDIO_RECORDING_ID_INVALID;
 #endif
@@ -15,19 +15,41 @@ AudioRecordingId audio_recording_start(void) {
 
 void audio_recording_stop(AudioRecordingId recording_id) {
 #ifdef CONFIG_MIC
-  sys_voice_recording_stop(recording_id);
+  sys_audio_recording_stop(recording_id);
 #endif
 }
 
 void audio_recording_cancel(AudioRecordingId recording_id) {
 #ifdef CONFIG_MIC
-  sys_voice_recording_cancel(recording_id);
+  sys_audio_recording_cancel(recording_id);
 #endif
 }
 
 bool audio_recording_is_active(void) {
 #ifdef CONFIG_MIC
-  return sys_voice_recording_in_progress();
+  return sys_audio_recording_is_active();
+#else
+  return false;
+#endif
+}
+
+bool audio_recording_play(AudioRecordingId recording_id) {
+#ifdef CONFIG_MIC
+  return sys_audio_recording_play(recording_id);
+#else
+  return false;
+#endif
+}
+
+void audio_recording_stop_playback(void) {
+#ifdef CONFIG_MIC
+  sys_audio_recording_stop_playback();
+#endif
+}
+
+bool audio_recording_is_playing(void) {
+#ifdef CONFIG_MIC
+  return sys_audio_recording_is_playing();
 #else
   return false;
 #endif

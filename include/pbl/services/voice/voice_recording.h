@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <time.h>
 
+#include "kernel/pebble_tasks.h"
 #include <pbl/util/uuid.h>
 
 //! @file voice/voice_recording.h
@@ -70,6 +71,9 @@ void voice_recording_stop_active(void);
 //! Abort an in-progress recording and discard its data.
 void voice_recording_cancel(VoiceRecordingId id);
 
+//! Cancel a recording owned by a process that is being terminated.
+void voice_recording_cleanup_task(PebbleTask task);
+
 //! @return true if a recording is currently capturing.
 bool voice_recording_in_progress(void);
 
@@ -98,11 +102,3 @@ void voice_recording_stop_playback(void);
 
 //! @return true if a recording is currently being played back.
 bool voice_recording_is_playing(void);
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Syscalls
-
-VoiceRecordingId sys_voice_recording_start(void);
-void sys_voice_recording_stop(VoiceRecordingId id);
-void sys_voice_recording_cancel(VoiceRecordingId id);
-bool sys_voice_recording_in_progress(void);

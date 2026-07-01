@@ -156,6 +156,7 @@ static void prv_select_cb(OptionMenu *option_menu, int row, void *context) {
 
 static void prv_unload_cb(OptionMenu *option_menu, void *context) {
   SettingsRecordingsData *data = context;
+  voice_recording_stop_playback();
 #if VOICE_REC_TEST_TRIGGER
   // Finalize any in-progress recording so leaving the page doesn't leave the
   // service stuck in the recording state (the mic keeps running otherwise).
