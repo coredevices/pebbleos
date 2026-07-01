@@ -25,6 +25,9 @@ typedef enum {
   SettingsMenuItemThemes,
 #endif
   SettingsMenuItemActivity,
+#ifdef CONFIG_MIC
+  SettingsMenuItemRecordings,
+#endif
   SettingsMenuItemSystem,
   SettingsMenuItem_Count,
   SettingsMenuItem_Invalid

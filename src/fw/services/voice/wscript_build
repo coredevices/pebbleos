@@ -4,6 +4,7 @@
 sources = [
     'transcription.c',
     'voice.c',
+    'voice_recording.c',
     'voice_speex.c',
 ]
 

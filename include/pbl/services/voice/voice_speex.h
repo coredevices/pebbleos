@@ -58,3 +58,29 @@ int voice_speex_encode_frame(int16_t *samples, uint8_t *encoded_data, size_t max
  * @return true if initialized, false otherwise
  */
 bool voice_speex_is_initialized(void);
+
+/**
+ * @brief Initialize the Speex decoder (for playback of recorded frames)
+ * @return true if successful, false otherwise
+ */
+bool voice_speex_decoder_init(void);
+
+/**
+ * @brief Deinitialize the Speex decoder
+ */
+void voice_speex_decoder_deinit(void);
+
+/**
+ * @brief Get the decoder output frame size in samples (mono)
+ * @return frame size in samples, or 0 if not initialized
+ */
+int voice_speex_get_decoder_frame_size(void);
+
+/**
+ * @brief Decode one encoded frame into 16-bit PCM samples
+ * @param encoded Encoded Speex frame
+ * @param len Length of the encoded frame in bytes
+ * @param out_pcm Output buffer, must hold at least the decoder frame size samples
+ * @return number of samples decoded, or -1 on error
+ */
+int voice_speex_decode_frame(const uint8_t *encoded, int len, int16_t *out_pcm);

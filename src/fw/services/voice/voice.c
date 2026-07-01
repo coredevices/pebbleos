@@ -350,6 +350,13 @@ VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type) {
     return VOICE_SESSION_ID_INVALID;
   }
 
+  // Dictation and on-device recording share the single microphone.
+  if (mic_is_running(MIC)) {
+    PBL_LOG_WRN("Microphone busy (recording?), cannot start dictation");
+    mutex_unlock(s_lock);
+    return VOICE_SESSION_ID_INVALID;
+  }
+
   // Start new session generation and clear teardown guard
   s_session_generation++;
   if (UNLIKELY(s_session_generation == 0)) { // handle wrap-around (very unlikely)

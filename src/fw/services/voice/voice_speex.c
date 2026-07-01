@@ -71,7 +71,7 @@ bool voice_speex_init(void) {
     PBL_LOG_ERR("Failed to get Speex wideband mode");
     return false;
   }
-  
+
   s_encoder.enc_state = speex_encoder_init(mode);
   if (!s_encoder.enc_state) {
     PBL_LOG_ERR("Failed to initialize Speex encoder");
@@ -93,7 +93,7 @@ bool voice_speex_init(void) {
   // Set encoder parameters
   int tmp = SPEEX_QUALITY;
   speex_encoder_ctl(s_encoder.enc_state, SPEEX_SET_QUALITY, &tmp);
-  
+
   tmp = SPEEX_COMPLEXITY;
   speex_encoder_ctl(s_encoder.enc_state, SPEEX_SET_COMPLEXITY, &tmp);
 
@@ -109,10 +109,10 @@ bool voice_speex_init(void) {
   int actual_sample_rate, actual_bit_rate;
   speex_encoder_ctl(s_encoder.enc_state, SPEEX_GET_SAMPLING_RATE, &actual_sample_rate);
   speex_encoder_ctl(s_encoder.enc_state, SPEEX_GET_BITRATE, &actual_bit_rate);
-  
+
   s_encoder.sample_rate = (uint32_t)actual_sample_rate;
   s_encoder.bit_rate = (uint16_t)actual_bit_rate;
-  
+
   s_encoder.bitstream_version = SPEEX_BITSTREAM_VERSION;
 
   // Allocate frame buffer (16-bit samples, multiplied by channel count for stereo)
@@ -127,7 +127,7 @@ bool voice_speex_init(void) {
 
   PBL_LOG_DBG("Speex encoder initialized: sample_rate=%"PRIu32", bit_rate=%"PRIu16", frame_size=%"PRIu32", channels=%"PRIu8,
               s_encoder.sample_rate, s_encoder.bit_rate, s_encoder.frame_size, s_encoder.channels);
-  
+
   // Verify sample rates match
   if (s_encoder.sample_rate != MIC_SAMPLE_RATE) {
     PBL_LOG_WRN("Speex sample rate (%"PRIu32") != Mic sample rate (%d)",
@@ -248,4 +248,68 @@ int voice_speex_encode_frame(int16_t *samples, uint8_t *encoded_data, size_t max
 
 bool voice_speex_is_initialized(void) {
   return s_encoder.initialized;
+}
+
+// Speex decoder state (used for on-device playback of recorded frames)
+typedef struct {
+  void *dec_state;
+  SpeexBits bits;
+  uint32_t frame_size;
+  bool initialized;
+} VoiceSpeexDecoder;
+
+static VoiceSpeexDecoder s_decoder = {0};
+
+bool voice_speex_decoder_init(void) {
+  if (s_decoder.initialized) {
+    return true;
+  }
+
+  memset(&s_decoder, 0, sizeof(s_decoder));
+
+  s_decoder.dec_state = speex_decoder_init(&speex_wb_mode);
+  if (!s_decoder.dec_state) {
+    PBL_LOG_ERR("Failed to initialize Speex decoder");
+    return false;
+  }
+
+  speex_bits_init(&s_decoder.bits);
+  speex_decoder_ctl(s_decoder.dec_state, SPEEX_GET_FRAME_SIZE, &s_decoder.frame_size);
+
+  // Enable perceptual enhancement for nicer playback.
+  int enh = 1;
+  speex_decoder_ctl(s_decoder.dec_state, SPEEX_SET_ENH, &enh);
+
+  s_decoder.initialized = true;
+  PBL_LOG_DBG("Speex decoder initialized: frame_size=%" PRIu32, s_decoder.frame_size);
+  return true;
+}
+
+void voice_speex_decoder_deinit(void) {
+  if (!s_decoder.initialized) {
+    return;
+  }
+  if (s_decoder.dec_state) {
+    speex_decoder_destroy(s_decoder.dec_state);
+    s_decoder.dec_state = NULL;
+  }
+  speex_bits_destroy(&s_decoder.bits);
+  memset(&s_decoder, 0, sizeof(s_decoder));
+}
+
+int voice_speex_get_decoder_frame_size(void) {
+  return s_decoder.initialized ? (int)s_decoder.frame_size : 0;
+}
+
+int voice_speex_decode_frame(const uint8_t *encoded, int len, int16_t *out_pcm) {
+  if (!s_decoder.initialized || !encoded || !out_pcm || (len <= 0)) {
+    return -1;
+  }
+
+  speex_bits_read_from(&s_decoder.bits, (const char *)encoded, len);
+  // speex_decode_int returns 0 on success, negative on end-of-stream / corrupt frame.
+  if (speex_decode_int(s_decoder.dec_state, &s_decoder.bits, (spx_int16_t *)out_pcm) != 0) {
+    return -1;
+  }
+  return (int)s_decoder.frame_size;
 }

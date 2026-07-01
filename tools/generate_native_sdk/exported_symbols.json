@@ -133,6 +133,7 @@
     "fw/applib/legacy2/ui/text_layer_legacy2.h",
     "fw/applib/app_smartstrap.h",
     "fw/applib/voice/dictation_session.h",
+    "fw/applib/voice/audio_recording.h",
     "fw/applib/ui/content_indicator.h",
     "fw/applib/rockyjs/rocky.h",
     "fw/applib/unobstructed_area_service.h"
@@ -1049,6 +1050,36 @@
             }, {
               "type": "define",
               "name": "PBL_IF_MICROPHONE_ELSE"
+            }
+          ]
+        }, {
+          "type": "group",
+          "name": "AudioRecording",
+          "appOnly": true,
+          "addedRevision": "106",
+          "exports": [
+            {
+              "type": "type",
+              "name": "AudioRecordingId"
+            }, {
+              "type": "define",
+              "name": "AUDIO_RECORDING_ID_INVALID"
+            }, {
+              "type": "function",
+              "name": "audio_recording_start",
+              "addedRevision": "106"
+            }, {
+              "type": "function",
+              "name": "audio_recording_stop",
+              "addedRevision": "106"
+            }, {
+              "type": "function",
+              "name": "audio_recording_cancel",
+              "addedRevision": "106"
+            }, {
+              "type": "function",
+              "name": "audio_recording_is_active",
+              "addedRevision": "106"
             }
           ]
         }, {
