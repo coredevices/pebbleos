@@ -45,6 +45,11 @@ bool voice_recording_storage_finalize(VoiceRecordingId id,
 //! @return an owned PFS descriptor, or a negative value on failure.
 int voice_recording_storage_open_payload(VoiceRecordingId id, uint32_t *data_bytes_out);
 
+//! Read the stored metadata (header) of a valid recording without opening the payload.
+//! @return true on success.
+bool voice_recording_storage_get_metadata(VoiceRecordingId id,
+                                          VoiceRecordingStorageMetadata *out);
+
 //! Fill an array with metadata from valid stored recordings.
 //! @return number of entries written to @p out.
 uint32_t voice_recording_storage_list(VoiceRecordingInfo *out, uint32_t max);
@@ -55,5 +60,6 @@ uint32_t voice_recording_storage_total_bytes(void);
 //! Remove a closed stored recording.
 bool voice_recording_storage_delete(VoiceRecordingId id);
 
-//! Remove every closed stored recording.
-void voice_recording_storage_delete_all(void);
+//! Remove every closed stored recording, except \a skip_id (pass
+//! VOICE_RECORDING_ID_INVALID to remove them all).
+void voice_recording_storage_delete_all(VoiceRecordingId skip_id);

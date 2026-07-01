@@ -9,6 +9,7 @@
 #include "pbl/services/audio_endpoint.h"
 #include "pbl/services/voice_endpoint.h"
 #include "pbl/services/voice/transcription.h"
+#include "pbl/services/voice/voice_recording.h"
 
 #include "applib/graphics/utf8.h"
 
@@ -59,6 +60,19 @@ typedef AudioEndpointSessionId VoiceSessionId;
 //! \ref VOICE_SESSION_ID_INVALID otherwise
 VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type);
 
+//! Start a transcription session sourced from a stored recording instead of the microphone. The
+//! stored Speex frames are streamed to the phone; results arrive through the same path as
+//! dictation. Only mono recordings can be transcribed.
+//! @param recording_id  id of a stored recording (see voice_recording.h)
+//! @return session ID if the session was started, \ref VOICE_SESSION_ID_INVALID otherwise
+//! (busy, recording not found, or non-mono recording).
+VoiceSessionId voice_start_dictation_from_recording(VoiceRecordingId recording_id);
+
+//! @return the id of the recording whose file is held open by an active transcription stream, or
+//! \ref VOICE_RECORDING_ID_INVALID if none. Removing an open PFS file panics, so deletion paths
+//! must skip this recording.
+VoiceRecordingId voice_transcribing_recording_id(void);
+
 //! Call after a ready event has been received to end the audio streaming session and await the
 //! dictation response. A VoiceEvent will be created and sent to the subscriber when one of the
 //! following events occur:
@@ -108,6 +122,7 @@ void voice_handle_nlp_result(VoiceEndpointResult result, AudioEndpointSessionId 
 // Syscalls
 
 VoiceSessionId sys_voice_start_dictation(VoiceEndpointSessionType session_type);
+VoiceSessionId sys_voice_start_dictation_from_recording(VoiceRecordingId recording_id);
 void sys_voice_stop_dictation(VoiceSessionId session_id);
 void sys_voice_cancel_dictation(VoiceSessionId session_id);
 

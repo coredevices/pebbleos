@@ -77,6 +77,9 @@ void voice_recording_cleanup_task(PebbleTask task);
 //! @return true if a recording is currently capturing.
 bool voice_recording_in_progress(void);
 
+//! @return true if the active or stored recording belongs to \a app_uuid.
+bool voice_recording_is_owned_by(VoiceRecordingId id, const Uuid *app_uuid);
+
 //! Enumerate stored recordings.
 //! @param out  caller-provided array to fill
 //! @param max  capacity of \a out

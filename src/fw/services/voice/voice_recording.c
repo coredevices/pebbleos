@@ -15,6 +15,7 @@
 #include <pbl/logging/logging.h>
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/new_timer/new_timer.h"
+#include "pbl/services/voice/voice.h"
 #include "pbl/services/voice/voice_speex.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
@@ -33,7 +34,6 @@ PBL_LOG_MODULE_DECLARE(service_voice, CONFIG_SERVICE_VOICE_LOG_LEVEL);
 #define VOICE_REC_MAX_DURATION_MS (120 * 1000)
 #define VOICE_REC_BYTES_PER_SEC (1600)
 #define VOICE_REC_TOTAL_STORAGE_BYTES (KiBYTES(512))
-#define VOICE_REC_MAX_ENCODED_FRAME (200)
 #define VOICE_REC_STAGING_SIZE (1024)
 
 typedef enum {
@@ -80,7 +80,7 @@ static void prv_data_handler(int16_t *samples, size_t sample_count, void *contex
     return;
   }
 
-  uint8_t encoded[VOICE_REC_MAX_ENCODED_FRAME];
+  uint8_t encoded[VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE];
   const int encoded_bytes = voice_speex_encode_frame(samples, encoded, sizeof(encoded));
   if (encoded_bytes <= 0) {
     PBL_LOG_DBG("Failed to encode recording frame");
@@ -226,7 +226,7 @@ VoiceRecordingId voice_recording_start(void) {
   const uint32_t max_data_bytes = (VOICE_REC_MAX_DURATION_MS / 1000) * VOICE_REC_BYTES_PER_SEC;
   const uint32_t header_size = voice_recording_storage_header_size();
   const uint32_t remaining_budget = VOICE_REC_TOTAL_STORAGE_BYTES - stored_bytes;
-  if (remaining_budget <= header_size + VOICE_REC_MAX_ENCODED_FRAME + 1) {
+  if (remaining_budget <= header_size + VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE + 1) {
     PBL_LOG_WRN("Recording storage budget exhausted");
     s_last_error = VoiceRecordingError_StorageFull;
     goto unlock;
@@ -319,6 +319,22 @@ bool voice_recording_in_progress(void) {
   return recording;
 }
 
+bool voice_recording_is_owned_by(VoiceRecordingId id, const Uuid *app_uuid) {
+  mutex_lock(s_lock);
+
+  bool owned;
+  if ((s_state == RecState_Recording) && (id == s_active_id)) {
+    owned = uuid_equal(&s_app_uuid, app_uuid);
+  } else {
+    VoiceRecordingStorageMetadata metadata;
+    owned = voice_recording_storage_get_metadata(id, &metadata) &&
+            uuid_equal(&metadata.app_uuid, app_uuid);
+  }
+
+  mutex_unlock(s_lock);
+  return owned;
+}
+
 uint32_t voice_recording_list(VoiceRecordingInfo *out, uint32_t max) {
   return voice_recording_storage_list(out, max);
 }
@@ -330,7 +346,14 @@ uint32_t voice_recording_total_bytes(void) {
 bool voice_recording_delete(VoiceRecordingId id) {
   mutex_lock(s_lock);
   voice_recording_playback_stop();
-  const bool deleted = voice_recording_storage_delete(id);
+  bool deleted = false;
+  // Removing an open PFS file panics; the transcription stream keeps the recording open
+  // for its whole (real-time) duration.
+  if (voice_transcribing_recording_id() == id) {
+    PBL_LOG_WRN("Recording %u is being transcribed, refusing to delete", (unsigned)id);
+  } else {
+    deleted = voice_recording_storage_delete(id);
+  }
   mutex_unlock(s_lock);
   return deleted;
 }
@@ -338,7 +361,8 @@ bool voice_recording_delete(VoiceRecordingId id) {
 void voice_recording_delete_all(void) {
   mutex_lock(s_lock);
   voice_recording_playback_stop();
-  voice_recording_storage_delete_all();
+  // Skip a recording held open by an active transcription stream (see voice_recording_delete).
+  voice_recording_storage_delete_all(voice_transcribing_recording_id());
   mutex_unlock(s_lock);
 }
 

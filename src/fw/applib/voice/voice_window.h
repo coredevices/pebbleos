@@ -6,6 +6,7 @@
 #include "pbl/util/uuid.h"
 #include "applib/voice/dictation_session.h"
 #include "pbl/services/voice_endpoint.h"
+#include "pbl/services/voice/voice_recording.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -15,6 +16,12 @@ typedef struct VoiceUiData VoiceWindow;
 
 VoiceWindow *voice_window_create(char *buffer, size_t buffer_size,
                                  VoiceEndpointSessionType session_type);
+
+//! Create a voice window that transcribes a stored recording instead of capturing from the
+//! microphone. The mic phase is skipped, confirmation and error dialogs are disabled, and the
+//! progress bar tracks the real upload progress.
+VoiceWindow *voice_window_create_for_recording(char *buffer, size_t buffer_size,
+                                               VoiceRecordingId recording_id);
 
 void voice_window_destroy(VoiceWindow *voice_window);
 

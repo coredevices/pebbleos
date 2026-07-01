@@ -32,6 +32,20 @@ typedef struct PACKED {
   uint32_t data_bytes;
 } VoiceRecordingHeader;
 
+// Cached sum of bytes occupied by valid recordings. Computed once at init, then maintained
+// incrementally so voice_recording_start() need not re-open and header-read every file on each
+// capture: finalize adds the new file's exact size, deletes invalidate it (recomputed lazily).
+// All mutators run under the voice_recording lock.
+static uint32_t s_total_bytes;
+static bool s_total_bytes_valid;
+
+// Recording excluded from the current voice_recording_storage_delete_all() pass (its file is
+// held open by a transcription stream). Only valid while that call runs.
+static VoiceRecordingId s_delete_all_skip_id = VOICE_RECORDING_ID_INVALID;
+
+static uint32_t prv_compute_total_bytes(void);
+static bool prv_read_header(int fd, VoiceRecordingHeader *header);
+
 static void prv_make_name(char *buf, size_t len, const char *prefix, VoiceRecordingId id) {
   snprintf(buf, len, "%s%u", prefix, (unsigned)id);
 }
@@ -78,6 +92,17 @@ static void prv_fill_header(VoiceRecordingHeader *header,
   };
 }
 
+static bool prv_has_valid_header(const char *name) {
+  const int fd = pfs_open(name, OP_FLAG_READ, FILE_TYPE_STATIC, 0);
+  if (fd < 0) {
+    return false;
+  }
+  VoiceRecordingHeader header;
+  const bool ok = prv_read_header(fd, &header);
+  pfs_close(fd);
+  return ok;
+}
+
 void voice_recording_storage_init(VoiceRecordingId *next_id_out) {
   pfs_remove_files(prv_is_temp_file);
 
@@ -88,9 +113,18 @@ void voice_recording_storage_init(VoiceRecordingId *next_id_out) {
     if (prv_parse_id(entry->name, &id) && (id >= next_id)) {
       next_id = (id == UINT16_MAX) ? 1 : (id + 1);
     }
+    // An interrupted finalize (header written last) leaves a file with an invalid header:
+    // excluded from listing and the quota, but still occupying flash. Remove it.
+    if (!prv_has_valid_header(entry->name)) {
+      PBL_LOG_WRN("Removing invalid recording file %s", entry->name);
+      pfs_remove(entry->name);
+    }
   }
   pfs_delete_file_list(list);
   *next_id_out = next_id;
+
+  s_total_bytes = prv_compute_total_bytes();
+  s_total_bytes_valid = true;
 }
 
 uint32_t voice_recording_storage_header_size(void) {
@@ -184,6 +218,8 @@ bool voice_recording_storage_finalize(VoiceRecordingId id,
   if (!ok) {
     *error_out = VoiceRecordingError_Write;
     pfs_remove(final_name);
+  } else if (s_total_bytes_valid) {
+    s_total_bytes += total;  // exact final file size
   }
   return ok;
 }
@@ -215,6 +251,32 @@ int voice_recording_storage_open_payload(VoiceRecordingId id, uint32_t *data_byt
   }
   *data_bytes_out = header.data_bytes;
   return fd;
+}
+
+bool voice_recording_storage_get_metadata(VoiceRecordingId id,
+                                          VoiceRecordingStorageMetadata *out) {
+  char name[VOICE_REC_NAME_MAX];
+  prv_make_name(name, sizeof(name), VOICE_REC_PREFIX, id);
+  const int fd = pfs_open(name, OP_FLAG_READ, FILE_TYPE_STATIC, 0);
+  if (fd < 0) {
+    return false;
+  }
+
+  VoiceRecordingHeader header;
+  const bool ok = prv_read_header(fd, &header);
+  if (ok) {
+    *out = (VoiceRecordingStorageMetadata){
+        .channels = header.channels,
+        .speex = header.speex,
+        .created = header.created,
+        .app_uuid = header.app_uuid,
+        .frame_count = header.frame_count,
+        .duration_ms = header.duration_ms,
+        .data_bytes = header.data_bytes,
+    };
+  }
+  pfs_close(fd);
+  return ok;
 }
 
 static bool prv_read_info(const char *name, VoiceRecordingInfo *info) {
@@ -254,7 +316,7 @@ uint32_t voice_recording_storage_list(VoiceRecordingInfo *out, uint32_t max) {
   return count;
 }
 
-uint32_t voice_recording_storage_total_bytes(void) {
+static uint32_t prv_compute_total_bytes(void) {
   uint32_t total = 0;
   PFSFileListEntry *list = pfs_create_file_list(prv_is_recording_file);
   for (PFSFileListEntry *entry = list; entry; entry = (PFSFileListEntry *)entry->list_node.next) {
@@ -271,12 +333,41 @@ uint32_t voice_recording_storage_total_bytes(void) {
   return total;
 }
 
+uint32_t voice_recording_storage_total_bytes(void) {
+  if (!s_total_bytes_valid) {
+    s_total_bytes = prv_compute_total_bytes();
+    s_total_bytes_valid = true;
+  }
+  return s_total_bytes;
+}
+
 bool voice_recording_storage_delete(VoiceRecordingId id) {
   char name[VOICE_REC_NAME_MAX];
   prv_make_name(name, sizeof(name), VOICE_REC_PREFIX, id);
-  return pfs_remove(name) == S_SUCCESS;
+  const bool removed = (pfs_remove(name) == S_SUCCESS);
+  if (removed) {
+    s_total_bytes_valid = false;  // recomputed lazily on next query
+  }
+  return removed;
 }
 
-void voice_recording_storage_delete_all(void) {
-  pfs_remove_files(prv_is_recording_file);
+static bool prv_is_deletable_recording_file(const char *name) {
+  if (!prv_is_recording_file(name)) {
+    return false;
+  }
+  VoiceRecordingId id;
+  return !((s_delete_all_skip_id != VOICE_RECORDING_ID_INVALID) && prv_parse_id(name, &id) &&
+           (id == s_delete_all_skip_id));
+}
+
+void voice_recording_storage_delete_all(VoiceRecordingId skip_id) {
+  s_delete_all_skip_id = skip_id;
+  pfs_remove_files(prv_is_deletable_recording_file);
+  s_delete_all_skip_id = VOICE_RECORDING_ID_INVALID;
+  if (skip_id == VOICE_RECORDING_ID_INVALID) {
+    s_total_bytes = 0;
+    s_total_bytes_valid = true;
+  } else {
+    s_total_bytes_valid = false;  // one file was kept; recompute lazily
+  }
 }

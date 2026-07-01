@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "applib/voice/dictation_session.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -57,6 +59,29 @@ void audio_recording_stop_playback(void);
 
 //! @return true if a recording is currently being played back.
 bool audio_recording_is_playing(void);
+
+//! Callback delivering the result of \ref audio_recording_transcribe.
+//! @param recording_id  the recording that was transcribed
+//! @param status        \ref DictationSessionStatusSuccess or a failure reason
+//! @param transcription the transcribed text on success; freed after this call returns, so copy it
+//!                      if it must be retained. NULL on failure.
+//! @param context       the context passed to \ref audio_recording_transcribe
+typedef void (*AudioTranscriptionCallback)(AudioRecordingId recording_id,
+                                           DictationSessionStatus status, char *transcription,
+                                           void *context);
+
+//! Send a stored recording to the phone for transcription (speech-to-text). A progress screen is
+//! shown while the audio is uploaded and transcribed, then the result is delivered to \a callback.
+//! Requires a phone connection with voice support. Only mono recordings can be transcribed.
+//! @param recording_id  id of a stored recording (e.g. from \ref audio_recording_stop)
+//! @param buffer_size   size of the buffer to hold the transcription, or 0 to have one allocated
+//!                      automatically when the result arrives
+//! @param callback      invoked with the transcription result; must not be NULL
+//! @param context       passed back to \a callback
+//! @return true if the transcription was started, false if it could not be started (no callback,
+//! recording missing or not mono, no voice-capable phone connection, or out of memory).
+bool audio_recording_transcribe(AudioRecordingId recording_id, uint32_t buffer_size,
+                                AudioTranscriptionCallback callback, void *context);
 
 //!   @} // end addtogroup AudioRecording
 //! @} // end addtogroup Microphone

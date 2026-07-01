@@ -506,7 +506,8 @@ typedef enum {
   VoiceEventTypeSessionSetup,
   VoiceEventTypeSessionResult,
   VoiceEventTypeSilenceDetected,
-  VoiceEventTypeSpeechDetected
+  VoiceEventTypeSpeechDetected,
+  VoiceEventTypeSessionProgress,
 } VoiceEventType;
 
 typedef struct {
@@ -514,9 +515,10 @@ typedef struct {
   char sentence[];
 } PebbleVoiceServiceEventData;
 
-typedef struct PACKED { // 6 bytes
+typedef struct PACKED { // 7 bytes
   VoiceEventType type:8;
   VoiceStatus status:8;
+  uint8_t progress;  //!< 0-100 upload progress, valid for VoiceEventTypeSessionProgress
   PebbleVoiceServiceEventData *data;
 } PebbleVoiceServiceEvent;
 

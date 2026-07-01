@@ -9,6 +9,11 @@
 
 #include "pbl/services/voice_endpoint.h"
 
+//! Maximum size in bytes of a single encoded Speex frame produced by
+//! voice_speex_encode_frame(). Sizes the encoded-frame buffers on the record,
+//! playback and transcription paths.
+#define VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE (200)
+
 /**
  * @brief Initialize the Speex encoder
  * @return true if successful, false otherwise

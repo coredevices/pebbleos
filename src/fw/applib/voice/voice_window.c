@@ -84,6 +84,7 @@ static void prv_start_dictation(VoiceUiData *data);
 static void prv_stop_dictation(VoiceUiData *data);
 static void prv_cancel_dictation(VoiceUiData *data);
 static void prv_set_mic_window_state(VoiceUiData *data, VoiceUiState state);
+static void prv_set_percent(void *subject, int16_t percent);
 static PropertyAnimation *prv_create_int16_prop_anim(int16_t from, int16_t to,
                                                      uint32_t duration,
                                                      const PropertyAnimationImplementation *impl,
@@ -299,6 +300,15 @@ static void prv_handle_ready_event(VoiceUiData *data, PebbleVoiceServiceEvent *e
       PBL_LOG_DBG("Session setup successfully");
       data->start_ms = prv_get_time_ms();
       data->speech_detected = false;
+
+      if (data->recording_id != VOICE_RECORDING_ID_INVALID) {
+        // Streaming a stored recording: there is no live capture phase, so go straight to the
+        // upload/transcription state where the progress bar is shown. The voice service streams
+        // the frames and returns the result on its own.
+        prv_set_mic_window_state(data, StateWaitForResponse);
+        break;
+      }
+
       data->dictation_timeout = app_timer_register(DICTATION_TIMEOUT, prv_dictation_timeout_cb,
           data);
 
@@ -475,6 +485,9 @@ static void prv_voice_event_handler(PebbleEvent *e, void *context) {
     case StateWaitForResponse:
       if (event->type == VoiceEventTypeSessionResult) {
         prv_handle_dictation_result(data, event);
+      } else if (event->type == VoiceEventTypeSessionProgress) {
+        // Exact upload progress reported by the voice service while streaming a recording.
+        prv_set_percent(data, event->progress);
       }
       break;
 
@@ -511,7 +524,11 @@ static void prv_voice_event_handler(PebbleEvent *e, void *context) {
 static void prv_start_dictation(VoiceUiData *data) {
   PBL_LOG_DBG("Start dictation session");
   PBL_ASSERTN(data->session_id == VOICE_SESSION_ID_INVALID);
-  data->session_id = sys_voice_start_dictation(data->session_type);
+  if (data->recording_id != VOICE_RECORDING_ID_INVALID) {
+    data->session_id = sys_voice_start_dictation_from_recording(data->recording_id);
+  } else {
+    data->session_id = sys_voice_start_dictation(data->session_type);
+  }
   if (data->session_id == VOICE_SESSION_ID_INVALID) {
     PBL_LOG_ERR("Dictation session failed to start");
     prv_exit_and_send_result_event(data, DictationSessionStatusFailureInternalError);
@@ -538,7 +555,10 @@ static void prv_cancel_dictation(VoiceUiData *data) {
     PBL_LOG_DBG("Cancel dictation session");
     sys_voice_cancel_dictation(data->session_id);
     data->session_id = VOICE_SESSION_ID_INVALID;
-    app_timer_cancel(data->dictation_timeout);
+    if (data->dictation_timeout) {
+      app_timer_cancel(data->dictation_timeout);
+      data->dictation_timeout = NULL;
+    }
     prv_set_mic_window_state(data, StateFinished);
   }
 }
@@ -831,11 +851,15 @@ static void prv_show_progress_bar(VoiceUiData *data, bool animated) {
   progress_layer_set_progress((ProgressLayer *)&data->mic_window.progress_bar, 0);
 
   animation_unschedule((Animation *)data->mic_window.progress_anim);
-  data->mic_window.progress_anim = prv_create_int16_prop_anim(0, MAX_PROGRESS_FUDGE_AMOUNT,
-      PROGRESS_FUDGE_DURATION, &s_progress_bar_impl, data);
-
-  if (data->mic_window.progress_anim) {
-    animation_schedule((Animation *)data->mic_window.progress_anim);
+  data->mic_window.progress_anim = NULL;
+  if (data->recording_id == VOICE_RECORDING_ID_INVALID) {
+    // Live dictation has no known duration, so animate an optimistic estimate. When streaming a
+    // stored recording the bar is driven from real upload-progress events instead.
+    data->mic_window.progress_anim = prv_create_int16_prop_anim(0, MAX_PROGRESS_FUDGE_AMOUNT,
+        PROGRESS_FUDGE_DURATION, &s_progress_bar_impl, data);
+    if (data->mic_window.progress_anim) {
+      animation_schedule((Animation *)data->mic_window.progress_anim);
+    }
   }
   layer_set_hidden((Layer *)&data->mic_window.progress_bar, false);
   loading_layer_grow(&data->mic_window.progress_bar, 0,
@@ -1004,13 +1028,20 @@ static VoiceUiState prv_get_next_state(VoiceUiState current_state, VoiceUiState 
       break;
 
     case StateStartWaitForReady:
-      if (next_state == StateWaitForReady || next_state == StateRecording) {
+      // StateWaitForResponse: recording-source transcription can become ready before the fly-in
+      // animation completes, and it skips the capture phase.
+      if (next_state == StateWaitForReady || next_state == StateRecording ||
+          next_state == StateWaitForResponse) {
         return next_state;
       }
       break;
 
     case StateWaitForReady:
       if (next_state == StateRecording) {
+        return next_state;
+      }
+      // Recording-source transcription skips the capture phase and jumps to the upload state.
+      if (next_state == StateWaitForResponse) {
         return next_state;
       }
       break;
@@ -1338,6 +1369,20 @@ VoiceWindow *voice_window_create(char *buffer, size_t buffer_size,
   };
 
   return data;
+}
+
+VoiceWindow *voice_window_create_for_recording(char *buffer, size_t buffer_size,
+                                               VoiceRecordingId recording_id) {
+  VoiceWindow *voice_window = voice_window_create(buffer, buffer_size,
+                                                  VoiceEndpointSessionTypeDictation);
+  if (voice_window) {
+    voice_window->recording_id = recording_id;
+    // The recording already happened; deliver the transcription (or failure) straight to the app
+    // without an on-screen confirmation or error dialog.
+    voice_window->show_confirmation_dialog = false;
+    voice_window->show_error_dialog = false;
+  }
+  return voice_window;
 }
 
 void voice_window_destroy(VoiceWindow *voice_window) {

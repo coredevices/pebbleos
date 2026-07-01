@@ -19,7 +19,6 @@
 
 PBL_LOG_MODULE_DECLARE(service_voice, CONFIG_SERVICE_VOICE_LOG_LEVEL);
 
-#define VOICE_REC_MAX_ENCODED_FRAME (200)
 #define VOICE_REC_PLAY_FEED_MS (40)
 #define VOICE_REC_PLAY_VOLUME (100)
 
@@ -86,12 +85,12 @@ static void prv_feed(void *data) {
       break;
     }
     s_remaining--;
-    if ((len == 0) || (len > s_remaining) || (len > VOICE_REC_MAX_ENCODED_FRAME)) {
+    if ((len == 0) || (len > s_remaining) || (len > VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE)) {
       eof = true;
       break;
     }
 
-    uint8_t frame[VOICE_REC_MAX_ENCODED_FRAME];
+    uint8_t frame[VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE];
     if (pfs_read(s_fd, frame, len) != (int)len) {
       eof = true;
       break;

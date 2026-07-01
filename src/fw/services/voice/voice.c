@@ -12,12 +12,15 @@
 #include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
 #include "pbl/services/comm_session/session.h"
+#include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "pbl/services/audio_endpoint.h"
 #include "pbl/services/voice/transcription.h"
+#include "pbl/services/voice/voice_recording.h"
 #include "pbl/services/voice/voice_speex.h"
 #include "pbl/services/voice_endpoint.h"
 #include "syscall/syscall_internal.h"
+#include "voice_recording_storage.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "system/profiler.h"
@@ -33,8 +36,11 @@ PBL_LOG_MODULE_DEFINE(service_voice, CONFIG_SERVICE_VOICE_LOG_LEVEL);
 #define TIMEOUT_SESSION_SETUP (8000)
 #define TIMEOUT_SESSION_RESULT  (15000)
 
-// Buffer size
-#define MAX_ENCODED_FRAME_SIZE (200)
+// When streaming a stored recording for transcription, feed encoded frames at ~real-time
+// (each frame holds 20 ms of audio) so the audio endpoint send buffer never overflows and
+// drops frames, which would corrupt the transcription.
+#define VOICE_REC_FEED_MS (40)
+#define VOICE_REC_FRAMES_PER_FEED (2)
 
 typedef enum {
   SessionState_Idle = 0,
@@ -62,9 +68,26 @@ static uint32_t s_session_generation = 0;      // Monotonic session counter
 static uint32_t s_timeout_generation = 0;      // Generation tied to currently scheduled timeout
 static bool s_teardown_in_progress = false;    // Debounce concurrent teardown paths
 
+// Audio source for the current session: the live microphone (default), or a stored recording
+// streamed to the phone for transcription.
+typedef enum {
+  VoiceAudioSource_Mic = 0,
+  VoiceAudioSource_Recording,
+} VoiceAudioSource;
+
+static VoiceAudioSource s_audio_source;
+static int s_rec_fd = -1;          // payload descriptor of the recording being streamed
+static VoiceRecordingId s_rec_id = VOICE_RECORDING_ID_INVALID;  // valid while s_rec_fd is open
+static uint32_t s_rec_total;       // total encoded payload bytes to stream
+static uint32_t s_rec_sent;        // encoded payload bytes streamed so far
+static uint8_t s_rec_last_pct;     // last reported upload progress (0-100)
+static TimerID s_feed_timer = TIMER_INVALID_ID;
+
 static void prv_send_event(VoiceEventType event_type, VoiceStatus status,
                            PebbleVoiceServiceEventData *data);
+static void prv_send_progress_event(uint8_t progress);
 static void prv_session_result_timeout(void * data);
+static void prv_feed_recording(void *unused);
 
 static void prv_audio_data_handler(int16_t *samples, size_t sample_count, void *context) {
   if (!voice_speex_is_initialized()) {
@@ -90,7 +113,7 @@ static void prv_audio_data_handler(int16_t *samples, size_t sample_count, void *
   }
 
   // Encode the audio frame
-  uint8_t encoded_buffer[MAX_ENCODED_FRAME_SIZE];  // Max encoded frame size
+  uint8_t encoded_buffer[VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE];
   int encoded_bytes = voice_speex_encode_frame(samples, encoded_buffer, sizeof(encoded_buffer));
   
   if (encoded_bytes > 0) {
@@ -109,26 +132,48 @@ static void prv_teardown_session(void) {
   }
 }
 
+// Stop streaming a stored recording: cancel the feed timer and release the payload descriptor.
+// Safe to call from within prv_feed_recording (stopping the currently-firing timer is a no-op).
+static void prv_stop_feed(void) {
+  if (s_feed_timer != TIMER_INVALID_ID) {
+    new_timer_stop(s_feed_timer);
+  }
+  if (s_rec_fd >= 0) {
+    pfs_close(s_rec_fd);
+    s_rec_fd = -1;
+    s_rec_id = VOICE_RECORDING_ID_INVALID;
+  }
+}
+
+// Stop the active audio source (mic or recording feed) without touching the audio endpoint.
+static void prv_stop_audio_source(void) {
+  if (s_audio_source == VoiceAudioSource_Recording) {
+    prv_stop_feed();
+  } else {
+    mic_stop(MIC);
+  }
+}
+
 static void prv_stop_recording(void) {
-  PBL_LOG_DBG("prv_stop_recording called - stopping mic and audio endpoint transfer");
+  PBL_LOG_DBG("prv_stop_recording called - stopping audio source and endpoint transfer");
 
   // First, set state to non-recording to prevent any new audio processing
   s_state = SessionState_WaitForSessionResult;
-  
-  // Stop audio endpoint transfer BEFORE stopping microphone
+
+  // Stop audio endpoint transfer BEFORE stopping the source
   // This prevents new frames from being added while the endpoint shuts down
   audio_endpoint_stop_transfer(s_session_id);
 
-  mic_stop(MIC);
+  prv_stop_audio_source();
 
   prv_teardown_session();
-  
+
   // Speex cleanup will be handled by delayed cleanup to avoid race conditions
 }
 
 static void prv_cancel_recording(void) {
-  PBL_LOG_DBG("prv_cancel_recording called - cancelling mic and audio endpoint transfer");
-  mic_stop(MIC);
+  PBL_LOG_DBG("prv_cancel_recording called - cancelling audio source and endpoint transfer");
+  prv_stop_audio_source();
 
   audio_endpoint_cancel_transfer(s_session_id);
   prv_teardown_session();
@@ -144,6 +189,15 @@ static void prv_cancel_early_session(void) {
 static void prv_reset(void) {
   s_state = SessionState_Idle;
   s_session_id = AUDIO_ENDPOINT_SESSION_INVALID_ID;
+  if (s_rec_fd >= 0) {
+    pfs_close(s_rec_fd);
+    s_rec_fd = -1;
+  }
+  s_rec_id = VOICE_RECORDING_ID_INVALID;
+  s_audio_source = VoiceAudioSource_Mic;
+  s_rec_total = 0;
+  s_rec_sent = 0;
+  s_rec_last_pct = 0;
 }
 
 static void prv_cancel_session(void) {
@@ -183,8 +237,80 @@ static void prv_audio_transfer_stopped_handler(AudioEndpointSessionId session_id
   mutex_unlock(s_lock);
 }
 
+// Timer callback that streams the stored recording to the phone, one small batch of encoded
+// frames per tick. Reports upload progress and, once the whole payload has been sent, stops the
+// transfer and waits for the transcription result.
+static void prv_feed_recording(void *unused) {
+  mutex_lock(s_lock);
+  if (s_teardown_in_progress ||
+      (s_state != SessionState_Recording) ||
+      (s_audio_source != VoiceAudioSource_Recording)) {
+    mutex_unlock(s_lock);
+    return;
+  }
+
+  bool eof = false;
+  for (int i = 0; i < VOICE_REC_FRAMES_PER_FEED; i++) {
+    if ((s_rec_total - s_rec_sent) < 1) {
+      eof = true;
+      break;
+    }
+
+    uint8_t len = 0;
+    if (pfs_read(s_rec_fd, &len, 1) != 1) {
+      eof = true;
+      break;
+    }
+    s_rec_sent++;
+    if ((len == 0) || (len > (s_rec_total - s_rec_sent)) ||
+        (len > VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE)) {
+      PBL_LOG_WRN("Corrupt recording frame (len=%u), ending stream", len);
+      eof = true;
+      break;
+    }
+
+    uint8_t frame[VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE];
+    if (pfs_read(s_rec_fd, frame, len) != (int)len) {
+      eof = true;
+      break;
+    }
+    s_rec_sent += len;
+    audio_endpoint_add_frame(s_session_id, frame, len);
+  }
+
+  const uint8_t pct = (s_rec_total > 0)
+                          ? (uint8_t)(((uint64_t)s_rec_sent * 100) / s_rec_total)
+                          : 100;
+  if (pct != s_rec_last_pct) {
+    s_rec_last_pct = pct;
+    prv_send_progress_event(pct);
+  }
+
+  if (eof) {
+    PBL_LOG_DBG("Finished streaming recording, awaiting transcription result");
+    prv_stop_recording();
+    s_timeout_generation = s_session_generation;
+    prv_start_result_timeout();
+  } else {
+    new_timer_start(s_feed_timer, VOICE_REC_FEED_MS, prv_feed_recording, NULL, 0);
+  }
+  mutex_unlock(s_lock);
+}
+
 static bool prv_start_recording(void) {
   PBL_LOG_DBG("prv_start_recording called");
+
+  if (s_audio_source == VoiceAudioSource_Recording) {
+    PBL_LOG_DBG("Streaming stored recording (%"PRIu32" bytes)", s_rec_total);
+    if (s_feed_timer == TIMER_INVALID_ID) {
+      s_feed_timer = new_timer_create();
+    }
+    s_rec_sent = 0;
+    s_rec_last_pct = 0;
+    new_timer_start(s_feed_timer, VOICE_REC_FEED_MS, prv_feed_recording, NULL, 0);
+    return true;
+  }
+
   // Start microphone with Speex frame buffer
   int16_t *frame_buffer = voice_speex_get_frame_buffer();
   size_t frame_size_samples = voice_speex_get_frame_size();  // Get frame size in samples
@@ -214,6 +340,19 @@ static void prv_send_event(VoiceEventType event_type, VoiceStatus status,
       .type = event_type,
       .status = status,
       .data = data,
+    }
+  };
+  event_put(&event);
+}
+
+static void prv_send_progress_event(uint8_t progress) {
+  PebbleEvent event = {
+    .type = PEBBLE_VOICE_SERVICE_EVENT,
+    .voice_service = {
+      .type = VoiceEventTypeSessionProgress,
+      .status = VoiceStatusSuccess,
+      .progress = progress,
+      .data = NULL,
     }
   };
   event_put(&event);
@@ -327,6 +466,61 @@ void voice_init(void) {
   // Speex encoder is now initialized lazily when a dictation session starts
 }
 
+// Common session bring-up shared by the microphone and recording sources: allocates a session
+// generation, sets up both endpoints, sends the setup message with the given Speex transfer info,
+// and starts the setup timeout. Expects s_lock held and s_audio_source already set by the caller.
+static VoiceSessionId prv_start_session(VoiceEndpointSessionType session_type,
+                                        const AudioTransferInfoSpeex *transfer_info) {
+  // Start new session generation and clear teardown guard
+  s_session_generation++;
+  if (UNLIKELY(s_session_generation == 0)) { // handle wrap-around (very unlikely)
+    s_session_generation = 1;
+  }
+  s_teardown_in_progress = false;
+  PBL_LOG_DBG("Setting state to StartSession");
+  s_state = SessionState_StartSession;
+
+  // check if we're being started from an app so we know to send the UUID when setting up a session
+  s_from_app = ((pebble_task_get_current() == PebbleTask_App) &&
+      !app_install_id_from_system(app_manager_get_current_app_id()));
+  if (s_from_app) {
+    s_app_uuid = app_manager_get_current_app_md()->uuid;
+    char uuid_str[UUID_STRING_BUFFER_LENGTH];
+    uuid_to_string(&s_app_uuid, uuid_str);
+    PBL_LOG_DBG("Starting app-initiated voice session for app %s", uuid_str);
+  } else {
+    PBL_LOG_DBG("Starting system-initiated voice session");
+  }
+
+  // Set up communication session responsiveness for voice session
+  CommSession *comm_session = comm_session_get_system_session();
+  if (comm_session) {
+    comm_session_set_responsiveness(comm_session, BtConsumerPpVoiceEndpoint, ResponseTimeMin,
+                                    MIN_LATENCY_MODE_TIMEOUT_VOICE_SECS);
+  }
+
+  PBL_LOG_DBG("Setting up audio endpoint transfer");
+  s_session_id = audio_endpoint_setup_transfer(prv_audio_transfer_stopped_handler);
+  PBL_ASSERTN(s_session_id != AUDIO_ENDPOINT_SESSION_INVALID_ID);
+  PBL_LOG_DBG("Audio endpoint transfer setup complete with session_id=%d", s_session_id);
+
+  PBL_LOG_INFO("Send session setup message. Session type: %d", session_type);
+  AudioTransferInfoSpeex info = *transfer_info;
+  voice_endpoint_setup_session(session_type, s_session_id, &info,
+      s_from_app ? &s_app_uuid : NULL);
+
+  if (s_timeout == TIMER_INVALID_ID) {
+    s_timeout = new_timer_create();
+  }
+  s_timeout_generation = s_session_generation;
+  new_timer_start(s_timeout, TIMEOUT_SESSION_SETUP, prv_session_setup_timeout, NULL, 0);
+
+  PBL_LOG_DBG("Audio transfer setup complete, handling subsystem started");
+  prv_handle_subsystem_started(SessionState_AudioEndpointSetupReceived);
+
+  return s_session_id;
+}
+
 // This will kick off a dictation session. After the setup session message is sent via the
 // voice control endpoint, we wait for a session ready response via the
 // voice_handle_session_setup_result call or a session setup timeout occurs (timer callback
@@ -357,62 +551,80 @@ VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type) {
     return VOICE_SESSION_ID_INVALID;
   }
 
-  // Start new session generation and clear teardown guard
-  s_session_generation++;
-  if (UNLIKELY(s_session_generation == 0)) { // handle wrap-around (very unlikely)
-    s_session_generation = 1;
-  }
-  s_teardown_in_progress = false;
-  PBL_LOG_DBG("Setting state to StartSession");
-  s_state = SessionState_StartSession;
+  s_audio_source = VoiceAudioSource_Mic;
 
-  // check if we're being started from an app so we know to send the UUID when setting up a session
-  s_from_app = ((pebble_task_get_current() == PebbleTask_App) &&
-      !app_install_id_from_system(app_manager_get_current_app_id()));
-  if (s_from_app) {
-    s_app_uuid = app_manager_get_current_app_md()->uuid;
-    char uuid_str[UUID_STRING_BUFFER_LENGTH];
-    uuid_to_string(&s_app_uuid, uuid_str);
-    PBL_LOG_DBG("Starting app-initiated voice dictation session for app %s", uuid_str);
-  } else {
-    PBL_LOG_DBG("Starting system-initiated voice dictation session");
-  }
-
-  // Set up communication session responsiveness for voice session
-  CommSession *comm_session = comm_session_get_system_session();
-  if (comm_session) {
-    comm_session_set_responsiveness(comm_session, BtConsumerPpVoiceEndpoint, ResponseTimeMin,
-                                    MIN_LATENCY_MODE_TIMEOUT_VOICE_SECS);
-  }
-
-  // Get Speex transfer info
   AudioTransferInfoSpeex transfer_info;
   voice_speex_get_transfer_info(&transfer_info);
-  PBL_LOG_DBG("Got Speex transfer info: sample_rate=%"PRIu32", bit_rate=%"PRIu16", frame_size=%"PRIu16, 
+  PBL_LOG_DBG("Got Speex transfer info: sample_rate=%"PRIu32", bit_rate=%"PRIu16", frame_size=%"PRIu16,
               transfer_info.sample_rate, transfer_info.bit_rate, transfer_info.frame_size);
 
-  PBL_LOG_DBG("Setting up audio endpoint transfer");
-  s_session_id = audio_endpoint_setup_transfer(prv_audio_transfer_stopped_handler);
-  PBL_ASSERTN(s_session_id != AUDIO_ENDPOINT_SESSION_INVALID_ID);
-  PBL_LOG_DBG("Audio endpoint transfer setup complete with session_id=%d", s_session_id);
-
-
-  PBL_LOG_INFO("Send session setup message. Session type: %d", session_type);
-  PBL_LOG_DBG("Calling voice_endpoint_setup_session");
-  voice_endpoint_setup_session(session_type, s_session_id, &transfer_info,
-      s_from_app ? &s_app_uuid : NULL);
-
-  if (s_timeout == TIMER_INVALID_ID) {
-    s_timeout = new_timer_create();
-  }
-  s_timeout_generation = s_session_generation;
-  new_timer_start(s_timeout, TIMEOUT_SESSION_SETUP, prv_session_setup_timeout, NULL, 0);
-
-  PBL_LOG_DBG("Audio transfer setup complete, handling subsystem started");
-  prv_handle_subsystem_started(SessionState_AudioEndpointSetupReceived);
-
+  const VoiceSessionId session_id = prv_start_session(session_type, &transfer_info);
   mutex_unlock(s_lock);
-  return s_session_id;
+  return session_id;
+}
+
+// Kick off a transcription session sourced from a stored recording instead of the microphone.
+// The stored Speex frames are streamed to the phone as-is (same protocol as live dictation); the
+// result comes back through the same path (voice_handle_dictation_result).
+VoiceSessionId voice_start_dictation_from_recording(VoiceRecordingId recording_id) {
+  PBL_LOG_DBG("voice_start_dictation_from_recording called for id %u", (unsigned)recording_id);
+  mutex_lock(s_lock);
+
+  if (s_state != SessionState_Idle) {
+    PBL_LOG_DBG("Voice service not idle (state: %d), cannot transcribe", s_state);
+    mutex_unlock(s_lock);
+    return VOICE_SESSION_ID_INVALID;
+  }
+
+  // Dictation, transcription and on-device recording share the single microphone/encoder.
+  if (mic_is_running(MIC)) {
+    PBL_LOG_WRN("Microphone busy (recording?), cannot transcribe");
+    mutex_unlock(s_lock);
+    return VOICE_SESSION_ID_INVALID;
+  }
+
+  VoiceRecordingStorageMetadata meta;
+  if (!voice_recording_storage_get_metadata(recording_id, &meta)) {
+    PBL_LOG_WRN("Recording %u not found", (unsigned)recording_id);
+    mutex_unlock(s_lock);
+    return VOICE_SESSION_ID_INVALID;
+  }
+
+  // Transcription (speech-to-text) is mono only.
+  if (meta.channels != 1) {
+    PBL_LOG_WRN("Cannot transcribe recording with %u channels", meta.channels);
+    mutex_unlock(s_lock);
+    return VOICE_SESSION_ID_INVALID;
+  }
+
+  uint32_t data_bytes = 0;
+  const int fd = voice_recording_storage_open_payload(recording_id, &data_bytes);
+  if (fd < 0) {
+    PBL_LOG_WRN("Failed to open recording %u payload", (unsigned)recording_id);
+    mutex_unlock(s_lock);
+    return VOICE_SESSION_ID_INVALID;
+  }
+
+  s_audio_source = VoiceAudioSource_Recording;
+  s_rec_fd = fd;
+  s_rec_id = recording_id;
+  s_rec_total = data_bytes;
+  s_rec_sent = 0;
+  s_rec_last_pct = 0;
+
+  // The stored frames already use the system Speex parameters; describe them to the phone straight
+  // from the recording header (no Speex encoder needed for a pre-encoded source).
+  const VoiceSessionId session_id =
+      prv_start_session(VoiceEndpointSessionTypeDictation, &meta.speex);
+  mutex_unlock(s_lock);
+  return session_id;
+}
+
+VoiceRecordingId voice_transcribing_recording_id(void) {
+  mutex_lock(s_lock);
+  const VoiceRecordingId id = (s_rec_fd >= 0) ? s_rec_id : VOICE_RECORDING_ID_INVALID;
+  mutex_unlock(s_lock);
+  return id;
 }
 
 // Calling this will end the recording, disable the mic and and stop the audio transfer session. We
@@ -702,6 +914,17 @@ DEFINE_SYSCALL(VoiceSessionId, sys_voice_start_dictation, VoiceEndpointSessionTy
     return AUDIO_ENDPOINT_SESSION_INVALID_ID;
   }
   return voice_start_dictation(session_type);
+}
+
+DEFINE_SYSCALL(VoiceSessionId, sys_voice_start_dictation_from_recording,
+               VoiceRecordingId recording_id) {
+  if (PRIVILEGE_WAS_ELEVATED) {
+    const PebbleProcessMd *app_md = app_manager_get_current_app_md();
+    if (!app_md || !voice_recording_is_owned_by(recording_id, &app_md->uuid)) {
+      return VOICE_SESSION_ID_INVALID;
+    }
+  }
+  return voice_start_dictation_from_recording(recording_id);
 }
 
 DEFINE_SYSCALL(void, sys_voice_stop_dictation, VoiceSessionId session_id) {

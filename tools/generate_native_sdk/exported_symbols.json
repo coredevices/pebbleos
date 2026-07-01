@@ -1092,6 +1092,13 @@
               "type": "function",
               "name": "audio_recording_is_playing",
               "addedRevision": "106"
+            }, {
+              "type": "type",
+              "name": "AudioTranscriptionCallback"
+            }, {
+              "type": "function",
+              "name": "audio_recording_transcribe",
+              "addedRevision": "106"
             }
           ]
         }, {
