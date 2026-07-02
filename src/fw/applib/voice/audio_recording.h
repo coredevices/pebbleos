@@ -4,9 +4,11 @@
 #pragma once
 
 #include "applib/voice/dictation_session.h"
+#include <pbl/util/uuid.h>
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <time.h>
 
 //! @file voice/audio_recording.h
 //! Defines the interface for recording microphone audio to the watch.
@@ -31,6 +33,15 @@ typedef uint16_t AudioRecordingId;
 //! Returned by \ref audio_recording_start when a recording cannot be started.
 #define AUDIO_RECORDING_ID_INVALID ((AudioRecordingId)0)
 
+//! Metadata describing a stored recording.
+typedef struct {
+  AudioRecordingId id;
+  uint32_t size_bytes;   //!< Size of the stored file on flash
+  uint32_t duration_ms;  //!< Recorded duration
+  time_t created;        //!< Wall-clock time when recording started
+  Uuid app_uuid;         //!< UUID of the app that created the recording
+} AudioRecordingInfo;
+
 //! Start recording microphone audio to the watch.
 //! @return the new recording's id, or \ref AUDIO_RECORDING_ID_INVALID if a
 //! recording or dictation is already in progress, storage is full, or the
@@ -39,7 +50,8 @@ AudioRecordingId audio_recording_start(void);
 
 //! Stop the active recording and store it for later use.
 //! @param recording_id  id returned by \ref audio_recording_start
-void audio_recording_stop(AudioRecordingId recording_id);
+//! @return true if the recording was stored successfully.
+bool audio_recording_stop(AudioRecordingId recording_id);
 
 //! Cancel the active recording and discard its audio.
 //! @param recording_id  id returned by \ref audio_recording_start
@@ -47,6 +59,17 @@ void audio_recording_cancel(AudioRecordingId recording_id);
 
 //! @return true if a recording is currently capturing audio.
 bool audio_recording_is_active(void);
+
+//! Enumerate recordings created by the calling app.
+//! @param recordings caller-provided array to fill
+//! @param max_recordings capacity of \a recordings
+//! @return number of recordings written to \a recordings
+uint32_t audio_recording_list(AudioRecordingInfo *recordings, uint32_t max_recordings);
+
+//! Delete a recording created by the calling app.
+//! @param recording_id id of a stored recording
+//! @return true if the recording was deleted
+bool audio_recording_delete(AudioRecordingId recording_id);
 
 //! Play a stored recording back through the watch speaker.
 //! @param recording_id  id of a stored recording (e.g. from \ref audio_recording_stop)

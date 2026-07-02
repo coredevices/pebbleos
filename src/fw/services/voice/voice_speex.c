@@ -49,10 +49,10 @@ static VoiceSpeexEncoder s_encoder = {0};
 // Speex configuration
 #define SPEEX_SAMPLE_RATE 16000  // 16 kHz wideband
 #define SPEEX_BIT_RATE 9800      // 9.8 kbps
-#define SPEEX_QUALITY 6          // Quality level (0-10)
+#define SPEEX_QUALITY VOICE_SPEEX_QUALITY_DEFAULT
 #define SPEEX_COMPLEXITY 1       // Complexity (1-10, lower for embedded)
 #define SPEEX_ENCODED_BUFFER_SIZE 320  // Max encoded frame size
-#define SPEEX_AUDIO_GAIN 3       // Audio gain multiplier (3x)
+#define SPEEX_AUDIO_GAIN 2       // Audio gain multiplier
 
 bool voice_speex_init(void) {
   if (s_encoder.initialized) {
@@ -248,6 +248,25 @@ int voice_speex_encode_frame(int16_t *samples, uint8_t *encoded_data, size_t max
 
 bool voice_speex_is_initialized(void) {
   return s_encoder.initialized;
+}
+
+bool voice_speex_set_quality(int quality) {
+  if (!s_encoder.initialized) {
+    return false;
+  }
+
+  int tmp = quality;
+  speex_encoder_ctl(s_encoder.enc_state, SPEEX_SET_QUALITY, &tmp);
+
+  // Keep the cached bit rate in sync: it is reported to the phone in the
+  // session transfer info and stored in recording headers.
+  int bit_rate;
+  speex_encoder_ctl(s_encoder.enc_state, SPEEX_GET_BITRATE, &bit_rate);
+  s_encoder.bit_rate = (uint16_t)bit_rate;
+
+  PBL_LOG_DBG("Speex encoder quality set to %d (bit_rate=%" PRIu16 ")", quality,
+              s_encoder.bit_rate);
+  return true;
 }
 
 // Speex decoder state (used for on-device playback of recorded frames)

@@ -14,6 +14,10 @@
 //! playback and transcription paths.
 #define VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE (200)
 
+//! Encoder quality used by default (live dictation). Sessions that override the
+//! quality with voice_speex_set_quality() must restore this value when done.
+#define VOICE_SPEEX_QUALITY_DEFAULT (6)
+
 /**
  * @brief Initialize the Speex encoder
  * @return true if successful, false otherwise
@@ -63,6 +67,12 @@ int voice_speex_encode_frame(int16_t *samples, uint8_t *encoded_data, size_t max
  * @return true if initialized, false otherwise
  */
 bool voice_speex_is_initialized(void);
+
+/**
+ * @brief Set the encoder quality (0-10). Takes effect on the next encoded frame.
+ * @return true if applied, false if the encoder is not initialized
+ */
+bool voice_speex_set_quality(int quality);
 
 /**
  * @brief Initialize the Speex decoder (for playback of recorded frames)

@@ -99,6 +99,13 @@ static void prv_feed(void *data) {
 
     const int samples = voice_speex_decode_frame(frame, len, s_pcm);
     if (samples > 0) {
+      const uint16_t gain = voice_recording_get_playback_gain();
+      if (gain != VOICE_RECORDING_GAIN_DEFAULT) {
+        for (int i = 0; i < samples; i++) {
+          const int32_t amplified = (int32_t)s_pcm[i] * gain / VOICE_RECORDING_GAIN_DEFAULT;
+          s_pcm[i] = (int16_t)MAX(INT16_MIN, MIN(INT16_MAX, amplified));
+        }
+      }
       s_pcm_bytes = (uint32_t)samples * sizeof(int16_t);
       s_pcm_offset = 0;
     }

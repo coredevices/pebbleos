@@ -15,6 +15,7 @@
 #include <pbl/logging/logging.h>
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/new_timer/new_timer.h"
+#include "pbl/services/settings/settings_file.h"
 #include "pbl/services/voice/voice.h"
 #include "pbl/services/voice/voice_speex.h"
 #include "process_management/app_install_manager.h"
@@ -32,8 +33,14 @@
 PBL_LOG_MODULE_DECLARE(service_voice, CONFIG_SERVICE_VOICE_LOG_LEVEL);
 
 #define VOICE_REC_MAX_DURATION_MS (120 * 1000)
-#define VOICE_REC_BYTES_PER_SEC (1600)
-#define VOICE_REC_TOTAL_STORAGE_BYTES (KiBYTES(512))
+// Memos are encoded at a higher Speex quality than live dictation (whose bit rate is
+// constrained by the BT link); the default quality is restored when the recording ends.
+#define VOICE_REC_SETTINGS_FILE "voicerec"
+#define VOICE_REC_SETTINGS_KEY "config"
+#define VOICE_REC_SETTINGS_SIZE (128)
+// ~27.8 kbps at quality 8, plus one length byte per 20 ms frame, rounded up.
+#define VOICE_REC_BYTES_PER_SEC (3600)
+#define VOICE_REC_TOTAL_STORAGE_BYTES (KiBYTES(1024))
 #define VOICE_REC_STAGING_SIZE (1024)
 
 typedef enum {
@@ -57,9 +64,32 @@ static uint32_t s_cap_data_bytes;
 static bool s_capped;
 static VoiceRecordingError s_last_error;
 
+typedef struct {
+  VoiceRecordingQuality quality;
+  uint16_t record_gain;
+  uint16_t playback_gain;
+} VoiceRecordingConfig;
+
+static VoiceRecordingConfig s_config = {
+    .quality = VoiceRecordingQuality_High,
+    .record_gain = VOICE_RECORDING_GAIN_DEFAULT,
+    .playback_gain = VOICE_RECORDING_GAIN_DEFAULT,
+};
+
 static uint8_t s_staging[VOICE_REC_STAGING_SIZE];
 static size_t s_staging_used;
 static TimerID s_max_timer = TIMER_INVALID_ID;
+
+// UUID of the app that started the active playback, or UUID_INVALID when playback was started
+// by the system (or is not app-owned). An app may only stop the playback it started itself.
+static Uuid s_playback_owner = UUID_INVALID_INIT;
+
+static void prv_stop_callback(void *data);
+
+static void prv_schedule_stop(void) {
+  s_capped = true;
+  launcher_task_add_callback(prv_stop_callback, (void *)(uintptr_t)s_active_id);
+}
 
 static bool prv_flush_staging(void) {
   if (s_staging_used == 0) {
@@ -80,6 +110,14 @@ static void prv_data_handler(int16_t *samples, size_t sample_count, void *contex
     return;
   }
 
+  if (s_config.record_gain != VOICE_RECORDING_GAIN_DEFAULT) {
+    for (size_t i = 0; i < sample_count; i++) {
+      const int32_t amplified =
+          (int32_t)samples[i] * s_config.record_gain / VOICE_RECORDING_GAIN_DEFAULT;
+      samples[i] = (int16_t)MAX(INT16_MIN, MIN(INT16_MAX, amplified));
+    }
+  }
+
   uint8_t encoded[VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE];
   const int encoded_bytes = voice_speex_encode_frame(samples, encoded, sizeof(encoded));
   if (encoded_bytes <= 0) {
@@ -89,13 +127,13 @@ static void prv_data_handler(int16_t *samples, size_t sample_count, void *contex
 
   const size_t record_size = 1 + (size_t)encoded_bytes;
   if (s_data_bytes + record_size > s_cap_data_bytes) {
-    PBL_LOG_DBG("Recording reached capacity, dropping further audio");
-    s_capped = true;
+    PBL_LOG_DBG("Recording reached capacity, stopping");
+    prv_schedule_stop();
     return;
   }
 
   if ((s_staging_used + record_size > sizeof(s_staging)) && !prv_flush_staging()) {
-    s_capped = true;
+    prv_schedule_stop();
     return;
   }
 
@@ -112,6 +150,7 @@ static void prv_close_temp(bool remove) {
 }
 
 static void prv_reset(void) {
+  voice_speex_set_quality(VOICE_SPEEX_QUALITY_DEFAULT);
   s_state = RecState_Idle;
   s_active_id = VOICE_RECORDING_ID_INVALID;
   s_owner_task = PebbleTask_Unknown;
@@ -136,9 +175,9 @@ static void prv_fill_metadata(VoiceRecordingStorageMetadata *metadata) {
   }
 }
 
-static void prv_stop_locked(VoiceRecordingId id) {
+static bool prv_stop_locked(VoiceRecordingId id) {
   if ((s_state != RecState_Recording) || (id != s_active_id)) {
-    return;
+    return false;
   }
 
   new_timer_stop(s_max_timer);
@@ -162,6 +201,7 @@ static void prv_stop_locked(VoiceRecordingId id) {
     s_last_error = VoiceRecordingError_None;
   }
   PBL_LOG_DBG("Stopped recording id=%u (%s)", (unsigned)id, ok ? "saved" : "failed");
+  return ok;
 }
 
 static void prv_cancel_locked(VoiceRecordingId id) {
@@ -177,16 +217,30 @@ static void prv_cancel_locked(VoiceRecordingId id) {
   PBL_LOG_DBG("Cancelled recording id=%u", (unsigned)id);
 }
 
-static void prv_max_duration_stop(void *data) {
-  voice_recording_stop((VoiceRecordingId)(uintptr_t)data);
+static void prv_stop_callback(void *data) {
+  (void)voice_recording_stop((VoiceRecordingId)(uintptr_t)data);
 }
 
 static void prv_max_duration_timeout(void *data) {
-  launcher_task_add_callback(prv_max_duration_stop, data);
+  launcher_task_add_callback(prv_stop_callback, data);
 }
 
 void voice_recording_init(void) {
   s_lock = mutex_create();
+  SettingsFile file = {{0}};
+  VoiceRecordingConfig config;
+  if ((settings_file_open(&file, VOICE_REC_SETTINGS_FILE, VOICE_REC_SETTINGS_SIZE) == S_SUCCESS)) {
+    if (settings_file_get(&file, VOICE_REC_SETTINGS_KEY, strlen(VOICE_REC_SETTINGS_KEY), &config,
+                          sizeof(config)) == S_SUCCESS &&
+        config.quality <= VoiceRecordingQuality_High &&
+        config.record_gain >= VOICE_RECORDING_GAIN_MIN &&
+        config.record_gain <= VOICE_RECORDING_GAIN_MAX &&
+        config.playback_gain >= VOICE_RECORDING_GAIN_MIN &&
+        config.playback_gain <= VOICE_RECORDING_GAIN_MAX) {
+      s_config = config;
+    }
+    settings_file_close(&file);
+  }
   voice_recording_storage_init(&s_next_id);
   voice_recording_playback_init();
 }
@@ -270,6 +324,9 @@ VoiceRecordingId voice_recording_start(void) {
     goto unlock;
   }
 
+  static const uint8_t s_speex_quality[] = {4, 6, 8};
+  voice_speex_set_quality(s_speex_quality[s_config.quality]);
+
   s_state = RecState_Recording;
   s_active_id = id;
   s_next_id = (id == UINT16_MAX) ? 1 : (id + 1);
@@ -286,15 +343,22 @@ unlock:
   return id;
 }
 
-void voice_recording_stop(VoiceRecordingId id) {
+bool voice_recording_stop(VoiceRecordingId id) {
   mutex_lock(s_lock);
-  prv_stop_locked(id);
+  bool stopped;
+  if (s_state == RecState_Idle) {
+    VoiceRecordingStorageMetadata metadata;
+    stopped = voice_recording_storage_get_metadata(id, &metadata);
+  } else {
+    stopped = prv_stop_locked(id);
+  }
   mutex_unlock(s_lock);
+  return stopped;
 }
 
 void voice_recording_stop_active(void) {
   mutex_lock(s_lock);
-  prv_stop_locked(s_active_id);
+  (void)prv_stop_locked(s_active_id);
   mutex_unlock(s_lock);
 }
 
@@ -308,6 +372,10 @@ void voice_recording_cleanup_task(PebbleTask task) {
   mutex_lock(s_lock);
   if (s_owner_task == task) {
     prv_cancel_locked(s_active_id);
+  }
+  if ((task == PebbleTask_App) && !uuid_is_invalid(&s_playback_owner)) {
+    voice_recording_playback_stop();
+    s_playback_owner = UUID_INVALID;
   }
   mutex_unlock(s_lock);
 }
@@ -337,6 +405,16 @@ bool voice_recording_is_owned_by(VoiceRecordingId id, const Uuid *app_uuid) {
 
 uint32_t voice_recording_list(VoiceRecordingInfo *out, uint32_t max) {
   return voice_recording_storage_list(out, max);
+}
+
+uint32_t voice_recording_list_summaries(VoiceRecordingSummary *out, uint32_t max,
+                                        bool *has_more) {
+  return voice_recording_storage_list_summaries(out, max, has_more);
+}
+
+uint32_t voice_recording_list_owned_by(VoiceRecordingInfo *out, uint32_t max,
+                                       const Uuid *app_uuid) {
+  return voice_recording_storage_list_owned_by(out, max, app_uuid);
 }
 
 uint32_t voice_recording_total_bytes(void) {
@@ -369,12 +447,32 @@ void voice_recording_delete_all(void) {
 bool voice_recording_play(VoiceRecordingId id) {
   mutex_lock(s_lock);
   const bool started = (s_state == RecState_Idle) && voice_recording_playback_start(id);
+  if (started) {
+    const bool from_app = (pebble_task_get_current() == PebbleTask_App) &&
+                          !app_install_id_from_system(app_manager_get_current_app_id());
+    s_playback_owner = from_app ? app_manager_get_current_app_md()->uuid : UUID_INVALID;
+  }
   mutex_unlock(s_lock);
   return started;
 }
 
+bool voice_recording_playback_owned_by(const Uuid *app_uuid) {
+  if (!app_uuid) {
+    return false;
+  }
+  mutex_lock(s_lock);
+  const bool owned = !uuid_is_invalid(&s_playback_owner) &&
+                     uuid_equal(&s_playback_owner, app_uuid) &&
+                     voice_recording_playback_is_active();
+  mutex_unlock(s_lock);
+  return owned;
+}
+
 void voice_recording_stop_playback(void) {
   voice_recording_playback_stop();
+  mutex_lock(s_lock);
+  s_playback_owner = UUID_INVALID;
+  mutex_unlock(s_lock);
 }
 
 bool voice_recording_is_playing(void) {
@@ -386,4 +484,42 @@ VoiceRecordingError voice_recording_last_error(void) {
   const VoiceRecordingError error = s_last_error;
   mutex_unlock(s_lock);
   return error;
+}
+
+static void prv_save_config(void) {
+  SettingsFile file = {{0}};
+  if (settings_file_open(&file, VOICE_REC_SETTINGS_FILE, VOICE_REC_SETTINGS_SIZE) == S_SUCCESS) {
+    settings_file_set(&file, VOICE_REC_SETTINGS_KEY, strlen(VOICE_REC_SETTINGS_KEY), &s_config,
+                      sizeof(s_config));
+    settings_file_close(&file);
+  }
+}
+
+VoiceRecordingQuality voice_recording_get_quality(void) {
+  return s_config.quality;
+}
+
+void voice_recording_set_quality(VoiceRecordingQuality quality) {
+  if (quality <= VoiceRecordingQuality_High) {
+    s_config.quality = quality;
+    prv_save_config();
+  }
+}
+
+uint16_t voice_recording_get_record_gain(void) {
+  return s_config.record_gain;
+}
+
+void voice_recording_set_record_gain(uint16_t gain) {
+  s_config.record_gain = MIN(VOICE_RECORDING_GAIN_MAX, MAX(VOICE_RECORDING_GAIN_MIN, gain));
+  prv_save_config();
+}
+
+uint16_t voice_recording_get_playback_gain(void) {
+  return s_config.playback_gain;
+}
+
+void voice_recording_set_playback_gain(uint16_t gain) {
+  s_config.playback_gain = MIN(VOICE_RECORDING_GAIN_MAX, MAX(VOICE_RECORDING_GAIN_MIN, gain));
+  prv_save_config();
 }

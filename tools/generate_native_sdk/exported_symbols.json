@@ -1065,6 +1065,9 @@
               "type": "define",
               "name": "AUDIO_RECORDING_ID_INVALID"
             }, {
+              "type": "type",
+              "name": "AudioRecordingInfo"
+            }, {
               "type": "function",
               "name": "audio_recording_start",
               "addedRevision": "106"
@@ -1079,6 +1082,14 @@
             }, {
               "type": "function",
               "name": "audio_recording_is_active",
+              "addedRevision": "106"
+            }, {
+              "type": "function",
+              "name": "audio_recording_list",
+              "addedRevision": "106"
+            }, {
+              "type": "function",
+              "name": "audio_recording_delete",
               "addedRevision": "106"
             }, {
               "type": "function",

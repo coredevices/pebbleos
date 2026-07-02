@@ -102,8 +102,9 @@ void events_init(void) {
   // assert and you have a good reason for making the event bigger, feel free to relax the restriction.
   //PBL_LOG_DBG("PebbleEvent size is %u", sizeof(PebbleEvent));
   // FIXME:
-  _Static_assert(sizeof(PebbleEvent) <= 12,
-                 "You made the PebbleEvent bigger! It should be no more than 12");
+  // 13: PebbleDictationEvent carries a source_id byte to correlate results with their window.
+  _Static_assert(sizeof(PebbleEvent) <= 13,
+                 "You made the PebbleEvent bigger! It should be no more than 13");
 
 
   s_system_event_queue_set = xQueueCreateSet(MAX_KERNEL_EVENTS + MAX_FROM_APP_EVENTS);

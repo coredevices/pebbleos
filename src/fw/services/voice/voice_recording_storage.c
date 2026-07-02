@@ -299,7 +299,7 @@ static bool prv_read_info(const char *name, VoiceRecordingInfo *info) {
   return ok;
 }
 
-uint32_t voice_recording_storage_list(VoiceRecordingInfo *out, uint32_t max) {
+static uint32_t prv_list(VoiceRecordingInfo *out, uint32_t max, const Uuid *app_uuid) {
   if (!out || (max == 0)) {
     return 0;
   }
@@ -308,9 +308,54 @@ uint32_t voice_recording_storage_list(VoiceRecordingInfo *out, uint32_t max) {
   PFSFileListEntry *list = pfs_create_file_list(prv_is_recording_file);
   for (PFSFileListEntry *entry = list; entry && (count < max);
        entry = (PFSFileListEntry *)entry->list_node.next) {
-    if (prv_read_info(entry->name, &out[count])) {
+    VoiceRecordingInfo info;
+    if (prv_read_info(entry->name, &info) && (!app_uuid || uuid_equal(&info.app_uuid, app_uuid))) {
+      out[count] = info;
       count++;
     }
+  }
+  pfs_delete_file_list(list);
+  return count;
+}
+
+uint32_t voice_recording_storage_list(VoiceRecordingInfo *out, uint32_t max) {
+  return prv_list(out, max, NULL);
+}
+
+uint32_t voice_recording_storage_list_owned_by(VoiceRecordingInfo *out, uint32_t max,
+                                               const Uuid *app_uuid) {
+  if (!app_uuid) {
+    return 0;
+  }
+  return prv_list(out, max, app_uuid);
+}
+
+uint32_t voice_recording_storage_list_summaries(VoiceRecordingSummary *out, uint32_t max,
+                                                bool *has_more) {
+  if (has_more) {
+    *has_more = false;
+  }
+  if (!out || (max == 0)) {
+    return 0;
+  }
+
+  uint32_t count = 0;
+  PFSFileListEntry *list = pfs_create_file_list(prv_is_recording_file);
+  for (PFSFileListEntry *entry = list; entry; entry = (PFSFileListEntry *)entry->list_node.next) {
+    VoiceRecordingInfo info;
+    if (!prv_read_info(entry->name, &info)) {
+      continue;
+    }
+    if (count == max) {
+      if (has_more) {
+        *has_more = true;
+      }
+      break;
+    }
+    out[count++] = (VoiceRecordingSummary){
+        .id = info.id,
+        .duration_ms = info.duration_ms,
+    };
   }
   pfs_delete_file_list(list);
   return count;

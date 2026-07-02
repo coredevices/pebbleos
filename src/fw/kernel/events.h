@@ -523,10 +523,16 @@ typedef struct PACKED { // 7 bytes
 } PebbleVoiceServiceEvent;
 
 typedef struct PACKED { // 9 bytes
-  DictationSessionStatus result;
+  DictationSessionStatus result:4;
+  //! id of the emitting VoiceWindow (voice_window_get_event_id()); subscribers must ignore
+  //! results coming from a window that is not theirs. Valid ids are 1-15.
+  uint8_t source_id:4;
   time_t timestamp;
   char *text;
 } PebbleDictationEvent;
+
+_Static_assert(DictationSessionStatusFailureRecognizerError <= 0xf,
+               "DictationSessionStatus no longer fits in PebbleDictationEvent");
 
 //! Possible results that come back from the INSTALL_COMMAND
 typedef enum {

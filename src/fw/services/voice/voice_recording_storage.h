@@ -54,6 +54,18 @@ bool voice_recording_storage_get_metadata(VoiceRecordingId id,
 //! @return number of entries written to @p out.
 uint32_t voice_recording_storage_list(VoiceRecordingInfo *out, uint32_t max);
 
+//! Fill an array with per-row summaries of valid stored recordings, in a single storage pass.
+//! Listing UIs use this instead of voice_recording_storage_list() so they need not hold a full
+//! VoiceRecordingInfo (which is dominated by the 16-byte creator UUID) for every recording.
+//! @param has_more if not NULL, set to true when more recordings exist than fit in \a out.
+//! @return number of entries written to \a out.
+uint32_t voice_recording_storage_list_summaries(VoiceRecordingSummary *out, uint32_t max,
+                                                bool *has_more);
+
+//! Fill an array with metadata from recordings belonging to \a app_uuid.
+uint32_t voice_recording_storage_list_owned_by(VoiceRecordingInfo *out, uint32_t max,
+                                               const Uuid *app_uuid);
+
 //! @return total bytes occupied by valid stored recordings.
 uint32_t voice_recording_storage_total_bytes(void);
 

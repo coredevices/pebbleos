@@ -35,3 +35,8 @@ void voice_window_set_confirmation_enabled(VoiceWindow *voice_window, bool enabl
 void voice_window_set_error_enabled(VoiceWindow *voice_window, bool enabled);
 
 void voice_window_reset(VoiceWindow *voice_window);
+
+//! @return the tag this window puts in the PEBBLE_DICTATION_EVENTs it emits
+//! (PebbleDictationEvent.source_id), or 0 if \a voice_window is NULL. Subscribers must ignore
+//! results whose source_id does not match their own window. Valid tags are 1-15.
+uint8_t voice_window_get_event_id(VoiceWindow *voice_window);
