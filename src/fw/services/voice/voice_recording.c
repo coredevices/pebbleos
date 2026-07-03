@@ -63,6 +63,9 @@ static uint32_t s_samples_per_frame;
 static uint32_t s_cap_data_bytes;
 static bool s_capped;
 static VoiceRecordingError s_last_error;
+// Id of the most recently saved recording, so a stop() racing an auto-stop can be answered
+// accurately without reporting success for an unrelated stored recording.
+static VoiceRecordingId s_last_saved_id = VOICE_RECORDING_ID_INVALID;
 
 typedef struct {
   VoiceRecordingQuality quality;
@@ -199,6 +202,7 @@ static bool prv_stop_locked(VoiceRecordingId id) {
   prv_reset();
   if (ok) {
     s_last_error = VoiceRecordingError_None;
+    s_last_saved_id = id;
   }
   PBL_LOG_DBG("Stopped recording id=%u (%s)", (unsigned)id, ok ? "saved" : "failed");
   return ok;
@@ -296,7 +300,20 @@ VoiceRecordingId voice_recording_start(void) {
     goto unlock;
   }
 
+  // After the uint16 id space has wrapped, s_next_id can collide with a recording that is
+  // still stored; probe until a free id is found so an old memo is never overwritten.
   id = s_next_id;
+  uint32_t probes = 0;
+  while (voice_recording_storage_id_in_use(id) && (++probes < UINT16_MAX)) {
+    id = (id == UINT16_MAX) ? 1 : (id + 1);
+  }
+  if (probes >= UINT16_MAX) {
+    PBL_LOG_ERR("No free recording id");
+    s_last_error = VoiceRecordingError_StorageFull;
+    id = VOICE_RECORDING_ID_INVALID;
+    goto unlock;
+  }
+
   s_temp_fd = voice_recording_storage_open_temp(id, s_cap_data_bytes);
   if (s_temp_fd < 0) {
     PBL_LOG_ERR("Failed to create temp recording file (%d)", s_temp_fd);
@@ -346,11 +363,12 @@ unlock:
 bool voice_recording_stop(VoiceRecordingId id) {
   mutex_lock(s_lock);
   bool stopped;
-  if (s_state == RecState_Idle) {
-    VoiceRecordingStorageMetadata metadata;
-    stopped = voice_recording_storage_get_metadata(id, &metadata);
-  } else {
+  if ((s_state != RecState_Idle) && (id == s_active_id)) {
     stopped = prv_stop_locked(id);
+  } else {
+    // The recording may have just been auto-stopped (duration cap or storage full) before this
+    // call landed: report success only for that recording, never for an older stored one.
+    stopped = (id != VOICE_RECORDING_ID_INVALID) && (id == s_last_saved_id);
   }
   mutex_unlock(s_lock);
   return stopped;
@@ -387,18 +405,18 @@ bool voice_recording_in_progress(void) {
   return recording;
 }
 
+static bool prv_is_owned_by_locked(VoiceRecordingId id, const Uuid *app_uuid) {
+  if ((s_state == RecState_Recording) && (id == s_active_id)) {
+    return uuid_equal(&s_app_uuid, app_uuid);
+  }
+  VoiceRecordingStorageMetadata metadata;
+  return voice_recording_storage_get_metadata(id, &metadata) &&
+         uuid_equal(&metadata.app_uuid, app_uuid);
+}
+
 bool voice_recording_is_owned_by(VoiceRecordingId id, const Uuid *app_uuid) {
   mutex_lock(s_lock);
-
-  bool owned;
-  if ((s_state == RecState_Recording) && (id == s_active_id)) {
-    owned = uuid_equal(&s_app_uuid, app_uuid);
-  } else {
-    VoiceRecordingStorageMetadata metadata;
-    owned = voice_recording_storage_get_metadata(id, &metadata) &&
-            uuid_equal(&metadata.app_uuid, app_uuid);
-  }
-
+  const bool owned = prv_is_owned_by_locked(id, app_uuid);
   mutex_unlock(s_lock);
   return owned;
 }
@@ -423,7 +441,9 @@ uint32_t voice_recording_total_bytes(void) {
 
 bool voice_recording_delete(VoiceRecordingId id) {
   mutex_lock(s_lock);
-  voice_recording_playback_stop();
+  if (voice_recording_playback_is_playing_id(id)) {
+    voice_recording_playback_stop();
+  }
   bool deleted = false;
   // Removing an open PFS file panics; the transcription stream keeps the recording open
   // for its whole (real-time) duration.
@@ -431,6 +451,9 @@ bool voice_recording_delete(VoiceRecordingId id) {
     PBL_LOG_WRN("Recording %u is being transcribed, refusing to delete", (unsigned)id);
   } else {
     deleted = voice_recording_storage_delete(id);
+    if (deleted && (id == s_last_saved_id)) {
+      s_last_saved_id = VOICE_RECORDING_ID_INVALID;
+    }
   }
   mutex_unlock(s_lock);
   return deleted;
@@ -441,6 +464,22 @@ void voice_recording_delete_all(void) {
   voice_recording_playback_stop();
   // Skip a recording held open by an active transcription stream (see voice_recording_delete).
   voice_recording_storage_delete_all(voice_transcribing_recording_id());
+  mutex_unlock(s_lock);
+}
+
+void voice_recording_delete_owned_by(const Uuid *app_uuid) {
+  if (!app_uuid) {
+    return;
+  }
+  mutex_lock(s_lock);
+  // Playback may hold one of this app's files open; removing an open PFS file panics.
+  const VoiceRecordingId playing_id = voice_recording_playback_get_active_id();
+  if ((playing_id != VOICE_RECORDING_ID_INVALID) &&
+      prv_is_owned_by_locked(playing_id, app_uuid)) {
+    voice_recording_playback_stop();
+  }
+  // Skip a recording held open by an active transcription stream (see voice_recording_delete).
+  voice_recording_storage_delete_owned_by(app_uuid, voice_transcribing_recording_id());
   mutex_unlock(s_lock);
 }
 

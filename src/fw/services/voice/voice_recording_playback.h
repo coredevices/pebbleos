@@ -19,3 +19,9 @@ void voice_recording_playback_stop(void);
 
 //! @return true while this service owns an active playback session.
 bool voice_recording_playback_is_active(void);
+
+//! @return true if the given recording is the one currently playing.
+bool voice_recording_playback_is_playing_id(VoiceRecordingId id);
+
+//! @return the id of the recording currently playing, or VOICE_RECORDING_ID_INVALID if none.
+VoiceRecordingId voice_recording_playback_get_active_id(void);

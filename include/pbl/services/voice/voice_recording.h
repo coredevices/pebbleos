@@ -152,6 +152,10 @@ bool voice_recording_delete(VoiceRecordingId id);
 //! Delete every stored recording.
 void voice_recording_delete_all(void);
 
+//! Delete every stored recording created by \a app_uuid. Called when the app is
+//! uninstalled so orphaned recordings do not consume the storage budget forever.
+void voice_recording_delete_owned_by(const Uuid *app_uuid);
+
 //! Decode and play a stored recording through the speaker. Returns false if the
 //! recording could not be opened, the speaker is busy, or a capture is active.
 bool voice_recording_play(VoiceRecordingId id);

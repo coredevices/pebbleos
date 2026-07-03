@@ -31,6 +31,7 @@ static uint32_t s_pcm_bytes;
 static uint32_t s_pcm_offset;
 static uint32_t s_remaining;
 static SpeakerStreamId s_stream_id = SPEAKER_STREAM_ID_INVALID;
+static VoiceRecordingId s_playback_id = VOICE_RECORDING_ID_INVALID;
 
 static void prv_cleanup(void) {
   if (s_fd >= 0) {
@@ -47,6 +48,7 @@ static void prv_cleanup(void) {
   s_remaining = 0;
   s_stream_id = SPEAKER_STREAM_ID_INVALID;
   s_playing = false;
+  s_playback_id = VOICE_RECORDING_ID_INVALID;
 }
 
 static void prv_feed(void *data) {
@@ -74,30 +76,15 @@ static void prv_feed(void *data) {
       }
     }
 
-    if (s_remaining < 1) {
-      eof = true;
-      break;
-    }
-
-    uint8_t len = 0;
-    if (pfs_read(s_fd, &len, 1) != 1) {
-      eof = true;
-      break;
-    }
-    s_remaining--;
-    if ((len == 0) || (len > s_remaining) || (len > VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE)) {
-      eof = true;
-      break;
-    }
-
     uint8_t frame[VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE];
-    if (pfs_read(s_fd, frame, len) != (int)len) {
+    const int frame_len =
+        voice_recording_storage_read_frame(s_fd, &s_remaining, frame, sizeof(frame));
+    if (frame_len <= 0) {
       eof = true;
       break;
     }
-    s_remaining -= len;
 
-    const int samples = voice_speex_decode_frame(frame, len, s_pcm);
+    const int samples = voice_speex_decode_frame(frame, frame_len, s_pcm);
     if (samples > 0) {
       const uint16_t gain = voice_recording_get_playback_gain();
       if (gain != VOICE_RECORDING_GAIN_DEFAULT) {
@@ -130,6 +117,7 @@ void voice_recording_playback_init(void) {
   s_pcm_offset = 0;
   s_remaining = 0;
   s_stream_id = SPEAKER_STREAM_ID_INVALID;
+  s_playback_id = VOICE_RECORDING_ID_INVALID;
 }
 
 bool voice_recording_playback_start(VoiceRecordingId id) {
@@ -167,7 +155,7 @@ bool voice_recording_playback_start(VoiceRecordingId id) {
   s_pcm_bytes = 0;
   s_pcm_offset = 0;
   s_playing = true;
-
+  s_playback_id = id;
   if (s_timer == TIMER_INVALID_ID) {
     s_timer = new_timer_create();
   }
@@ -198,4 +186,18 @@ bool voice_recording_playback_is_active(void) {
   const bool playing = s_playing;
   mutex_unlock(s_lock);
   return playing;
+}
+
+bool voice_recording_playback_is_playing_id(VoiceRecordingId id) {
+  mutex_lock(s_lock);
+  const bool playing = (s_fd >= 0) && (s_playback_id == id);
+  mutex_unlock(s_lock);
+  return playing;
+}
+
+VoiceRecordingId voice_recording_playback_get_active_id(void) {
+  mutex_lock(s_lock);
+  const VoiceRecordingId id = (s_fd >= 0) ? s_playback_id : VOICE_RECORDING_ID_INVALID;
+  mutex_unlock(s_lock);
+  return id;
 }

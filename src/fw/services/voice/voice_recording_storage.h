@@ -21,6 +21,9 @@ typedef struct {
 //! Remove abandoned temporary files and determine the next recording id.
 void voice_recording_storage_init(VoiceRecordingId *next_id_out);
 
+//! @return true if a stored recording file exists for \a id.
+bool voice_recording_storage_id_in_use(VoiceRecordingId id);
+
 //! @return bytes reserved for metadata at the start of each recording file.
 uint32_t voice_recording_storage_header_size(void);
 
@@ -44,6 +47,12 @@ bool voice_recording_storage_finalize(VoiceRecordingId id,
 //! Open a valid recording and position it at the encoded payload.
 //! @return an owned PFS descriptor, or a negative value on failure.
 int voice_recording_storage_open_payload(VoiceRecordingId id, uint32_t *data_bytes_out);
+
+//! Read the next length-prefixed encoded frame from an open payload descriptor and
+//! decrement \a remaining_bytes by the bytes consumed.
+//! @return the frame length in bytes, or 0 at end of payload or on a corrupt/truncated frame.
+int voice_recording_storage_read_frame(int fd, uint32_t *remaining_bytes, uint8_t *frame_out,
+                                       size_t frame_out_size);
 
 //! Read the stored metadata (header) of a valid recording without opening the payload.
 //! @return true on success.
@@ -75,3 +84,6 @@ bool voice_recording_storage_delete(VoiceRecordingId id);
 //! Remove every closed stored recording, except \a skip_id (pass
 //! VOICE_RECORDING_ID_INVALID to remove them all).
 void voice_recording_storage_delete_all(VoiceRecordingId skip_id);
+
+//! Remove every stored recording belonging to \a app_uuid, except \a skip_id.
+void voice_recording_storage_delete_owned_by(const Uuid *app_uuid, VoiceRecordingId skip_id);

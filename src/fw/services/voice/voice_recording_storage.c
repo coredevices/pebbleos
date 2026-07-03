@@ -106,12 +106,14 @@ static bool prv_has_valid_header(const char *name) {
 void voice_recording_storage_init(VoiceRecordingId *next_id_out) {
   pfs_remove_files(prv_is_temp_file);
 
-  VoiceRecordingId next_id = 1;
+  // Prime the allocator right past the highest stored id. This is only a hint: once the id
+  // space has wrapped, voice_recording_storage_id_in_use() is what guarantees a free id.
+  VoiceRecordingId max_id = 0;
   PFSFileListEntry *list = pfs_create_file_list(prv_is_recording_file);
   for (PFSFileListEntry *entry = list; entry; entry = (PFSFileListEntry *)entry->list_node.next) {
     VoiceRecordingId id;
-    if (prv_parse_id(entry->name, &id) && (id >= next_id)) {
-      next_id = (id == UINT16_MAX) ? 1 : (id + 1);
+    if (prv_parse_id(entry->name, &id) && (id > max_id)) {
+      max_id = id;
     }
     // An interrupted finalize (header written last) leaves a file with an invalid header:
     // excluded from listing and the quota, but still occupying flash. Remove it.
@@ -121,10 +123,21 @@ void voice_recording_storage_init(VoiceRecordingId *next_id_out) {
     }
   }
   pfs_delete_file_list(list);
-  *next_id_out = next_id;
+  *next_id_out = (max_id == UINT16_MAX) ? 1 : (max_id + 1);
 
   s_total_bytes = prv_compute_total_bytes();
   s_total_bytes_valid = true;
+}
+
+bool voice_recording_storage_id_in_use(VoiceRecordingId id) {
+  char name[VOICE_REC_NAME_MAX];
+  prv_make_name(name, sizeof(name), VOICE_REC_PREFIX, id);
+  const int fd = pfs_open(name, OP_FLAG_READ, FILE_TYPE_STATIC, 0);
+  if (fd < 0) {
+    return false;
+  }
+  pfs_close(fd);
+  return true;
 }
 
 uint32_t voice_recording_storage_header_size(void) {
@@ -251,6 +264,29 @@ int voice_recording_storage_open_payload(VoiceRecordingId id, uint32_t *data_byt
   }
   *data_bytes_out = header.data_bytes;
   return fd;
+}
+
+int voice_recording_storage_read_frame(int fd, uint32_t *remaining_bytes, uint8_t *frame_out,
+                                       size_t frame_out_size) {
+  if (*remaining_bytes < 1) {
+    return 0;
+  }
+
+  uint8_t len = 0;
+  if (pfs_read(fd, &len, 1) != 1) {
+    return 0;
+  }
+  (*remaining_bytes)--;
+  if ((len == 0) || (len > *remaining_bytes) || (len > frame_out_size)) {
+    PBL_LOG_WRN("Corrupt recording frame (len=%u), ending stream", len);
+    return 0;
+  }
+
+  if (pfs_read(fd, frame_out, len) != (int)len) {
+    return 0;
+  }
+  *remaining_bytes -= len;
+  return len;
 }
 
 bool voice_recording_storage_get_metadata(VoiceRecordingId id,
@@ -415,4 +451,21 @@ void voice_recording_storage_delete_all(VoiceRecordingId skip_id) {
   } else {
     s_total_bytes_valid = false;  // one file was kept; recompute lazily
   }
+}
+
+void voice_recording_storage_delete_owned_by(const Uuid *app_uuid, VoiceRecordingId skip_id) {
+  PFSFileListEntry *list = pfs_create_file_list(prv_is_recording_file);
+  for (PFSFileListEntry *entry = list; entry; entry = (PFSFileListEntry *)entry->list_node.next) {
+    VoiceRecordingId id;
+    if ((skip_id != VOICE_RECORDING_ID_INVALID) && prv_parse_id(entry->name, &id) &&
+        (id == skip_id)) {
+      continue;
+    }
+    VoiceRecordingInfo info;
+    if (prv_read_info(entry->name, &info) && uuid_equal(&info.app_uuid, app_uuid)) {
+      pfs_remove(entry->name);
+      s_total_bytes_valid = false;  // recomputed lazily on next query
+    }
+  }
+  pfs_delete_file_list(list);
 }

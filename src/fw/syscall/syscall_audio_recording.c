@@ -4,12 +4,30 @@
 #include "syscall.h"
 #include "syscall_internal.h"
 
+#include <stddef.h>
+
 #ifdef CONFIG_MIC
 #include "pbl/services/voice/voice_recording.h"
 #include "process_management/app_manager.h"
 #endif
 
 #ifdef CONFIG_MIC
+// The applib struct is a copy of the service struct (the SDK-exported header must be
+// self-contained); the list syscall casts between them, so their layouts must match exactly.
+#define ASSERT_FIELD_MATCHES(field) \
+  _Static_assert((offsetof(AudioRecordingInfo, field) == offsetof(VoiceRecordingInfo, field)) && \
+                 (sizeof(((AudioRecordingInfo *)0)->field) == \
+                  sizeof(((VoiceRecordingInfo *)0)->field)), \
+                 "AudioRecordingInfo." #field " must match VoiceRecordingInfo." #field)
+_Static_assert(sizeof(AudioRecordingInfo) == sizeof(VoiceRecordingInfo),
+               "Recording info layouts must match");
+ASSERT_FIELD_MATCHES(id);
+ASSERT_FIELD_MATCHES(size_bytes);
+ASSERT_FIELD_MATCHES(duration_ms);
+ASSERT_FIELD_MATCHES(created);
+ASSERT_FIELD_MATCHES(app_uuid);
+#undef ASSERT_FIELD_MATCHES
+
 static bool prv_current_app_owns_recording(AudioRecordingId recording_id) {
   const PebbleProcessMd *app_md = app_manager_get_current_app_md();
   return app_md && voice_recording_is_owned_by(recording_id, &app_md->uuid);
@@ -67,8 +85,6 @@ DEFINE_SYSCALL(uint32_t, sys_audio_recording_list, AudioRecordingInfo *recording
     if (!app_md) {
       return 0;
     }
-    _Static_assert(sizeof(AudioRecordingInfo) == sizeof(VoiceRecordingInfo),
-                   "Recording info layouts must match");
     return voice_recording_list_owned_by((VoiceRecordingInfo *)recordings, max_recordings,
                                          &app_md->uuid);
   }

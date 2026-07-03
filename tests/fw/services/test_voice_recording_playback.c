@@ -22,24 +22,23 @@ static int s_close_calls;
 static int s_decoder_deinit_calls;
 static int s_speaker_close_calls;
 static int s_speaker_stop_calls;
-static int s_read_index;
-
 int voice_recording_storage_open_payload(VoiceRecordingId id, uint32_t *data_bytes_out) {
   *data_bytes_out = 2;
   return 7;
 }
 
-int pfs_read(int fd, void *buf, size_t size) {
-  uint8_t *bytes = buf;
-  if (s_read_index == 0) {
-    cl_assert_equal_i(size, 1);
-    bytes[0] = 1;
-  } else {
-    cl_assert_equal_i(size, 1);
-    bytes[0] = 0x42;
+int voice_recording_storage_read_frame(int fd, uint32_t *remaining_bytes, uint8_t *frame_out,
+                                       size_t frame_out_size) {
+  if (*remaining_bytes < 2) {
+    return 0;
   }
-  s_read_index++;
-  return (int)size;
+  frame_out[0] = 0x42;
+  *remaining_bytes -= 2;  // length byte + one payload byte
+  return 1;
+}
+
+uint16_t voice_recording_get_playback_gain(void) {
+  return VOICE_RECORDING_GAIN_DEFAULT;
 }
 
 status_t pfs_close(int fd) {
@@ -107,7 +106,6 @@ void test_voice_recording_playback__initialize(void) {
   s_decoder_deinit_calls = 0;
   s_speaker_close_calls = 0;
   s_speaker_stop_calls = 0;
-  s_read_index = 0;
   voice_recording_playback_init();
 }
 
