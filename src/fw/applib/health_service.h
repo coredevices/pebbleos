@@ -362,6 +362,8 @@ typedef enum {
   HealthEventMetricAlert = 3,
   //! Value of \ref HealthMetricHeartRateBPM or \ref HealthMetricHeartRateRawBPM has changed.
   HealthEventHeartRateUpdate = 4,
+  //! A new HRV peak-to-peak interval reading is available.
+  HealthEventHRVUpdate = 5,
 } HealthEventType;
 
 //! Developer-supplied event handler, called when a health-related event occurs after subscribing
@@ -382,6 +384,17 @@ bool health_service_events_subscribe(HealthEventHandler handler, void *context);
 //! Unsubscribe from HealthService events.
 //! @return `true` on success, `false` on failure.
 bool health_service_events_unsubscribe(void);
+
+//! Get the most recent HRV peak-to-peak interval in milliseconds.
+//! @return PPI in ms, or 0 if no reading available.
+uint16_t health_service_peek_hrv_ppi_ms(void);
+
+//! Request HRV (peak-to-peak interval) sampling. While any app holds an HRV sample period, the
+//! sensor collects HRV alongside heart rate and HealthEventHRVUpdate events are delivered to
+//! health service subscribers.
+//! @param interval_sec desired sampling interval in seconds; 0 unsubscribes.
+//! @return true on success.
+bool health_service_set_hrv_sample_period(uint16_t interval_sec);
 
 //! Set the desired sampling period for heart rate readings. Normally, the system will sample the
 //! heart rate using a sampling period that is automatically chosen to provide useful information
@@ -532,12 +545,19 @@ typedef struct {
 } HealthEventHeartRateUpdateData;
 
 //! @internal
+typedef struct {
+  uint16_t ppi_ms;
+  HRMQuality quality:8;
+} HealthEventHRVUpdateData;
+
+//! @internal
 typedef struct  {
   union {
     HealthEventMovementUpdateData movement_update;
     HealthEventSleepUpdateData sleep_update;
     HealthEventSignificantUpdateData significant_update;
     HealthEventHeartRateUpdateData heart_rate_update;
+    HealthEventHRVUpdateData hrv_update;
   };
 } HealthEventData;
 

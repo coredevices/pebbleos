@@ -757,13 +757,25 @@ static void prv_check_and_generate_metric_alert(HealthServiceState *state, Healt
 #endif
 
 // ----------------------------------------------------------------------------------------------
+uint16_t health_service_peek_hrv_ppi_ms(void) {
+  HealthServiceState *state = prv_get_state(false);
+  if (!state) {
+    return 0;
+  }
+  return state->last_hrv_ppi_ms;
+}
+
+// ----------------------------------------------------------------------------------------------
 T_STATIC void prv_health_event_handler(PebbleEvent *e, void *context) {
 #if !defined(CONFIG_RECOVERY_FW)
   HealthServiceState *state = prv_get_state(true);
   PBL_ASSERTN(state && state->event_handler != NULL);
 
   // If this is a significant update event, invalidate our cache
-  if (e->health_event.type == HealthEventSignificantUpdate) {
+  if (e->health_event.type == HealthEventHRVUpdate) {
+    state->last_hrv_ppi_ms = e->health_event.data.hrv_update.ppi_ms;
+  }
+  else if (e->health_event.type == HealthEventSignificantUpdate) {
     if (state->cache) {
       state->cache->valid_flags = 0;
     }
@@ -1193,6 +1205,38 @@ bool health_service_cancel_metric_alert(HealthMetricAlert *alert) {
 }
 
 // ----------------------------------------------------------------------------------------------
+bool health_service_set_hrv_sample_period(uint16_t interval_sec) {
+#if !defined(CONFIG_HRM) || !defined(CONFIG_HRM_HRV)
+  return false;
+#else
+  if (!sys_activity_is_initialized()) {
+    return false;
+  }
+  if (!sys_activity_prefs_heart_rate_is_enabled()) {
+    return false;
+  }
+
+  AppInstallId app_id = app_get_app_id();
+  if (app_id == INSTALL_ID_INVALID) {
+    return false;
+  }
+
+  // If interval is 0, the caller wants to unsubscribe
+  if (interval_sec == 0) {
+    HRMSessionRef hrm_session = sys_hrm_manager_get_app_subscription(app_id);
+    if (hrm_session != HRM_INVALID_SESSION_REF) {
+      sys_hrm_manager_unsubscribe(hrm_session);
+    }
+    return true;
+  }
+
+  // Subscribe with the HRV feature; the sensor enables HRV while any such subscription is active.
+  HRMSessionRef hrm_session = sys_hrm_manager_app_subscribe(app_id, interval_sec, 0 /*expire_sec*/,
+                                                            HRMFeature_BPM | HRMFeature_HRV);
+  return (hrm_session != HRM_INVALID_SESSION_REF);
+#endif
+}
+
 bool health_service_set_heart_rate_sample_period(uint16_t interval_sec) {
 #ifndef CONFIG_HRM
   return false;
