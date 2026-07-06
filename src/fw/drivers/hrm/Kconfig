@@ -12,7 +12,15 @@ config HRM_GH3X2X
     bool "Goodix GH3X2X"
     help
       Support for the Goodix GH3X2X heart rate sensor.
-
+config HRM_HRV
+    bool "HRV (RR interval) support"
+    depends on HRM_GH3X2X
+    default n
+    help
+      Expose heart-rate-variability (RR/inter-beat interval) data from the
+      HRM sensor. Enables the Goodix HRV algorithm and links the nonfree
+      HRV library. Off by default; HRV is only sampled while an app holds
+      an HRV subscription.
 config HRM_STUB
     bool "Stub"
     help

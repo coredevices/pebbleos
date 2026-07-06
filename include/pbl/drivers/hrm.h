@@ -5,14 +5,18 @@
 
 #include "board/board.h"
 
+#include "pbl/services/hrm/hrm_manager.h"
+
 #include <stdbool.h>
 
 //! Initialize the HRM
 void hrm_init(HRMDevice *dev);
 
-//! Enable the HRM
+//! Enable the HRM, sampling the PPG functions needed for the requested features
+//! @param dev the HRM device to enable
+//! @param features bitmask of HRMFeature values the sensor should collect
 //! @return true if successfully enabled, false if initialization failed
-bool hrm_enable(HRMDevice *dev);
+bool hrm_enable(HRMDevice *dev, HRMFeature features);
 
 //! Disable the HRM
 void hrm_disable(HRMDevice *dev);

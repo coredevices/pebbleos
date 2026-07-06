@@ -52,9 +52,16 @@ extern uint32_t prv_get_dropped_events_count(void);
 
 static struct {
   bool enabled;
+  HRMFeature features;
+  int enable_count;
 } s_hrm_state;
 
-bool hrm_enable(HRMDevice *dev) { s_hrm_state.enabled = true; return true; }
+bool hrm_enable(HRMDevice *dev, HRMFeature features) {
+  s_hrm_state.enabled = true;
+  s_hrm_state.features = features;
+  s_hrm_state.enable_count++;
+  return true;
+}
 void hrm_disable(HRMDevice *dev) { s_hrm_state.enabled = false; }
 bool hrm_is_enabled(HRMDevice *dev) { return s_hrm_state.enabled; }
 

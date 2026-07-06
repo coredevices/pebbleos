@@ -4,8 +4,10 @@
 #include "pbl/services/hrm/hrm_manager.h"
 #include "pbl/services/hrm/hrm_manager_private.h"
 
+#include "applib/health_service.h"
 #include "console/prompt.h"
 #include <pbl/drivers/hrm.h>
+#include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "mfg/mfg_info.h"
 #include "pbl/os/tick.h"
@@ -46,6 +48,10 @@ PBL_LOG_MODULE_DEFINE(service_hrm, CONFIG_SERVICE_HRM_LOG_LEVEL);
 #endif
 
 static struct HRMManagerState s_manager_state;
+
+// Union of HRMFeature bits the sensor was last enabled with; used to detect when the active
+// subscriber set requires a different feature mix so the sensor can be restarted with it.
+static HRMFeature s_enabled_features = (HRMFeature)0;
 
 // Forward declarations
 static void prv_update_enable_timer_cb(void *context);
@@ -184,6 +190,7 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
   mutex_lock_recursive(s_manager_state.lock);
   {
     bool turn_sensor_on = false;
+    HRMFeature needed_features = (HRMFeature)0;
     // How many ms until we need the sensor on again. INT32_MAX means we don't need to turn it on
     // again
     int32_t remaining_ms = INT32_MAX;
@@ -201,6 +208,7 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
           // Ignore expired subscriptions
           continue;
         }
+        needed_features |= state->features;
         int64_t subscriber_age_ticks;
         if (state->last_valid_bpm_ticks) {
           subscriber_age_ticks = cur_ticks - state->last_valid_bpm_ticks;
@@ -225,6 +233,14 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
     // Check if we've permanently failed to enable HRM
     bool hrm_permanently_failed = (s_manager_state.enable_failure_count >= HRM_MAX_ENABLE_FAILURES);
 
+    if (turn_sensor_on && hrm_is_enabled(HRM) && (needed_features != s_enabled_features)) {
+      // The active subscriber set needs a different feature mix; restart the sensor with it.
+      HRM_LOG("HRM feature set changed (0x%x -> 0x%x), restarting sensor",
+              s_enabled_features, needed_features);
+      hrm_disable(HRM);
+      PBL_ANALYTICS_TIMER_STOP(hrm_on_time_ms);
+    }
+
     if (turn_sensor_on && !hrm_is_enabled(HRM) && !hrm_permanently_failed) {
       // Turn on the sensor now
       HRM_LOG("Turning on HR sensor");
@@ -243,7 +259,7 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
           s_manager_state.accel_state, s_manager_state.accel_manager_buffer,
           HRM_MANAGER_ACCEL_MANAGER_SAMPLES_PER_UPDATE);
 
-      if (!hrm_enable(HRM)) {
+      if (!hrm_enable(HRM, needed_features)) {
         // HRM failed to enable, clean up the accel subscription
         s_manager_state.enable_failure_count++;
         if (s_manager_state.enable_failure_count >= HRM_MAX_ENABLE_FAILURES) {
@@ -258,6 +274,7 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
       } else {
         // Success - reset failure counter
         s_manager_state.enable_failure_count = 0;
+        s_enabled_features = needed_features;
         // Don't need the re-enable timer to fire
         new_timer_stop(s_manager_state.update_enable_timer_id);
         // Track HRM on-time
@@ -268,6 +285,7 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
       // Turn off the sensor now
       HRM_LOG("Turning off HR sensor");
       hrm_disable(HRM);
+      s_enabled_features = (HRMFeature)0;
       // Stop tracking HRM on-time
       PBL_ANALYTICS_TIMER_STOP(hrm_on_time_ms);
 
@@ -482,6 +500,24 @@ void hrm_manager_new_data_cb(const HRMData *data) {
   if (data->features & HRMFeature_SpO2) {
     HRM_LOG("  SpO2: %"PRIu8", Quality: %d", data->spo2_percent, data->spo2_quality);
   }
+
+#ifdef CONFIG_HRM_HRV
+  if (data->features & HRMFeature_HRV) {
+    // Broadcast HRV updates as a health service event so apps subscribed through health_service
+    // receive them without needing to consume raw HRM events.
+    PebbleEvent health_event = {
+      .type = PEBBLE_HEALTH_SERVICE_EVENT,
+      .health_event = {
+        .type = HealthEventHRVUpdate,
+        .data.hrv_update = {
+          .ppi_ms = data->hrv_ppi_ms,
+          .quality = data->hrv_quality,
+        },
+      },
+    };
+    event_put(&health_event);
+  }
+#endif
 
   time_t utc_now = rtc_get_time();
   RtcTicks cur_ticks = rtc_get_ticks();
