@@ -143,40 +143,54 @@ bool prv_modify_reg(uint8_t reg_addr, uint32_t mask, uint8_t reg_data)
 	return prv_write_register(reg_addr, reg_val);
 }
 
-static void prv_aw862xx_play_go(bool flag)
+//! Start (flag=true) or stop (flag=false) playback. Returns true when the
+//! command was written successfully; for stop, additionally requires the chip
+//! to have reached standby. The RAM waveform is configured as an infinite
+//! hardware loop, so a stop that silently fails leaves the motor running.
+static bool prv_aw862xx_play_go(bool flag)
 {
-	uint8_t val;
+  uint8_t val;
 
-	if (flag) {
-		val = AW862XX_BIT_PLAYCFG4_GO_ON;
-		prv_write_register(AW862XX_REG_PLAYCFG4, val);
-	} else {
-		bool standby = false;
-		prv_modify_reg(AW862XX_REG_SYSCTRL1, AW862XX_SYSCTRL1_RAMINIT_MASK,
-		               AW862XX_SYSCTRL1_RAMINIT_ON);
-		prv_modify_reg(AW862XX_REG_PLAYCFG3, AW862XX_BIT_PLAYCFG3_PLAY_MODE_MASK,
-		               AW862XX_BIT_PLAYCFG3_PLAY_MODE_STOP);
-		val = AW862XX_BIT_PLAYCFG4_GO_ON;
-		prv_write_register(AW862XX_REG_PLAYCFG4, val);
-		prv_modify_reg(AW862XX_REG_SYSCTRL1, AW862XX_SYSCTRL1_RAMINIT_MASK,
-		               AW862XX_SYSCTRL1_RAMINIT_OFF);
-		for (int i = 0; i < AW862XX_STOP_STANDBY_RETRIES; ++i) {
-		  if (!prv_read_register(AW862XX_REG_GLBRD5, &val)) {
-		    break;
-		  }
-		  if ((val & AW862XX_GLBRD5_STATE_MASK) == AW862XX_GLBRD5_STATE_STANDBY) {
-		    standby = true;
-		    break;
-		  }
-		  psleep(AW862XX_STOP_STANDBY_POLL_MS);
-		}
-		if (!standby) {
-		  prv_modify_reg(AW862XX_REG_SYSCTRL2, AW862XX_SYSCTRL2_STANDBY_MASK,
-		                 AW862XX_SYSCTRL2_STANDBY_ON);
-		  prv_modify_reg(AW862XX_REG_SYSCTRL2, AW862XX_SYSCTRL2_STANDBY_MASK,
-		                 AW862XX_SYSCTRL2_STANDBY_OFF);
-		}
-	}
+  if (flag) {
+    return prv_write_register(AW862XX_REG_PLAYCFG4, AW862XX_BIT_PLAYCFG4_GO_ON);
+  }
+
+  bool standby = false;
+  bool ret = prv_modify_reg(AW862XX_REG_SYSCTRL1, AW862XX_SYSCTRL1_RAMINIT_MASK,
+                            AW862XX_SYSCTRL1_RAMINIT_ON);
+  ret &= prv_modify_reg(AW862XX_REG_PLAYCFG3, AW862XX_BIT_PLAYCFG3_PLAY_MODE_MASK,
+                        AW862XX_BIT_PLAYCFG3_PLAY_MODE_STOP);
+  ret &= prv_write_register(AW862XX_REG_PLAYCFG4, AW862XX_BIT_PLAYCFG4_GO_ON);
+  ret &= prv_modify_reg(AW862XX_REG_SYSCTRL1, AW862XX_SYSCTRL1_RAMINIT_MASK,
+                        AW862XX_SYSCTRL1_RAMINIT_OFF);
+  for (int i = 0; i < AW862XX_STOP_STANDBY_RETRIES; ++i) {
+    if (!prv_read_register(AW862XX_REG_GLBRD5, &val)) {
+      ret = false;
+      break;
+    }
+    if ((val & AW862XX_GLBRD5_STATE_MASK) == AW862XX_GLBRD5_STATE_STANDBY) {
+      standby = true;
+      break;
+    }
+    psleep(AW862XX_STOP_STANDBY_POLL_MS);
+  }
+  if (!standby) {
+    ret &= prv_modify_reg(AW862XX_REG_SYSCTRL2, AW862XX_SYSCTRL2_STANDBY_MASK,
+                          AW862XX_SYSCTRL2_STANDBY_ON);
+    ret &= prv_modify_reg(AW862XX_REG_SYSCTRL2, AW862XX_SYSCTRL2_STANDBY_MASK,
+                          AW862XX_SYSCTRL2_STANDBY_OFF);
+    if (ret && prv_read_register(AW862XX_REG_GLBRD5, &val)) {
+      standby = (val & AW862XX_GLBRD5_STATE_MASK) == AW862XX_GLBRD5_STATE_STANDBY;
+    }
+  }
+  return ret && standby;
+}
+
+//! Stop playback. Loudly reports a motor that could not be confirmed stopped.
+static void prv_stop(void) {
+  if (!prv_aw862xx_play_go(false)) {
+    PBL_LOG_ERR("AW86225: failed to confirm playback stop");
+  }
 }
 
 static bool prv_config_cont_mode(uint8_t drv1_time, uint8_t drv2_time) {
@@ -375,11 +389,12 @@ void vibe_ctl(bool on) {
       PBL_LOG_ERR("AW86225: playback configuration failed");
       return;
     }
-    prv_aw862xx_play_go(true);
+    if (!prv_aw862xx_play_go(true)) {
+      PBL_LOG_ERR("AW86225: playback start failed");
+    }
   } else {
-    prv_aw862xx_play_go(false);
+    prv_stop();
   }
-
 }
 
 void vibe_force_off(void) {
@@ -387,7 +402,7 @@ void vibe_force_off(void) {
     return;
   }
 
-  prv_aw862xx_play_go(false);
+  prv_stop();
 }
 
 int8_t vibe_get_braking_strength(void) {
