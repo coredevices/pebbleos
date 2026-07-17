@@ -335,19 +335,32 @@ static bool prv_read_info(const char *name, VoiceRecordingInfo *info) {
   return ok;
 }
 
-static uint32_t prv_list(VoiceRecordingInfo *out, uint32_t max, const Uuid *app_uuid) {
+static uint32_t prv_list(VoiceRecordingInfo *out, uint32_t max, uint32_t offset,
+                         const Uuid *app_uuid, bool *has_more) {
+  if (has_more) {
+    *has_more = false;
+  }
   if (!out || (max == 0)) {
     return 0;
   }
 
   uint32_t count = 0;
+  uint32_t skipped = 0;
   PFSFileListEntry *list = pfs_create_file_list(prv_is_recording_file);
-  for (PFSFileListEntry *entry = list; entry && (count < max);
+  for (PFSFileListEntry *entry = list; entry;
        entry = (PFSFileListEntry *)entry->list_node.next) {
     VoiceRecordingInfo info;
     if (prv_read_info(entry->name, &info) && (!app_uuid || uuid_equal(&info.app_uuid, app_uuid))) {
-      out[count] = info;
-      count++;
+      if (skipped < offset) {
+        skipped++;
+      } else if (count < max) {
+        out[count++] = info;
+      } else {
+        if (has_more) {
+          *has_more = true;
+        }
+        break;
+      }
     }
   }
   pfs_delete_file_list(list);
@@ -355,7 +368,12 @@ static uint32_t prv_list(VoiceRecordingInfo *out, uint32_t max, const Uuid *app_
 }
 
 uint32_t voice_recording_storage_list(VoiceRecordingInfo *out, uint32_t max) {
-  return prv_list(out, max, NULL);
+  return prv_list(out, max, 0, NULL, NULL);
+}
+
+uint32_t voice_recording_storage_list_page(VoiceRecordingInfo *out, uint32_t max,
+                                           uint32_t offset, bool *has_more) {
+  return prv_list(out, max, offset, NULL, has_more);
 }
 
 uint32_t voice_recording_storage_list_owned_by(VoiceRecordingInfo *out, uint32_t max,
@@ -363,7 +381,7 @@ uint32_t voice_recording_storage_list_owned_by(VoiceRecordingInfo *out, uint32_t
   if (!app_uuid) {
     return 0;
   }
-  return prv_list(out, max, app_uuid);
+  return prv_list(out, max, 0, app_uuid, NULL);
 }
 
 uint32_t voice_recording_storage_list_summaries(VoiceRecordingSummary *out, uint32_t max,

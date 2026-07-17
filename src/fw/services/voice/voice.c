@@ -626,6 +626,13 @@ VoiceSessionId voice_start_dictation_from_recording(VoiceRecordingId recording_i
   return session_id;
 }
 
+bool voice_session_is_active(void) {
+  mutex_lock(s_lock);
+  const bool active = (s_state != SessionState_Idle);
+  mutex_unlock(s_lock);
+  return active;
+}
+
 VoiceRecordingId voice_transcribing_recording_id(void) {
   mutex_lock(s_lock);
   const VoiceRecordingId id = (s_rec_fd >= 0) ? s_rec_id : VOICE_RECORDING_ID_INVALID;

@@ -14,6 +14,14 @@ typedef enum {
   MsgIdSessionSetup = 0x01,
   MsgIdDictationResult = 0x02,
   MsgIdNLPResult = 0x03,
+  MsgIdRecordingListRequest = 0x10,
+  MsgIdRecordingListResponse = 0x11,
+  MsgIdRecordingDeleteRequest = 0x12,
+  MsgIdRecordingDeleteResponse = 0x13,
+  MsgIdRecordingPlaybackRequest = 0x14,
+  MsgIdRecordingPlaybackResponse = 0x15,
+  MsgIdRecordingTranscribeRequest = 0x16,
+  MsgIdRecordingTranscribeResponse = 0x17,
 } MsgId;
 
 // Attribute ID definitions
@@ -57,3 +65,65 @@ typedef struct PACKED {
   VoiceEndpointResult result:8;
   GenericAttributeList attr_list;
 } VoiceSessionResultMsg;
+
+typedef enum {
+  VoiceRecordingEndpointResultSuccess = 0x00,
+  VoiceRecordingEndpointResultNotFound = 0x01,
+  VoiceRecordingEndpointResultBusy = 0x02,
+  VoiceRecordingEndpointResultInvalidRequest = 0x03,
+  VoiceRecordingEndpointResultUnsupported = 0x04,
+  VoiceRecordingEndpointResultFailed = 0x05,
+} VoiceRecordingEndpointResult;
+
+typedef enum {
+  VoiceRecordingPlaybackActionPlay = 0x00,
+  VoiceRecordingPlaybackActionStop = 0x01,
+} VoiceRecordingPlaybackAction;
+
+typedef struct PACKED {
+  uint8_t msg_id;
+  VEFlags flags;
+  uint8_t transaction_id;
+  uint16_t offset;
+  uint8_t limit;
+} VoiceRecordingListRequest;
+
+typedef struct PACKED {
+  uint16_t id;
+  uint32_t size_bytes;
+  uint32_t duration_ms;
+  uint32_t created;
+  Uuid app_uuid;
+} VoiceRecordingProtocolInfo;
+
+typedef struct PACKED {
+  uint8_t msg_id;
+  VEFlags flags;
+  uint8_t transaction_id;
+  uint8_t result;
+  uint8_t has_more;
+  uint8_t count;
+  VoiceRecordingProtocolInfo recordings[];
+} VoiceRecordingListResponse;
+
+typedef struct PACKED {
+  uint8_t msg_id;
+  VEFlags flags;
+  uint8_t transaction_id;
+  uint16_t recording_id;
+} VoiceRecordingIdRequest;
+
+typedef struct PACKED {
+  uint8_t msg_id;
+  VEFlags flags;
+  uint8_t transaction_id;
+  uint16_t recording_id;
+  uint8_t action;
+} VoiceRecordingPlaybackRequest;
+
+typedef struct PACKED {
+  uint8_t msg_id;
+  VEFlags flags;
+  uint8_t transaction_id;
+  uint8_t result;
+} VoiceRecordingCommandResponse;

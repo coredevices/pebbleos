@@ -68,6 +68,9 @@ VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type);
 //! (busy, recording not found, or non-mono recording).
 VoiceSessionId voice_start_dictation_from_recording(VoiceRecordingId recording_id);
 
+//! @return true if a live dictation or stored-recording transcription session is active.
+bool voice_session_is_active(void);
+
 //! @return the id of the recording whose file is held open by an active transcription stream, or
 //! \ref VOICE_RECORDING_ID_INVALID if none. Removing an open PFS file panics, so deletion paths
 //! must skip this recording.

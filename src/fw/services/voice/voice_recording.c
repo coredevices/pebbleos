@@ -430,6 +430,11 @@ uint32_t voice_recording_list_summaries(VoiceRecordingSummary *out, uint32_t max
   return voice_recording_storage_list_summaries(out, max, has_more);
 }
 
+uint32_t voice_recording_list_page(VoiceRecordingInfo *out, uint32_t max, uint32_t offset,
+                                   bool *has_more) {
+  return voice_recording_storage_list_page(out, max, offset, has_more);
+}
+
 uint32_t voice_recording_list_owned_by(VoiceRecordingInfo *out, uint32_t max,
                                        const Uuid *app_uuid) {
   return voice_recording_storage_list_owned_by(out, max, app_uuid);

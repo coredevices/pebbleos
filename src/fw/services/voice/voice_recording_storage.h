@@ -71,6 +71,10 @@ uint32_t voice_recording_storage_list(VoiceRecordingInfo *out, uint32_t max);
 uint32_t voice_recording_storage_list_summaries(VoiceRecordingSummary *out, uint32_t max,
                                                 bool *has_more);
 
+//! Fill a page with metadata from valid stored recordings.
+uint32_t voice_recording_storage_list_page(VoiceRecordingInfo *out, uint32_t max,
+                                           uint32_t offset, bool *has_more);
+
 //! Fill an array with metadata from recordings belonging to \a app_uuid.
 uint32_t voice_recording_storage_list_owned_by(VoiceRecordingInfo *out, uint32_t max,
                                                const Uuid *app_uuid);
