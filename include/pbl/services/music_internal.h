@@ -30,6 +30,11 @@ typedef struct {
   MusicServerCapability (*get_capability_bitset)(void);
   void (*request_reduced_latency)(bool reduced_latency);
   void (*request_low_latency_for_period)(uint32_t period_ms);
+  //! Optional. Returns true if the server can supply album art. NULL means unsupported.
+  bool (*is_album_art_supported)(void);
+  //! Optional. Requests album art for the current track, tagged with the given generation token
+  //! (which the server must echo back). NULL means unsupported.
+  void (*request_album_art)(uint8_t token);
 } MusicServerImplementation;
 
 //! Informs the music service when the server got (dis)connected.
@@ -80,3 +85,11 @@ void music_update_track_position(uint32_t track_pos_ms);
 
 //! Update the duration of the current track.
 void music_update_track_duration(uint32_t track_duration_ms);
+
+//! Hand the service the album art for the current track, transferring ownership of the bitmap (and
+//! its heap-allocated pixel data and palette) to the service. The service frees the previous art.
+//! Pass NULL for `bitmap` to report that there is no art. If `token` does not match the current
+//! now-playing generation the art is stale and is dropped (and freed).
+//! @note The bitmap and its `addr`/`palette` buffers must be allocated on the kernel heap; the
+//! service frees them with kernel_free.
+void music_set_album_art(struct GBitmap *bitmap, uint8_t token);

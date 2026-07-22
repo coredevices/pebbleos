@@ -46,6 +46,7 @@ typedef enum {
   CommSessionRemindersAppSupport = 1 << 12,
   CommSessionWorkoutAppSupport = 1 << 13,
   CommSessionSmoothFwInstallProgressSupport = 1 << 14,
+  CommSessionMusicAlbumArtSupport = 1 << 17,
   CommSessionSettingsSyncSupport = 1 << 23,
   CommSessionOutOfRange
 } CommSessionCapability;

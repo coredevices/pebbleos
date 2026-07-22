@@ -319,11 +319,13 @@ static GColor s_theme_highlight_color = GColorVividCerulean;
 #define PREF_KEY_MENU_SCROLL_VIBE_BEHAVIOR "menuScrollVibeBehavior"
 #define PREF_KEY_MUSIC_SHOW_VOLUME_CONTROLS "musicShowVolumeControls"
 #define PREF_KEY_MUSIC_SHOW_PROGRESS_BAR "musicShowProgressBar"
+#define PREF_KEY_MUSIC_SHOW_ALBUM_ART "musicShowAlbumArt"
 
 static bool s_menu_scroll_wrap_around = false;
 static MenuScrollVibeBehavior s_menu_scroll_vibe_behavior = MenuScrollNoVibe;
 static bool s_music_show_volume_controls = true;
 static bool s_music_show_progress_bar = true;
+static bool s_music_show_album_art = true;
 
 // ============================================================================================
 // Handlers for each pref that validate the new setting and store the new value in our globals.
@@ -881,6 +883,11 @@ static bool prv_set_s_music_show_volume_controls(bool *enabled) {
 
 static bool prv_set_s_music_show_progress_bar(bool *enabled) {
   s_music_show_progress_bar = *enabled;
+  return true;
+}
+
+static bool prv_set_s_music_show_album_art(bool *enabled) {
+  s_music_show_album_art = *enabled;
   return true;
 }
   
@@ -2163,4 +2170,12 @@ bool shell_prefs_get_music_show_progress_bar(void) {
 
 void shell_prefs_set_music_show_progress_bar(bool enable) {
   prv_pref_set(PREF_KEY_MUSIC_SHOW_PROGRESS_BAR, &enable, sizeof(enable));
+}
+
+bool shell_prefs_get_music_show_album_art(void) {
+  return s_music_show_album_art;
+}
+
+void shell_prefs_set_music_show_album_art(bool enable) {
+  prv_pref_set(PREF_KEY_MUSIC_SHOW_ALBUM_ART, &enable, sizeof(enable));
 }

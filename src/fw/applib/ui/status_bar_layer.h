@@ -76,6 +76,9 @@ typedef enum {
   //! Same as StatusBarLayerModeClock but renders the time using a larger bold
   //! font in a taller bar (the notification "Big & Bold" style).
   StatusBarLayerModeClockLargeBold = 4,
+  //! Same as StatusBarLayerModeClockLargeBold but draws a 1px black outline around the glyphs, for
+  //! legibility over busy backgrounds such as album art.
+  StatusBarLayerModeClockLargeBoldOutlined = 5,
 } StatusBarLayerMode;
 
 //! Values that are used to indicate the different status bar separator modes.

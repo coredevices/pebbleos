@@ -273,3 +273,6 @@ void shell_prefs_set_music_show_volume_controls(bool enable);
 
 bool shell_prefs_get_music_show_progress_bar(void);
 void shell_prefs_set_music_show_progress_bar(bool enable);
+
+bool shell_prefs_get_music_show_album_art(void);
+void shell_prefs_set_music_show_album_art(bool enable);

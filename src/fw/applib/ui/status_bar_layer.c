@@ -27,10 +27,17 @@ typedef struct StatusBarTextFormat {
   GFont font;
 } StatusBarTextFormat;
 
+// The two "Big & Bold" clock variants share the same larger font and taller bar; the Outlined one
+// additionally draws a black outline around the glyphs.
+static ALWAYS_INLINE bool prv_mode_is_large_bold(StatusBarLayerMode mode) {
+  return mode == StatusBarLayerModeClockLargeBold ||
+         mode == StatusBarLayerModeClockLargeBoldOutlined;
+}
+
 static ALWAYS_INLINE bool prv_mode_is_clock(StatusBarLayerMode mode) {
   return mode == StatusBarLayerModeClock ||
          mode == StatusBarLayerModeClockBold ||
-         mode == StatusBarLayerModeClockLargeBold;
+         prv_mode_is_large_bold(mode);
 }
 
 static ALWAYS_INLINE StatusBarTextFormat prv_get_text_format(
@@ -38,7 +45,7 @@ static ALWAYS_INLINE StatusBarTextFormat prv_get_text_format(
   const PlatformType platform = process_manager_current_platform();
   const StatusBarLayerMode mode = config ? config->mode : StatusBarLayerModeClock;
   const char *font_key;
-  if (mode == StatusBarLayerModeClockLargeBold) {
+  if (prv_mode_is_large_bold(mode)) {
     font_key = PBL_PLATFORM_SWITCH(platform,
         /*aplite*/ FONT_KEY_GOTHIC_18_BOLD,
         /*basalt*/ FONT_KEY_GOTHIC_18_BOLD,
@@ -67,7 +74,7 @@ static ALWAYS_INLINE StatusBarTextFormat prv_get_text_format(
 
 static int prv_height(const StatusBarLayerConfig *config) {
   const PlatformType platform = process_manager_current_platform();
-  if (config && config->mode == StatusBarLayerModeClockLargeBold) {
+  if (config && prv_mode_is_large_bold(config->mode)) {
     return _STATUS_BAR_LAYER_LARGE_BOLD_HEIGHT(platform);
   }
   return _STATUS_BAR_LAYER_HEIGHT(platform);
@@ -338,7 +345,7 @@ static void prv_status_bar_layer_render_text(GContext *ctx,
   // starting point of text needs to be half width left of the center.
   const int16_t x_start = center - width / 2;
   int16_t y;
-  if (config && config->mode == StatusBarLayerModeClockLargeBold) {
+  if (config && prv_mode_is_large_bold(config->mode)) {
     // Center vertically in the taller bar. (font_height - 4) / 4 compensates
     // Gothic's top leading so the glyph looks optically centered; this can
     // produce a slightly negative y, which the draw context clips (intentional
@@ -358,10 +365,26 @@ static void prv_status_bar_layer_render_text(GContext *ctx,
     // Default: bottom-aligned with separator-area padding.
     y = min_y + max_y - (2 * STATUS_BAR_LAYER_SEPARATOR_Y_OFFSET) - font_height;
   }
+  const GRect text_box = GRect(x_start, y, width, font_height);
+  // In the outlined mode, draw a 1px black outline for legibility over busy backgrounds (e.g. album
+  // art): the glyphs are drawn black at the 8 surrounding offsets first, then the foreground on top.
+  if (config && config->mode == StatusBarLayerModeClockLargeBoldOutlined) {
+    static const GPoint k_outline_offsets[] = {
+      { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 },
+    };
+    graphics_context_set_text_color(ctx, GColorBlack);
+    for (unsigned i = 0; i < sizeof(k_outline_offsets) / sizeof(k_outline_offsets[0]); ++i) {
+      const GRect box = GRect(x_start + k_outline_offsets[i].x, y + k_outline_offsets[i].y,
+                              width, font_height);
+      graphics_draw_text(ctx, data, font, box, text_format.overflow_mode,
+                         text_format.text_alignment, NULL);
+    }
+    graphics_context_set_text_color(ctx, config->foreground_color);
+  }
   graphics_draw_text(ctx,
                      data,
                      font,
-                     GRect(x_start, y, width, font_height),
+                     text_box,
                      text_format.overflow_mode,
                      text_format.text_alignment, NULL);
 }
