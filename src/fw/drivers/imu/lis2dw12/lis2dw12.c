@@ -29,12 +29,10 @@ PBL_LOG_MODULE_DEFINE(driver_accel_lis2dw12, CONFIG_DRIVER_IMU_LOG_LEVEL);
 //   adjusted automatically when ODR changes (we just have 2 bits...), so it is
 //   possible to notice sensitivity changes when changing sampling interval.
 // - INT1 mixes level (FIFO threshold) and latched (wake-up) sources on a
-//   rising-edge EXTI, and FIFO overruns sometimes leave the pad latched HIGH
-//   (needs more investigation), so edges can be lost. The work handler
-//   re-checks the pad level after servicing, and a watchdog timer recovers
-//   the stream if no FIFO samples have been read within the expected time
-//   window (FIFO reads are tracked instead of INT1 edges, which shake events
-//   would keep feeding).
+//   rising-edge EXTI, so a pad latched HIGH yields no further edges: shake
+//   events die and the pending interrupt blocks deep sleep. The work handler
+//   re-checks the pad after servicing; a watchdog recovers the stream (FIFO
+//   cadence while sampling, fixed-rate pad poll in shake-only mode).
 
 // Time to wait after reset (us)
 #define LIS2DW12_RESET_TIME_US 5
@@ -47,6 +45,12 @@ PBL_LOG_MODULE_DEFINE(driver_accel_lis2dw12, CONFIG_DRIVER_IMU_LOG_LEVEL);
 // stalled (>1x to tolerate scheduling jitter), and threshold lower bound
 #define LIS2DW12_STALL_MARGIN 2U
 #define LIS2DW12_STALL_MIN_MS 1000U
+
+// INT1 watchdog poll rate in shake-only mode (no FIFO cadence to track)
+#define LIS2DW12_SHAKE_WDT_PERIOD_S 5U
+
+// Consecutive stuck-high watchdog passes before a full stream recovery
+#define LIS2DW12_SHAKE_STUCK_PASSES_MAX 3U
 
 // Scale range when in 12-bit mode (low-power mode 1)
 #define LIS2DW12_S12_SCALE_RANGE (1U << (12U - 1U))
@@ -401,6 +405,8 @@ static void prv_lis2dw12_int1_work_handler(void) {
 static void prv_lis2dw12_int1_irq_handler(bool *should_context_switch) {
   // A rising edge proves the pad was low, i.e. the wake-up source deasserted
   LIS2DW12->state->wu_active = false;
+  // ... which also breaks any stuck-high streak the watchdog counted
+  LIS2DW12->state->shake_stuck_passes = 0U;
   accel_offload_work_from_isr(prv_lis2dw12_int1_work_handler, should_context_switch);
 }
 
@@ -552,6 +558,25 @@ static uint32_t prv_stall_threshold_ms(void) {
              LIS2DW12_STALL_MIN_MS);
 }
 
+//! Arm/disarm the INT1 stall watchdog to match the active INT1 sources.
+//! Call after num_samples or shake_detection_enabled changes.
+static void prv_update_int1_watchdog(void) {
+  regular_timer_remove_callback(&LIS2DW12->state->int1_wdt_timer);
+  LIS2DW12->state->shake_stuck_passes = 0U;
+
+  if (LIS2DW12->state->num_samples > 0U) {
+    LIS2DW12->state->last_fifo_read_tick = rtc_get_ticks();
+    LIS2DW12->state->int1_period_ms =
+        (LIS2DW12->state->sampling_interval_us * LIS2DW12->state->num_samples) / 1000;
+    regular_timer_add_multisecond_callback(
+        &LIS2DW12->state->int1_wdt_timer,
+        MAX(DIVIDE_CEIL(LIS2DW12->state->int1_period_ms, 1000UL), 1U));
+  } else if (LIS2DW12->state->shake_detection_enabled) {
+    regular_timer_add_multisecond_callback(&LIS2DW12->state->int1_wdt_timer,
+                                           LIS2DW12_SHAKE_WDT_PERIOD_S);
+  }
+}
+
 //! Shared by the INT1 watchdog and the accel_peek staleness trigger;
 //! re-validates the stall at execution time.
 static void prv_stall_check_work_cb(void) {
@@ -561,6 +586,24 @@ static void prv_stall_check_work_cb(void) {
 
   // Sampling may have stopped between scheduling and execution
   if (LIS2DW12->state->num_samples == 0U) {
+    // Shake-only mode: re-run the servicing pass if the pad is stuck high
+    // (reading the INT source clears the latch); escalate to a full recovery
+    // after consecutive passes that never release it.
+    if (LIS2DW12->state->shake_detection_enabled &&
+        gpio_input_read(&LIS2DW12->int1_in)) {
+      prv_lis2dw12_int1_work_handler();
+      // A pad released by the pass is healthy; count only a still-high pad
+      if (!gpio_input_read(&LIS2DW12->int1_in)) {
+        LIS2DW12->state->shake_stuck_passes = 0U;
+      } else if (++LIS2DW12->state->shake_stuck_passes >= LIS2DW12_SHAKE_STUCK_PASSES_MAX) {
+        PBL_LOG_WRN("INT1 pad stuck high for %" PRIu8 " shake watchdog passes, recovering",
+                    LIS2DW12->state->shake_stuck_passes);
+        prv_lis2dw12_recover();
+        LIS2DW12->state->shake_stuck_passes = 0U;
+      }
+    } else {
+      LIS2DW12->state->shake_stuck_passes = 0U;
+    }
     return;
   }
 
@@ -698,8 +741,15 @@ uint32_t accel_set_sampling_interval(uint32_t interval_us) {
     // FIXME: we should technically stop and drain the FIFO here, otherwise
     // we may report existing samples in the FIFO buffer with an incorrect timestamp
 
+    const uint32_t prev_interval_us = LIS2DW12->state->sampling_interval_us;
     if (!prv_configure_odr(interval_us, LIS2DW12->state->shake_detection_enabled)) {
       PBL_LOG_ERR("Could not configure ODR");
+    }
+
+    // Re-arm the watchdog only on an actual ODR change (a re-arm resets the
+    // stall tracking, so repeat calls must not defer it)
+    if (LIS2DW12->state->sampling_interval_us != prev_interval_us) {
+      prv_update_int1_watchdog();
     }
   }
 
@@ -747,8 +797,6 @@ void accel_set_num_samples(uint32_t num_samples) {
     if (!prv_lis2dw12_write(LIS2DW12_FIFO_CTRL, &val, 1)) {
       PBL_LOG_ERR("Could not write FIFO_CTRL register");
     }
-
-    regular_timer_remove_callback(&LIS2DW12->state->int1_wdt_timer);
   } else {
     // Configure FIFO in CONT mode with threshold
     ret = prv_lis2dw12_enable_fifo((uint8_t)num_samples);
@@ -758,10 +806,6 @@ void accel_set_num_samples(uint32_t num_samples) {
     }
 
     LIS2DW12->state->last_sample_valid = false;
-    LIS2DW12->state->last_fifo_read_tick = rtc_get_ticks();
-    LIS2DW12->state->int1_period_ms = (LIS2DW12->state->sampling_interval_us * num_samples) / 1000;
-    regular_timer_add_multisecond_callback(&LIS2DW12->state->int1_wdt_timer,
-                                           DIVIDE_CEIL(LIS2DW12->state->int1_period_ms, 1000UL));
   }
 
   // Re-configure INT1
@@ -772,6 +816,8 @@ void accel_set_num_samples(uint32_t num_samples) {
   }
 
   LIS2DW12->state->num_samples = num_samples;
+  // Arm/disarm the INT1 liveness watchdog for the new source configuration
+  prv_update_int1_watchdog();
 
   PBL_LOG_DBG("Set number of samples to %" PRIu32, num_samples);
 }
@@ -912,6 +958,8 @@ void accel_enable_shake_detection(bool on) {
 
   LIS2DW12->state->shake_detection_enabled = on;
   LIS2DW12->state->wu_active = false;
+  // Arm/disarm the INT1 liveness watchdog now that shake routing changed
+  prv_update_int1_watchdog();
 
   PBL_LOG_DBG("%s shake detection", on ? "Enabled" : "Disabled");
 }

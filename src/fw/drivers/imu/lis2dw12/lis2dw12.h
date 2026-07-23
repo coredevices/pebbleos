@@ -26,6 +26,7 @@ typedef struct LIS2DW12State {
   uint32_t int1_period_ms;
   uint32_t num_recoveries;
   uint8_t wk_ths_curr;
+  uint8_t shake_stuck_passes;
   AccelDriverSample last_sample;
   bool last_sample_valid;
   bool recovery_pending;

@@ -32,6 +32,7 @@ typedef struct LSM6DSOState {
   uint32_t int1_period_ms;
   uint32_t num_recoveries;
   uint8_t wk_ths_curr;
+  uint8_t shake_stuck_passes;
   bool recovery_pending;
   bool wu_active;
   bool int1_requeued;

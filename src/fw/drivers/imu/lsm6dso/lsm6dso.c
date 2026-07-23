@@ -33,11 +33,10 @@ PBL_LOG_MODULE_DEFINE(driver_accel_lsm6dso, CONFIG_DRIVER_IMU_LOG_LEVEL);
 //   adjusted automatically when ODR changes, so it is possible to notice
 //   sensitivity changes when changing sampling interval.
 // - INT1 mixes level (FIFO threshold) and latched (wake-up) sources on a
-//   rising-edge EXTI, and (like the LIS2DW12) FIFO overruns can leave the pad
-//   latched HIGH, so edges can be lost. The work handler re-checks the pad
-//   level after servicing, and a watchdog timer recovers the stream if no
-//   FIFO samples have been read within the expected time window (FIFO reads
-//   are tracked instead of INT1 edges, which shake events would keep feeding).
+//   rising-edge EXTI, so a pad latched HIGH yields no further edges: shake
+//   events die and the pending interrupt blocks deep sleep. The work handler
+//   re-checks the pad after servicing; a watchdog recovers the stream (FIFO
+//   cadence while sampling, fixed-rate pad poll in shake-only mode).
 
 // Time to wait after reset (us)
 #define LSM6DSO_RESET_TIME_US 5
@@ -50,6 +49,12 @@ PBL_LOG_MODULE_DEFINE(driver_accel_lsm6dso, CONFIG_DRIVER_IMU_LOG_LEVEL);
 // stalled (>1x to tolerate scheduling jitter), and threshold lower bound
 #define LSM6DSO_STALL_MARGIN 2U
 #define LSM6DSO_STALL_MIN_MS 1000U
+
+// INT1 watchdog poll rate in shake-only mode (no FIFO cadence to track)
+#define LSM6DSO_SHAKE_WDT_PERIOD_S 5U
+
+// Consecutive stuck-high watchdog passes before a full stream recovery
+#define LSM6DSO_SHAKE_STUCK_PASSES_MAX 3U
 
 // Scale range for 16-bit two's complement samples
 #define LSM6DSO_S16_SCALE_RANGE (1U << (16U - 1U))
@@ -502,6 +507,8 @@ static void prv_lsm6dso_int1_work_handler(void) {
 static void prv_lsm6dso_int1_irq_handler(bool *should_context_switch) {
   // A rising edge proves the pad was low, i.e. the wake-up source deasserted
   LSM6DSO->state->wu_active = false;
+  // ... which also breaks any stuck-high streak the watchdog counted
+  LSM6DSO->state->shake_stuck_passes = 0U;
   accel_offload_work_from_isr(prv_lsm6dso_int1_work_handler, should_context_switch);
 }
 
@@ -658,6 +665,25 @@ static uint32_t prv_stall_threshold_ms(void) {
              LSM6DSO_STALL_MIN_MS);
 }
 
+//! Arm/disarm the INT1 stall watchdog to match the active INT1 sources.
+//! Call after num_samples or shake_detection_enabled changes.
+static void prv_update_int1_watchdog(void) {
+  regular_timer_remove_callback(&LSM6DSO->state->int1_wdt_timer);
+  LSM6DSO->state->shake_stuck_passes = 0U;
+
+  if (LSM6DSO->state->num_samples > 0U) {
+    LSM6DSO->state->last_fifo_read_tick = rtc_get_ticks();
+    LSM6DSO->state->int1_period_ms =
+        (LSM6DSO->state->sampling_interval_us * LSM6DSO->state->num_samples) / 1000;
+    regular_timer_add_multisecond_callback(
+        &LSM6DSO->state->int1_wdt_timer,
+        MAX(DIVIDE_CEIL(LSM6DSO->state->int1_period_ms, 1000UL), 1U));
+  } else if (LSM6DSO->state->shake_detection_enabled) {
+    regular_timer_add_multisecond_callback(&LSM6DSO->state->int1_wdt_timer,
+                                           LSM6DSO_SHAKE_WDT_PERIOD_S);
+  }
+}
+
 //! Shared by the INT1 watchdog and the accel_peek staleness trigger;
 //! re-validates the stall at execution time.
 static void prv_stall_check_work_cb(void) {
@@ -667,6 +693,24 @@ static void prv_stall_check_work_cb(void) {
 
   // Sampling may have stopped between scheduling and execution
   if (LSM6DSO->state->num_samples == 0U) {
+    // Shake-only mode: re-run the servicing pass if the pad is stuck high
+    // (reading the INT source clears the latch); escalate to a full recovery
+    // after consecutive passes that never release it.
+    if (LSM6DSO->state->shake_detection_enabled &&
+        gpio_input_read(&LSM6DSO->int1_in)) {
+      prv_lsm6dso_int1_work_handler();
+      // A pad released by the pass is healthy; count only a still-high pad
+      if (!gpio_input_read(&LSM6DSO->int1_in)) {
+        LSM6DSO->state->shake_stuck_passes = 0U;
+      } else if (++LSM6DSO->state->shake_stuck_passes >= LSM6DSO_SHAKE_STUCK_PASSES_MAX) {
+        PBL_LOG_WRN("INT1 pad stuck high for %" PRIu8 " shake watchdog passes, recovering",
+                    LSM6DSO->state->shake_stuck_passes);
+        prv_lsm6dso_recover();
+        LSM6DSO->state->shake_stuck_passes = 0U;
+      }
+    } else {
+      LSM6DSO->state->shake_stuck_passes = 0U;
+    }
     return;
   }
 
@@ -795,8 +839,15 @@ uint32_t accel_set_sampling_interval(uint32_t interval_us) {
     // FIXME: we should technically stop and drain the FIFO here, otherwise
     // we may report existing samples in the FIFO buffer with an incorrect timestamp
 
+    const uint32_t prev_interval_us = LSM6DSO->state->sampling_interval_us;
     if (!prv_configure_odr(interval_us, LSM6DSO->state->shake_detection_enabled)) {
       PBL_LOG_ERR("Could not configure ODR");
+    }
+
+    // Re-arm the watchdog only on an actual ODR change (a re-arm resets the
+    // stall tracking, so repeat calls must not defer it)
+    if (LSM6DSO->state->sampling_interval_us != prev_interval_us) {
+      prv_update_int1_watchdog();
     }
   }
 
@@ -844,8 +895,6 @@ void accel_set_num_samples(uint32_t num_samples) {
     if (!prv_lsm6dso_write(LSM6DSO_FIFO_CTRL4, &val, 1)) {
       PBL_LOG_ERR("Could not write FIFO_CTRL4 register");
     }
-
-    regular_timer_remove_callback(&LSM6DSO->state->int1_wdt_timer);
   } else {
     // Configure FIFO in continuous mode with threshold
     ret = prv_lsm6dso_enable_fifo((uint16_t)num_samples);
@@ -853,11 +902,6 @@ void accel_set_num_samples(uint32_t num_samples) {
       PBL_LOG_ERR("Could not enable FIFO");
       return;
     }
-
-    LSM6DSO->state->last_fifo_read_tick = rtc_get_ticks();
-    LSM6DSO->state->int1_period_ms = (LSM6DSO->state->sampling_interval_us * num_samples) / 1000;
-    regular_timer_add_multisecond_callback(&LSM6DSO->state->int1_wdt_timer,
-                                           DIVIDE_CEIL(LSM6DSO->state->int1_period_ms, 1000UL));
   }
 
   // Re-configure INT1
@@ -868,6 +912,8 @@ void accel_set_num_samples(uint32_t num_samples) {
   }
 
   LSM6DSO->state->num_samples = num_samples;
+  // Arm/disarm the INT1 liveness watchdog for the new source configuration
+  prv_update_int1_watchdog();
 
   PBL_LOG_DBG("Set number of samples to %" PRIu32, num_samples);
 }
@@ -994,6 +1040,8 @@ void accel_enable_shake_detection(bool on) {
 
   LSM6DSO->state->shake_detection_enabled = on;
   LSM6DSO->state->wu_active = false;
+  // Arm/disarm the INT1 liveness watchdog now that shake routing changed
+  prv_update_int1_watchdog();
 
   PBL_LOG_DBG("%s shake detection", on ? "Enabled" : "Disabled");
 }
