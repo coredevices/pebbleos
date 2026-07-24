@@ -255,14 +255,16 @@ typedef struct {
   // Last now-playing generation we requested art for, so a track change re-fetches even if the
   // title/artist strings happen to match.
   uint8_t last_art_generation;
-  // Horizontal ping-pong scroll for the title beside the tape (album-art mode only). Only runs when
-  // the title is wider than its slot; rests otherwise.
+  // One-way "digital sign" scroll for the title beside the tape (album-art mode). Runs for a couple
+  // of cycles after a track change then rests at the start; only scrolls when the title overflows.
   AppTimer *title_marquee_timer;
-  int16_t title_marquee_offset;  // px currently scrolled left
-  int16_t title_marquee_max;     // text width - visible width (0 => fits, no scroll)
-  bool title_marquee_fwd;
-  bool title_marquee_on;         // marquee currently set up (avoid re-setup spawning extra timers)
-  uint8_t title_marquee_pause;   // ticks to hold at each end
+  int16_t title_marquee_offset;  // px scrolled left (0..span)
+  int16_t title_marquee_span;    // ink width + gap; 0 => fits, no scroll
+  uint8_t title_marquee_cycles;  // remaining scroll passes (0 => rest at start)
+  bool title_marquee_on;         // art-mode title/artist layout applied (transition guard)
+  // Stock TextLayer render, used for the artist/title layers off album art; over art we draw them
+  // ourselves (outlined artist, scrolling title).
+  LayerUpdateProc orig_text_update_proc;
   // Separate subscription for preference changes, so toggling "Show Album Art" from the phone while
   // the app is open flips the UI immediately instead of only on the next app open.
   EventServiceInfo pref_change_event_info;
@@ -918,16 +920,80 @@ static GRect prv_album_art_rect(void) {
 
 // In album-art mode the track title moves down beside the tape (to the tape's right on rect
 // screens, to its left on round ones), where the artist normally never was — so it reads on the
-// plain background below the cover.
+// plain background below the cover. Kept tight so as much of the title shows as possible.
 static GRect prv_art_title_rect(void) {
   const MusicAppSizeConfig *config = prv_config();
-  const int16_t margin = config->horizontal_margin;
   const GRect tape = prv_cassette_rect();
-  const int16_t cont_y = DISP_ROWS - margin - 24;
-  const int16_t x = PBL_IF_RECT_ELSE(tape.origin.x + tape.size.w + 6, margin);
-  const int16_t right = PBL_IF_RECT_ELSE(DISP_COLS - ACTION_BAR_WIDTH - margin, tape.origin.x - 6);
-  // Single line, vertically centred on the tape row.
-  return GRect(x, cont_y - 6, right - x, 28);
+  const int16_t x = PBL_IF_RECT_ELSE(tape.origin.x + tape.size.w - 1, 2);
+  const int16_t right = PBL_IF_RECT_ELSE(DISP_COLS - ACTION_BAR_WIDTH - 7, tape.origin.x - 4);
+  // Single line, vertically centred in the band between the progress bar and the bottom of screen.
+  const int16_t h = 28;
+  const int16_t bar_bottom = config->track_field.origin_y + config->track_field.size_h;
+  const int16_t y = bar_bottom + (DISP_ROWS - bar_bottom - h) / 2;
+  return GRect(x, y, right - x, h);
+}
+
+// Artist name, centred over the bottom of the cover just above the track-info row.
+static GRect prv_art_artist_rect(void) {
+  const int16_t content_w = DISP_COLS - ACTION_BAR_WIDTH;
+  const int16_t art_bottom = prv_config()->time_field.origin_y - 2;
+  return GRect(0, art_bottom - 26, content_w, 26);
+}
+
+// Draw text with a 1px black outline (8 offset copies) then white on top, so it pops over the art.
+static void prv_draw_outlined_text(GContext *ctx, const char *text, GFont font, GRect box,
+                                   GTextOverflowMode overflow, GTextAlignment align) {
+  static const GPoint k_off[] = {
+    {-1, -1}, {0, -1}, {1, -1}, {-1, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1},
+  };
+  graphics_context_set_text_color(ctx, GColorBlack);
+  for (unsigned i = 0; i < sizeof(k_off) / sizeof(k_off[0]); ++i) {
+    GRect b = box;
+    b.origin.x += k_off[i].x;
+    b.origin.y += k_off[i].y;
+    graphics_draw_text(ctx, text, font, b, overflow, align, NULL);
+  }
+  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_draw_text(ctx, text, font, box, overflow, align, NULL);
+}
+
+// Artist layer: outlined + centred over the art; stock render (black, its normal spot) otherwise.
+static void prv_artist_update_proc(Layer *layer, GContext *ctx) {
+  MusicAppData *data = app_state_get_user_data();
+  const TextLayer *tl = (const TextLayer *)layer;
+  if (!data->has_album_art) {
+    if (data->orig_text_update_proc) {
+      data->orig_text_update_proc(layer, ctx);
+    }
+    return;
+  }
+  if (tl->text && tl->text[0]) {
+    prv_draw_outlined_text(ctx, tl->text, tl->font, layer->bounds, tl->overflow_mode,
+                           tl->text_alignment);
+  }
+}
+
+// Title layer: one-way scrolling ticker (two copies with a gap) over art; stock render otherwise.
+static void prv_title_update_proc(Layer *layer, GContext *ctx) {
+  MusicAppData *data = app_state_get_user_data();
+  const TextLayer *tl = (const TextLayer *)layer;
+  if (!data->has_album_art) {
+    if (data->orig_text_update_proc) {
+      data->orig_text_update_proc(layer, ctx);
+    }
+    return;
+  }
+  if (!tl->text || !tl->text[0]) {
+    return;
+  }
+  graphics_context_set_text_color(ctx, tl->text_color);
+  GRect b = layer->bounds;
+  b.origin.x = -data->title_marquee_offset;
+  graphics_draw_text(ctx, tl->text, tl->font, b, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  if (data->title_marquee_span > 0) {
+    b.origin.x = data->title_marquee_span - data->title_marquee_offset;
+    graphics_draw_text(ctx, tl->text, tl->font, b, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  }
 }
 
 static void prv_album_art_update_proc(Layer *layer, GContext *ctx) {
@@ -958,9 +1024,10 @@ static void prv_maybe_request_album_art(void) {
   }
 }
 
-#define TITLE_MARQUEE_INTERVAL_MS 40
-#define TITLE_MARQUEE_STEP 2
-#define TITLE_MARQUEE_END_PAUSE 18  // ~0.7s hold at each end
+#define TITLE_MARQUEE_INTERVAL_MS 33  // slow, smooth
+#define TITLE_MARQUEE_STEP 1          // 1px steps so it doesn't look jerky
+#define TITLE_MARQUEE_GAP 16          // extra blank before the title's repeat (measured width adds more)
+#define TITLE_MARQUEE_CYCLES 2        // scroll passes after a track change, then rest at the start
 
 static void prv_title_marquee_stop(MusicAppData *data) {
   if (data->title_marquee_timer) {
@@ -969,68 +1036,63 @@ static void prv_title_marquee_stop(MusicAppData *data) {
   }
 }
 
-// Ping-pong the title left/right by scrolling its (over-wide) bounds within the clipped frame.
+// Advance the one-way ticker by one step; wrap after each full pass and stop after a few passes so
+// the title comes to rest showing its start.
 static void prv_title_marquee_cb(void *context) {
   MusicAppData *data = context;
   data->title_marquee_timer = NULL;
-  if (!data->has_album_art || data->title_marquee_max <= 0) {
+  if (!data->has_album_art || data->title_marquee_span == 0 || data->title_marquee_cycles == 0) {
+    data->title_marquee_offset = 0;
+    layer_mark_dirty(&data->title_text_layer.layer);
     return;
   }
-  if (data->title_marquee_pause > 0) {
-    data->title_marquee_pause--;
-  } else {
-    data->title_marquee_offset += data->title_marquee_fwd ? TITLE_MARQUEE_STEP : -TITLE_MARQUEE_STEP;
-    if (data->title_marquee_offset >= data->title_marquee_max) {
-      data->title_marquee_offset = data->title_marquee_max;
-      data->title_marquee_fwd = false;
-      data->title_marquee_pause = TITLE_MARQUEE_END_PAUSE;
-    } else if (data->title_marquee_offset <= 0) {
-      data->title_marquee_offset = 0;
-      data->title_marquee_fwd = true;
-      data->title_marquee_pause = TITLE_MARQUEE_END_PAUSE;
+  data->title_marquee_offset += TITLE_MARQUEE_STEP;
+  if (data->title_marquee_offset >= data->title_marquee_span) {
+    data->title_marquee_offset -= data->title_marquee_span;  // seamless wrap: one pass done
+    if (--data->title_marquee_cycles == 0) {
+      data->title_marquee_offset = 0;  // rest showing the start
+      layer_mark_dirty(&data->title_text_layer.layer);
+      return;
     }
-    GRect b = data->title_text_layer.layer.bounds;
-    b.origin.x = -data->title_marquee_offset;
-    layer_set_bounds(&data->title_text_layer.layer, &b);
   }
+  layer_mark_dirty(&data->title_text_layer.layer);
   data->title_marquee_timer =
       app_timer_register(TITLE_MARQUEE_INTERVAL_MS, prv_title_marquee_cb, data);
 }
 
-// Lay the title out on a single line beside the tape and (re)start the ping-pong scroll if it's too
-// wide to fit. The frame clips; the bounds are made as wide as the text so it never wraps.
+// Lay the title out on one line beside the tape and, if it overflows, arm a couple of scroll passes.
 static void prv_title_marquee_setup(MusicAppData *data) {
   prv_title_marquee_stop(data);
   const GRect vis = prv_art_title_rect();
-  // Use an explicit system font (not the theme Subtitle) so the width we measure exactly matches
-  // what gets rendered — the scroll range depends on that being correct.
+  // Explicit system font (not the theme Subtitle) so measured width matches what's drawn.
   text_layer_set_font(&data->title_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   text_layer_set_text_alignment(&data->title_text_layer, GTextAlignmentLeft);
   layer_set_frame(&data->title_text_layer.layer, &vis);
   layer_set_clips(&data->title_text_layer.layer, true);
-  // Measure the single-line width via the layer itself (same font/overflow/text as the render) in a
-  // generously wide, one-line-tall bounds, so the measured width exactly matches what's drawn — the
-  // scroll range depends on that. Then size the bounds to the text so scrolling can't run off.
+  // Wide, one-line bounds: measure here and keep it wide so the scroll proc never wraps a copy.
   layer_set_bounds(&data->title_text_layer.layer, &GRect(0, 0, DISP_COLS * 3, vis.size.h));
   const GSize text_size = app_text_layer_get_content_size(&data->title_text_layer);
-  const int16_t text_w = MAX(text_size.w, vis.size.w);
-  layer_set_bounds(&data->title_text_layer.layer, &GRect(0, 0, text_w, vis.size.h));
-  data->title_marquee_offset = 0;
-  data->title_marquee_fwd = true;
-  data->title_marquee_pause = TITLE_MARQUEE_END_PAUSE;
-  // The layout measurer reports a wider box than graphics_draw_text actually inks (~2px per glyph),
-  // so back that out of the scroll range, else the marquee runs off the end into blank space.
+  // The layout measurer reports a wider box than graphics_draw_text actually inks (~2px per glyph);
+  // back that out only to decide whether the title overflows. For the copy-to-copy span use the
+  // full measured width (>= what is drawn) so the second copy can never overlap the first.
   const int16_t ink_w = text_size.w - 2 * (int16_t)strlen(data->title_buffer);
-  data->title_marquee_max = MAX(0, ink_w - vis.size.w);
-  if (data->title_marquee_max > 0) {
+  data->title_marquee_offset = 0;
+  if (ink_w > vis.size.w) {
+    data->title_marquee_span = text_size.w + TITLE_MARQUEE_GAP;
+    data->title_marquee_cycles = TITLE_MARQUEE_CYCLES;
     data->title_marquee_timer =
         app_timer_register(TITLE_MARQUEE_INTERVAL_MS, prv_title_marquee_cb, data);
+  } else {
+    data->title_marquee_span = 0;
+    data->title_marquee_cycles = 0;
   }
+  layer_mark_dirty(&data->title_text_layer.layer);
 }
 
 // Restore the title to its stock (wrapping, animated) layout for the no-art screen.
 static void prv_title_restore(MusicAppData *data) {
   prv_title_marquee_stop(data);
+  data->title_marquee_span = 0;
   const GRect title_rect = prv_title_rect();
   text_layer_set_font(&data->title_text_layer,
                       system_theme_get_font_for_default_size(TextStyleFont_Subtitle));
@@ -1043,24 +1105,48 @@ static void prv_title_restore(MusicAppData *data) {
                           title_rect.size.h + TITLE_BOUNDS_OFFSET));
 }
 
-//! Reflect the current art state: show/hide the cover, hide the artist and scroll the title beside
-//! the tape over art (else restore its stock spot), and swap the clock to the outlined big style so
-//! it stays legible over the cover. A full-window repaint clears the moved layers' old pixels.
+// Place the artist as a centred, outlined single line over the bottom of the cover.
+static void prv_artist_setup_art(MusicAppData *data) {
+  const GRect ar = prv_art_artist_rect();
+  text_layer_set_font(&data->artist_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(&data->artist_text_layer, GTextAlignmentCenter);
+  text_layer_set_overflow_mode(&data->artist_text_layer, GTextOverflowModeTrailingEllipsis);
+  layer_set_frame(&data->artist_text_layer.layer, &ar);
+  layer_set_bounds(&data->artist_text_layer.layer, &GRect(0, 0, ar.size.w, ar.size.h));
+}
+
+// Restore the artist to its stock layout for the no-art screen.
+static void prv_artist_restore(MusicAppData *data) {
+  const GRect ar = prv_artist_rect();
+  text_layer_set_font(&data->artist_text_layer,
+                      system_theme_get_font_for_default_size(TextStyleFont_Header));
+  text_layer_set_overflow_mode(&data->artist_text_layer, GTextOverflowModeFill);
+  text_layer_set_text_alignment(&data->artist_text_layer,
+                                PBL_IF_RECT_ELSE(GTextAlignmentLeft, GTextAlignmentRight));
+  layer_set_frame(&data->artist_text_layer.layer, &ar);
+  layer_set_bounds(&data->artist_text_layer.layer,
+                   &GRect(0, -ARTIST_BOUNDS_OFFSET, ar.size.w, ar.size.h + ARTIST_BOUNDS_OFFSET));
+}
+
+//! Reflect the current art state: show/hide the cover, lay out the artist (outlined, over the art)
+//! and the scrolling title, and swap the clock to the outlined big style so it stays legible over
+//! the cover. A full-window repaint clears the moved layers' old pixels.
 static void prv_apply_art_appearance(MusicAppData *data) {
   const GBitmap *art = music_album_art_lock();
   data->has_album_art = (art != NULL) && shell_prefs_get_music_show_album_art();
   music_album_art_unlock();
 
   layer_set_hidden(&data->album_art_layer, !data->has_album_art);
-  layer_set_hidden(&data->artist_text_layer.layer, data->has_album_art);
   if (data->has_album_art) {
-    // Only (re)build the marquee on the transition into art mode; re-running it on every event would
-    // spawn overlapping scroll timers. Track changes re-arm it explicitly (see prv_update_now_playing).
+    // Rebuild the art-mode layout only on the transition in (or on a track change, which clears the
+    // flag) — re-running every event would restart the scroll and spawn overlapping timers.
     if (!data->title_marquee_on) {
+      prv_artist_setup_art(data);
       prv_title_marquee_setup(data);
       data->title_marquee_on = true;
     }
   } else if (data->title_marquee_on) {
+    prv_artist_restore(data);
     prv_title_restore(data);
     data->title_marquee_on = false;
   }
@@ -1116,6 +1202,12 @@ static void prv_init_ui(Window *window) {
   text_layer_set_line_spacing_delta(&data->title_text_layer, -2);
 
   layer_add_child(&data->window.layer, &data->title_text_layer.layer);
+
+  // Over album art we render the artist (outlined) and title (scrolling) ourselves; off art these
+  // proc wrappers defer to the stock TextLayer render captured here.
+  data->orig_text_update_proc = data->title_text_layer.layer.update_proc;
+  layer_set_update_proc(&data->artist_text_layer.layer, prv_artist_update_proc);
+  layer_set_update_proc(&data->title_text_layer.layer, prv_title_update_proc);
 
   const int16_t horizontal_margin = config->horizontal_margin;
   layer_init(&data->cassette_container, &GRect(0, WINDOW_SIZE.h - horizontal_margin - 24,
