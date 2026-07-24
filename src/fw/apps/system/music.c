@@ -926,10 +926,11 @@ static GRect prv_art_title_rect(void) {
   const GRect tape = prv_cassette_rect();
   const int16_t x = PBL_IF_RECT_ELSE(tape.origin.x + tape.size.w - 1, 2);
   const int16_t right = PBL_IF_RECT_ELSE(DISP_COLS - ACTION_BAR_WIDTH - 7, tape.origin.x - 4);
-  // Single line, vertically centred in the band between the progress bar and the bottom of screen.
+  // Single line, vertically centred in the band between the progress bar and the bottom of screen,
+  // nudged up slightly since the glyph sits a touch low within the line box.
   const int16_t h = 28;
   const int16_t bar_bottom = config->track_field.origin_y + config->track_field.size_h;
-  const int16_t y = bar_bottom + (DISP_ROWS - bar_bottom - h) / 2;
+  const int16_t y = bar_bottom + (DISP_ROWS - bar_bottom - h) / 2 - 5;
   return GRect(x, y, right - x, h);
 }
 
@@ -1150,8 +1151,12 @@ static void prv_apply_art_appearance(MusicAppData *data) {
     prv_title_restore(data);
     data->title_marquee_on = false;
   }
+  // Big clock in both modes; over art it's white with a black outline (matching the artist) so the
+  // time reads over the cover, otherwise plain black on the light background.
+  status_bar_layer_set_colors(&data->status_layer, GColorClear,
+                              data->has_album_art ? GColorWhite : GColorBlack);
   status_bar_layer_set_mode(&data->status_layer, data->has_album_art ?
-                            StatusBarLayerModeClockLargeBoldOutlined : StatusBarLayerModeClock);
+                            StatusBarLayerModeClockLargeBoldOutlined : StatusBarLayerModeClockLargeBold);
   layer_mark_dirty(&data->window.layer);
 }
 
