@@ -245,21 +245,24 @@ typedef struct {
   BitmapLayer cassette_layer;
   GBitmap *cassette_current_icon;
 
-  // Full-screen album-art background (drawn behind everything else). Art itself is owned by the
-  // music service; this layer just blits it and darkens it for text legibility.
+  EventServiceInfo event_info;
+
+  // Album art fills the top (where the artist/title normally sit). When shown, the artist is hidden
+  // and the track title moves down beside the tape. Art itself is owned by the music service; this
+  // layer just blits it.
   Layer album_art_layer;
   bool has_album_art;
-  // Last now-playing generation we requested art for, so we re-request whenever the track (title,
-  // artist or album) changes — not just on a title/artist string change.
+  // Last now-playing generation we requested art for, so a track change re-fetches even if the
+  // title/artist strings happen to match.
   uint8_t last_art_generation;
-  // A 1px-wide vertical gradient of translucent black, tiled across the screen and blended over the
-  // art (GCompOpSet) so the overlaid white text and progress bar stay legible.
-  GBitmap *scrim_bitmap;
-  // The stock TextLayer render, used for the artist/title layers when no art is shown. When art is
-  // shown we draw those layers ourselves with a black outline (see prv_outlined_text_update_proc).
-  LayerUpdateProc orig_text_update_proc;
-
-  EventServiceInfo event_info;
+  // Horizontal ping-pong scroll for the title beside the tape (album-art mode only). Only runs when
+  // the title is wider than its slot; rests otherwise.
+  AppTimer *title_marquee_timer;
+  int16_t title_marquee_offset;  // px currently scrolled left
+  int16_t title_marquee_max;     // text width - visible width (0 => fits, no scroll)
+  bool title_marquee_fwd;
+  bool title_marquee_on;         // marquee currently set up (avoid re-setup spawning extra timers)
+  uint8_t title_marquee_pause;   // ticks to hold at each end
   // Separate subscription for preference changes, so toggling "Show Album Art" from the phone while
   // the app is open flips the UI immediately instead of only on the next app open.
   EventServiceInfo pref_change_event_info;
@@ -804,9 +807,15 @@ static void prv_update_now_playing(MusicAppData *data) {
 
   bool title_changed = strncmp(data->title_buffer, title_buffer, MUSIC_BUFFER_LENGTH) != 0;
   bool artist_changed = strncmp(data->artist_buffer, artist_buffer, MUSIC_BUFFER_LENGTH) != 0;
+  if (title_changed) {
+    // Force the marquee to re-measure the new title on the next appearance pass.
+    data->title_marquee_on = false;
+  }
   if (title_changed || artist_changed) {
-    // Animating nothing looks weird, so don't do that.
-    if (data->artist_buffer[0] == 0 && data->title_buffer[0] == 0) {
+    // The slide animation bounces the artist/title layers back to their stock positions, which
+    // fights the album-art layout, so over art just swap the text. Also skip it when there's nothing
+    // to animate from.
+    if (data->has_album_art || (data->artist_buffer[0] == 0 && data->title_buffer[0] == 0)) {
       strncpy(data->artist_buffer, artist_buffer, MUSIC_BUFFER_LENGTH);
       strncpy(data->title_buffer, title_buffer, MUSIC_BUFFER_LENGTH);
       // It is sufficient to mark one layer as dirty.
@@ -815,14 +824,13 @@ static void prv_update_now_playing(MusicAppData *data) {
       prv_trigger_track_change_animation(data);
     }
   }
-  // Re-request art whenever the service reports a new track (title, artist or album changed, which
-  // is what bumps the generation). The service has already dropped the old art by this point.
+  // Re-request art whenever the service reports a new track (generation bumps on title/artist/album
+  // change); the service has already dropped the old art by this point.
   const uint8_t generation = music_get_now_playing_generation();
   if (generation != data->last_art_generation) {
     data->last_art_generation = generation;
     prv_maybe_request_album_art();
   }
-  // Reflect the current art state (a track change may have just cleared it).
   prv_apply_art_appearance(data);
   prv_update_layout(data);
 }
@@ -900,95 +908,46 @@ static void prv_configure_music_text_layer(
                                               rect->size.w, rect->size.h + y_offset));
 }
 
-// Build the 1px-wide vertical darkening gradient. It stays fully transparent across the top half so
-// the artwork shows at full brightness, and only lightly darkens (~33% black) the bottom portion
-// where the progress bar and times sit. The title/artist have their own outline, so the scrim can
-// be kept light and the art stays vivid.
-static GBitmap *prv_create_scrim(int16_t height) {
-  GBitmap *scrim = gbitmap_create_blank(GSize(1, height), GBitmapFormat8Bit);
-  if (!scrim) {
-    return NULL;
-  }
-  uint8_t *data = scrim->addr;
-  const int16_t fade_start = (height * 3) / 5;  // top 60% untouched
-  for (int16_t y = 0; y < height; ++y) {
-    const uint8_t alpha = (y >= fade_start) ? 1 : 0;
-    data[y * scrim->row_size_bytes] = ((GColor) { .a = alpha, .r = 0, .g = 0, .b = 0 }).argb;
-  }
-  return scrim;
+// The album-art square fills the content column (left of the action bar) from the top down to just
+// above the times row, so the times/progress/tape below keep their stock positions.
+static GRect prv_album_art_rect(void) {
+  const int16_t content_w = DISP_COLS - ACTION_BAR_WIDTH;
+  const int16_t art_h = prv_config()->time_field.origin_y - 2;
+  return GRect(0, 0, content_w, art_h);
+}
+
+// In album-art mode the track title moves down beside the tape (to the tape's right on rect
+// screens, to its left on round ones), where the artist normally never was — so it reads on the
+// plain background below the cover.
+static GRect prv_art_title_rect(void) {
+  const MusicAppSizeConfig *config = prv_config();
+  const int16_t margin = config->horizontal_margin;
+  const GRect tape = prv_cassette_rect();
+  const int16_t cont_y = DISP_ROWS - margin - 24;
+  const int16_t x = PBL_IF_RECT_ELSE(tape.origin.x + tape.size.w + 6, margin);
+  const int16_t right = PBL_IF_RECT_ELSE(DISP_COLS - ACTION_BAR_WIDTH - margin, tape.origin.x - 6);
+  // Single line, vertically centred on the tape row.
+  return GRect(x, cont_y - 6, right - x, 28);
 }
 
 static void prv_album_art_update_proc(Layer *layer, GContext *ctx) {
-  MusicAppData *data = window_get_user_data(layer_get_window(layer));
   // Hold the art locked for the whole draw so the service can't free it mid-blit.
   const GBitmap *art = music_album_art_lock();
   if (art && shell_prefs_get_music_show_album_art()) {
+    // The phone renders the whole cover to the content width, so it fills the square; centre it in
+    // case the box is a touch shorter than the cover.
+    const GSize sz = art->bounds.size;
+    const GRect b = layer->bounds;
+    const GRect dst = GRect((b.size.w - sz.w) / 2, (b.size.h - sz.h) / 2, sz.w, sz.h);
     graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-    graphics_draw_bitmap_in_rect(ctx, art, &layer->bounds);
-    // Darken toward the bottom (GCompOpSet blends the scrim's per-pixel alpha) so the white text
-    // and progress bar stay legible over any artwork.
-    if (data->scrim_bitmap) {
-      graphics_context_set_compositing_mode(ctx, GCompOpSet);
-      graphics_draw_bitmap_in_rect(ctx, data->scrim_bitmap, &layer->bounds);
-    }
+    graphics_draw_bitmap_in_rect(ctx, art, &dst);
   }
   music_album_art_unlock();
-}
-
-//! Update proc for the artist/title TextLayers. Over album art we draw the glyphs with a 1px black
-//! outline (so white text stays legible over any artwork); otherwise we defer to the stock render.
-static void prv_outlined_text_update_proc(Layer *layer, GContext *ctx) {
-  MusicAppData *data = app_state_get_user_data();
-  if (!data->has_album_art) {
-    if (data->orig_text_update_proc) {
-      data->orig_text_update_proc(layer, ctx);
-    }
-    return;
-  }
-  const TextLayer *text_layer = (const TextLayer *)layer;
-  if (!text_layer->text || !text_layer->text[0]) {
-    return;
-  }
-  static const GPoint k_outline_offsets[] = {
-    { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 },
-  };
-  graphics_context_set_text_color(ctx, GColorBlack);
-  for (unsigned i = 0; i < sizeof(k_outline_offsets) / sizeof(k_outline_offsets[0]); ++i) {
-    GRect box = layer->bounds;
-    box.origin.x += k_outline_offsets[i].x;
-    box.origin.y += k_outline_offsets[i].y;
-    graphics_draw_text(ctx, text_layer->text, text_layer->font, box, text_layer->overflow_mode,
-                       text_layer->text_alignment, NULL);
-  }
-  graphics_context_set_text_color(ctx, GColorWhite);
-  graphics_draw_text(ctx, text_layer->text, text_layer->font, layer->bounds,
-                     text_layer->overflow_mode, text_layer->text_alignment, NULL);
-}
-
-//! Refresh the text colours and background to match whether album art is currently shown. White
-//! text over the darkened art, black text on the plain background otherwise.
-static void prv_apply_art_appearance(MusicAppData *data) {
-  const GBitmap *art = music_album_art_lock();
-  data->has_album_art = (art != NULL) && shell_prefs_get_music_show_album_art();
-  music_album_art_unlock();
-
-  const GColor text_color = data->has_album_art ? GColorWhite : GColorBlack;
-  text_layer_set_text_color(&data->artist_text_layer, text_color);
-  text_layer_set_text_color(&data->title_text_layer, text_color);
-  text_layer_set_text_color(&data->position_text_layer, text_color);
-  text_layer_set_text_color(&data->length_text_layer, text_color);
-  status_bar_layer_set_colors(&data->status_layer, GColorClear, text_color);
-  // Outline the clock (white text, black outline) only over album art, matching the title/artist.
-  status_bar_layer_set_mode(&data->status_layer, data->has_album_art ?
-                            StatusBarLayerModeClockLargeBoldOutlined :
-                            StatusBarLayerModeClockLargeBold);
-  layer_mark_dirty(&data->album_art_layer);
 }
 
 //! Request album art for the current track, but only when it would actually be shown and we don't
-//! already have art for this track. The music service keeps the last track's art cached across app
-//! closes (and keeps the previous track's art on screen until new art arrives), so we key off the
-//! generation rather than "is any art present" — otherwise a track change would never re-fetch.
+//! already have art for this track (keyed off the now-playing generation, not "is any art present",
+//! so a track change re-fetches).
 static void prv_maybe_request_album_art(void) {
   if (!shell_prefs_get_music_show_album_art() || !music_is_album_art_supported() ||
       !music_has_now_playing()) {
@@ -999,16 +958,121 @@ static void prv_maybe_request_album_art(void) {
   }
 }
 
+#define TITLE_MARQUEE_INTERVAL_MS 40
+#define TITLE_MARQUEE_STEP 2
+#define TITLE_MARQUEE_END_PAUSE 18  // ~0.7s hold at each end
+
+static void prv_title_marquee_stop(MusicAppData *data) {
+  if (data->title_marquee_timer) {
+    app_timer_cancel(data->title_marquee_timer);
+    data->title_marquee_timer = NULL;
+  }
+}
+
+// Ping-pong the title left/right by scrolling its (over-wide) bounds within the clipped frame.
+static void prv_title_marquee_cb(void *context) {
+  MusicAppData *data = context;
+  data->title_marquee_timer = NULL;
+  if (!data->has_album_art || data->title_marquee_max <= 0) {
+    return;
+  }
+  if (data->title_marquee_pause > 0) {
+    data->title_marquee_pause--;
+  } else {
+    data->title_marquee_offset += data->title_marquee_fwd ? TITLE_MARQUEE_STEP : -TITLE_MARQUEE_STEP;
+    if (data->title_marquee_offset >= data->title_marquee_max) {
+      data->title_marquee_offset = data->title_marquee_max;
+      data->title_marquee_fwd = false;
+      data->title_marquee_pause = TITLE_MARQUEE_END_PAUSE;
+    } else if (data->title_marquee_offset <= 0) {
+      data->title_marquee_offset = 0;
+      data->title_marquee_fwd = true;
+      data->title_marquee_pause = TITLE_MARQUEE_END_PAUSE;
+    }
+    GRect b = data->title_text_layer.layer.bounds;
+    b.origin.x = -data->title_marquee_offset;
+    layer_set_bounds(&data->title_text_layer.layer, &b);
+  }
+  data->title_marquee_timer =
+      app_timer_register(TITLE_MARQUEE_INTERVAL_MS, prv_title_marquee_cb, data);
+}
+
+// Lay the title out on a single line beside the tape and (re)start the ping-pong scroll if it's too
+// wide to fit. The frame clips; the bounds are made as wide as the text so it never wraps.
+static void prv_title_marquee_setup(MusicAppData *data) {
+  prv_title_marquee_stop(data);
+  const GRect vis = prv_art_title_rect();
+  // Use an explicit system font (not the theme Subtitle) so the width we measure exactly matches
+  // what gets rendered — the scroll range depends on that being correct.
+  text_layer_set_font(&data->title_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  text_layer_set_text_alignment(&data->title_text_layer, GTextAlignmentLeft);
+  layer_set_frame(&data->title_text_layer.layer, &vis);
+  layer_set_clips(&data->title_text_layer.layer, true);
+  // Measure the single-line width via the layer itself (same font/overflow/text as the render) in a
+  // generously wide, one-line-tall bounds, so the measured width exactly matches what's drawn — the
+  // scroll range depends on that. Then size the bounds to the text so scrolling can't run off.
+  layer_set_bounds(&data->title_text_layer.layer, &GRect(0, 0, DISP_COLS * 3, vis.size.h));
+  const GSize text_size = app_text_layer_get_content_size(&data->title_text_layer);
+  const int16_t text_w = MAX(text_size.w, vis.size.w);
+  layer_set_bounds(&data->title_text_layer.layer, &GRect(0, 0, text_w, vis.size.h));
+  data->title_marquee_offset = 0;
+  data->title_marquee_fwd = true;
+  data->title_marquee_pause = TITLE_MARQUEE_END_PAUSE;
+  // The layout measurer reports a wider box than graphics_draw_text actually inks (~2px per glyph),
+  // so back that out of the scroll range, else the marquee runs off the end into blank space.
+  const int16_t ink_w = text_size.w - 2 * (int16_t)strlen(data->title_buffer);
+  data->title_marquee_max = MAX(0, ink_w - vis.size.w);
+  if (data->title_marquee_max > 0) {
+    data->title_marquee_timer =
+        app_timer_register(TITLE_MARQUEE_INTERVAL_MS, prv_title_marquee_cb, data);
+  }
+}
+
+// Restore the title to its stock (wrapping, animated) layout for the no-art screen.
+static void prv_title_restore(MusicAppData *data) {
+  prv_title_marquee_stop(data);
+  const GRect title_rect = prv_title_rect();
+  text_layer_set_font(&data->title_text_layer,
+                      system_theme_get_font_for_default_size(TextStyleFont_Subtitle));
+  text_layer_set_overflow_mode(&data->title_text_layer, GTextOverflowModeFill);
+  text_layer_set_text_alignment(&data->title_text_layer,
+                                PBL_IF_RECT_ELSE(GTextAlignmentLeft, GTextAlignmentRight));
+  layer_set_frame(&data->title_text_layer.layer, &title_rect);
+  layer_set_bounds(&data->title_text_layer.layer,
+                   &GRect(0, -TITLE_BOUNDS_OFFSET, title_rect.size.w,
+                          title_rect.size.h + TITLE_BOUNDS_OFFSET));
+}
+
+//! Reflect the current art state: show/hide the cover, hide the artist and scroll the title beside
+//! the tape over art (else restore its stock spot), and swap the clock to the outlined big style so
+//! it stays legible over the cover. A full-window repaint clears the moved layers' old pixels.
+static void prv_apply_art_appearance(MusicAppData *data) {
+  const GBitmap *art = music_album_art_lock();
+  data->has_album_art = (art != NULL) && shell_prefs_get_music_show_album_art();
+  music_album_art_unlock();
+
+  layer_set_hidden(&data->album_art_layer, !data->has_album_art);
+  layer_set_hidden(&data->artist_text_layer.layer, data->has_album_art);
+  if (data->has_album_art) {
+    // Only (re)build the marquee on the transition into art mode; re-running it on every event would
+    // spawn overlapping scroll timers. Track changes re-arm it explicitly (see prv_update_now_playing).
+    if (!data->title_marquee_on) {
+      prv_title_marquee_setup(data);
+      data->title_marquee_on = true;
+    }
+  } else if (data->title_marquee_on) {
+    prv_title_restore(data);
+    data->title_marquee_on = false;
+  }
+  status_bar_layer_set_mode(&data->status_layer, data->has_album_art ?
+                            StatusBarLayerModeClockLargeBoldOutlined : StatusBarLayerModeClock);
+  layer_mark_dirty(&data->window.layer);
+}
+
 static void prv_init_ui(Window *window) {
   MusicAppData *data = window_get_user_data(window);
 
   window_set_background_color(window, PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite));
-
-  // Full-screen album-art background, added first so it sits behind every other layer.
-  layer_init(&data->album_art_layer, &window->layer.bounds);
-  layer_set_update_proc(&data->album_art_layer, prv_album_art_update_proc);
-  layer_add_child(&window->layer, &data->album_art_layer);
-  data->scrim_bitmap = prv_create_scrim(window->layer.bounds.size.h);
 
   const GSize WINDOW_SIZE = window->layer.bounds.size;
 
@@ -1022,6 +1086,13 @@ static void prv_init_ui(Window *window) {
   const GRect time_rect = prv_time_rect();
   const GRect cassette_rect = prv_cassette_rect();
   const GRect track_rect = prv_track_rect();
+
+  // Album-art square across the top, behind the text. Hidden until art is actually shown.
+  const GRect art_rect = prv_album_art_rect();
+  layer_init(&data->album_art_layer, &art_rect);
+  layer_set_update_proc(&data->album_art_layer, prv_album_art_update_proc);
+  layer_set_hidden(&data->album_art_layer, true);
+  layer_add_child(&data->window.layer, &data->album_art_layer);
 
   prv_configure_music_text_layer(&data->artist_text_layer, data->artist_buffer,
                                  &artist_rect, ARTIST_BOUNDS_OFFSET,
@@ -1045,12 +1116,6 @@ static void prv_init_ui(Window *window) {
   text_layer_set_line_spacing_delta(&data->title_text_layer, -2);
 
   layer_add_child(&data->window.layer, &data->title_text_layer.layer);
-
-  // Render artist/title ourselves so we can outline them over album art. Capture the stock
-  // TextLayer render first to fall back to it when no art is shown.
-  data->orig_text_update_proc = data->artist_text_layer.layer.update_proc;
-  layer_set_update_proc(&data->artist_text_layer.layer, prv_outlined_text_update_proc);
-  layer_set_update_proc(&data->title_text_layer.layer, prv_outlined_text_update_proc);
 
   const int16_t horizontal_margin = config->horizontal_margin;
   layer_init(&data->cassette_container, &GRect(0, WINDOW_SIZE.h - horizontal_margin - 24,
@@ -1087,9 +1152,6 @@ static void prv_init_ui(Window *window) {
                                                           WINDOW_SIZE.w);
   status_layer_frame.size.w = STATUS_BAR_LAYER_WIDTH;
   layer_set_frame(&status_layer->layer, &status_layer_frame);
-  // Larger, bold clock at the top of the music screen (kept the same size whether or not album art
-  // is shown; the outline is applied per-frame in prv_apply_art_appearance, only over art).
-  status_bar_layer_set_mode(&data->status_layer, StatusBarLayerModeClockLargeBold);
   status_bar_layer_set_colors(&data->status_layer, GColorClear, GColorBlack);
   layer_add_child(&data->window.layer, &status_layer->layer);
 
@@ -1114,20 +1176,35 @@ static void prv_push_window(MusicAppData *data) {
   prv_init_ui(window);
 }
 
+// Key string must match PREF_KEY_MUSIC_SHOW_ALBUM_ART in shell/normal/prefs.c.
+#define MUSIC_SHOW_ALBUM_ART_PREF_KEY "musicShowAlbumArt"
+
+static void prv_pref_change_handler(PebbleEvent *event, void *context) {
+  const char *key = event->pref_change.key;
+  if (!key || strcmp(key, MUSIC_SHOW_ALBUM_ART_PREF_KEY) != 0) {
+    return;
+  }
+  MusicAppData *data = app_state_get_user_data();
+  // Turning it on may need art we skipped fetching earlier; turning it off flips straight back to
+  // the stock layout. prv_apply_art_appearance recomputes has_album_art from the new setting.
+  prv_maybe_request_album_art();
+  prv_apply_art_appearance(data);
+}
+
 static void prv_music_event_handler(PebbleEvent *event, void *context) {
   MusicAppData *data = app_state_get_user_data();
   switch (event->media.type) {
     case PebbleMediaEventTypeNowPlayingChanged:
       prv_update_now_playing(data);
       return;
-    case PebbleMediaEventTypeAlbumArtUpdated:
-      prv_apply_art_appearance(data);
-      return;
     case PebbleMediaEventTypePlaybackStateChanged: {
       prv_set_pos_update_timer(data, event->media.playback_state);
       prv_update_ui_state(data, true);
       return;
     }
+    case PebbleMediaEventTypeAlbumArtUpdated:
+      prv_apply_art_appearance(data);
+      return;
     case PebbleMediaEventTypeVolumeChanged:
     case PebbleMediaEventTypeServerConnected:
     case PebbleMediaEventTypeServerDisconnected:
@@ -1138,21 +1215,6 @@ static void prv_music_event_handler(PebbleEvent *event, void *context) {
       return;
     default: return;
   }
-}
-
-// Key string must match PREF_KEY_MUSIC_SHOW_ALBUM_ART in shell/normal/prefs.c.
-#define MUSIC_SHOW_ALBUM_ART_PREF_KEY "musicShowAlbumArt"
-
-static void prv_pref_change_handler(PebbleEvent *event, void *context) {
-  const char *key = event->pref_change.key;
-  if (!key || strcmp(key, MUSIC_SHOW_ALBUM_ART_PREF_KEY) != 0) {
-    return;
-  }
-  MusicAppData *data = app_state_get_user_data();
-  // Turning it on may need us to fetch art we skipped earlier; turning it off flips straight back to
-  // the plain text layout. prv_apply_art_appearance recomputes has_album_art from the new setting.
-  prv_maybe_request_album_art();
-  prv_apply_art_appearance(data);
 }
 
 ////////////////////
@@ -1167,10 +1229,12 @@ static void prv_handle_init(void) {
     .type = PEBBLE_MEDIA_EVENT,
     .handler = prv_music_event_handler,
   };
+
   data->pref_change_event_info = (EventServiceInfo){
     .type = PEBBLE_PREF_CHANGE_EVENT,
     .handler = prv_pref_change_handler,
   };
+  event_service_client_subscribe(&data->pref_change_event_info);
 
   // TODO: Once we have some sort of system-wide "needs bluetooth" assertion, invoke that here.
 
@@ -1190,7 +1254,6 @@ static void prv_handle_init(void) {
   gbitmap_init_with_resource(&data->image_volume_down, RESOURCE_ID_MUSIC_LARGE_VOLUME_DOWN);
 
   event_service_client_subscribe(&data->event_info);
-  event_service_client_subscribe(&data->pref_change_event_info);
   prv_push_window(data);
 
   // Overall reduce the latency at the expense of some power...
@@ -1212,16 +1275,12 @@ static void prv_handle_deinit(void) {
 
   MusicAppData *data = app_state_get_user_data();
   event_service_client_unsubscribe(&data->pref_change_event_info);
+  prv_title_marquee_stop(data);
   if (data->temporarily_show_progress_timer) {
     app_timer_cancel(data->temporarily_show_progress_timer);
   }
   // Detach the action bar so its touch-nav snapshot does not keep routing taps after the app exits.
   action_bar_layer_remove_from_window(&data->action_bar);
-  // Leave the album art in the music service so re-opening the same track shows it instantly
-  // (it's freed automatically when the track changes or the phone disconnects).
-  if (data->scrim_bitmap) {
-    gbitmap_destroy(data->scrim_bitmap);
-  }
   i18n_free_all(data);
 }
 

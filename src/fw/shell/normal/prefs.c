@@ -325,7 +325,7 @@ static bool s_menu_scroll_wrap_around = false;
 static MenuScrollVibeBehavior s_menu_scroll_vibe_behavior = MenuScrollNoVibe;
 static bool s_music_show_volume_controls = true;
 static bool s_music_show_progress_bar = true;
-static bool s_music_show_album_art = true;
+static bool s_music_show_album_art = false;
 
 // ============================================================================================
 // Handlers for each pref that validate the new setting and store the new value in our globals.
