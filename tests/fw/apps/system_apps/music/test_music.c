@@ -100,6 +100,31 @@ void music_request_reduced_latency(bool reduced_latency) {}
 
 void music_request_low_latency_for_period(uint32_t period_ms) {}
 
+bool music_has_now_playing(void) {
+  return s_music_title[0] != '\0' || s_music_artist[0] != '\0';
+}
+
+uint8_t music_get_now_playing_generation(void) {
+  return 0;
+}
+
+// Album art (no art in these tests, so the text layout is exercised)
+const struct GBitmap *music_album_art_lock(void) {
+  return NULL;
+}
+
+void music_album_art_unlock(void) {}
+
+bool music_album_art_is_current(void) {
+  return true;
+}
+
+bool music_is_album_art_supported(void) {
+  return false;
+}
+
+void music_request_album_art(void) {}
+
 // Shell prefs fake
 /////////////////////
 
@@ -112,6 +137,10 @@ bool shell_prefs_get_music_show_volume_controls(void) {
 
 bool shell_prefs_get_music_show_progress_bar(void) {
   return s_prefs_music_show_progress_bar;
+}
+
+bool shell_prefs_get_music_show_album_art(void) {
+  return false;
 }
 
 // Misc stubs
