@@ -18,6 +18,12 @@ void backlight_init(void);
 //! @param brightness Brightness level (0-100)
 void backlight_set_brightness(uint8_t brightness);
 
+//! Map a brightness (0-100) to an opaque hardware level identifier. Two
+//! brightness values with the same identifier produce identical output, which
+//! lets callers collapse steps the hardware cannot distinguish. Drivers with
+//! continuous control return the input unchanged.
+uint8_t backlight_get_level(uint8_t brightness);
+
 //! Re-apply the cached driver state to the backlight hardware. No-op if the
 //! firmware believes the backlight is already off.
 void backlight_refresh(void);

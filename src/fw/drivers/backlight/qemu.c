@@ -79,6 +79,11 @@ void backlight_set_brightness(uint8_t brightness) {
 #endif
 }
 
+uint8_t backlight_get_level(uint8_t brightness) {
+  // Emulated backlight: every brightness value is distinct.
+  return brightness;
+}
+
 void backlight_refresh(void) {
 }
 

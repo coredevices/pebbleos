@@ -47,22 +47,29 @@ static void prv_send_pulses(uint8_t count, bool from_shutdown) {
   portEXIT_CRITICAL();
 }
 
-void backlight_set_brightness(uint8_t brightness) {
-  uint8_t pulse_count;
-
+uint8_t backlight_get_level(uint8_t brightness) {
   if (brightness > 100U) {
     brightness = 100U;
   }
 
   if (brightness == 0U) {
+    return 0U;
+  }
+
+  return AW9364E_MAX_PULSES - DIVIDE_CEIL(brightness * AW9364E_MAX_PULSES, 100U) + 1U;
+}
+
+void backlight_set_brightness(uint8_t brightness) {
+  // 0 = off, otherwise the pulse count to train (1 brightest, 16 dimmest)
+  const uint8_t pulse_count = backlight_get_level(brightness);
+
+  if (pulse_count == 0U) {
     // The chip shuts itself down after EN has been low for 2.5ms; no need to
     // block here, as the turn-on path below always waits that out itself.
     gpio_output_set(&AW9364E.gpio, false);
     s_pulse_count = 0U;
     return;
   }
-
-  pulse_count = AW9364E_MAX_PULSES - DIVIDE_CEIL(brightness * AW9364E_MAX_PULSES, 100U) + 1U;
 
   if (pulse_count == s_pulse_count) {
     return;

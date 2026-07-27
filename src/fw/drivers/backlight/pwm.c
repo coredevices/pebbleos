@@ -42,5 +42,10 @@ void backlight_set_brightness(uint8_t brightness) {
   }
 }
 
+uint8_t backlight_get_level(uint8_t brightness) {
+  // Continuous PWM control: every brightness value is distinct.
+  return brightness;
+}
+
 void backlight_refresh(void) {
 }

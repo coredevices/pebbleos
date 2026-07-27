@@ -154,6 +154,11 @@ uint32_t backlight_get_color(void) {
   return s_rgb_current_color;
 }
 
+uint8_t backlight_get_level(uint8_t brightness) {
+  // 255-step current control: every brightness value is distinct.
+  return brightness;
+}
+
 void backlight_refresh(void) {
   bool ret;
 
