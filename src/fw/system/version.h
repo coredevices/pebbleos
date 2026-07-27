@@ -36,7 +36,7 @@ bool version_copy_update_fw_metadata(FirmwareMetadata *out_metadata);
 //!
 //! @param dest: char[dest_len_bytes]
 //! @param dest_len_bytes size of dest in bytes
-//! @returns true on success, false otherwise
+//! @returns true on success, false if the recovery image fails CRC validation
 bool version_copy_recovery_fw_version(char* dest, const int dest_len_bytes);
 
 //! Checks to see if a valid PRF is installed with a correct checksum.

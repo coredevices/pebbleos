@@ -103,7 +103,7 @@ bool version_copy_update_fw_metadata(FirmwareMetadata *out_metadata) {
 
 bool version_copy_recovery_fw_version(char* dest, const int dest_len_bytes) {
   FirmwareMetadata out_metadata;
-  const bool check_crc = false;
+  const bool check_crc = true;
   bool success = prv_version_copy_flash_fw_metadata(&out_metadata,
                                                     FLASH_REGION_SAFE_FIRMWARE_BEGIN,
                                                     check_crc);
