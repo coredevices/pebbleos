@@ -2952,6 +2952,10 @@ msgstr "%d.%d"
 msgid "Alarm"
 msgstr "Wecker"
 
+#: ../src/fw/applib/ui/day_picker.c:51
+msgid "Just Once"
+msgstr "Nur Einmal"
+
 #. / A frequency option for alarms, i.e. the alarm would go off every day. Respect
 #. / capitalization!
 #: ../src/fw/services/alarms/alarm.c:1243
