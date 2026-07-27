@@ -48,7 +48,7 @@ static const char *prv_kind_strings[DayPickerKindNumItems] = {
   [DayPickerKindWeekdays] = "Weekdays",
   [DayPickerKindWeekends] = "Weekends",
   [DayPickerKindCustom] = "Custom",
-  [DayPickerKindJustOnce] = "Just Once",
+  [DayPickerKindJustOnce] = "Once",
 };
 
 const char *day_picker_kind_get_string(DayPickerKind kind) {
