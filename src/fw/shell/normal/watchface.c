@@ -21,6 +21,11 @@
 #include "applib/app_timer.h"
 #include "applib/app_launch_reason.h"
 #include "applib/ui/click_internal.h"
+#ifdef CONFIG_TOUCH
+#include "applib/touch_service.h"
+#include "apps/system/watchfaces.h"
+#include <pbl/util/math.h>
+#endif
 #include "pbl/services/notifications/do_not_disturb.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
@@ -41,6 +46,17 @@ static ClickManager s_click_manager;
 static uint8_t s_buttons_pressed = BIT_CLEAR;
 static AppTimer *s_combo_back_hold_timer = NULL;
 static uint8_t s_active_combo_buttons = BIT_CLEAR;
+
+#ifdef CONFIG_TOUCH
+//! Hold a finger on the watchface for this long to open the watchface selector.
+#define TOUCH_HOLD_MS (2000)
+//! Movement beyond this many pixels cancels the hold (it's a drag, not a press).
+#define TOUCH_HOLD_SLOP_PX (20)
+
+static AppTimer *s_touch_hold_timer = NULL;
+static int16_t s_touch_hold_x;
+static int16_t s_touch_hold_y;
+#endif
 
 static bool prv_should_ignore_button_click(void) {
   if (app_manager_get_task_context()->closing_state != ProcessRunState_Running) {
@@ -301,6 +317,61 @@ static void prv_dismiss_timeline_peek(ClickRecognizerRef recognizer, void *data)
   timeline_peek_dismiss();
 }
 
+#ifdef CONFIG_TOUCH
+static bool prv_touch_ignore(void) {
+  const bool modal_focused = modal_manager_get_enabled() &&
+      !(modal_manager_get_properties() & ModalProperty_Unfocused);
+  return prv_should_ignore_button_click() || modal_focused ||
+         !app_manager_is_watchface_running();
+}
+
+static void prv_touch_hold_cancel(void) {
+  if (s_touch_hold_timer != NULL) {
+    app_timer_cancel(s_touch_hold_timer);
+    s_touch_hold_timer = NULL;
+  }
+}
+
+static void prv_touch_hold_timer_callback(void *data) {
+  s_touch_hold_timer = NULL;
+  if (prv_touch_ignore()) {
+    return;
+  }
+  static const WatchfacesLaunchArgs s_selector_args = { .selector_mode = true };
+  app_manager_put_launch_app_event(&(AppLaunchEventConfig) {
+    .id = APP_ID_WATCHFACES,
+    .common.reason = APP_LAUNCH_SYSTEM,
+    .common.args = &s_selector_args,
+  });
+}
+
+static void prv_watchface_touch_handler(const TouchEvent *event, void *context) {
+  if (prv_touch_ignore()) {
+    prv_touch_hold_cancel();
+    return;
+  }
+  switch (event->type) {
+    case TouchEvent_Touchdown:
+      prv_touch_hold_cancel();
+      s_touch_hold_x = event->x;
+      s_touch_hold_y = event->y;
+      s_touch_hold_timer =
+          app_timer_register(TOUCH_HOLD_MS, prv_touch_hold_timer_callback, NULL);
+      break;
+    case TouchEvent_PositionUpdate:
+      if (s_touch_hold_timer != NULL &&
+          (ABS(event->x - s_touch_hold_x) > TOUCH_HOLD_SLOP_PX ||
+           ABS(event->y - s_touch_hold_y) > TOUCH_HOLD_SLOP_PX)) {
+        prv_touch_hold_cancel();
+      }
+      break;
+    case TouchEvent_Liftoff:
+      prv_touch_hold_cancel();
+      break;
+  }
+}
+#endif // CONFIG_TOUCH
+
 static void prv_watchface_configure_click_handlers(void) {
   prv_configure_click_handler(BUTTON_ID_UP, prv_launch_up_down);
   prv_configure_click_handler(BUTTON_ID_DOWN, prv_launch_up_down);
@@ -311,6 +382,12 @@ static void prv_watchface_configure_click_handlers(void) {
 void watchface_init(void) {
   click_manager_init(&s_click_manager);
   prv_watchface_configure_click_handlers();
+#ifdef CONFIG_TOUCH
+  // Kernel-side subscription: keeps the touch sensor powered so a long press
+  // on the watchface can open the selector. Foreground gating happens in the
+  // handler itself.
+  touch_service_subscribe(prv_watchface_touch_handler, NULL);
+#endif
 }
 
 void watchface_handle_button_event(PebbleEvent *e) {
