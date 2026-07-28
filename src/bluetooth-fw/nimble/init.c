@@ -3,6 +3,7 @@
 
 #include "dis_service.h"
 #include "gh3x2x_tuning_service.h"
+#include "hid_service.h"
 
 #include <FreeRTOS.h>
 #include <bluetooth/init.h>
@@ -149,6 +150,12 @@ bool bt_driver_start(BTDriverConfig *config) {
   gh3x2x_tuning_service_init();
 #endif
 
+#ifdef CONFIG_BT_HID_REMOTE
+  // Registered last on purpose: NimBLE assigns ATT handles in registration
+  // order, so appending here adds no shift of its own.
+  hid_service_init();
+#endif
+
   ble_hs_sched_start();
   f_rc = xSemaphoreTake(s_host_started, milliseconds_to_ticks(s_bt_stack_start_stop_timeout_ms));
   if (f_rc != pdTRUE) {
@@ -183,6 +190,10 @@ err:
   s_driver_state = DriverStateStopped;
   (void)ble_gatts_reset();
 
+#ifdef CONFIG_BT_HID_REMOTE
+  hid_service_deinit();
+#endif
+
   return false;
 }
 
@@ -197,6 +208,10 @@ void bt_driver_stop(void) {
   s_driver_state = DriverStateStopped;
 
   ble_gatts_reset();
+
+#ifdef CONFIG_BT_HID_REMOTE
+  hid_service_deinit();
+#endif
 
   nimble_store_unload();
 }
