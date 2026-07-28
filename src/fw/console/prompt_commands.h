@@ -111,6 +111,12 @@ extern void command_bt_set_name(const char *bt_name);
 
 extern void command_bt_status(void);
 
+#ifdef CONFIG_BT_HID_REMOTE
+extern void command_hid_usage(const char *usage_hex, const char *path_str);
+extern void command_hid_tap(const char *usage_hex, const char *path_str);
+extern void command_hid_status(void);
+#endif
+
 // extern void command_get_remote_prefs(void);
 // extern void command_del_remote_pref(const char*);
 // extern void command_bt_sniff_bounce(void);
@@ -327,6 +333,11 @@ static const Command s_prompt_commands[] = {
   { "bt cp set", command_bt_conn_param_set, 4 },
   { "bt disc start", command_bt_disc_start, 2 },
   { "bt disc stop", command_bt_disc_stop, 0 },
+#ifdef CONFIG_BT_HID_REMOTE
+  { "hid usage", command_hid_usage, 2 },
+  { "hid tap", command_hid_tap, 2 },
+  { "hid status", command_hid_status, 0 },
+#endif
   { "timezone clear", command_timezone_clear, 0 },
   { "battery status", command_print_battery_status, 0 },
 #ifndef CONFIG_RELEASE

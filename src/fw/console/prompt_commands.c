@@ -26,6 +26,7 @@
 #include "prompt.h"
 #include "resource/resource_storage_flash.h"
 #include "pbl/services/compositor/compositor.h"
+#include "pbl/services/new_timer/new_timer.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/filesystem/pfs.h"
 #include "syscall/syscall.h"
@@ -43,6 +44,9 @@
 
 #include <bluetooth/responsiveness.h>
 #include <bluetooth/gatt_discovery.h>
+#include <bluetooth/hid_service.h>
+
+#include "pbl/services/bluetooth/ble_hid.h"
 
 #if MEMFAULT
 #include "memfault/components.h"
@@ -1204,6 +1208,156 @@ void command_bt_disc_stop(void) {
   }
   bt_unlock();
 }
+
+#ifdef CONFIG_BT_HID_REMOTE
+// Long enough for a phone to register the key, short enough not to read as a
+// hold. Debug policy: the real one lives in whichever app does the pressing.
+#define BLE_HID_PROMPT_TAP_MS (30)
+
+// Whatever "hid usage" pressed last, so "hid usage 0" knows what to release.
+// Written from KernelBG, where the prompt commands run, and from NewTimer in
+// prv_hid_tap_release_cb(), so it is volatile rather than a plain static.
+static volatile uint16_t s_hid_pressed_usage;
+
+// The release half of "hid tap". Prompt commands run on KernelBG and the press
+// is queued to that same task, so sleeping here would only stall the callback
+// that has to send it, and the tap would collapse to nothing. Kept for the
+// lifetime of the FW, like the ble_hid one, so it cannot be freed mid-fire.
+static TimerID s_hid_tap_timer = TIMER_INVALID_ID;
+
+//! @note Runs on the NewTimer task. ble_hid_consumer_release() only queues to
+//! KernelBG from here, and prompt_send_response() would assert outside a
+//! command, so the outcome only shows up in the log.
+static void prv_hid_tap_release_cb(void *data) {
+  const uint16_t usage = (uint16_t)(uintptr_t)data;
+  const status_t rv = ble_hid_consumer_release(usage);
+  if (FAILED(rv)) {
+    PBL_LOG_WRN("HID: tap release of 0x%03x failed (%d)", (unsigned)usage, (int)rv);
+    return;
+  }
+  s_hid_pressed_usage = 0;
+}
+
+static bool prv_hid_parse_usage(const char *usage_hex, uint16_t *usage) {
+  char *end = NULL;
+  const unsigned long value = strtoul(usage_hex, &end, 16);
+
+  if ((end == usage_hex) || (*end != '\0') || (value > BLE_HID_USAGE_MAX)) {
+    return false;
+  }
+  *usage = (uint16_t)value;
+  return true;
+}
+
+static bool prv_hid_parse_path(const char *path_str, BleHidReportPath *path) {
+  if (strcmp(path_str, "1") == 0) {
+    *path = BleHidReportPathBitmap;
+  } else if (strcmp(path_str, "2") == 0) {
+    *path = BleHidReportPathUsage;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+//! @return ble_hid_consumer_press()'s status. S_SUCCESS means this call is the
+//! one that put the key down, which is what a caller pairing it with a release
+//! has to distinguish from S_NO_ACTION_REQUIRED.
+static status_t prv_hid_press(uint16_t usage, BleHidReportPath path, char *buffer, size_t size) {
+  const status_t rv = ble_hid_consumer_press(usage, path);
+  if (PASSED(rv)) {
+    s_hid_pressed_usage = usage;
+  }
+  prompt_send_response_fmt(buffer, size, "HID: press 0x%03x on report %u -> %d", (unsigned)usage,
+                           (path == BleHidReportPathBitmap) ? 1u : 2u, (int)rv);
+  return rv;
+}
+
+static void prv_hid_release(uint16_t usage, char *buffer, size_t size) {
+  const status_t rv = ble_hid_consumer_release(usage);
+  if (PASSED(rv)) {
+    s_hid_pressed_usage = 0;
+  }
+  prompt_send_response_fmt(buffer, size, "HID: release 0x%03x -> %d", (unsigned)usage, (int)rv);
+}
+
+void command_hid_usage(const char *usage_hex, const char *path_str) {
+  char buffer[64];
+  uint16_t usage;
+  BleHidReportPath path;
+
+  if (!prv_hid_parse_usage(usage_hex, &usage)) {
+    prompt_send_response("HID: expected a hex usage 0..3ff, e.g. e9");
+  } else if (!prv_hid_parse_path(path_str, &path)) {
+    prompt_send_response("HID: expected a report: 1 bitmap, 2 usage array");
+  } else if (usage == 0) {
+    // The release goes out on whichever report the press used, so the path
+    // argument cannot steer it; it is only parsed to keep the arity uniform.
+    prv_hid_release(s_hid_pressed_usage, buffer, sizeof(buffer));
+    prompt_send_response("HID: released on the press's own report; the path argument is ignored");
+  } else {
+    prv_hid_press(usage, path, buffer, sizeof(buffer));
+    prompt_send_response("HID: held down; send \"hid usage 0 1\" to release, or leave it to the "
+                         "ble_hid safety timeout");
+  }
+  prompt_command_finish();
+}
+
+void command_hid_tap(const char *usage_hex, const char *path_str) {
+  char buffer[64];
+  uint16_t usage;
+  BleHidReportPath path;
+
+  if (!prv_hid_parse_usage(usage_hex, &usage) || (usage == 0)) {
+    prompt_send_response("HID: expected a hex usage 1..3ff, e.g. e9");
+    prompt_command_finish();
+    return;
+  }
+  if (!prv_hid_parse_path(path_str, &path)) {
+    prompt_send_response("HID: expected a report: 1 bitmap, 2 usage array");
+    prompt_command_finish();
+    return;
+  }
+
+  if (s_hid_tap_timer == TIMER_INVALID_ID) {
+    s_hid_tap_timer = new_timer_create();
+  }
+  if (s_hid_tap_timer == TIMER_INVALID_ID) {
+    prompt_send_response("HID: no timer for the release half of the tap");
+    prompt_command_finish();
+    return;
+  }
+
+  // S_SUCCESS only, not PASSED(): prv_hid_press() answers S_NO_ACTION_REQUIRED
+  // when the same usage and path are already held, and arming the release then
+  // would lift the press that is already down rather than one of our own.
+  if (prv_hid_press(usage, path, buffer, sizeof(buffer)) == S_SUCCESS) {
+    // A held Volume Up starts a QuickTake video on iOS instead of taking a
+    // photo, so a tap has to be short. This is the console stand-in for what
+    // the Camera app does with an app_timer.
+    if (new_timer_start(s_hid_tap_timer, BLE_HID_PROMPT_TAP_MS, prv_hid_tap_release_cb,
+                        (void *)(uintptr_t)usage, 0 /* flags */)) {
+      prompt_send_response_fmt(buffer, sizeof(buffer), "HID: releasing in %u ms",
+                               (unsigned)BLE_HID_PROMPT_TAP_MS);
+    } else {
+      prv_hid_release(usage, buffer, sizeof(buffer));
+    }
+  }
+  prompt_command_finish();
+}
+
+void command_hid_status(void) {
+  char buffer[96];
+  prompt_send_response_fmt(buffer, sizeof(buffer),
+                           "HID: supported=%s bits_sub=%s usage_sub=%s ready1=%s ready2=%s",
+                           bt_driver_is_hid_service_supported() ? "yes" : "no",
+                           bt_driver_hid_service_is_subscribed() ? "yes" : "no",
+                           bt_driver_hid_service_usage_is_subscribed() ? "yes" : "no",
+                           ble_hid_is_ready(BleHidReportPathBitmap) ? "yes" : "no",
+                           ble_hid_is_ready(BleHidReportPathUsage) ? "yes" : "no");
+  prompt_command_finish();
+}
+#endif  // CONFIG_BT_HID_REMOTE
 
 extern void hc_endpoint_logging_set_level(uint8_t level);
 void command_ble_logging_set_level(const char *level) {
