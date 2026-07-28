@@ -2263,7 +2263,7 @@ msgstr "Für %d Minuten schlummern"
 
 #: ../src/fw/popups/alarm_popup.c:71
 msgid "Alarm dismissed"
-msgstr "Wecker ignoriert"
+msgstr "Wecker ausgeschaltet"
 
 #: ../src/fw/popups/ble_hrm/ble_hrm_reminder_popup.c:17
 msgid ""
