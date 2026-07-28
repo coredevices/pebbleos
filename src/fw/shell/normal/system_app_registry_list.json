@@ -569,6 +569,15 @@
       "md_fn": "send_text_app_get_info"
     },
     {
+      "id": -101,
+      "enum": "CAMERA_REMOTE",
+      "md_fn": "camera_remote_get_app_info",
+      "color_argb8": "GColorBlueMoonARGB8",
+      "ifdefs": [
+        "CONFIG_BT_HID_REMOTE"
+      ]
+    },
+    {
       "id": -84,
       "enum": "VIBE_SCORE",
       "md_fn": "vibe_score_demo_get_info",
