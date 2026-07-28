@@ -1002,15 +1002,12 @@ static void prv_swap_ops_pan_cancel(void *w) {
 }
 
 static void prv_swap_ops_tap(void *w, GPoint point_on_screen) {
-  SwapLayer *swap_layer = w;
-  // No notification loaded yet (registration can happen before the layout loads): the gesture does
-  // nothing, mirroring can_start's pan gate so "no notification -> gesture is inert" holds for tap
-  // too (tap/swipe have no Started, so can_start cannot gate them).
-  if (!swap_layer->current) {
-    return;
-  }
-  // A tap on the notification body emulates SELECT (the default action / action menu).
-  prv_swap_touch_emit(swap_layer, BUTTON_ID_SELECT);
+  // A tap on the notification body intentionally does nothing. The action menu is opened by a left
+  // swipe (prv_swap_ops_swipe -> SELECT); a bare tap must not open it by accident. The handler is
+  // kept in the vtable (rather than NULL) so the tap gesture is still consumed here instead of
+  // leaking to another handler.
+  (void)w;
+  (void)point_on_screen;
 }
 
 static void prv_swap_ops_swipe(void *w, SwipeDirection dir) {

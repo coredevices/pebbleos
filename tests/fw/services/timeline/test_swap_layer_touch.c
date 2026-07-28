@@ -445,10 +445,10 @@ void test_swap_layer_touch__pan_declined_when_no_current(void) {
   swap_layer_touch_deregister(&fs.swap);
 }
 
-// F3 fix: a tap on the notification body now emits SELECT. Pre-refactor the swap own-set latched its
-// target only on pan Started, so a tap (which never Starts) reached Completed with target == NULL and
-// did NOTHING. The unified Touchdown-latch gives tap Completed a target, so SELECT is emitted.
-void test_swap_layer_touch__dispatch_tap_emits_select(void) {
+// A tap on the notification body is intentionally inert: it must NOT emit SELECT / open the action
+// menu. The action menu is reached by a left swipe instead (dispatch_swipe_left_emits_select), so a
+// bare tap does nothing (no button emitted, no pop).
+void test_swap_layer_touch__dispatch_tap_is_inert(void) {
   prv_live_state_setup();
   FakeSwap fs;
   prv_attach_and_register(&fs, 168, 400, false);
@@ -456,8 +456,7 @@ void test_swap_layer_touch__dispatch_tap_emits_select(void) {
   prv_drive(TouchEvent_Touchdown, 72, 120);
   prv_advance_ms(30);
   prv_drive(TouchEvent_Liftoff, 0, 0);
-  cl_assert_equal_i(s_emit_count, 1);
-  cl_assert_equal_i(s_last_emit, BUTTON_ID_SELECT);
+  cl_assert_equal_i(s_emit_count, 0);
   cl_assert_equal_i(s_pop_count, 0);
   cl_assert(!swap_layer_touch_is_gesture_target(&fs.swap));
 
