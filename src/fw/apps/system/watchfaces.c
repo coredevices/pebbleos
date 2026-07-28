@@ -26,6 +26,7 @@
 #include "applib/app_timer.h"
 #include "applib/touch_service.h"
 #include "applib/ui/animation.h"
+#include "applib/ui/content_indicator.h"
 #include "applib/ui/property_animation.h"
 #include "applib/ui/vibes.h"
 #include <pbl/util/math.h>
@@ -179,10 +180,10 @@ static void prv_selector_content_update_proc(Layer *layer, GContext *ctx) {
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   }
 
-  // Position counter at the bottom
+  // Position counter below the Active badge
   char counter[12];
   snprintf(counter, sizeof(counter), "%d/%d", data->index + 1, count);
-  const GRect counter_rect = GRect(10, bounds.size.h - 42, bounds.size.w - 20, 24);
+  const GRect counter_rect = GRect(10, bounds.size.h / 2 + 58, bounds.size.w - 20, 24);
   graphics_draw_text(ctx, counter, small_font, counter_rect, GTextOverflowModeTrailingEllipsis,
                      GTextAlignmentCenter, NULL);
 }
@@ -193,14 +194,12 @@ static void prv_selector_chevron_update_proc(Layer *layer, GContext *ctx) {
     return;
   }
   const GRect bounds = layer->bounds;
-  graphics_context_set_text_color(ctx, GColorWhite);
-  GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  const GRect left_rect = GRect(6, bounds.size.h / 2 - 16, 20, 28);
-  const GRect right_rect = GRect(bounds.size.w - 26, bounds.size.h / 2 - 16, 20, 28);
-  graphics_draw_text(ctx, "<", font, left_rect, GTextOverflowModeTrailingEllipsis,
-                     GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, ">", font, right_rect, GTextOverflowModeTrailingEllipsis,
-                     GTextAlignmentCenter, NULL);
+  const GRect top_rect = GRect(0, 8, bounds.size.w, 16);
+  const GRect bottom_rect = GRect(0, bounds.size.h - 24, bounds.size.w, 16);
+  content_indicator_draw_arrow(ctx, &top_rect, ContentIndicatorDirectionUp, GColorWhite,
+                               GColorBlack, GAlignCenter);
+  content_indicator_draw_arrow(ctx, &bottom_rect, ContentIndicatorDirectionDown, GColorWhite,
+                               GColorBlack, GAlignCenter);
 }
 
 static void prv_selector_slide(WatchfacesSelectorData *data, int direction) {
@@ -210,7 +209,7 @@ static void prv_selector_slide(WatchfacesSelectorData *data, int direction) {
   }
   GRect to = data->window.layer.bounds;
   GRect from = to;
-  from.origin.x = (direction > 0) ? to.size.w : -to.size.w;
+  from.origin.y = (direction > 0) ? to.size.h : -to.size.h;
   layer_set_frame(&data->content_layer, &from);
   data->slide_animation = property_animation_create_layer_frame(&data->content_layer, &from, &to);
   if (data->slide_animation) {
@@ -222,7 +221,7 @@ static void prv_selector_slide(WatchfacesSelectorData *data, int direction) {
   layer_mark_dirty(&data->content_layer);
 }
 
-//! direction: +1 = next (slide in from the right), -1 = previous
+//! direction: +1 = next (slide in from the bottom), -1 = previous
 static void prv_selector_navigate(WatchfacesSelectorData *data, int direction) {
   const uint16_t count = app_menu_data_source_get_count(&data->data_source);
   if (count < 2) {
@@ -271,9 +270,10 @@ static void prv_selector_touch_handler(const TouchEvent *event, void *context) {
       data->touch_tracking = false;
       const int16_t dx = event->x - data->touch_down_x;
       const int16_t dy = event->y - data->touch_down_y;
-      if (ABS(dx) >= SELECTOR_SWIPE_MIN_PX && ABS(dx) > ABS(dy)) {
-        // Swipe left moves forward, swipe right moves back
-        prv_selector_navigate(data, (dx < 0) ? 1 : -1);
+      if (ABS(dy) >= SELECTOR_SWIPE_MIN_PX && ABS(dy) > ABS(dx)) {
+        // Swipe up moves forward, swipe down moves back; horizontal swipes
+        // are ignored.
+        prv_selector_navigate(data, (dy < 0) ? 1 : -1);
       } else if (ABS(dx) < SELECTOR_SWIPE_MIN_PX && ABS(dy) < SELECTOR_SWIPE_MIN_PX) {
         prv_selector_select(data);
       }
