@@ -28,6 +28,7 @@
 #include "stubs_pbl_malloc.h"
 #include "stubs_bt_lock.h"
 #include "stubs_hexdump.h"
+#include "stubs_imaging.h"
 #include "stubs_logging.h"
 #include "stubs_mutex.h"
 #include "stubs_serial.h"
@@ -35,13 +36,6 @@
 
 void ams_music_disconnect(void) {}
 
-// The endpoint references this for album-art row sizing; stub it (these tests don't send art).
-uint16_t gbitmap_format_get_row_size_bytes(int16_t width, GBitmapFormat format) {
-  if (format == GBitmapFormat4BitPalette) {
-    return (width * 4 + 7) / 8;
-  }
-  return width;
-}
 
 extern void music_protocol_msg_callback(CommSession *session, const uint8_t* msg, size_t length);
 

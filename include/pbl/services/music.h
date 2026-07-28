@@ -105,17 +105,6 @@ const char * music_get_connected_server_debug_name(void);
 
 struct GBitmap;
 
-//! @return True if the connected server can supply album art for the current track. This is only
-//! the case for companion apps that advertise the capability, so callers must be prepared for it to
-//! return false and fall back to a text-only now playing screen.
-bool music_is_album_art_supported(void);
-
-//! Ask the connected server to send the album art for the current track. The art is delivered
-//! asynchronously; a PebbleMediaEventTypeAlbumArtUpdated event is posted once it is available (or
-//! once the server reports that there is no art). No-op when album art is not supported.
-//! @note Callers should only request art while the art is actually visible, to avoid needless
-//! transfers.
-void music_request_album_art(void);
 
 //! @return An 8-bit generation token that changes whenever the current track changes (title, artist
 //! or album). The Music app re-requests art when it changes; servers echo it in album-art transfers

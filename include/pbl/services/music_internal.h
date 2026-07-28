@@ -30,11 +30,6 @@ typedef struct {
   MusicServerCapability (*get_capability_bitset)(void);
   void (*request_reduced_latency)(bool reduced_latency);
   void (*request_low_latency_for_period)(uint32_t period_ms);
-  //! Optional. Returns true if the server can supply album art. NULL means unsupported.
-  bool (*is_album_art_supported)(void);
-  //! Optional. Requests album art for the current track, tagged with the given generation token
-  //! (which the server must echo back). NULL means unsupported.
-  void (*request_album_art)(uint8_t token);
 } MusicServerImplementation;
 
 //! Informs the music service when the server got (dis)connected.

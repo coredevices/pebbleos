@@ -32,7 +32,8 @@ typedef struct PACKED {
       bool smooth_fw_install_progress_support:1;
       bool custom_vibe_pattern_support:1;
       uint8_t javascript_bytecode_version_appended: 1;
-      uint8_t more_padded_bits:4;
+      bool imaging_support:1;  // Phone serves images (album art, ...) via the imaging endpoint
+      uint8_t more_padded_bits:3;
       bool continue_fw_install_across_disconnect_support: 1;
       bool blob_db_version_support: 1;
       bool settings_sync_support: 1;  // Phone supports Settings BlobDB sync

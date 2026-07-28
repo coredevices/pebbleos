@@ -5,6 +5,7 @@
 
 #include "applib/graphics/gtypes.h"
 #include "apps/system/music.h"
+#include "pbl/services/imaging.h"
 #include <pbl/drivers/rtc.h>
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
@@ -79,8 +80,14 @@ struct MusicServiceContext {
   uint8_t now_playing_generation;
 } s_music_ctx;
 
+// Album art arrives via the generic image-fetch service; store it against the requesting token.
+static void prv_imaging_album_art_received(uint8_t token, GBitmap *bitmap) {
+  music_set_album_art(bitmap, token);
+}
+
 void music_init(void) {
   s_music_ctx.mutex = mutex_create_recursive();
+  imaging_register_handler(ImagingImageTypeAlbumArt, prv_imaging_album_art_received);
 }
 
 static void copy_and_truncate(char *dest, const char *src, size_t src_length) {
@@ -534,23 +541,6 @@ bool music_album_art_is_current(void) {
   const bool is_current = (s_music_ctx.album_art_generation == s_music_ctx.now_playing_generation);
   mutex_unlock_recursive(s_music_ctx.mutex);
   return is_current;
-}
-
-bool music_is_album_art_supported(void) {
-  const off_t o = offsetof(__typeof__(*s_music_ctx.implementation), is_album_art_supported);
-  bool (*func_ptr)(void) = prv_implementation_function_for_offset(o);
-  if (!func_ptr) {
-    return false;
-  }
-  return func_ptr();
-}
-
-void music_request_album_art(void) {
-  const off_t o = offsetof(__typeof__(*s_music_ctx.implementation), request_album_art);
-  void (*request_album_art)(uint8_t) = prv_implementation_function_for_offset(o);
-  if (request_album_art) {
-    request_album_art(music_get_now_playing_generation());
-  }
 }
 
 const GBitmap *music_album_art_lock(void) {

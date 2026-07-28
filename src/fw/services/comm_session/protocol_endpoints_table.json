@@ -33,6 +33,7 @@
     [ 11,    "0x000b", "private", "clock_protocol_msg_callback", null, null ],
     [ 32,    "0x0020", "private", "music_protocol_msg_callback", null, "g_default_kernel_receiver_opt_main" ],
     [ 33,    "0x0021", "private", "phone_protocol_msg_callback", null, "g_default_kernel_receiver_opt_main" ],
+    [ 53,    "0x0035", "private", "imaging_protocol_msg_callback", null, "g_default_kernel_receiver_opt_main" ],
     [ 48,    "0x0030", "any",     null, "g_app_message_receiver_implementation", null ],
     [ 49,    "0x0031", "any",     "launcher_app_message_protocol_msg_callback_deprecated", null, null ],
     [ 50,    "0x0032", "any",     "customizable_app_protocol_msg_callback", null, null ],

@@ -1,0 +1,218 @@
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+#include "pbl/services/imaging.h"
+
+#include "applib/graphics/gtypes.h"
+#include "kernel/pbl_malloc.h"
+#include "pbl/services/comm_session/session.h"
+#include "pbl/util/math.h"
+#include "pbl/util/size.h"
+
+#include <string.h>
+
+static const uint16_t IMAGING_ENDPOINT = 0x35;
+
+// Full-screen 4-bpp on the largest supported display (260x260) is ~34 KB. Cap generously and reject
+// anything larger to bound kernel-heap use against a malformed or hostile phone.
+#define IMAGING_MAX_BYTES (40 * 1024)
+#define IMAGING_MAX_DIM (300)
+#define IMAGING_PALETTE_ENTRIES (16)
+
+static ImagingReceivedHandler s_handlers[ImagingImageTypeAlbumArt + 1];
+// The response only carries the token, so remember which type the in-flight request was for.
+static ImagingImageType s_pending_type;
+
+static struct {
+  bool active;
+  uint8_t token;
+  GBitmapFormat format;
+  uint16_t width;
+  uint16_t height;
+  uint16_t row_size_bytes;
+  uint32_t total_bytes;
+  uint32_t received_bytes;
+  uint8_t *pixels;
+  GColor *palette;  // NULL for non-palette formats
+} s_rx;
+
+static void prv_rx_reset(void) {
+  kernel_free(s_rx.pixels);
+  kernel_free(s_rx.palette);
+  s_rx = (__typeof__(s_rx)) { 0 };
+}
+
+void imaging_register_handler(ImagingImageType image_type, ImagingReceivedHandler handler) {
+  if (image_type < ARRAY_LENGTH(s_handlers)) {
+    s_handlers[image_type] = handler;
+  }
+}
+
+static void prv_deliver(uint8_t token, GBitmap *bitmap) {
+  ImagingReceivedHandler handler =
+      (s_pending_type < ARRAY_LENGTH(s_handlers)) ? s_handlers[s_pending_type] : NULL;
+  if (handler) {
+    handler(token, bitmap);
+  } else if (bitmap) {
+    kernel_free(bitmap->addr);
+    kernel_free(bitmap->palette);
+    kernel_free(bitmap);
+  }
+}
+
+bool imaging_is_supported(void) {
+  CommSession *session = comm_session_get_system_session();
+  return session && comm_session_has_capability(session, CommSessionImagingSupport);
+}
+
+bool imaging_request_album_art(uint8_t token, ImagingFormat format, uint16_t width, uint16_t height,
+                               const char *title, const char *artist) {
+  CommSession *session = comm_session_get_system_session();
+  if (!session || !comm_session_has_capability(session, CommSessionImagingSupport)) {
+    return false;
+  }
+  const size_t title_len = title ? MIN(strlen(title), 255) : 0;
+  const size_t artist_len = artist ? MIN(strlen(artist), 255) : 0;
+  uint8_t payload[sizeof(ImagingRequestHeader) + 2 + 255 + 255];
+  ImagingRequestHeader *hdr = (ImagingRequestHeader *)payload;
+  hdr->cmd = ImagingCmdIDRequest;
+  hdr->token = token;
+  hdr->image_type = ImagingImageTypeAlbumArt;
+  hdr->format = format;
+  hdr->width = width;
+  hdr->height = height;
+  uint8_t *cursor = payload + sizeof(*hdr);
+  *cursor++ = (uint8_t)title_len;
+  memcpy(cursor, title, title_len);
+  cursor += title_len;
+  *cursor++ = (uint8_t)artist_len;
+  memcpy(cursor, artist, artist_len);
+  cursor += artist_len;
+
+  s_pending_type = ImagingImageTypeAlbumArt;
+  comm_session_send_data(session, IMAGING_ENDPOINT, payload, cursor - payload,
+                         COMM_SESSION_DEFAULT_TIMEOUT);
+  return true;
+}
+
+static uint16_t prv_gbitmap_format_for(ImagingFormat format, GBitmapFormat *out) {
+  switch (format) {
+    case ImagingFormat8BitColor:
+      *out = GBitmapFormat8Bit;
+      return 0;  // no palette
+    case ImagingFormat4BitPalette:
+      *out = GBitmapFormat4BitPalette;
+      return IMAGING_PALETTE_ENTRIES;
+    case ImagingFormat1Bit:
+    default:
+      *out = GBitmapFormat1Bit;
+      return 0;
+  }
+}
+
+void imaging_protocol_msg_callback(CommSession *session, const uint8_t *msg, size_t length) {
+  if (length < sizeof(ImagingResponseHeader)) {
+    return;
+  }
+  const ImagingResponseHeader *hdr = (const ImagingResponseHeader *)msg;
+  if (hdr->cmd != ImagingCmdIDResponse) {
+    return;
+  }
+  const uint8_t *cursor = msg + sizeof(*hdr);
+  const uint8_t *msg_end = msg + length;
+
+  if (hdr->flags & ImagingResponseFlagNoImage) {
+    prv_rx_reset();
+    prv_deliver(hdr->token, NULL);
+    return;
+  }
+
+  if (hdr->flags & ImagingResponseFlagFirst) {
+    prv_rx_reset();
+    if (cursor + 6 > msg_end) {
+      return;
+    }
+    const uint16_t width = cursor[0] | (cursor[1] << 8);
+    const uint16_t height = cursor[2] | (cursor[3] << 8);
+    const uint8_t format = cursor[4];
+    const uint8_t palette_count = cursor[5];
+    cursor += 6;
+    GBitmapFormat gformat;
+    const uint16_t max_palette = prv_gbitmap_format_for(format, &gformat);
+    if (width == 0 || height == 0 || width > IMAGING_MAX_DIM || height > IMAGING_MAX_DIM ||
+        palette_count > max_palette || (max_palette > 0 && palette_count == 0)) {
+      return;
+    }
+    if (cursor + palette_count > msg_end) {
+      return;
+    }
+    const uint16_t row_size = gbitmap_format_get_row_size_bytes(width, gformat);
+    const uint32_t total = (uint32_t)row_size * height;
+    if (total == 0 || total > IMAGING_MAX_BYTES) {
+      return;
+    }
+    s_rx.pixels = kernel_zalloc(total);
+    if (!s_rx.pixels) {
+      prv_rx_reset();
+      return;
+    }
+    if (max_palette > 0) {
+      s_rx.palette = kernel_zalloc(IMAGING_PALETTE_ENTRIES * sizeof(GColor));
+      if (!s_rx.palette) {
+        prv_rx_reset();
+        return;
+      }
+      for (uint8_t i = 0; i < palette_count; ++i) {
+        s_rx.palette[i] = (GColor) { .argb = cursor[i] };
+      }
+      cursor += palette_count;
+    }
+    s_rx.active = true;
+    s_rx.token = hdr->token;
+    s_rx.format = gformat;
+    s_rx.width = width;
+    s_rx.height = height;
+    s_rx.row_size_bytes = row_size;
+    s_rx.total_bytes = total;
+    s_rx.received_bytes = 0;
+  }
+
+  if (!s_rx.active || s_rx.token != hdr->token) {
+    prv_rx_reset();
+    return;
+  }
+
+  // Reliable, ordered transport: require contiguous in-order chunks with an exact declared length.
+  const size_t avail = (cursor <= msg_end) ? (size_t)(msg_end - cursor) : 0;
+  if (hdr->offset != s_rx.received_bytes || hdr->chunk_len != avail ||
+      (uint32_t)hdr->offset + hdr->chunk_len > s_rx.total_bytes) {
+    prv_rx_reset();
+    return;
+  }
+  memcpy(s_rx.pixels + hdr->offset, cursor, hdr->chunk_len);
+  s_rx.received_bytes += hdr->chunk_len;
+
+  if (hdr->flags & ImagingResponseFlagLast) {
+    if (s_rx.received_bytes != s_rx.total_bytes) {
+      prv_rx_reset();
+      return;
+    }
+    GBitmap *bmp = kernel_zalloc(sizeof(GBitmap));
+    if (!bmp) {
+      prv_rx_reset();
+      return;
+    }
+    bmp->addr = s_rx.pixels;
+    bmp->row_size_bytes = s_rx.row_size_bytes;
+    bmp->info.format = s_rx.format;
+    bmp->info.version = GBITMAP_VERSION_CURRENT;
+    bmp->bounds = (GRect) { { 0, 0 }, { s_rx.width, s_rx.height } };
+    bmp->palette = s_rx.palette;
+    // Ownership of the pixel and palette buffers moves into the bitmap.
+    const uint8_t token = s_rx.token;
+    s_rx.pixels = NULL;
+    s_rx.palette = NULL;
+    prv_rx_reset();
+    prv_deliver(token, bmp);
+  }
+}

@@ -17,6 +17,7 @@
 #include "kernel/ui/system_icons.h"
 #include "pbl/services/clock.h"
 #include "pbl/services/i18n/i18n.h"
+#include "pbl/services/imaging.h"
 #include "pbl/services/music.h"
 #include "pbl/services/vibes/vibe_score.h"
 #include "shell/prefs.h"
@@ -910,12 +911,16 @@ static void prv_configure_music_text_layer(
                                               rect->size.w, rect->size.h + y_offset));
 }
 
-// The album-art square fills the content column (left of the action bar) from the top down to just
-// above the times row, so the times/progress/tape below keep their stock positions.
+// The album-art square fills the width from the top down to just above the times row. On rect
+// screens it stops left of the action bar; on round screens it spans the full display and the
+// action bar overlaps its right edge, so the round cover reaches edge to edge.
+static int16_t prv_art_width(void) {
+  return PBL_IF_RECT_ELSE(DISP_COLS - ACTION_BAR_WIDTH, DISP_COLS);
+}
+
 static GRect prv_album_art_rect(void) {
-  const int16_t content_w = DISP_COLS - ACTION_BAR_WIDTH;
   const int16_t art_h = prv_config()->time_field.origin_y - 2;
-  return GRect(0, 0, content_w, art_h);
+  return GRect(0, 0, prv_art_width(), art_h);
 }
 
 // In album-art mode the track title moves down beside the tape (to the tape's right on rect
@@ -1016,13 +1021,18 @@ static void prv_album_art_update_proc(Layer *layer, GContext *ctx) {
 //! already have art for this track (keyed off the now-playing generation, not "is any art present",
 //! so a track change re-fetches).
 static void prv_maybe_request_album_art(void) {
-  if (!shell_prefs_get_music_show_album_art() || !music_is_album_art_supported() ||
-      !music_has_now_playing()) {
+  if (!shell_prefs_get_music_show_album_art() || !imaging_is_supported() ||
+      !music_has_now_playing() || music_album_art_is_current()) {
     return;
   }
-  if (!music_album_art_is_current()) {
-    music_request_album_art();
-  }
+  // The watch picks the size (its art-square width) and asks for the current track by name, so the
+  // phone returns art that matches what we're showing.
+  const int16_t side = prv_art_width();
+  char title[MUSIC_BUFFER_LENGTH];
+  char artist[MUSIC_BUFFER_LENGTH];
+  music_get_now_playing(title, artist, NULL);
+  imaging_request_album_art(music_get_now_playing_generation(), ImagingFormat4BitPalette,
+                            side, side, title, artist);
 }
 
 #define TITLE_MARQUEE_INTERVAL_MS 33  // slow, smooth

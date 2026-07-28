@@ -5,6 +5,7 @@
 #include "applib/graphics/framebuffer.h"
 #include "applib/graphics/graphics.h"
 #include "applib/ui/window_private.h"
+#include "pbl/services/imaging.h"
 #include "pbl/services/music.h"
 #include "pbl/util/size.h"
 #include "shell/system_theme.h"
@@ -119,11 +120,15 @@ bool music_album_art_is_current(void) {
   return true;
 }
 
-bool music_is_album_art_supported(void) {
+// Album art is fetched via the generic imaging service; these tests never show art.
+bool imaging_is_supported(void) {
   return false;
 }
 
-void music_request_album_art(void) {}
+bool imaging_request_album_art(uint8_t token, ImagingFormat format, uint16_t width, uint16_t height,
+                               const char *title, const char *artist) {
+  return false;
+}
 
 // Shell prefs fake
 /////////////////////

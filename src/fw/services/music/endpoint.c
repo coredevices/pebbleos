@@ -4,16 +4,12 @@
 #include "pbl/services/music_endpoint.h"
 #include "pbl/services/music_endpoint_types.h"
 
-#include "applib/graphics/gtypes.h"
 #include "comm/ble/kernel_le_client/ams/ams.h"
-#include "kernel/pbl_malloc.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/comm_session/session_remote_os.h"
 #include "pbl/services/music_internal.h"
 #include <pbl/logging/logging.h>
 #include "pbl/util/math.h"
-
-#include <string.h>
 
 PBL_LOG_MODULE_DECLARE(service_music, CONFIG_SERVICE_MUSIC_LOG_LEVEL);
 
@@ -168,147 +164,6 @@ static void prv_update_player_info(CommSession *session, const uint8_t* msg, siz
   music_update_player_name(player_name_ptr, player_name_length);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// Album art reassembly
-//
-// The phone renders album art to the watch's native dimensions as a 4-bpp palettized image and
-// sends it in MusicEndpointCmdIDAlbumArtResponse chunks. We reassemble the pixel data into a kernel
-// heap buffer and, once complete, wrap it in a GBitmap that ownership of which is handed to the
-// music service. This callback always runs on KernelMain, so the static reassembly state needs no
-// additional locking.
-
-// Full-screen 4-bpp on the largest supported display (260x260) is ~34 KB. Cap generously and reject
-// anything larger to bound kernel heap use against a malformed or hostile phone. (The kernel heap's
-// largest contiguous block is ~44 KB, so full-screen 8-bit at 66 KB does not fit; art stays 4-bpp
-// palettized with a per-image 16-colour palette.)
-#define MUSIC_ALBUM_ART_MAX_BYTES (40 * 1024)
-#define MUSIC_ALBUM_ART_MAX_DIM (300)
-#define MUSIC_ALBUM_ART_PALETTE_ENTRIES (16)
-
-static struct {
-  bool active;
-  uint8_t token;
-  uint16_t width;
-  uint16_t height;
-  uint16_t row_size_bytes;
-  uint32_t total_bytes;
-  uint32_t received_bytes;
-  uint8_t *pixels;
-  GColor *palette;
-} s_art_rx;
-
-static void prv_art_rx_reset(void) {
-  kernel_free(s_art_rx.pixels);
-  kernel_free(s_art_rx.palette);
-  s_art_rx = (__typeof__(s_art_rx)) { 0 };
-}
-
-static void prv_handle_album_art_chunk(const uint8_t *msg, size_t length) {
-  if (length < sizeof(MusicEndpointAlbumArtChunkHeader)) {
-    return;
-  }
-  const MusicEndpointAlbumArtChunkHeader *hdr = (const MusicEndpointAlbumArtChunkHeader *)msg;
-  const uint8_t *cursor = msg + sizeof(*hdr);
-  const uint8_t *msg_end = msg + length;
-
-  // Ignore chunks that aren't for the track we currently have (art that raced with a track change).
-  // Don't tear down an in-progress transfer for the current track: just drop the stale chunk.
-  if (hdr->token != music_get_now_playing_generation()) {
-    return;
-  }
-
-  if (hdr->flags & MusicAlbumArtFlagNoArt) {
-    // Phone has no art for this track: clear any displayed art and fall back to text-only.
-    prv_art_rx_reset();
-    music_set_album_art(NULL, hdr->token);
-    return;
-  }
-
-  if (hdr->flags & MusicAlbumArtFlagFirst) {
-    prv_art_rx_reset();
-    if (cursor + 5 > msg_end) {
-      return;
-    }
-    const uint16_t width = cursor[0] | (cursor[1] << 8);
-    const uint16_t height = cursor[2] | (cursor[3] << 8);
-    const uint8_t palette_count = cursor[4];
-    cursor += 5;
-    if (width == 0 || height == 0 || width > MUSIC_ALBUM_ART_MAX_DIM ||
-        height > MUSIC_ALBUM_ART_MAX_DIM || palette_count == 0 ||
-        palette_count > MUSIC_ALBUM_ART_PALETTE_ENTRIES) {
-      return;
-    }
-    if (cursor + palette_count > msg_end) {
-      return;
-    }
-    const uint16_t row_size = gbitmap_format_get_row_size_bytes(width, GBitmapFormat4BitPalette);
-    const uint32_t total = (uint32_t)row_size * height;
-    if (total == 0 || total > MUSIC_ALBUM_ART_MAX_BYTES) {
-      return;
-    }
-    s_art_rx.pixels = kernel_zalloc(total);
-    s_art_rx.palette = kernel_zalloc(MUSIC_ALBUM_ART_PALETTE_ENTRIES * sizeof(GColor));
-    if (!s_art_rx.pixels || !s_art_rx.palette) {
-      prv_art_rx_reset();
-      return;
-    }
-    for (uint8_t i = 0; i < palette_count; ++i) {
-      s_art_rx.palette[i] = (GColor) { .argb = cursor[i] };
-    }
-    cursor += palette_count;
-    s_art_rx.active = true;
-    s_art_rx.token = hdr->token;
-    s_art_rx.width = width;
-    s_art_rx.height = height;
-    s_art_rx.row_size_bytes = row_size;
-    s_art_rx.total_bytes = total;
-    s_art_rx.received_bytes = 0;
-  }
-
-  if (!s_art_rx.active || s_art_rx.token != hdr->token) {
-    // Continuation chunk without a valid in-progress transfer.
-    prv_art_rx_reset();
-    return;
-  }
-
-  // The transport is reliable and ordered, so require chunks to be contiguous and in order. This
-  // makes the received-byte count exact (no duplicate/overlapping chunks silently leaving holes),
-  // and the declared length must match the actual pixel payload.
-  const size_t avail = (cursor <= msg_end) ? (size_t)(msg_end - cursor) : 0;
-  if (hdr->offset != s_art_rx.received_bytes || hdr->chunk_len != avail ||
-      (uint32_t)hdr->offset + hdr->chunk_len > s_art_rx.total_bytes) {
-    prv_art_rx_reset();
-    return;
-  }
-  memcpy(s_art_rx.pixels + hdr->offset, cursor, hdr->chunk_len);
-  s_art_rx.received_bytes += hdr->chunk_len;
-
-  if (hdr->flags & MusicAlbumArtFlagLast) {
-    if (s_art_rx.received_bytes != s_art_rx.total_bytes) {
-      // Incomplete: don't publish a partial image.
-      prv_art_rx_reset();
-      return;
-    }
-    GBitmap *bmp = kernel_zalloc(sizeof(GBitmap));
-    if (!bmp) {
-      prv_art_rx_reset();
-      return;
-    }
-    bmp->addr = s_art_rx.pixels;
-    bmp->row_size_bytes = s_art_rx.row_size_bytes;
-    bmp->info.format = GBitmapFormat4BitPalette;
-    bmp->info.version = GBITMAP_VERSION_CURRENT;
-    bmp->bounds = (GRect) { { 0, 0 }, { s_art_rx.width, s_art_rx.height } };
-    bmp->palette = s_art_rx.palette;
-    // Ownership of the pixel and palette buffers moves into the bitmap.
-    const uint8_t token = s_art_rx.token;
-    s_art_rx.pixels = NULL;
-    s_art_rx.palette = NULL;
-    prv_art_rx_reset();
-    music_set_album_art(bmp, token);
-  }
-}
-
 void music_protocol_msg_callback(CommSession *session, const uint8_t* msg, size_t length) {
   if (!s_connected) {
     return;
@@ -327,9 +182,6 @@ void music_protocol_msg_callback(CommSession *session, const uint8_t* msg, size_
       break;
     case MusicEndpointCmdIDPlayerInfoResponse:
       prv_update_player_info(session, msg, length);
-      break;
-    case MusicEndpointCmdIDAlbumArtResponse:
-      prv_handle_album_art_chunk(msg, length);
       break;
     default:
       PBL_LOG_DBG("Invalid command 0x%"PRIx8, msg[0]);
@@ -411,21 +263,6 @@ static void prv_music_request_low_latency_for_period(uint32_t period_ms) {
                                   period_ms / MS_PER_SECOND);
 }
 
-static bool prv_music_is_album_art_supported(void) {
-  CommSession *session = comm_session_get_system_session();
-  return session && comm_session_has_capability(session, CommSessionMusicAlbumArtSupport);
-}
-
-static void prv_music_request_album_art(uint8_t token) {
-  CommSession *session = comm_session_get_system_session();
-  if (!session || !comm_session_has_capability(session, CommSessionMusicAlbumArtSupport)) {
-    return;
-  }
-  const uint8_t payload[] = { MusicEndpointCmdIDGetAlbumArt, token };
-  comm_session_send_data(session, MUSIC_CTRL_ENDPOINT, payload, sizeof(payload),
-                         COMM_SESSION_DEFAULT_TIMEOUT);
-}
-
 static const MusicServerImplementation s_pp_music_implementation = {
   .debug_name = "PP",
   .is_command_supported = &prv_music_is_command_supported,
@@ -434,8 +271,6 @@ static const MusicServerImplementation s_pp_music_implementation = {
   .get_capability_bitset = prv_music_get_capability_bitset,
   .request_reduced_latency = prv_music_request_reduced_latency,
   .request_low_latency_for_period = prv_music_request_low_latency_for_period,
-  .is_album_art_supported = prv_music_is_album_art_supported,
-  .request_album_art = prv_music_request_album_art,
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -452,10 +287,6 @@ static void prv_set_connected(bool connected) {
   if (s_connected) {
     // Request initial state:
     prv_send_music_command_to_handset(MusicEndpointCmdIDGetAllInfo);
-  } else {
-    // Drop any in-progress album-art transfer so its buffer isn't leaked across a disconnect. Runs
-    // on the same task as the chunk receiver, so touching s_art_rx here is safe.
-    prv_art_rx_reset();
   }
 }
 
