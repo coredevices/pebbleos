@@ -288,3 +288,119 @@ jobs:
             deploy-release \
             --release-version ${{ github.ref_name }} \
             --cohort internal
+
+      - name: Upload OTA artifacts to R2
+        if: ${{ github.repository == 'coredevices/PebbleOS' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.OTA_BUCKET_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.OTA_BUCKET_SECRET }}
+          AWS_DEFAULT_REGION: us-east-1
+          BUCKET: ${{ vars.OTA_BUCKET_NAME }}
+          ENDPOINT: ${{ vars.OTA_BUCKET_ENDPOINT }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -o pipefail
+
+          pip install awscli
+
+          # Write-once by content: a moved or re-pushed tag must never silently
+          # swap the bytes behind a version that may already be promoted to
+          # users. Re-uploading the identical file is a no-op, so a job that
+          # died partway (or after the manifest POST failed) can simply be
+          # re-run without hand-deleting the objects it already wrote.
+          upload() {
+            src="$1"
+            key="$2"
+            remote=$(aws s3api head-object --bucket "$BUCKET" --key "$key" \
+                       --endpoint-url "$ENDPOINT" \
+                       --query '[ContentLength,ETag]' --output text 2>/dev/null) || remote=""
+            if [ -n "$remote" ]; then
+              remote_size=$(echo "$remote" | cut -f1)
+              # R2 reports ETag as the MD5 (quoted) for single-part uploads.
+              remote_md5=$(echo "$remote" | cut -f2 | tr -d '"')
+              local_size=$(wc -c < "$src" | tr -d ' ')
+              local_md5=$(md5sum "$src" | cut -d' ' -f1)
+              if [ "$remote_size" = "$local_size" ] && [ "$remote_md5" = "$local_md5" ]; then
+                echo "s3://$BUCKET/$key already holds these exact bytes - skipping"
+                return 0
+              fi
+              echo "::error::s3://$BUCKET/$key already exists with DIFFERENT bytes - refusing to overwrite published firmware for tag $TAG. If this republish is intentional, delete the object by hand first." >&2
+              exit 1
+            fi
+            aws s3 cp "$src" "s3://$BUCKET/$key" --endpoint-url "$ENDPOINT"
+          }
+
+          for file in artifacts-*/normal*.pbz; do
+            # Skip slot-specific pbzs
+            if echo "$file" | grep -q "_slot"; then
+              continue
+            fi
+
+            upload "$file" "ota/$TAG/$(basename "$file")"
+          done
+
+          for file in artifacts-*/firmware_*.elf; do
+            upload "$file" "elf/$TAG/$(basename "$file")"
+          done
+
+      - name: Publish release to eng-dash
+        if: ${{ github.repository == 'coredevices/PebbleOS' }}
+        run: |
+          set -o pipefail
+
+          TAG="${{ github.ref_name }}"
+          artifacts="[]"
+
+          for file in artifacts-*/normal*.pbz; do
+            # Skip slot-specific pbzs
+            if echo $file | grep -q "_slot"; then
+              continue
+            fi
+
+            BOARD=$(echo $file | sed -n -e 's/^.*normal_\([a-zA-Z0-9_]*\)_v.*\.pbz$/\1/p')
+            if [ -z "$BOARD" ]; then
+              echo "::error::Could not derive board from pbz filename: $file" >&2
+              exit 1
+            fi
+            SHA256=$(sha256sum "$file" | cut -d ' ' -f 1)
+            SIZE=$(stat -c %s "$file")
+
+            # ponytail: slot boards have two elfs (one build id each); manifest carries slot0's
+            ELF="artifacts-${BOARD}/firmware_${BOARD}_${TAG}.elf"
+            if [ ! -f "$ELF" ]; then
+              ELF="artifacts-${BOARD}_slot0/firmware_${BOARD}_${TAG}_slot0.elf"
+            fi
+            if [ ! -f "$ELF" ]; then
+              echo "::error::No elf found for board $BOARD (tried $ELF)" >&2
+              exit 1
+            fi
+            BUILD_ID=$(readelf -n "$ELF" | sed -n -e 's/^.*Build ID: //p')
+            if [ -z "$BUILD_ID" ]; then
+              echo "::error::Could not read Build ID from $ELF" >&2
+              exit 1
+            fi
+
+            artifacts=$(echo "$artifacts" | jq \
+              --arg hw "$BOARD" \
+              --arg key "ota/${TAG}/$(basename "$file")" \
+              --arg elf "elf/${TAG}/$(basename "$ELF")" \
+              --arg sha "$SHA256" \
+              --argjson size "$SIZE" \
+              --arg bid "$BUILD_ID" \
+              '. + [{hardware_version: $hw, r2_key: $key, elf_r2_key: $elf, sha256: $sha, size: $size, build_id: $bid}]')
+          done
+
+          jq -n \
+            --arg version "$TAG" \
+            --arg revision "${{ github.sha }}" \
+            --argjson artifacts "$artifacts" \
+            '{version: $version, revision: $revision, must_pass_through: false, artifacts: $artifacts}' \
+            > manifest.json
+
+          cat manifest.json
+
+          curl -sS --fail-with-body -X POST \
+            -H "Authorization: Bearer ${{ secrets.ENGDASH_OTA_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data @manifest.json \
+            https://dash.repebble.com/api/ota/releases
