@@ -28,6 +28,12 @@ PBL_LOG_MODULE_DEFINE(bt, CONFIG_BT_LOG_LEVEL);
 
 static const uint32_t s_bt_stack_start_stop_timeout_ms = 10000;
 
+#ifdef CONFIG_BT_HID_REMOTE
+// Generic HID (0x03C0), not Keyboard (0x03C1): the watch exposes a Consumer
+// Control collection only, so showing up as a keyboard would be misleading.
+#define BT_APPEARANCE_GENERIC_HID (0x03C0)
+#endif
+
 extern void pebble_pairing_service_init(void);
 extern void ppog_reversed_service_init(void);
 extern void nimble_discover_init(void);
@@ -140,6 +146,9 @@ bool bt_driver_start(BTDriverConfig *config) {
   s_dis_info = config->dis_info;
 
   ble_svc_gap_init();
+#ifdef CONFIG_BT_HID_REMOTE
+  ble_svc_gap_device_appearance_set(BT_APPEARANCE_GENERIC_HID);
+#endif
   ble_svc_gatt_init();
   dis_service_init(&s_dis_info);
   pebble_pairing_service_init();
