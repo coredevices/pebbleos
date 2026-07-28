@@ -326,7 +326,7 @@ static BleStoreValueCCCD *prv_nimble_store_find_cccd(const struct ble_store_key_
 static int prv_nimble_store_read_cccd(const struct ble_store_key_cccd *key_cccd,
                                       struct ble_store_value_cccd *value_cccd) {
   BleStoreValueCCCD *s;
-  int ret;
+  int ret = 0;
 
   mutex_lock_recursive(s_store_mutex);
 
