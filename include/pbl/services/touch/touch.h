@@ -24,7 +24,14 @@ void touch_init(void);
 //! When disabled, the touch sensor is only active if apps have subscribed to touch events.
 void touch_set_backlight_enabled(bool enabled);
 
-//! @return true if at least one subscriber is currently registered for touch events.
+//! Mark (or unmark) one subscription as a system-internal consumer that must
+//! not count towards touch_has_app_subscribers(). Call with true after
+//! subscribing and with false before unsubscribing.
+void touch_set_system_subscribed(bool subscribed);
+
+//! @return true if at least one subscriber other than the system-internal
+//! ones (backlight, subscriptions marked via touch_set_system_subscribed())
+//! is currently registered for touch events.
 bool touch_has_app_subscribers(void);
 
 //! Globally enable or disable touch. When disabled:

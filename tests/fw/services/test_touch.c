@@ -211,6 +211,29 @@ void test_touch__has_app_subscribers_backlight(void) {
   cl_assert(!touch_has_app_subscribers());
 }
 
+void test_touch__has_app_subscribers_system(void) {
+  // Subscriptions marked as system-internal (e.g. the watchface long-press
+  // hook) keep the sensor powered but must not count as app subscribers, or
+  // the event loop would light the backlight on every touchdown and bypass
+  // the wake-gesture preference. Unmarked subscribers keep counting so the
+  // touch-backlight behavior for third-party touch apps is unaffected.
+  cl_assert(!touch_has_app_subscribers());
+
+  s_add_subscriber_cb(PebbleTask_KernelMain);
+  touch_set_system_subscribed(true);
+  cl_assert(!touch_has_app_subscribers());
+
+  s_add_subscriber_cb(PebbleTask_App);
+  cl_assert(touch_has_app_subscribers());
+
+  s_remove_subscriber_cb(PebbleTask_App);
+  cl_assert(!touch_has_app_subscribers());
+
+  touch_set_system_subscribed(false);
+  s_remove_subscriber_cb(PebbleTask_KernelMain);
+  cl_assert(!touch_has_app_subscribers());
+}
+
 void test_touch__globally_enabled_default_true(void) {
   // Default state after init is enabled; no setter call required.
   cl_assert(touch_service_is_globally_enabled());

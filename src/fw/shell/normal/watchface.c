@@ -24,6 +24,7 @@
 #ifdef CONFIG_TOUCH
 #include "applib/touch_service.h"
 #include "apps/system/watchfaces.h"
+#include "pbl/services/touch/touch.h"
 #include <pbl/util/math.h>
 #endif
 #include "pbl/services/notifications/do_not_disturb.h"
@@ -385,8 +386,10 @@ void watchface_init(void) {
 #ifdef CONFIG_TOUCH
   // Kernel-side subscription: keeps the touch sensor powered so a long press
   // on the watchface can open the selector. Foreground gating happens in the
-  // handler itself.
+  // handler itself. Marked as a system subscription so it doesn't trigger the
+  // touch-backlight override meant for third-party touch apps.
   touch_service_subscribe(prv_watchface_touch_handler, NULL);
+  touch_set_system_subscribed(true);
 #endif
 }
 

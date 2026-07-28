@@ -25,6 +25,11 @@ static int16_t s_last_y;
 static PebbleMutex *s_touch_mutex;
 
 static uint8_t s_subscriber_count = 0;
+//! Subscriptions explicitly marked as system-internal (e.g. the watchface
+//! long-press hook): they keep the sensor powered but must not count as
+//! "an app is using touch". The backlight subscription is tracked separately
+//! via s_backlight_subscribed and excluded the same way.
+static uint8_t s_system_subscriber_count = 0;
 static bool s_backlight_subscribed = false;
 static bool s_globally_enabled = true;
 static bool s_rotated = false;
@@ -55,6 +60,17 @@ static void prv_remove_subscriber_cb(PebbleTask task) {
   mutex_unlock(s_touch_mutex);
 }
 
+void touch_set_system_subscribed(bool subscribed) {
+  mutex_lock(s_touch_mutex);
+  if (subscribed) {
+    s_system_subscriber_count++;
+  } else {
+    PBL_ASSERTN(s_system_subscriber_count > 0);
+    s_system_subscriber_count--;
+  }
+  mutex_unlock(s_touch_mutex);
+}
+
 void touch_init(void) {
   s_touch_mutex = mutex_create();
 
@@ -66,10 +82,10 @@ void touch_init(void) {
 
 bool touch_has_app_subscribers(void) {
   mutex_lock(s_touch_mutex);
-  // The backlight gesture subscription is tracked in s_subscriber_count as
-  // well; exclude it so this only reflects real app subscribers.
-  const uint8_t backlight_count = s_backlight_subscribed ? 1 : 0;
-  const bool has_apps = s_subscriber_count > backlight_count;
+  // Exclude the system-internal subscriptions (backlight, marked system
+  // subscribers) so this only reflects real app subscribers.
+  const uint8_t excluded = (s_backlight_subscribed ? 1 : 0) + s_system_subscriber_count;
+  const bool has_apps = s_subscriber_count > excluded;
   mutex_unlock(s_touch_mutex);
   return has_apps;
 }
