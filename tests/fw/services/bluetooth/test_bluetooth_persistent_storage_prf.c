@@ -341,4 +341,81 @@ void test_bluetooth_persistent_storage_prf__delete_ble_pairing_by_id(void) {
                                                false /* auto_accept_re_pairing */);  cl_assert(id != BT_BONDING_ID_INVALID);
 }
 
+void test_bluetooth_persistent_storage_prf__delete_ble_pairing_by_addr_if_matches(void) {
+  SMIdentityResolvingKey irk_out;
+  BTDeviceInternal device_out;
+
+  SMPairingInfo pairing = (SMPairingInfo) {
+    .irk = (SMIdentityResolvingKey) {
+      .data = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x00
+      },
+    },
+    .identity = (BTDeviceInternal) {
+      .address = (BTDeviceAddress) {
+        .octets = {
+          0x11, 0x12, 0x13, 0x14, 0x15, 0x16
+        },
+      },
+      .is_classic = false,
+      .is_random_address = false,
+    },
+    .remote_encryption_info = {
+      .ltk = (SMLongTermKey) {
+        .data = {
+          0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+          0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf
+        },
+      },
+      .ediv = 0x1234,
+      .rand = 0x0123456789abcdefULL,
+    },
+    .is_remote_encryption_info_valid = true,
+    .is_remote_identity_info_valid = true,
+  };
+
+  BleBonding ble_bonding = (BleBonding) {
+    .is_gateway = true,
+    .pairing_info = pairing,
+  };
+  bonding_sync_add_bonding(&ble_bonding);
+  BTBondingID id = bt_persistent_storage_store_ble_pairing(&pairing, true /* is_gateway */, NULL,
+                                                           false /* requires_address_pinning */,
+                                                           0 /* flags */);
+  cl_assert(id != BT_BONDING_ID_INVALID);
+
+  // A delete carrying key material we never stored must leave the pairing alone,
+  // in shared PRF storage and in the driver's copy both.
+  SMPairingInfo other_keys = pairing;
+  other_keys.remote_encryption_info.ltk.data[0] = 0xff;
+  cl_assert_equal_b(bt_persistent_storage_delete_ble_pairing_by_addr_if_matches(&pairing.identity,
+                                                                                &other_keys),
+                    false);
+  cl_assert_equal_b(bt_persistent_storage_get_ble_pairing_by_id(id, &irk_out, &device_out, NULL),
+                    true);
+  cl_assert_equal_b(bonding_sync_contains_pairing_info(&pairing, true /* is_gateway */), true);
+
+  // Re-pairing the same phone keeps its identity and its IRK, so the new keys land
+  // in this one slot. A delete queued for the keys they replaced must not take it.
+  SMPairingInfo repaired = pairing;
+  repaired.remote_encryption_info.ltk.data[0] = 0x5a;
+  cl_assert(bt_persistent_storage_store_ble_pairing(&repaired, true /* is_gateway */, NULL,
+                                                    false /* requires_address_pinning */,
+                                                    0 /* flags */) != BT_BONDING_ID_INVALID);
+  cl_assert_equal_b(bt_persistent_storage_delete_ble_pairing_by_addr_if_matches(&pairing.identity,
+                                                                                &pairing),
+                    false);
+  cl_assert_equal_b(bt_persistent_storage_get_ble_pairing_by_id(id, &irk_out, &device_out, NULL),
+                    true);
+
+  // The keys that are actually stored do delete it.
+  cl_assert_equal_b(bt_persistent_storage_delete_ble_pairing_by_addr_if_matches(&pairing.identity,
+                                                                                &repaired),
+                    true);
+  cl_assert_equal_b(bt_persistent_storage_get_ble_pairing_by_id(id, &irk_out, &device_out, NULL),
+                    false);
+  cl_assert_equal_b(bonding_sync_contains_pairing_info(&pairing, true /* is_gateway */), false);
+}
+
 

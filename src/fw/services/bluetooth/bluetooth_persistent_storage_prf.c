@@ -22,6 +22,8 @@
 #include <pbl/btutil/bt_device.h>
 #include <pbl/btutil/sm_util.h>
 
+#include <string.h>
+
 PBL_LOG_MODULE_DECLARE(service_bluetooth, CONFIG_SERVICE_BLUETOOTH_LOG_LEVEL);
 
 
@@ -135,17 +137,26 @@ bool bt_persistent_storage_update_ble_device_name(BTBondingID bonding, const cha
                                                       device_name, BtPersistBondingOpDidChange));
 }
 
-static void prv_remove_ble_bonding_from_bt_driver(void) {
+//! @note Kept out of the shared PRF lock on purpose: this reaches into the BT
+//! driver's own store lock, and nesting the two would invert the order the store
+//! callbacks take them in.
+static void prv_remove_pairing_from_bt_driver(const SMPairingInfo *pairing_info) {
   if (!bt_ctl_is_bluetooth_running()) {
     return;
   }
   BleBonding bonding = {
     .is_gateway = true,
+    .pairing_info = *pairing_info,
   };
-  if (!shared_prf_storage_get_ble_pairing_data(&bonding.pairing_info, NULL, NULL, NULL)) {
+  bt_driver_handle_host_removed_bonding(&bonding);
+}
+
+static void prv_remove_ble_bonding_from_bt_driver(void) {
+  SMPairingInfo pairing_info;
+  if (!shared_prf_storage_get_ble_pairing_data(&pairing_info, NULL, NULL, NULL)) {
     return;
   }
-  bt_driver_handle_host_removed_bonding(&bonding);
+  prv_remove_pairing_from_bt_driver(&pairing_info);
 }
 
 void bt_persistent_storage_delete_ble_pairing_by_id(BTBondingID bonding) {
@@ -157,6 +168,30 @@ void bt_persistent_storage_delete_ble_pairing_by_id(BTBondingID bonding) {
 
 void bt_persistent_storage_delete_ble_pairing_by_addr(const BTDeviceInternal *device) {
   bt_persistent_storage_delete_ble_pairing_by_id(BLE_BONDING_ID);
+}
+
+//! The PRF twin of the normal FW's guarded delete. Re-pairing the same phone
+//! reuses its identity address and its IRK and lands in this same single slot,
+//! so only the LTK says whether what is stored is still the bonding this delete
+//! was aimed at.
+//! @note The check and the erase run as one transaction inside shared PRF
+//! storage. The stored pairing is the thing being checked, so reading it here
+//! and erasing it afterwards would let a re-pair that completes in between have
+//! its fresh keys erased by a delete aimed at the pairing it replaced: this runs
+//! on KernelBG for a deferred delete, and bt_persistent_storage_store_ble_pairing()
+//! runs on KernelMain, which preempts it as soon as it blocks on flash.
+bool bt_persistent_storage_delete_ble_pairing_by_addr_if_matches(const BTDeviceInternal *device,
+                                                                 const SMPairingInfo *expected) {
+  SMPairingInfo erased;
+  if (!shared_prf_storage_erase_ble_pairing_data_if_matches(expected, &erased)) {
+    PBL_LOG_DBG("Stored BLE pairing no longer holds the keys to delete, skipping");
+    return false;
+  }
+
+  PBL_LOG_INFO("Deleted stored BLE pairing");
+  prv_remove_pairing_from_bt_driver(&erased);
+  prv_call_ble_bonding_change_handlers(BLE_BONDING_ID, BtPersistBondingOpWillDelete);
+  return true;
 }
 
 bool bt_persistent_storage_get_ble_pairing_by_id(BTBondingID bonding,

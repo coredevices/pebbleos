@@ -410,72 +410,76 @@ void shared_prf_storage_set_root_keys(SM128BitKey *keys_in) {
 //! BLE Pairing Data APIs
 //!
 
+//! Read the stored BLE pairing with the lock already held.
+//! @note Takes no lock of its own, so a caller that has to read and then write
+//! the pairing without letting go of the lock can share the read.
+static bool prv_get_ble_pairing_data_locked(SMPairingInfo *pairing_info_out, char *name_out,
+                                            bool *requires_address_pinning_out,
+                                            uint8_t *flags) {
+  SprfBlePairingData data;
+  if (!SPRF_FETCH_FIELD(data, ble_pairing_data)) {
+    return false;
+  }
+
+  if (!data.fields) {
+    // The pairing stored is empty
+    return false;
+  }
+
+  if (pairing_info_out) {
+    *pairing_info_out = (SMPairingInfo) {
+      .local_encryption_info.ltk = data.l_ltk,
+      .local_encryption_info.ediv = data.l_ediv,
+      .local_encryption_info.rand = data.l_rand,
+
+      .remote_encryption_info.ltk = data.r_ltk,
+      .remote_encryption_info.ediv = data.r_ediv,
+      .remote_encryption_info.rand = data.r_rand,
+
+      .irk = data.irk,
+      .identity = data.identity,
+      .csrk = data.csrk,
+
+      .is_mitm_protection_enabled = data.is_mitm_protection_enabled,
+
+      .is_local_encryption_info_valid =
+      SPRF_FLAG_IS_SET(data.fields, SprfValidFields_LocalEncryptionInfoValid),
+      .is_remote_encryption_info_valid =
+      SPRF_FLAG_IS_SET(data.fields, SprfValidFields_RemoteEncryptionInfoValid),
+      .is_remote_identity_info_valid =
+      SPRF_FLAG_IS_SET(data.fields, SprfValidFields_RemoteIdentityInfoValid),
+      .is_remote_signing_info_valid =
+      SPRF_FLAG_IS_SET(data.fields, SprfValidFields_RemoteSigningInfoValid),
+    };
+  }
+
+  if (requires_address_pinning_out) {
+    *requires_address_pinning_out = data.requires_address_pinning;
+  }
+  if (flags) {
+    *flags = data.flags;
+  }
+
+  if (name_out) {
+    SprfBlePairingName name_data = {};
+    const bool name_rv = SPRF_FETCH_FIELD(name_data, ble_pairing_name);
+    // Should we return a failure on a failed name get?
+    if (name_rv) {
+      strncpy(name_out, name_data.name, BT_DEVICE_NAME_BUFFER_SIZE);
+    } else {
+      name_out[0] = '\0';
+    }
+  }
+  return true;
+}
+
 bool shared_prf_storage_get_ble_pairing_data(SMPairingInfo *pairing_info_out, char *name_out,
                                              bool *requires_address_pinning_out,
                                              uint8_t *flags) {
   bool rv;
   prv_lock();
-  {
-    SprfBlePairingData data;
-    rv = SPRF_FETCH_FIELD(data, ble_pairing_data);
-    if (!rv) {
-      goto unlock;
-    }
-
-    if (!data.fields) {
-      // The pairing stored is empty
-      rv = false;
-      goto unlock;
-    }
-
-    if (pairing_info_out) {
-      *pairing_info_out = (SMPairingInfo) {
-        .local_encryption_info.ltk = data.l_ltk,
-        .local_encryption_info.ediv = data.l_ediv,
-        .local_encryption_info.rand = data.l_rand,
-
-        .remote_encryption_info.ltk = data.r_ltk,
-        .remote_encryption_info.ediv = data.r_ediv,
-        .remote_encryption_info.rand = data.r_rand,
-
-        .irk = data.irk,
-        .identity = data.identity,
-        .csrk = data.csrk,
-
-        .is_mitm_protection_enabled = data.is_mitm_protection_enabled,
-
-        .is_local_encryption_info_valid =
-        SPRF_FLAG_IS_SET(data.fields, SprfValidFields_LocalEncryptionInfoValid),
-        .is_remote_encryption_info_valid =
-        SPRF_FLAG_IS_SET(data.fields, SprfValidFields_RemoteEncryptionInfoValid),
-        .is_remote_identity_info_valid =
-        SPRF_FLAG_IS_SET(data.fields, SprfValidFields_RemoteIdentityInfoValid),
-        .is_remote_signing_info_valid =
-        SPRF_FLAG_IS_SET(data.fields, SprfValidFields_RemoteSigningInfoValid),
-      };
-    }
-
-    if (requires_address_pinning_out) {
-      *requires_address_pinning_out = data.requires_address_pinning;
-    }
-    if (flags) {
-      *flags = data.flags;
-    }
-
-    if (name_out) {
-      SprfBlePairingName name_data = {};
-      const bool name_rv = SPRF_FETCH_FIELD(name_data, ble_pairing_name);
-      // Should we return a failure on a failed name get?
-      if (name_rv) {
-        strncpy(name_out, name_data.name, BT_DEVICE_NAME_BUFFER_SIZE);
-      } else {
-        name_out[0] = '\0';
-      }
-    }
-    rv = true;
-  }
-
-unlock:
+  rv = prv_get_ble_pairing_data_locked(pairing_info_out, name_out, requires_address_pinning_out,
+                                       flags);
   prv_unlock();
   return rv;
 }
@@ -539,6 +543,30 @@ void shared_prf_storage_erase_ble_pairing_data(void) {
     SPRF_ERASE_FIELD(ble_pairing_name);
   }
   prv_unlock();
+}
+
+bool shared_prf_storage_erase_ble_pairing_data_if_matches(const SMPairingInfo *expected,
+                                                          SMPairingInfo *erased_out) {
+  bool erased = false;
+  prv_lock();
+  {
+    SMPairingInfo stored;
+    if (!prv_get_ble_pairing_data_locked(&stored, NULL, NULL, NULL) ||
+        !sm_pairing_info_encryption_keys_match(&stored, expected)) {
+      goto unlock;
+    }
+
+    SPRF_ERASE_FIELD(ble_pairing_data);
+    SPRF_ERASE_FIELD(ble_pairing_name);
+
+    if (erased_out) {
+      *erased_out = stored;
+    }
+    erased = true;
+  }
+unlock:
+  prv_unlock();
+  return erased;
 }
 
 //!

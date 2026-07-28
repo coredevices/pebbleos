@@ -56,6 +56,17 @@ void bt_persistent_storage_delete_ble_pairing_by_id(BTBondingID);
 
 void bt_persistent_storage_delete_ble_pairing_by_addr(const BTDeviceInternal *device);
 
+//! Like bt_persistent_storage_delete_ble_pairing_by_addr(), but only deletes a
+//! record whose stored key material still matches `expected`.
+//! For deferred deletes: re-pairing the same phone reuses its identity address
+//! and its IRK, so it lands on the very record an in-flight delete was aimed at.
+//! Only the LTK tells the two apart. Halves of `expected` that are marked
+//! invalid are not compared, so one half of a bonding is enough to identify it;
+//! an `expected` with no encryption info at all never matches.
+//! @return True if a matching pairing was found and deleted.
+bool bt_persistent_storage_delete_ble_pairing_by_addr_if_matches(const BTDeviceInternal *device,
+                                                                 const SMPairingInfo *expected);
+
 bool bt_persistent_storage_get_ble_pairing_by_id(BTBondingID bonding,
                                                  SMIdentityResolvingKey *IRK_out,
                                                  BTDeviceInternal *device_out,
@@ -163,3 +174,11 @@ void bt_persistent_storage_delete_all_pairings(void);
 //! Unit testing
 int bt_persistent_storage_get_raw_data(const void *key, size_t key_len,
                                        void *data_out, size_t buf_len);
+
+//! The guarded delete of bt_persistent_storage_delete_ble_pairing_by_addr_if_matches(), entered by
+//! id instead of by address. Its by-address lookup applies the same key comparison before it picks
+//! an id, so the re-check inside the delete transaction -- the only one that runs with the record
+//! held, and the one the race is about -- cannot be reached from there.
+//! @return True if a matching pairing was found and deleted.
+bool bt_persistent_storage_delete_ble_pairing_by_id_if_matches(BTBondingID bonding,
+                                                               const SMPairingInfo *expected);

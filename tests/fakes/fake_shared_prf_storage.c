@@ -8,6 +8,7 @@
 
 static int s_prf_storage_ble_store_count;
 static int s_prf_storage_ble_delete_count;
+static int s_prf_storage_ble_delete_if_matches_count;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! Test functions
@@ -15,6 +16,7 @@ static int s_prf_storage_ble_delete_count;
 void fake_shared_prf_storage_reset_counts(void) {
   s_prf_storage_ble_store_count = 0;
   s_prf_storage_ble_delete_count = 0;
+  s_prf_storage_ble_delete_if_matches_count = 0;
 }
 
 int fake_shared_prf_storage_get_ble_store_count(void) {
@@ -23,6 +25,10 @@ int fake_shared_prf_storage_get_ble_store_count(void) {
 
 int fake_shared_prf_storage_get_ble_delete_count(void) {
   return s_prf_storage_ble_delete_count;
+}
+
+int fake_shared_prf_storage_get_ble_delete_if_matches_count(void) {
+  return s_prf_storage_ble_delete_if_matches_count;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -66,6 +72,14 @@ void shared_prf_storage_store_ble_pairing_data(const SMPairingInfo *pairing_info
 
 void shared_prf_storage_erase_ble_pairing_data(void) {
   s_prf_storage_ble_delete_count++;
+}
+
+bool shared_prf_storage_erase_ble_pairing_data_if_matches(const SMPairingInfo *expected,
+                                                          SMPairingInfo *erased_out) {
+  s_prf_storage_ble_delete_if_matches_count++;
+  // shared_prf_storage_get_ble_pairing_data() has nothing to hand back here, so the real one would
+  // find nothing to compare against and leave the slot alone.
+  return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

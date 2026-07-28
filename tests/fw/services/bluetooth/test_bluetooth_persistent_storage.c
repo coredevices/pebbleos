@@ -470,6 +470,158 @@ void test_bluetooth_persistent_storage__delete_ble_pairing_by_id(void) {
   cl_assert(!ret);
 }
 
+void test_bluetooth_persistent_storage__delete_ble_pairing_by_addr_if_matches(void) {
+  SMIdentityResolvingKey irk_out;
+  BTDeviceInternal device_out;
+
+  SMPairingInfo pairing = (SMPairingInfo) {
+    .irk = (SMIdentityResolvingKey) {
+      .data = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x00,
+      },
+    },
+    .identity = (BTDeviceInternal) {
+      .address = (BTDeviceAddress) {
+        .octets = {
+          0x11, 0x12, 0x13, 0x14, 0x15, 0x16,
+        },
+      },
+      .is_classic = false,
+      .is_random_address = false,
+    },
+    .remote_encryption_info = {
+      .ltk = (SMLongTermKey) {
+        .data = {
+          0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+          0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,
+        },
+      },
+      .ediv = 0x1234,
+      .rand = 0x0123456789abcdefULL,
+    },
+    .is_remote_encryption_info_valid = true,
+    .is_remote_identity_info_valid = true,
+  };
+
+  BTBondingID id = bt_persistent_storage_store_ble_pairing(&pairing, true /* is_gateway */, NULL,
+                                                           false /* requires_address_pinning */,
+                                                           0 /* flags */);
+  cl_assert(id != BT_BONDING_ID_INVALID);
+
+  // A delete carrying key material we never stored must leave the bonding alone,
+  // and must not wipe the shared PRF copy either.
+  SMPairingInfo other_keys = pairing;
+  other_keys.remote_encryption_info.ltk.data[0] = 0xff;
+  const int prf_delete_count = fake_shared_prf_storage_get_ble_delete_count();
+  cl_assert_equal_b(bt_persistent_storage_delete_ble_pairing_by_addr_if_matches(&pairing.identity,
+                                                                                &other_keys),
+                    false);
+  cl_assert_equal_i(fake_shared_prf_storage_get_ble_delete_count(), prf_delete_count);
+  cl_assert_equal_b(bt_persistent_storage_get_ble_pairing_by_id(id, &irk_out, &device_out, NULL),
+                    true);
+
+  // Re-pairing the same phone keeps its identity and its IRK, so the new keys land
+  // in this very record. A delete queued for the keys it replaced must not take it.
+  SMPairingInfo repaired = pairing;
+  repaired.remote_encryption_info.ltk.data[0] = 0x5a;
+  cl_assert_equal_i(bt_persistent_storage_store_ble_pairing(&repaired, true /* is_gateway */, NULL,
+                                                            false /* requires_address_pinning */,
+                                                            0 /* flags */),
+                    id);
+  cl_assert_equal_b(bt_persistent_storage_delete_ble_pairing_by_addr_if_matches(&pairing.identity,
+                                                                                &pairing),
+                    false);
+  cl_assert_equal_b(bt_persistent_storage_get_ble_pairing_by_id(id, &irk_out, &device_out, NULL),
+                    true);
+
+  // The keys that are actually stored do delete it, and take the shared PRF copy with them --
+  // through the guarded erase, so a re-pair that has already refreshed that copy keeps it.
+  const int prf_guarded_count = fake_shared_prf_storage_get_ble_delete_if_matches_count();
+  const int prf_unconditional_count = fake_shared_prf_storage_get_ble_delete_count();
+  cl_assert_equal_b(bt_persistent_storage_delete_ble_pairing_by_addr_if_matches(&pairing.identity,
+                                                                                &repaired),
+                    true);
+  cl_assert_equal_b(bt_persistent_storage_get_ble_pairing_by_id(id, &irk_out, &device_out, NULL),
+                    false);
+  cl_assert_equal_i(fake_shared_prf_storage_get_ble_delete_if_matches_count(),
+                    prf_guarded_count + 1);
+  cl_assert_equal_i(fake_shared_prf_storage_get_ble_delete_count(), prf_unconditional_count);
+}
+
+//! The by-address lookup applies the same key comparison before it ever picks an id, so it cannot
+//! hand the delete transaction a record whose keys have moved on. Enter by id, which is where the
+//! record is read, checked and deleted under one lock, to exercise that check.
+void test_bluetooth_persistent_storage__delete_ble_pairing_by_id_if_matches(void) {
+  SMIdentityResolvingKey irk_out;
+  BTDeviceInternal device_out;
+
+  SMPairingInfo pairing = (SMPairingInfo) {
+    .irk = (SMIdentityResolvingKey) {
+      .data = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x00,
+      },
+    },
+    .identity = (BTDeviceInternal) {
+      .address = (BTDeviceAddress) {
+        .octets = {
+          0x11, 0x12, 0x13, 0x14, 0x15, 0x16,
+        },
+      },
+      .is_classic = false,
+      .is_random_address = false,
+    },
+    .remote_encryption_info = {
+      .ltk = (SMLongTermKey) {
+        .data = {
+          0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+          0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,
+        },
+      },
+      .ediv = 0x1234,
+      .rand = 0x0123456789abcdefULL,
+    },
+    .is_remote_encryption_info_valid = true,
+    .is_remote_identity_info_valid = true,
+  };
+
+  BTBondingID id = bt_persistent_storage_store_ble_pairing(&pairing, true /* is_gateway */, NULL,
+                                                           false /* requires_address_pinning */,
+                                                           0 /* flags */);
+  cl_assert(id != BT_BONDING_ID_INVALID);
+
+  // A different LTK under the same id is a re-pair that landed here while the delete was queued.
+  SMPairingInfo other_ltk = pairing;
+  other_ltk.remote_encryption_info.ltk.data[0] = 0x5a;
+  cl_assert_equal_b(bt_persistent_storage_delete_ble_pairing_by_id_if_matches(id, &other_ltk),
+                    false);
+  cl_assert_equal_b(bt_persistent_storage_get_ble_pairing_by_id(id, &irk_out, &device_out, NULL),
+                    true);
+
+  // The whole encryption half has to match, not just the LTK.
+  SMPairingInfo other_rand = pairing;
+  other_rand.remote_encryption_info.rand ^= 1ULL;
+  cl_assert_equal_b(bt_persistent_storage_delete_ble_pairing_by_id_if_matches(id, &other_rand),
+                    false);
+  cl_assert_equal_b(bt_persistent_storage_get_ble_pairing_by_id(id, &irk_out, &device_out, NULL),
+                    true);
+
+  // Keys the record does not carry at all do not match either: a half the caller marks invalid is
+  // not compared, and with no valid half left there is nothing but the identity to go on.
+  SMPairingInfo identity_only = pairing;
+  identity_only.is_remote_encryption_info_valid = false;
+  cl_assert_equal_b(bt_persistent_storage_delete_ble_pairing_by_id_if_matches(id, &identity_only),
+                    false);
+  cl_assert_equal_b(bt_persistent_storage_get_ble_pairing_by_id(id, &irk_out, &device_out, NULL),
+                    true);
+
+  // The keys that are actually stored do delete it.
+  cl_assert_equal_b(bt_persistent_storage_delete_ble_pairing_by_id_if_matches(id, &pairing), true);
+  cl_assert_equal_b(bt_persistent_storage_get_ble_pairing_by_id(id, &irk_out, &device_out, NULL),
+                    false);
+}
+
 void test_bluetooth_persistent_storage__ble_ancs_bonding(void) {
   bool ret;
 

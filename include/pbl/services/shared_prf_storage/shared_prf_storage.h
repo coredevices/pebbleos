@@ -56,6 +56,19 @@ void shared_prf_storage_store_ble_pairing_data(const SMPairingInfo *pairing_info
 
 void shared_prf_storage_erase_ble_pairing_data(void);
 
+//! Erase the stored BLE pairing, but only if it still holds `expected`'s key
+//! material.
+//! @note The read and the erase happen under one lock. The stored pairing is
+//! what is being checked, so a pairing written in between would otherwise be
+//! erased by a delete aimed at the one it replaced.
+//! @param expected The key material the stored pairing must still hold. Only the
+//! halves `expected` marks valid are compared; no valid half never matches.
+//! @param erased_out Optional. When the erase happened, the pairing that was
+//! erased, so the caller can notify the BT driver outside this lock.
+//! @return True if the stored pairing matched and was erased.
+bool shared_prf_storage_erase_ble_pairing_data_if_matches(const SMPairingInfo *expected,
+                                                          SMPairingInfo *erased_out);
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! BLE Pinned Address
 

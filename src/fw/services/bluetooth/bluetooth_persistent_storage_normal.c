@@ -150,27 +150,42 @@ static void prv_update_bondings(BTBondingID id, BtPersistBondingType type) {
   }
 }
 
+//! Read a record out of an already open file.
+//! @note The caller owns `fd` and holds prv_lock(); this takes neither. Split out
+//! so a caller that has to read and write one record without letting go of the
+//! lock can share the read with prv_file_get().
+//! @return the size of the data read, 0 if the record is missing or does not fit
+static unsigned int prv_file_get_locked(SettingsFile *fd, const void *key, size_t key_len,
+                                        void *data_out, size_t buf_len) {
+  // Zero the output up front so callers that ignore the return value (a 0 length on
+  // read failure or an oversized record) read defined zeros, not stack garbage.
+  memset(data_out, 0, buf_len);
+
+  unsigned int data_len = settings_file_get_len(fd, key, key_len);
+  // If a big enough buffer wasn't passed in, then the data can't be read.
+  if (data_len > buf_len ||
+      settings_file_get(fd, key, key_len, data_out, buf_len) != S_SUCCESS) {
+    data_len = 0;
+  }
+  return data_len;
+}
+
 //! Returns the size of the data read. If the buffer provided is too small then 0 is returned
 static int prv_file_get(const void *key, size_t key_len, void *data_out, size_t buf_len) {
   unsigned int data_len = 0;
-  // Zero the output up front so callers that ignore the return value (a 0 length on
-  // open/read failure or an oversized record) read defined zeros, not stack garbage.
-  memset(data_out, 0, buf_len);
   prv_lock();
   {
     SettingsFile fd;
     status_t rv = settings_file_open(&fd, BT_PERSISTENT_STORAGE_FILE_NAME,
                                      BT_PERSISTENT_STORAGE_FILE_SIZE);
     if (rv != S_SUCCESS) {
+      // Zero the output so callers that ignore the return value read defined
+      // zeros, not stack garbage. The read path below does its own.
+      memset(data_out, 0, buf_len);
       goto cleanup;
     }
 
-    data_len = settings_file_get_len(&fd, key, key_len);
-    // If a big enough buffer wasn't passed in, then the data can't be read.
-    if (data_len > buf_len ||
-        settings_file_get(&fd, key, key_len, data_out, buf_len) != S_SUCCESS) {
-      data_len = 0;
-    }
+    data_len = prv_file_get_locked(&fd, key, key_len, data_out, buf_len);
 
     settings_file_close(&fd);
   }
@@ -297,6 +312,13 @@ cleanup:
   return free_key;
 }
 
+//! Where the next free-CCCD scan starts. Only a hint: the scan still wraps over
+//! the whole id space and still verifies each id, so a wrong hint costs at most
+//! the scan it would have done anyway. Without it every CCCD write re-reads the
+//! settings file up to 255 times, and CCCD writes come in on the BT host task.
+//! @note prv_lock() must be held when accessing this variable.
+static BTCCCDID s_next_free_cccd_hint;
+
 //! Get the next available CCCDID
 static BTCCCDID prv_get_free_cccd() {
   BTCCCDID free_cccd = BT_CCCD_ID_INVALID;
@@ -310,11 +332,14 @@ static BTCCCDID prv_get_free_cccd() {
     goto cleanup;
   }
 
-  for (BTCCCDID id = 0U; id < BT_CCCD_ID_INVALID; id++) {
+  BTCCCDID id = s_next_free_cccd_hint;
+  for (unsigned i = 0U; i < BT_CCCD_ID_INVALID; i++) {
     if (!settings_file_exists(&fd, &id, sizeof(id))) {
       free_cccd = id;
+      s_next_free_cccd_hint = (BTCCCDID)((id + 1U) % BT_CCCD_ID_INVALID);
       break;
     }
+    id = (BTCCCDID)((id + 1U) % BT_CCCD_ID_INVALID);
   }
 
   settings_file_close(&fd);
@@ -443,9 +468,16 @@ BtPersistBondingType prv_get_type_for_id(BTBondingID id) {
   return data.type;
 }
 
-bool prv_delete_pairing_with_type_by_id(BTBondingID bonding, BtPersistBondingType type,
-                                        BtPersistBondingData *data_out) {
-  if (!prv_file_get(&bonding, sizeof(bonding), data_out, sizeof(*data_out))) {
+static bool prv_ble_pairing_keys_match(const BtPersistLEPairingInfo *stored,
+                                       const SMPairingInfo *expected);
+
+//! Read the record, check it is still the one we were asked to drop, delete it.
+//! @note The caller owns `fd` and holds prv_lock(); nothing here takes it again.
+static bool prv_verify_and_delete_pairing_locked(SettingsFile *fd, BTBondingID bonding,
+                                                 BtPersistBondingType type,
+                                                 BtPersistBondingData *data_out,
+                                                 const SMPairingInfo *expected_ble_keys) {
+  if (!prv_file_get_locked(fd, &bonding, sizeof(bonding), data_out, sizeof(*data_out))) {
     return false;
   }
 
@@ -454,11 +486,54 @@ bool prv_delete_pairing_with_type_by_id(BTBondingID bonding, BtPersistBondingTyp
     return false;
   }
 
-  if (prv_file_set(&bonding, sizeof(bonding), NULL, 0) == GapBondingFileSetFail) {
+  if (expected_ble_keys != NULL &&
+      !prv_ble_pairing_keys_match(&data_out->ble_data.pairing_info, expected_ble_keys)) {
+    PBL_LOG_DBG("Bonding %d no longer holds the keys we were told to delete, skipping", bonding);
+    return false;
+  }
+
+  const status_t rv = settings_file_delete(fd, &bonding, sizeof(bonding));
+  if (rv != S_SUCCESS) {
+    PBL_LOG_ERR("Failed to update gap bonding db, rv = %"PRId32, rv);
     return false;
   }
 
   return true;
+}
+
+//! @param expected_ble_keys When non-NULL, the key material the record must
+//! still hold, re-checked here rather than only at the caller's lookup: the
+//! lookup is a whole file scan and a new bonding for the same identity is
+//! written over this very record.
+//! @note Read, check and delete run under one prv_lock() on one open file. The
+//! record is the thing being checked, so releasing the lock in between makes the
+//! check worthless: this runs on KernelBG for a deferred delete, and
+//! bt_persistent_storage_store_ble_pairing() runs on KernelMain, which preempts
+//! it the moment the lock is dropped and writes the new bonding into this id.
+bool prv_delete_pairing_with_type_by_id(BTBondingID bonding, BtPersistBondingType type,
+                                        BtPersistBondingData *data_out,
+                                        const SMPairingInfo *expected_ble_keys) {
+  bool deleted = false;
+  // Matches prv_file_get(): a caller that ignores our return value still reads
+  // defined zeros when the file will not open.
+  memset(data_out, 0, sizeof(*data_out));
+
+  prv_lock();
+  {
+    SettingsFile fd;
+    if (settings_file_open(&fd, BT_PERSISTENT_STORAGE_FILE_NAME,
+                           BT_PERSISTENT_STORAGE_FILE_SIZE) != S_SUCCESS) {
+      goto cleanup;
+    }
+
+    deleted = prv_verify_and_delete_pairing_locked(&fd, bonding, type, data_out,
+                                                   expected_ble_keys);
+
+    settings_file_close(&fd);
+  }
+cleanup:
+  prv_unlock();
+  return deleted;
 }
 
 bool prv_has_active_gateway_by_type(BtPersistBondingType desired_type) {
@@ -551,6 +626,50 @@ static bool prv_is_pairing_info_equal_identity(const BtPersistLEPairingInfo *a,
           memcmp(&a->irk, &b->irk, sizeof(SMIdentityResolvingKey)) == 0);
 }
 
+static bool prv_ble_encryption_info_matches(const BtPersistLEEncryptionInfo *stored,
+                                            const SMLongTermKey *ltk, uint16_t ediv,
+                                            uint64_t rand) {
+  return (memcmp(&stored->ltk, ltk, sizeof(*ltk)) == 0) && (stored->ediv == ediv) &&
+         (stored->rand == rand);
+}
+
+//! @return True if `stored` still holds the key material of `expected`.
+//! @note The LTK is the only field that tells one bonding from another here. The
+//! identity address and the IRK survive a re-pair of the same phone, which is
+//! exactly the case a deferred delete has to notice.
+//! @note Only the halves `expected` marks valid are compared: a deferred delete
+//! carries the one half of the bonding the BT driver handed it, while the record
+//! holds both. No valid half means nothing to compare, and matching on the
+//! address alone is what this exists to avoid, so that never matches.
+static bool prv_ble_pairing_keys_match(const BtPersistLEPairingInfo *stored,
+                                       const SMPairingInfo *expected) {
+  bool compared = false;
+
+  if (expected->is_remote_encryption_info_valid) {
+    if (!stored->is_remote_encryption_info_valid ||
+        !prv_ble_encryption_info_matches(&stored->remote_encryption_info,
+                                         &expected->remote_encryption_info.ltk,
+                                         expected->remote_encryption_info.ediv,
+                                         expected->remote_encryption_info.rand)) {
+      return false;
+    }
+    compared = true;
+  }
+
+  if (expected->is_local_encryption_info_valid) {
+    if (!stored->is_local_encryption_info_valid ||
+        !prv_ble_encryption_info_matches(&stored->local_encryption_info,
+                                         &expected->local_encryption_info.ltk,
+                                         expected->local_encryption_info.ediv,
+                                         expected->local_encryption_info.rand)) {
+      return false;
+    }
+    compared = true;
+  }
+
+  return compared;
+}
+
 static bool prv_get_key_for_sm_pairing_info_itr(SettingsFile *file,
                                                 SettingsRecordInfo *info, void *context) {
   // check entry is valid
@@ -586,7 +705,8 @@ static BTBondingID prv_get_key_for_sm_pairing_info(const SMPairingInfo *pairing_
   return itr_data.key_out;
 }
 
-static bool prv_delete_ble_pairing_by_id(BTBondingID bonding);
+static bool prv_delete_ble_pairing_by_id(BTBondingID bonding,
+                                         const SMPairingInfo *expected_keys);
 
 //! Only a single BLE pairing is supported at a time. The buffer below is sized generously to absorb
 //! any legacy state where the bonding DB ended up with multiple entries (e.g. after a PRF pairing
@@ -640,7 +760,7 @@ static void prv_delete_other_ble_bondings(BTBondingID keep_id) {
 
   for (uint8_t i = 0; i < itr_data.count; i++) {
     PBL_LOG_INFO("Removing stale BLE bonding %d (kept %d)", itr_data.ids[i], keep_id);
-    prv_delete_ble_pairing_by_id(itr_data.ids[i]);
+    prv_delete_ble_pairing_by_id(itr_data.ids[i], NULL);
   }
 }
 
@@ -828,79 +948,169 @@ static void prv_remove_ble_bonding_from_bt_driver(const BtPersistBondingData *de
   bt_driver_handle_host_removed_bonding(&bonding);
 }
 
-status_t prv_delete_all_cccd_for_addr(const BTDeviceInternal *dev) {
-  status_t rv;
+//! How many of a peer's CCCDs one sweep pass collects. Sized for the handful a
+//! peer actually subscribes to, so one pass normally finishes the job; anything
+//! beyond that only saves a pass on a peer that will never exist.
+//! Kept small because CollectCCCDForAddrItrData sits on the stack of whichever
+//! task deletes the bonding, under an open SettingsFile and its iteration. Those
+//! tasks are KernelBG (the BT driver's deferred SEC delete) and KernelMain
+//! ("Forget device", and replacing a bonding), each with a 4 KB stack.
+//! At 4 the struct is around 60 bytes; the cost of growing it is linear and
+//! lands on the deepest call chain either task has.
+#define BT_CCCD_SWEEP_BATCH_MAX 4
 
-  prv_lock();
-  {
-  SettingsFile fd;
-  rv = settings_file_open(&fd, BT_PERSISTENT_STORAGE_FILE_NAME,
-                          BT_PERSISTENT_STORAGE_FILE_SIZE);
-  if (rv) {
-    goto cleanup;
+typedef struct {
+  const BTDeviceInternal *peer;
+  BTCCCDID ids[BT_CCCD_SWEEP_BATCH_MAX];
+  BtPersistCCCDData data[BT_CCCD_SWEEP_BATCH_MAX];
+  uint8_t count;
+} CollectCCCDForAddrItrData;
+
+static bool prv_collect_cccd_for_addr_itr(SettingsFile *file, SettingsRecordInfo *info,
+                                          void *context) {
+  // Only a whole record is usable. A short one would leave chr_val_handle at 0,
+  // which prv_nimble_store_find_cccd_cb() reads as "any handle", so passing it
+  // to bt_driver_handle_host_removed_cccd() would evict an arbitrary CCCD of
+  // this peer from the driver's in-memory list.
+  // "Shorter than", not "different from": these structs can only grow, and a
+  // record written by a later firmware would otherwise become un-sweepable
+  // forever while prv_ble_cccd_internal_for_each_itr() and prv_find_cccd_itr()
+  // keep restoring it on every boot. get_val() below reads the prefix we know.
+  if (info->val_len < (int)sizeof(BtPersistCCCDData) || info->key_len != sizeof(BTCCCDID)) {
+    return true; // continue iterating
   }
 
-  for (BTCCCDID id = 0U; id < BT_CCCD_ID_INVALID; id++) {
-    if (settings_file_exists(&fd, &id, sizeof(id))) {
-      BtPersistCCCDData stored_data;
+  CollectCCCDForAddrItrData *itr_data = context;
 
-      rv = settings_file_get(&fd, &id, sizeof(id), &stored_data, sizeof(stored_data));
-      if (rv) {
-        goto cleanup;
+  BtPersistCCCDData stored_data = {};
+  info->get_val(file, (uint8_t *)&stored_data, sizeof(stored_data));
+  if (!bt_device_internal_equal(itr_data->peer, &stored_data.peer)) {
+    return true; // continue iterating
+  }
+
+  BTCCCDID key;
+  info->get_key(file, (uint8_t *)&key, info->key_len);
+
+  itr_data->ids[itr_data->count] = key;
+  itr_data->data[itr_data->count] = stored_data;
+  itr_data->count++;
+
+  return (itr_data->count < BT_CCCD_SWEEP_BATCH_MAX);
+}
+
+//! Delete every CCCD belonging to `dev`.
+//! Collects a batch in one linear pass and then deletes it, rather than probing
+//! all 255 ids: every probe re-reads the whole settings file, and this runs with
+//! the db lock held on a path the BT host task can be waiting behind.
+status_t prv_delete_all_cccd_for_addr(const BTDeviceInternal *dev) {
+  status_t rv = S_SUCCESS;
+
+  while (true) {
+    CollectCCCDForAddrItrData itr_data = {
+      .peer = dev,
+      .count = 0,
+    };
+    if (!prv_file_each(prv_collect_cccd_for_addr_itr, &itr_data)) {
+      return E_INTERNAL;
+    }
+    if (itr_data.count == 0) {
+      break;
+    }
+
+    for (uint8_t i = 0; i < itr_data.count; i++) {
+      BleCCCD cccd_to_delete = {
+        .peer = *dev,
+        .chr_val_handle = itr_data.data[i].chr_val_handle,
+        .flags = itr_data.data[i].flags,
+        .value_changed = itr_data.data[i].value_changed,
+      };
+
+      // Outside the db lock on purpose: this reaches into the driver's own
+      // store lock, and nesting the two here would invert the order the store
+      // callbacks take them in.
+      bt_driver_handle_host_removed_cccd(&cccd_to_delete);
+
+      if (prv_file_set(&itr_data.ids[i], sizeof(itr_data.ids[i]), NULL, 0) ==
+          GapBondingFileSetFail) {
+        rv = E_INTERNAL;
       }
+    }
 
-      if (bt_device_internal_equal(dev, &stored_data.peer)) {
-        BleCCCD cccd_to_delete = {
-          .peer = *dev,
-          .chr_val_handle = stored_data.chr_val_handle,
-          .flags = stored_data.flags,
-          .value_changed = stored_data.value_changed,
-        };
-
-        bt_driver_handle_host_removed_cccd(&cccd_to_delete);
-
-        rv = settings_file_delete(&fd, &id, sizeof(id));
-        if (rv) {
-          goto cleanup;
-        }
-      }
+    // A short batch means the pass saw every match. Stop on a failed delete too,
+    // or the next pass would collect the same record again.
+    if ((itr_data.count < BT_CCCD_SWEEP_BATCH_MAX) || FAILED(rv)) {
+      break;
     }
   }
 
-  settings_file_close(&fd);
-
-  }
-cleanup:
-  prv_unlock();
   return rv;
 }
 
-static bool prv_delete_ble_pairing_by_id(BTBondingID bonding) {
+static bool prv_delete_ble_pairing_by_id(BTBondingID bonding,
+                                         const SMPairingInfo *expected_keys) {
   BtPersistBondingData deleted_data;
-  if (!prv_delete_pairing_with_type_by_id(bonding, BtPersistBondingTypeBLE, &deleted_data)) {
+  if (!prv_delete_pairing_with_type_by_id(bonding, BtPersistBondingTypeBLE, &deleted_data,
+                                          expected_keys)) {
     return false;
   }
 
-  status_t rv;
-  rv = prv_delete_all_cccd_for_addr(&deleted_data.ble_data.pairing_info.identity);
-  PBL_ASSERTN(rv == S_SUCCESS);
-
+  // Before the sweep, not after. The sweep is several full-file passes and the
+  // task doing it sits on flash throughout, which is exactly when KernelBG gets
+  // scheduled and runs a deferred CCCD store. That store's guard,
+  // prv_peer_is_bonded(), answers from the BT driver's in-memory key lists
+  // first, so while they still hold this peer it reports "bonded" for a bonding
+  // that is already gone from flash and writes a record the sweep has passed.
+  // Dropping the keys first makes the guard fall through to the settings file,
+  // where the record no longer is.
+  // @note Safe in this order: the sweep walks flash and only calls
+  // bt_driver_handle_host_removed_cccd(), which touches the driver's CCCD list
+  // alone, and bt_driver_handle_host_removed_bonding() touches only its sec
+  // lists. Neither depends on the other having run.
   prv_remove_ble_bonding_from_bt_driver(&deleted_data);
 
+  // Not fatal: the bonding itself is already gone, which is what the caller
+  // asked for, and leftover CCCD records are inert. Asserting here would reboot
+  // the watch mid re-pairing over a stale record we can do nothing about.
+  const status_t rv = prv_delete_all_cccd_for_addr(&deleted_data.ble_data.pairing_info.identity);
+  if (FAILED(rv)) {
+    PBL_LOG_ERR("Failed to delete the CCCDs of bonding %d, rv = %"PRId32, bonding, rv);
+  }
+
+  // Known gap, deliberately left open. `bonding` is an id, and prv_get_free_key()
+  // hands out the lowest free one, so from the moment the delete above released
+  // the db lock a re-pair can have taken this very id for a live bonding. The
+  // notification is then aimed at the wrong bonding: the handlers key their state
+  // off the id (GAPLEConnection::bonding_id, the connect intent, the active
+  // gateway), so a WillDelete can reset the gateway of a connection that is up.
+  // Only the deferred delete on KernelBG can hit it -- every other caller runs on
+  // KernelMain, which is also the only task that stores a pairing, so it cannot
+  // race itself.
+  // Reordering does not help: from KernelBG this call only queues onto
+  // KernelMain, so the id is stale by construction no matter where it sits here.
+  // Closing it means the handlers identifying the bonding by something other than
+  // its id, and their signature is shared by bt_local_addr, gap_le_connection,
+  // gap_le_connect and kernel_le_client.
   prv_call_ble_bonding_change_handlers(bonding, BtPersistBondingOpWillDelete);
   return true;
 }
 
 void bt_persistent_storage_delete_ble_pairing_by_id(BTBondingID bonding) {
-  if (!prv_delete_ble_pairing_by_id(bonding)) {
+  if (!prv_delete_ble_pairing_by_id(bonding, NULL)) {
     return;
   }
   // TODO: Make sure this matches what we have stored
   shared_prf_storage_erase_ble_pairing_data();
 }
 
+bool bt_persistent_storage_delete_ble_pairing_by_id_if_matches(BTBondingID bonding,
+                                                               const SMPairingInfo *expected) {
+  return prv_delete_ble_pairing_by_id(bonding, expected);
+}
+
 typedef struct {
   BTDeviceInternal device;
+  //! When non-NULL, only a record still holding this key material is a match.
+  const SMPairingInfo *expected_keys;
   SMIdentityResolvingKey irk_out;
   char name_out[BT_DEVICE_NAME_BUFFER_SIZE];
   BTBondingID id_out;
@@ -925,6 +1135,11 @@ static bool prv_find_by_addr_itr(SettingsFile *file,
   if (stored_data.type == BtPersistBondingTypeBLE &&
       bt_device_equal(&itr_data->device.opaque,
                       &stored_data.ble_data.pairing_info.identity.opaque)) {
+    if (itr_data->expected_keys != NULL &&
+        !prv_ble_pairing_keys_match(&stored_data.ble_data.pairing_info,
+                                    itr_data->expected_keys)) {
+      return true; // right identity, wrong bonding: keep looking
+    }
     itr_data->irk_out = stored_data.ble_data.pairing_info.irk;
     strncpy(itr_data->name_out, stored_data.ble_data.name, BT_DEVICE_NAME_BUFFER_SIZE);
     itr_data->id_out = key;
@@ -935,18 +1150,44 @@ static bool prv_find_by_addr_itr(SettingsFile *file,
   return true; // continue iterating
 }
 
-void bt_persistent_storage_delete_ble_pairing_by_addr(const BTDeviceInternal *device) {
+static bool prv_delete_ble_pairing_by_addr(const BTDeviceInternal *device,
+                                           const SMPairingInfo *expected_keys) {
   FindByAddrItrData itr_data = {
     .device = *device,
+    .expected_keys = expected_keys,
     .found = false,
   };
   prv_file_each(prv_find_by_addr_itr, &itr_data);
 
   if (!itr_data.found) {
-    return;
+    return false;
   }
 
-  bt_persistent_storage_delete_ble_pairing_by_id(itr_data.id_out);
+  if (!prv_delete_ble_pairing_by_id(itr_data.id_out, expected_keys)) {
+    return false;
+  }
+
+  if (expected_keys != NULL) {
+    // Shared PRF is a second store with a lock of its own, and prv_update_bondings()
+    // pushes every gateway pairing into it, so a re-pair that completed while this
+    // delete was queued has already put its fresh keys there. Guard it with the same
+    // key material the record was guarded with rather than erasing whatever is in the
+    // slot: this is the copy PRF boots from, and wiping it strands the phone.
+    shared_prf_storage_erase_ble_pairing_data_if_matches(expected_keys, NULL);
+  } else {
+    // TODO: Make sure this matches what we have stored
+    shared_prf_storage_erase_ble_pairing_data();
+  }
+  return true;
+}
+
+void bt_persistent_storage_delete_ble_pairing_by_addr(const BTDeviceInternal *device) {
+  prv_delete_ble_pairing_by_addr(device, NULL);
+}
+
+bool bt_persistent_storage_delete_ble_pairing_by_addr_if_matches(const BTDeviceInternal *device,
+                                                                 const SMPairingInfo *expected) {
+  return prv_delete_ble_pairing_by_addr(device, expected);
 }
 
 static void prv_fill_ble_data(SMIdentityResolvingKey *irk_in,
