@@ -38,6 +38,10 @@ bool system_task_add_callback(SystemTaskEventCallback cb, void *data) {
   return true;
 }
 
+bool system_task_add_callback_nonblocking(SystemTaskEventCallback cb, void *data) {
+  return system_task_add_callback(cb, data);
+}
+
 bool system_task_add_callback_from_isr(SystemTaskEventCallback cb, void *data,
                                        bool *should_context_switch) {
   *should_context_switch = false;

@@ -32,6 +32,16 @@ bool system_task_add_callback_from_isr(SystemTaskEventCallback cb, void *data, b
 //! @param data Context pointer passed to the callback
 bool system_task_add_callback(SystemTaskEventCallback cb, void *data);
 
+//! Like system_task_add_callback(), but reports a full queue instead of waiting
+//! on it. system_task_add_callback() blocks for up to 3 s and then reboots the
+//! watch, which is not an option for a caller that holds a lock KernelBG needs,
+//! runs on KernelBG itself, or runs on a task the rest of the system waits on.
+//! @param cb Callback function that will later be called from the system task
+//! @param data Context pointer passed to the callback
+//! @return True if the callback was queued. False if the queue is full or
+//! callbacks are blocked; the caller owns whatever it was going to hand over.
+bool system_task_add_callback_nonblocking(SystemTaskEventCallback cb, void *data);
+
 //! @param block True if callbacks should be rejected, False if they should be let through.
 void system_task_block_callbacks(bool block);
 

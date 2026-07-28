@@ -188,6 +188,24 @@ bool system_task_add_callback(SystemTaskEventCallback cb, void *data) {
   return true;
 }
 
+bool system_task_add_callback_nonblocking(SystemTaskEventCallback cb, void *data) {
+  if (!prv_is_accepting_callbacks()) {
+    return false;
+  }
+
+  SystemTaskEvent event = {
+    .cb = cb,
+    .data = data,
+  };
+
+  // Deliberately no handle_system_task_send_failure(): the point of this variant
+  // is that a full queue is the caller's problem, not a reboot.
+  QueueHandle_t queue = (pebble_task_get_current() == PebbleTask_App) ?
+      s_from_app_system_task_queue : s_system_task_queue;
+
+  return (xQueueSendToBack(queue, &event, 0) == pdTRUE);
+}
+
 void system_task_block_callbacks(bool block) {
   s_should_block_callbacks = block;
 }
