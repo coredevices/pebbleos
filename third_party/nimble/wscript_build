@@ -7,7 +7,6 @@ nimble_includes = [
     'mynewt-nimble/nimble/host/services/gap/include',
     'mynewt-nimble/nimble/host/services/gatt/include',
     'mynewt-nimble/nimble/host/services/ias/include',
-    'mynewt-nimble/nimble/host/services/dis/include',
     'mynewt-nimble/nimble/host/services/lls/include',
     'mynewt-nimble/nimble/host/services/tps/include',
     'mynewt-nimble/nimble/host/util/include',
@@ -34,6 +33,7 @@ nimble_sources = bld.path.ant_glob(
     excl = [
         'mynewt-nimble/nimble/host/src/ble_gatts_lcl.c', # has a duplicate define, not needed anyway
         'mynewt-nimble/porting/nimble/src/hal_timer.c',
+        'mynewt-nimble/nimble/host/services/dis/src/*.c', # replaced by our own dis_service.c
     ]
 )
 

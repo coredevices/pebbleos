@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2025 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "dis_service.h"
 #include "gh3x2x_tuning_service.h"
 
 #include <FreeRTOS.h>
@@ -13,7 +14,6 @@
 #include <nimble/nimble_port.h>
 #include <pbl/os/tick.h>
 #include <semphr.h>
-#include <services/dis/ble_svc_dis.h>
 #include <services/bas/ble_svc_bas.h>
 #include <services/gap/ble_svc_gap.h>
 #include <services/gatt/ble_svc_gatt.h>
@@ -137,15 +137,10 @@ bool bt_driver_start(BTDriverConfig *config) {
   (void)xSemaphoreTake(s_host_started, 0);
 
   s_dis_info = config->dis_info;
-  ble_svc_dis_model_number_set(s_dis_info.model_number);
-  ble_svc_dis_serial_number_set(s_dis_info.serial_number);
-  ble_svc_dis_firmware_revision_set(s_dis_info.fw_revision);
-  ble_svc_dis_software_revision_set(s_dis_info.sw_revision);
-  ble_svc_dis_manufacturer_name_set(s_dis_info.manufacturer);
 
   ble_svc_gap_init();
   ble_svc_gatt_init();
-  ble_svc_dis_init();
+  dis_service_init(&s_dis_info);
   pebble_pairing_service_init();
   ble_svc_bas_init();
   ppog_reversed_service_init();
