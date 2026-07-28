@@ -15,6 +15,7 @@
 #include "pbl/os/mutex.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/bluetooth/ble_bas.h"
+#include "pbl/services/bluetooth/ble_hid.h"
 #include "pbl/services/bluetooth/bluetooth_persistent_storage.h"
 #include "pbl/services/bluetooth/dis.h"
 #include "pbl/services/bluetooth/local_addr.h"
@@ -77,6 +78,13 @@ static void prv_comm_start(void) {
   // no-op bonding handlers, so doing it early is harmless for them too.
   bt_persistent_storage_register_existing_ble_bondings();
 
+  // Before the driver, not after: bt_driver_start() is where the HID GATT
+  // service becomes subscribable, and a subscribe event landing on the host
+  // task before ble_hid_init() has made its lock would race the press path.
+  // Nothing in here touches the driver beyond asking whether the backend
+  // supports the service at all, which is a per-backend constant.
+  ble_hid_init();
+
   s_comm_is_running = bt_driver_start(config);
   kernel_free(config);
 
@@ -100,6 +108,7 @@ static void prv_comm_stop(void) {
     return;
   }
   ble_bas_deinit();
+  ble_hid_deinit();
 #if defined(CONFIG_HRM) && !defined(CONFIG_RECOVERY_FW)
   ble_hrm_deinit();
 #endif

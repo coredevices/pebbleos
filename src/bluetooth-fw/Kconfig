@@ -28,6 +28,26 @@ module = BT
 module-str = Bluetooth
 source "subsys/logging/Kconfig.template.log_level"
 
+config BT_HID_REMOTE
+    bool "BLE HID camera remote"
+    depends on BT_FW_NIMBLE
+    default y
+    help
+      Expose a HID-over-GATT service with a Consumer Control report, so the
+      watch can act as a remote. On the one iOS version this has been tried
+      on, sending Volume Increment fires the camera shutter while the Camera
+      app is in the foreground. Nothing else has been measured.
+
+      On by default on this prototype branch, so test builds carry the
+      feature without extra configure flags. A mergeable version would ship
+      disabled until the report map is settled: it declares the same
+      Consumer usages twice, as a bitmap and as a 16-bit usage array, and
+      which of the two to keep is still being compared across phone models
+      and OS versions. A host caches the report map when it bonds, so
+      defaulting this on would freeze the two-report map onto every phone
+      that pairs, and answering the question afterwards would mean a re-pair
+      for each of them.
+
 config GH3X2X_TUNING_SERVICE_ENABLED
     bool "GH3X2X tuning service"
     depends on HRM_GH3X2X

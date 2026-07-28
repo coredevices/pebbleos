@@ -3,6 +3,7 @@
 
 sources = [
     'ble_bas.c',
+    'ble_hid.c',
     'bluetooth_ctl.c',
     'bluetooth_persistent_storage_debug.c',
     'bluetooth_prompt.c',

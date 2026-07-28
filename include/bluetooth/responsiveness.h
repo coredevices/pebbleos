@@ -32,6 +32,7 @@ typedef enum {
   BtConsumerTimelineActionMenu,
   BtConsumerPRF,
   BtConsumerPebblePairingServiceRemoteDevice,
+  BtConsumerHidRemote,
   BtConsumerUnitTests, // For unit testing
   NumBtConsumer,
 } BtConsumer;
@@ -52,6 +53,7 @@ typedef void (*ResponsivenessGrantedHandler)(void);
 #define MIN_LATENCY_MODE_TIMEOUT_APP_FETCH_SECS            (5)
 #define MIN_LATENCY_MODE_TIMEOUT_APP_MESSAGE_SECS          (10)
 #define MIN_LATENCY_MODE_TIMEOUT_CD_SECS                   (10)
+#define MIN_LATENCY_MODE_TIMEOUT_HID_SECS                  (60)
 #define MIN_LATENCY_MODE_TIMEOUT_PROTOCOL_RECV_SECS        (60)
 #define MIN_LATENCY_MODE_TIMEOUT_PUT_BYTES_SECS            (60)
 #define MIN_LATENCY_MODE_TIMEOUT_SCREENSHOT_SECS           (5)

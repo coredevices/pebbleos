@@ -84,6 +84,7 @@ static const char *prv_consumer_name(BtConsumer consumer) {
     [BtConsumerTimelineActionMenu] = "TimelineActionMenu",
     [BtConsumerPRF] = "PRF",
     [BtConsumerPebblePairingServiceRemoteDevice] = "PebblePairingServiceRemoteDevice",
+    [BtConsumerHidRemote] = "HidRemote",
     [BtConsumerUnitTests] = "UnitTests",
   };
 
