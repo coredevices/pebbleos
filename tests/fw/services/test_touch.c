@@ -389,14 +389,19 @@ void test_touch__global_disable_sleeps_unsubscribed_sensor(void) {
 }
 
 void test_touch__wake_gate_formula(void) {
-  // (before=F, after=T) -> woke the screen -> latch.
-  cl_assert(touch_wake_gate_on_touchdown(true, false, false, true).latch);
+  // (before=F, after=T) -> woke the screen -> WAKE: taps/swipes blocked, a follow-on drag pans.
+  const TouchWakeGateResult woke = touch_wake_gate_on_touchdown(true, false, false, true);
+  cl_assert(!woke.latch);
+  cl_assert(woke.wake);
   // Already on (T, T) -> navigation.
   cl_assert(!touch_wake_gate_on_touchdown(true, false, true, true).latch);
+  cl_assert(!touch_wake_gate_on_touchdown(true, false, true, true).wake);
   // Off and stayed off (F, F), no DnD (day/ALS) -> navigation.
   cl_assert(!touch_wake_gate_on_touchdown(true, false, false, false).latch);
-  // DnD suppressed the wake while off -> still a wake tap -> latch.
+  cl_assert(!touch_wake_gate_on_touchdown(true, false, false, false).wake);
+  // DnD suppressed the wake while off -> screen still dark -> full latch, not wake.
   cl_assert(touch_wake_gate_on_touchdown(true, true, false, false).latch);
+  cl_assert(!touch_wake_gate_on_touchdown(true, true, false, false).wake);
   // DnD but screen already on -> navigation.
   cl_assert(!touch_wake_gate_on_touchdown(true, true, true, true).latch);
 }
@@ -408,25 +413,29 @@ void test_touch__wake_gate_guard_matrix(void) {
   cl_assert(touch_wake_gate_on_touchdown(false, false, false, false).latch);
   cl_assert(touch_wake_gate_on_touchdown(false, false, false, true).latch);
   cl_assert(touch_wake_gate_on_touchdown(false, true, false, false).latch);
+  // The gesture-wake latch is never the pan-allowing wake kind (the screen is dark).
+  cl_assert(!touch_wake_gate_on_touchdown(false, false, false, false).wake);
   // Screen already on: the touch navigates.
   cl_assert(!touch_wake_gate_on_touchdown(false, false, true, true).latch);
   cl_assert(!touch_wake_gate_on_touchdown(false, true, true, true).latch);
 
-  // Driven, no DnD: latch strictly by the formula.
+  // Driven, screen lit by this touch: the wake kind, not the full latch.
   TouchWakeGateResult driven = touch_wake_gate_on_touchdown(true, false, false, true);
-  cl_assert(driven.latch);
+  cl_assert(!driven.latch);
+  cl_assert(driven.wake);
 
-  // Driven, DnD: latch == !before.
+  // Driven, DnD (screen stayed dark): full latch == !before.
   cl_assert(touch_wake_gate_on_touchdown(true, true, false, false).latch);
   cl_assert(!touch_wake_gate_on_touchdown(true, true, true, true).latch);
 }
 
 void test_touch__wake_gate_latches_across_gesture(void) {
-  // A wake Touchdown stamps non_navigational and latches it for the gesture.
-  TouchWakeGateResult woke = touch_wake_gate_on_touchdown(true, false, false, true);
+  // A DnD-blocked Touchdown stamps non_navigational and latches it for the gesture.
+  TouchWakeGateResult blocked = touch_wake_gate_on_touchdown(true, true, false, false);
   TouchEvent td = {.type = TouchEvent_Touchdown};
-  touch_wake_gate_stamp(&td, woke);
+  touch_wake_gate_stamp(&td, blocked);
   cl_assert(td.non_navigational);
+  cl_assert(!td.wake_touch);
 
   // PositionUpdate and Liftoff carry the latch, regardless of their gate arg.
   TouchEvent pu = {.type = TouchEvent_PositionUpdate};
@@ -446,6 +455,30 @@ void test_touch__wake_gate_latches_across_gesture(void) {
   TouchEvent pu2 = {.type = TouchEvent_PositionUpdate};
   touch_wake_gate_stamp(&pu2, (TouchWakeGateResult){0});
   cl_assert(!pu2.non_navigational);
+}
+
+void test_touch__wake_gate_wake_kind_latches_across_gesture(void) {
+  // A screen-waking Touchdown stamps wake_touch (NOT non_navigational) and latches it.
+  TouchWakeGateResult woke = touch_wake_gate_on_touchdown(true, false, false, true);
+  TouchEvent td = {.type = TouchEvent_Touchdown};
+  touch_wake_gate_stamp(&td, woke);
+  cl_assert(!td.non_navigational);
+  cl_assert(td.wake_touch);
+
+  // The whole gesture carries the wake latch so the dispatcher's Touchdown decision holds.
+  TouchEvent pu = {.type = TouchEvent_PositionUpdate};
+  touch_wake_gate_stamp(&pu, (TouchWakeGateResult){0});
+  cl_assert(pu.wake_touch);
+
+  TouchEvent lo = {.type = TouchEvent_Liftoff};
+  touch_wake_gate_stamp(&lo, (TouchWakeGateResult){0});
+  cl_assert(lo.wake_touch);
+
+  // A fresh navigational Touchdown clears it.
+  TouchWakeGateResult nav = touch_wake_gate_on_touchdown(true, false, true, true);
+  TouchEvent td2 = {.type = TouchEvent_Touchdown};
+  touch_wake_gate_stamp(&td2, nav);
+  cl_assert(!td2.wake_touch);
 }
 
 void test_touch__toggle_off_with_finger_down_emits_liftoff(void) {

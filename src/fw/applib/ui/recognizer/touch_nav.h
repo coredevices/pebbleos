@@ -127,7 +127,7 @@ typedef enum TouchNavLogKind {
   TouchNavLog_Route,      //!< A route was latched (detail = TouchNavRoute).
   TouchNavLog_Emit,       //!< A button was emulated (detail = ButtonId).
   TouchNavLog_Dropped,    //!< A completion was dropped mid-animation (detail = ButtonId).
-  TouchNavLog_Gated,      //!< A gated (non-navigational) Touchdown (detail = 0).
+  TouchNavLog_Gated,      //!< A gated Touchdown (detail: 0 = dropped, 1 = wake, pans allowed).
 } TouchNavLogKind;
 
 typedef struct TouchNavLogEntry {

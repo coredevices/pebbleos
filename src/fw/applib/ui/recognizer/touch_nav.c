@@ -522,6 +522,19 @@ void touch_nav_dispatch(const TouchEvent *touch_event, void *context) {
       prv_fail(state, state->widget_pan);
       prv_fail(state, state->widget_swipe);
     }
+
+    if (touch_event->wake_touch) {
+      // This Touchdown turned the screen on. The gesture must not tap or swipe (it targeted the
+      // wake, not the UI), but a drag that follows is deliberate, now-visible input: leave the
+      // pans alive so wake-and-scroll works as one gesture instead of demanding a second touch.
+      // On a Tier-2 route the bridge pan is already failed by the tier exclusion, so a wake
+      // gesture stays fully inert on button-emulation surfaces.
+      prv_fail(state, state->tap);
+      prv_fail(state, state->swipe);
+      prv_fail(state, state->widget_tap);
+      prv_fail(state, state->widget_swipe);
+      prv_log_push(state, TouchNavLog_Gated, 1 /* wake: pans allowed */);
+    }
   } else {
     recognizer_manager_handle_touch_event(touch_event, manager);
   }

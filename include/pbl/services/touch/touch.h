@@ -86,10 +86,14 @@ void touch_release_active(void);
 
 //! Outcome of the wake-gate decision made on a Touchdown.
 typedef struct TouchWakeGateResult {
-  //! true when the touch is a wake tap (or DnD-suppressed touch) that must not
-  //! drive navigation. false whenever nothing drives the backlight for this
-  //! touch, so no consumer needs a separate early-exit signal.
+  //! true when the touch must not drive navigation at all: the screen is (and
+  //! stays) dark — a DnD-suppressed touch, or a screen-off touch when nothing
+  //! drives the backlight (gesture-wake mode).
   bool latch;
+  //! true when this Touchdown turned the screen on: the gesture must not tap
+  //! or swipe (it targeted the wake, not the UI), but a follow-on drag is
+  //! deliberate, now-visible input and may pan.
+  bool wake;
 } TouchWakeGateResult;
 
 //! Pure wake-gate decision, factored out so it is unit-testable independently
