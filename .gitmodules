@@ -24,7 +24,8 @@
 	url = https://github.com/nayuki/QR-Code-generator
 [submodule "third_party/nonfree/pebbleos-nonfree"]
 	path = third_party/nonfree/pebbleos-nonfree
-	url = https://github.com/coredevices/pebbleos-nonfree
+	url = https://github.com/32bitx64bit/pebbleos-nonfree.git
+	branch = blood-oxygen
 [submodule "third_party/speex/speex"]
 	path = third_party/speex/speex
 	url = https://github.com/xiph/speex
