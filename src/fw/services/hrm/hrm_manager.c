@@ -49,10 +49,6 @@ PBL_LOG_MODULE_DEFINE(service_hrm, CONFIG_SERVICE_HRM_LOG_LEVEL);
 
 static struct HRMManagerState s_manager_state;
 
-// Union of HRMFeature bits the sensor was last enabled with; used to detect when the active
-// subscriber set requires a different feature mix so the sensor can be restarted with it.
-static HRMFeature s_enabled_features = (HRMFeature)0;
-
 // Forward declarations
 static void prv_update_enable_timer_cb(void *context);
 
@@ -233,12 +229,15 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
     // Check if we've permanently failed to enable HRM
     bool hrm_permanently_failed = (s_manager_state.enable_failure_count >= HRM_MAX_ENABLE_FAILURES);
 
-    if (turn_sensor_on && hrm_is_enabled(HRM) && (needed_features != s_enabled_features)) {
+    if (turn_sensor_on && hrm_is_enabled(HRM) &&
+        (needed_features != s_manager_state.enabled_features)) {
       // The active subscriber set needs a different feature mix; restart the sensor with it.
       HRM_LOG("HRM feature set changed (0x%x -> 0x%x), restarting sensor",
-              s_enabled_features, needed_features);
+              s_manager_state.enabled_features, needed_features);
       hrm_disable(HRM);
       PBL_ANALYTICS_TIMER_STOP(hrm_on_time_ms);
+      sys_accel_manager_data_unsubscribe(s_manager_state.accel_state);
+      s_manager_state.accel_state = NULL;
     }
 
     if (turn_sensor_on && !hrm_is_enabled(HRM) && !hrm_permanently_failed) {
@@ -274,7 +273,7 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
       } else {
         // Success - reset failure counter
         s_manager_state.enable_failure_count = 0;
-        s_enabled_features = needed_features;
+        s_manager_state.enabled_features = needed_features;
         // Don't need the re-enable timer to fire
         new_timer_stop(s_manager_state.update_enable_timer_id);
         // Track HRM on-time
@@ -285,7 +284,7 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
       // Turn off the sensor now
       HRM_LOG("Turning off HR sensor");
       hrm_disable(HRM);
-      s_enabled_features = (HRMFeature)0;
+      s_manager_state.enabled_features = (HRMFeature)0;
       // Stop tracking HRM on-time
       PBL_ANALYTICS_TIMER_STOP(hrm_on_time_ms);
 

@@ -80,6 +80,8 @@ struct HRMManagerState {
   uint8_t check_disable_counter;   // increments to HRM_CHECK_SENSOR_DISABLE_COUNT
   uint8_t enable_failure_count;    // counts consecutive hrm_enable failures, stops retrying after max
 
+  HRMFeature enabled_features;     // feature union the sensor was last enabled with
+
   bool enabled_run_level;          // True if the current run_level (LowPower, Stationary,
                                    // Normal, etc.) allows the sensor to be turned on
   bool enabled_charging_state;     // Ture if we aren't plugged in / charging
