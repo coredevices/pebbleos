@@ -97,7 +97,9 @@ T_STATIC bool prv_fail_recognizer(Recognizer *recognizer, void *context) {
   if (ctx->triggered && !recognizer_should_evaluate_simultaneously(recognizer, ctx->triggered)) {
     recognizer_set_failed(recognizer);
   }
-  ctx->recognizers_active = recognizer_is_active(recognizer);
+  // Accumulate: ANY still-active recognizer (e.g. a simultaneous one earlier in the list) must
+  // keep the manager from resetting, not just the last one examined.
+  ctx->recognizers_active = ctx->recognizers_active || recognizer_is_active(recognizer);
   return true;
 }
 
@@ -205,10 +207,9 @@ void recognizer_manager_handle_touch_event(const TouchEvent *touch_event, void *
   RecognizerManager *manager = context;
 
   if (touch_event->type == TouchEvent_Touchdown) {
-    Layer *root = window_get_root_layer(manager->window);
+    Layer *root = manager->window ? window_get_root_layer(manager->window) : NULL;
     GPoint touch_pos = GPoint(touch_event->x, touch_event->y);
-    Layer *new_active_layer = manager->window ? layer_find_layer_containing_point(root,
-        &touch_pos) : NULL;
+    Layer *new_active_layer = root ? layer_find_layer_containing_point(root, &touch_pos) : NULL;
     if (new_active_layer == root) {
       new_active_layer = NULL;
     }

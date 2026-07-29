@@ -9,6 +9,7 @@
 #include "applib/graphics/graphics.h"
 #include "applib/ui/recognizer/recognizer.h"
 #include "applib/ui/recognizer/recognizer_list.h"
+#include "applib/ui/recognizer/recognizer_manager.h"
 #include "applib/ui/window_private.h"
 #include "applib/unobstructed_area_service_private.h"
 #include "kernel/kernel_applib_state.h"
@@ -55,12 +56,36 @@ static bool prv_destroy_recognizer(Recognizer *recognizer, void *context) {
   recognizer_destroy(recognizer);
   return true;
 }
+
+//! The recognizer manager latches the touched layer for the whole gesture and walks its parent
+//! chain on every touch event. A layer destroyed mid-gesture (an app rebuilding UI from a timer
+//! or message callback with a finger down) would leave that latch dangling, so if the dying layer
+//! is the active layer or one of its ancestors, cancel the gesture and reset the manager.
+static void prv_invalidate_manager_active_layer(Layer *layer) {
+  if (!layer->window) {
+    return;
+  }
+  RecognizerManager *manager = window_get_recognizer_manager(layer->window);
+  if (!manager) {
+    return;
+  }
+  for (Layer *active = manager->active_layer; active; active = active->parent) {
+    if (active == layer) {
+      recognizer_manager_cancel_and_reset(manager);
+      return;
+    }
+  }
+}
 #endif
 
 void layer_deinit(Layer *layer) {
   if (!layer) {
     return;
   }
+#ifdef CONFIG_TOUCH
+  // Must run while layer->window is still set (layer_remove_from_parent clears it).
+  prv_invalidate_manager_active_layer(layer);
+#endif
   layer_remove_from_parent(layer);
 
 #ifdef CONFIG_TOUCH

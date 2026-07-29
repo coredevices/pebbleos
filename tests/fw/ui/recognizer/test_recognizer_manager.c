@@ -1007,3 +1007,83 @@ void test_recognizer_manager__handle_state_change(void) {
   cl_assert_equal_i(r[0]->state, RecognizerState_Started);
   cl_assert_equal_i(r[1]->state, RecognizerState_Completed);
 }
+
+void test_recognizer_manager__layer_deinit_invalidates_active_layer(void) {
+  RecognizerManager manager;
+  recognizer_manager_init(&manager);
+  s_manager = &manager;  // returned by this file's window_get_recognizer_manager stub
+
+  Window window = {};
+  layer_init(&window.layer, &GRectZero);
+  window.layer.window = &window;  // window_init() does this in production
+  manager.window = &window;
+
+  Layer parent, child;
+  layer_init(&parent, &GRectZero);
+  layer_init(&child, &GRectZero);
+  layer_add_child(&window.layer, &parent);
+  layer_add_child(&parent, &child);
+
+  // A gesture is in flight on `child`. Destroying an ANCESTOR of the active layer mid-gesture
+  // must reset the manager: the per-event walk over active_layer's parent chain would otherwise
+  // dereference the freed layer.
+  manager.state = RecognizerManagerState_RecognizersActive;
+  manager.active_layer = &child;
+  layer_deinit(&parent);
+  cl_assert_equal_p(manager.active_layer, NULL);
+  cl_assert_equal_i(manager.state, RecognizerManagerState_WaitForTouchdown);
+
+  // A layer unrelated to the active chain must NOT disturb an in-flight gesture.
+  Layer other, active;
+  layer_init(&other, &GRectZero);
+  layer_init(&active, &GRectZero);
+  layer_add_child(&window.layer, &other);
+  layer_add_child(&window.layer, &active);
+  manager.state = RecognizerManagerState_RecognizersActive;
+  manager.active_layer = &active;
+  layer_deinit(&other);
+  cl_assert_equal_p(manager.active_layer, &active);
+  cl_assert_equal_i(manager.state, RecognizerManagerState_RecognizersActive);
+
+  s_manager = NULL;
+}
+
+void test_recognizer_manager__completed_trigger_spares_simultaneous(void) {
+  RecognizerManager manager;
+  recognizer_manager_init(&manager);
+  RecognizerList list = {};
+  manager.global_list = &list;
+  manager.window = NULL;  // stubs return NULL lists/root for a NULL window
+
+  // T completes on the Touchdown itself (tap-like), so the trigger is already inactive during the
+  // fail-others pass of the same event.
+  RecognizerState t_state = RecognizerState_Completed;
+  bool t_updated = false;
+  TestImplData t_data = { .new_state = &t_state, .updated = &t_updated };
+  TestImplData plain_data = {};
+
+  // List order is the essence: the simultaneous r1 is examined BEFORE r2, whose failure in the
+  // same pass must not overwrite the fact that r1 is still active.
+  NEW_RECOGNIZER(r1) = test_recognizer_create(&plain_data, NULL);
+  NEW_RECOGNIZER(r2) = test_recognizer_create(&plain_data, NULL);
+  NEW_RECOGNIZER(t) = test_recognizer_create(&t_data, NULL);
+  recognizer_set_simultaneous_with(r1, prv_simultaneous_with_cb);
+  recognizer_add_to_list(r1, &list);
+  recognizer_add_to_list(r2, &list);
+  recognizer_add_to_list(t, &list);
+  recognizer_set_manager(r1, &manager);
+  recognizer_set_manager(r2, &manager);
+  recognizer_set_manager(t, &manager);
+
+  recognizer_manager_handle_touch_event(&(TouchEvent) { .type = TouchEvent_Touchdown }, &manager);
+
+  cl_assert_equal_i(recognizer_get_state(t), RecognizerState_Completed);
+  cl_assert_equal_i(recognizer_get_state(r2), RecognizerState_Failed);    // plain: failed
+  cl_assert_equal_i(recognizer_get_state(r1), RecognizerState_Possible);  // simultaneous: spared
+  // r1 can still start a gesture, so the manager must NOT have reset back to WaitForTouchdown.
+  cl_assert(manager.state != RecognizerManagerState_WaitForTouchdown);
+
+  recognizer_remove_from_list(r1, &list);
+  recognizer_remove_from_list(r2, &list);
+  recognizer_remove_from_list(t, &list);
+}

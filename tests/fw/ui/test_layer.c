@@ -53,6 +53,8 @@ void recognizer_remove_from_list(Recognizer *recognizer, RecognizerList *list) {
 
 RecognizerManager *window_get_recognizer_manager(Window *window) { return NULL; }
 
+void recognizer_manager_cancel_and_reset(RecognizerManager *manager) {}
+
 bool recognizer_list_iterate(RecognizerList *list, RecognizerListIteratorCb iter_cb,
                              void *context) {
   return false;
