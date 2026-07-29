@@ -385,13 +385,18 @@ bool health_service_events_subscribe(HealthEventHandler handler, void *context);
 //! @return `true` on success, `false` on failure.
 bool health_service_events_unsubscribe(void);
 
-//! Get the most recent HRV peak-to-peak interval in milliseconds.
+//! Get the most recent HRV peak-to-peak interval in milliseconds. The value is captured from
+//! \ref HealthEventHRVUpdate events, so it only updates while this app is subscribed via
+//! \ref health_service_events_subscribe() and holds an HRV sample period.
 //! @return PPI in ms, or 0 if no reading available.
 uint16_t health_service_peek_hrv_ppi_ms(void);
 
 //! Request HRV (peak-to-peak interval) sampling. While any app holds an HRV sample period, the
 //! sensor collects HRV alongside heart rate and HealthEventHRVUpdate events are delivered to
 //! health service subscribers.
+//! The HRV and heart rate sample periods (\ref health_service_set_heart_rate_sample_period)
+//! share the app's single sensor subscription: both may be active at once, the sensor is driven
+//! at the shorter of the two periods, and setting one period to 0 clears only that request.
 //! @param interval_sec desired sampling interval in seconds; 0 unsubscribes.
 //! @return true on success.
 bool health_service_set_hrv_sample_period(uint16_t interval_sec);

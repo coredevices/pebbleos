@@ -771,10 +771,12 @@ T_STATIC void prv_health_event_handler(PebbleEvent *e, void *context) {
   HealthServiceState *state = prv_get_state(true);
   PBL_ASSERTN(state && state->event_handler != NULL);
 
-  // If this is a significant update event, invalidate our cache
+  // If this is an HRV update event, remember the reading for peeking
   if (e->health_event.type == HealthEventHRVUpdate) {
     state->last_hrv_ppi_ms = e->health_event.data.hrv_update.ppi_ms;
   }
+
+  // If this is a significant update event, invalidate our cache
   else if (e->health_event.type == HealthEventSignificantUpdate) {
     if (state->cache) {
       state->cache->valid_flags = 0;
@@ -1205,24 +1207,19 @@ bool health_service_cancel_metric_alert(HealthMetricAlert *alert) {
 }
 
 // ----------------------------------------------------------------------------------------------
-bool health_service_set_hrv_sample_period(uint16_t interval_sec) {
-#if !defined(CONFIG_HRM) || !defined(CONFIG_HRM_HRV)
-  return false;
-#else
-  if (!sys_activity_is_initialized()) {
-    return false;
-  }
-  if (!sys_activity_prefs_heart_rate_is_enabled()) {
-    return false;
-  }
-
-  AppInstallId app_id = app_get_app_id();
+#ifdef CONFIG_HRM
+//! The HR and HRV sample periods share the app's single HRM subscription: subscribe with the
+//! union of the needed features at the shorter of the two periods, or unsubscribe when both
+//! requests are cleared.
+static bool prv_update_hrm_subscription(HealthServiceState *state) {
+  const AppInstallId app_id = app_get_app_id();
   if (app_id == INSTALL_ID_INVALID) {
     return false;
   }
 
-  // If interval is 0, the caller wants to unsubscribe
-  if (interval_sec == 0) {
+  const uint16_t hr_sec = state->hr_sample_period_sec;
+  const uint16_t hrv_sec = state->hrv_sample_period_sec;
+  if ((hr_sec == 0) && (hrv_sec == 0)) {
     HRMSessionRef hrm_session = sys_hrm_manager_get_app_subscription(app_id);
     if (hrm_session != HRM_INVALID_SESSION_REF) {
       sys_hrm_manager_unsubscribe(hrm_session);
@@ -1230,10 +1227,44 @@ bool health_service_set_hrv_sample_period(uint16_t interval_sec) {
     return true;
   }
 
-  // Subscribe with the HRV feature; the sensor enables HRV while any such subscription is active.
+  HRMFeature features = HRMFeature_BPM;
+  if (hrv_sec != 0) {
+    features |= HRMFeature_HRV;
+  }
+  uint16_t interval_sec;
+  if ((hr_sec != 0) && (hrv_sec != 0)) {
+    interval_sec = MIN(hr_sec, hrv_sec);
+  } else {
+    interval_sec = (hr_sec != 0) ? hr_sec : hrv_sec;
+  }
+
   HRMSessionRef hrm_session = sys_hrm_manager_app_subscribe(app_id, interval_sec, 0 /*expire_sec*/,
-                                                            HRMFeature_BPM | HRMFeature_HRV);
-  return (hrm_session != HRM_INVALID_SESSION_REF);
+                                                            features);
+  if (hrm_session == HRM_INVALID_SESSION_REF) {
+    PBL_LOG_ERR("Error subscribing");
+    return false;
+  }
+  return true;
+}
+#endif
+
+// ----------------------------------------------------------------------------------------------
+bool health_service_set_hrv_sample_period(uint16_t interval_sec) {
+#if !defined(CONFIG_HRM) || !defined(CONFIG_HRM_HRV)
+  return false;
+#else
+  HealthServiceState *state = prv_get_state(false);
+  if (!state) {
+    return false;
+  }
+  // Clearing the request is always allowed; only gate new sampling on the HR preference
+  if ((interval_sec != 0) &&
+      (!sys_activity_is_initialized() || !sys_activity_prefs_heart_rate_is_enabled())) {
+    return false;
+  }
+
+  state->hrv_sample_period_sec = interval_sec;
+  return prv_update_hrm_subscription(state);
 #endif
 }
 
@@ -1241,37 +1272,18 @@ bool health_service_set_heart_rate_sample_period(uint16_t interval_sec) {
 #ifndef CONFIG_HRM
   return false;
 #else
-  if (!sys_activity_is_initialized()) {
+  HealthServiceState *state = prv_get_state(false);
+  if (!state) {
     return false;
   }
-  if (!sys_activity_prefs_heart_rate_is_enabled()) {
-    return false;
-  }
-
-  // Get the app id
-  AppInstallId  app_id = app_get_app_id();
-  if (app_id == INSTALL_ID_INVALID) {
+  // Clearing the request is always allowed; only gate new sampling on the HR preference
+  if ((interval_sec != 0) &&
+      (!sys_activity_is_initialized() || !sys_activity_prefs_heart_rate_is_enabled())) {
     return false;
   }
 
-  // If interval is 0, the caller wants to unsubscribe
-  if (interval_sec == 0) {
-    HRMSessionRef hrm_session = sys_hrm_manager_get_app_subscription(app_id);
-    if (hrm_session != HRM_INVALID_SESSION_REF) {
-      sys_hrm_manager_unsubscribe(hrm_session);
-    }
-    return true;
-  }
-
-  // Subscribe now
-  HRMSessionRef hrm_session = sys_hrm_manager_app_subscribe(app_id, interval_sec, 0 /*expire_sec*/,
-                                                            HRMFeature_BPM);
-  if (hrm_session == HRM_INVALID_SESSION_REF) {
-    PBL_LOG_ERR("Error subscribing");
-    return false;
-  }
-
-  return true;
+  state->hr_sample_period_sec = interval_sec;
+  return prv_update_hrm_subscription(state);
 #endif
 }
 

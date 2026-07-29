@@ -72,6 +72,9 @@ typedef struct HealthServiceState {
   HealthServiceCache *cache;
   EventServiceInfo health_event_service_info;
   uint16_t last_hrv_ppi_ms;
+  //! Requested HR / HRV sampling periods; both map onto the app's single HRM subscription
+  uint16_t hr_sample_period_sec;
+  uint16_t hrv_sample_period_sec;
 } HealthServiceState;
 
 // initializes all static data, does not allocate a cache
