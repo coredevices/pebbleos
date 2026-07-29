@@ -932,6 +932,54 @@ void test_menu_layer__touch_tap_redirect_selects_without_activating(void) {
   cl_assert_equal_i(s_select_click_count, 0);                   // but did NOT activate
 }
 
+// A tap-select on a center-focused menu plays the button-style jump animation instead of
+// re-centring synchronously: the index commit is deferred to the jump's half-way point, while the
+// double-tap window records the jump's target immediately.
+void test_menu_layer__touch_tap_center_focused_schedules_jump(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  menu_layer_set_selected_index(&l, MenuIndex(0, 1), MenuRowAlignCenter, false);  // offset 24
+  prv_reset_touch_counters();
+  menu_layer_touch_handle_tap(&l, GPoint(72, 154 + 24));  // row 3 (content_y 154), on-screen at 178
+  cl_assert_equal_i(s_will_change_count, 1);
+  cl_assert_equal_i(s_select_click_count, 0);                  // select, not activate
+  // The jump is in flight: index not yet committed, target recorded for the double-tap window.
+  cl_assert(l.animation.animation != NULL);
+  cl_assert(animation_is_scheduled(l.animation.animation));
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 1);
+  cl_assert_equal_i(l.animation.new_selection.index.row, 3);
+  cl_assert_equal_i(l.last_selected_index.row, 3);
+  // Driving the jump to its end commits the selection and centres the target row.
+  AnimationPrivate *jump = (AnimationPrivate *)l.animation.animation;
+  jump->implementation->update(l.animation.animation, ANIMATION_NORMALIZED_MAX);
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 3);
+  cl_assert_equal_i(s_selection_changed_count, 1);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y,
+                    90 - l.selection.y - l.selection.h / 2);
+}
+
+// A fast second tap while the jump is still in flight must activate the jump's TARGET. The commit
+// is still pending (the index is the old row), so this pins that the double-tap window records
+// animation.new_selection and not the stale selection.index.
+void test_menu_layer__touch_double_tap_during_center_focused_jump(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  prv_reset_touch_counters();
+  menu_layer_touch_handle_tap(&l, GPoint(72, 110 + 68));  // row 2 (content_y 110), row 0 centred
+  cl_assert_equal_i(s_select_click_count, 0);
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 0);  // commit still pending
+  fake_rtc_increment_ticks((RtcTicks)100 * RTC_TICKS_HZ / 1000);  // within the 300ms window
+  menu_layer_touch_handle_tap(&l, GPoint(72, 110 + 68));  // same spot, mid-jump
+  cl_assert_equal_i(s_select_click_count, 1);
+  cl_assert_equal_i(s_select_click_index.row, 2);          // the jump target, not the stale row 0
+}
+
 // ---- Criterion 3a: double-tap window (fast double tap in one spot on an animated menu) ----
 
 // The case the naive index compare CANNOT handle: on an animated (non-center_focused) menu, tap 1
@@ -1019,10 +1067,10 @@ void test_menu_layer__touch_double_tap_records_clamped_selection(void) {
 // selection. A vetoed tap on a visible other row must not call set_selected_index at all, so the
 // scroll offset stays exactly where it was and nothing activates.
 //
-// A center_focused menu is used so the re-centre would be SYNCHRONOUS (the tap passes
-// animated=!center_focused=false): set_selected_index's scroll is applied immediately instead of via
-// a deferred animation, making the "did it re-centre?" question observable in a unit test. The veto
-// early-return branch exercised here is the same one used by ordinary menus.
+// A center_focused menu is used so a (buggy) re-centre would be observable synchronously: even the
+// animated jump applies the scroll position at schedule time (only the content-offset trick
+// animates), so a wrong set_selected_index call would move the offset before this test's assert.
+// The veto early-return branch exercised here is the same one used by ordinary menus.
 void test_menu_layer__touch_tap_veto_does_not_recenter(void) {
   MenuLayer l;
   menu_layer_init(&l, &GRect(0, 0, 144, 180));

@@ -1838,11 +1838,20 @@ void menu_layer_touch_handle_tap(MenuLayer *menu_layer, GPoint point_on_screen) 
     return;
   }
   prv_cancel_selection_animation(menu_layer);
-  menu_layer_set_selected_index(menu_layer, final, MenuRowAlignCenter, !menu_layer->center_focused);
+  // Animated: a center-focused menu plays the same jump/bounce as a button step (the nudge-in,
+  // half-way snap and bounce-out of prv_schedule_center_focus_animation); plain menus slide as
+  // before.
+  menu_layer_set_selected_index(menu_layer, final, MenuRowAlignCenter, true);
   // Record the committed (range-clamped) selection, not the raw will_change output: a client that
   // redirects to an out-of-range index would otherwise be handed that OOB index by a fast double tap
-  // (priority 1), diverging from priority 2 which activates the clamped selection.index.
-  menu_layer->last_selected_index = menu_layer->selection.index;
+  // (priority 1), diverging from priority 2 which activates the clamped selection.index. On a
+  // center-focused menu the index commit is deferred to the half-way point of the jump animation;
+  // until then the committed target lives in animation.new_selection (a priority-1 tap during the
+  // jump cancels it, which drives the animation to its end state and commits that same target).
+  const bool jump_in_flight = menu_layer->center_focused &&
+                              animation_is_scheduled(menu_layer->animation.animation);
+  menu_layer->last_selected_index = jump_in_flight ? menu_layer->animation.new_selection.index
+                                                   : menu_layer->selection.index;
   prv_menu_set_last_select_ticks(menu_layer, now);
   menu_layer->double_tap_armed = true;
 }
