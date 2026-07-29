@@ -213,6 +213,40 @@ void test_hrm_manager__subscription(void) {
   cl_assert_equal_b(hrm_is_enabled(HRM), false);
 }
 
+// When the union of subscriber features changes while the sensor is on, the manager must restart
+// the sensor with the new feature set
+void test_hrm_manager__feature_change_restarts_sensor(void) {
+  AppInstallId app_id = 1;
+
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(app_id, 1, 0 /*expire_s*/,
+                                                            HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+  cl_assert_equal_i(s_hrm_state.features, HRMFeature_BPM);
+  cl_assert_equal_i(s_hrm_state.enable_count, 1);
+
+  // Re-subscribing with HRV added replaces the app's subscription and restarts the sensor
+  // with the new feature union
+  HRMSessionRef new_ref = sys_hrm_manager_app_subscribe(app_id, 1, 0 /*expire_s*/,
+                                                        HRMFeature_BPM | HRMFeature_HRV);
+  cl_assert(new_ref == session_ref);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+  cl_assert_equal_i(s_hrm_state.features, HRMFeature_BPM | HRMFeature_HRV);
+  cl_assert_equal_i(s_hrm_state.enable_count, 2);
+
+  // Dropping HRV again restarts back to BPM only
+  sys_hrm_manager_app_subscribe(app_id, 1, 0 /*expire_s*/, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+  cl_assert_equal_i(s_hrm_state.features, HRMFeature_BPM);
+  cl_assert_equal_i(s_hrm_state.enable_count, 3);
+
+  sys_hrm_manager_unsubscribe(session_ref);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_b(hrm_is_enabled(HRM), false);
+}
+
 // When we cleanup after an app process, its subscription, if any, should get an expriration time
 // placed on it
 void test_hrm_manager__app_cleanup(void) {
