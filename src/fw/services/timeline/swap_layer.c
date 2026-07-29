@@ -885,6 +885,19 @@ SwapTouchLiftoffAction swap_layer_touch_liftoff_action(int16_t base_offset, int1
   return SwapTouchLiftoff_Settle;
 }
 
+int16_t swap_layer_touch_settle_offset(int16_t base_offset, int16_t delta_y, int16_t max_dy,
+                                       int16_t page_h) {
+  int16_t target = CLIP(base_offset - delta_y, 0, max_dy);
+  if (page_h > 0) {
+    // Land on the nearest page boundary, never past the last one (max_dy may include the
+    // next-notification peek, which is not a rest position).
+    const int16_t last_page = (int16_t)((max_dy / page_h) * page_h);
+    target = (int16_t)(((target + page_h / 2) / page_h) * page_h);
+    target = MIN(target, last_page);
+  }
+  return target;
+}
+
 // Apply a live drag: move to clamp(base_offset - delta_y). Sub-threshold movement is a no-op so the
 // notification does not creep on a tap.
 static void prv_swap_touch_apply_drag(SwapLayer *swap_layer, int16_t base_offset, int16_t delta_y) {
@@ -914,7 +927,11 @@ static void prv_swap_touch_liftoff(SwapLayer *swap_layer, int16_t base_offset, i
       prv_handle_swap_attempt(swap_layer, ScrollDirectionDown, false /* is_repeating */);
       break;
     case SwapTouchLiftoff_Settle: {
-      const int16_t target_offset = CLIP(base_offset - delta_y, 0, max_dy);
+      // Round text flow is computed for page-aligned rest positions (the paging fold in
+      // prv_walk_lines_down), so a touch settle must land on a page boundary or the line chords
+      // no longer match where the content actually sits on the circle. Rect settles freely.
+      const int16_t target_offset = swap_layer_touch_settle_offset(
+          base_offset, delta_y, max_dy, PBL_IF_RECT_ELSE(0, LAYOUT_HEIGHT));
       const int16_t cur = prv_get_current_notification_offset(swap_layer);
       prv_scroll(swap_layer, cur - target_offset, AnimationCurveEaseOut);
       break;
@@ -998,7 +1015,10 @@ static void prv_swap_ops_pan_cancel(void *w) {
   }
   const int16_t cur = prv_get_current_notification_offset(swap_layer);
   const int16_t max_dy = prv_get_max_scroll_dy(swap_layer);
-  prv_scroll(swap_layer, cur - CLIP(cur, 0, max_dy), AnimationCurveEaseOut);
+  // Same page alignment as the liftoff settle: a cancelled pan must not rest off-grid on round.
+  const int16_t target = swap_layer_touch_settle_offset(cur, 0, max_dy,
+                                                        PBL_IF_RECT_ELSE(0, LAYOUT_HEIGHT));
+  prv_scroll(swap_layer, cur - target, AnimationCurveEaseOut);
 }
 
 static void prv_swap_ops_tap(void *w, GPoint point_on_screen) {

@@ -310,6 +310,45 @@ void test_swap_layer_touch__liftoff_reaching_edge_without_overpull_no_swap(void)
 }
 
 // =============================================================================================
+// The settle target (page quantization for round text flow).
+// =============================================================================================
+
+void test_swap_layer_touch__settle_offset_free_when_no_page(void) {
+  // page_h = 0 (rect): the settle target is the plain clamped offset.
+  cl_assert_equal_i(swap_layer_touch_settle_offset(100, 30, TEST_MAX_DY, 0), 70);
+  cl_assert_equal_i(swap_layer_touch_settle_offset(100, -30, TEST_MAX_DY, 0), 130);
+  // Clamped at both edges.
+  cl_assert_equal_i(swap_layer_touch_settle_offset(0, 30, TEST_MAX_DY, 0), 0);
+  cl_assert_equal_i(swap_layer_touch_settle_offset(TEST_MAX_DY, -30, TEST_MAX_DY, 0), TEST_MAX_DY);
+}
+
+void test_swap_layer_touch__settle_offset_quantizes_to_pages(void) {
+  // page_h = 100 (round): the settle target lands on the nearest page boundary, so the circular
+  // text flow — computed for page-aligned rest positions — matches the content again.
+  const int16_t page = 100;
+  // Below half a page rounds back to the current page; at/above half advances.
+  cl_assert_equal_i(swap_layer_touch_settle_offset(0, -49, TEST_MAX_DY, page), 0);
+  cl_assert_equal_i(swap_layer_touch_settle_offset(0, -50, TEST_MAX_DY, page), 100);
+  cl_assert_equal_i(swap_layer_touch_settle_offset(0, -149, TEST_MAX_DY, page), 100);
+  cl_assert_equal_i(swap_layer_touch_settle_offset(0, -150, TEST_MAX_DY, page), 200);
+  // Quantization applies from any base, not only page-aligned ones (a cancelled pan settles from
+  // wherever the finger left the content).
+  cl_assert_equal_i(swap_layer_touch_settle_offset(130, 0, TEST_MAX_DY, page), 100);
+  cl_assert_equal_i(swap_layer_touch_settle_offset(170, 0, TEST_MAX_DY, page), 200);
+}
+
+void test_swap_layer_touch__settle_offset_never_rests_in_peek(void) {
+  // max_dy may include the next-notification peek (not a page multiple). A target in the peek zone
+  // must land on the last whole page below max_dy, never at the off-grid clamped maximum.
+  const int16_t page = 100;
+  const int16_t max_dy_with_peek = 230;  // two whole pages + 30px peek
+  cl_assert_equal_i(swap_layer_touch_settle_offset(200, -25, max_dy_with_peek, page), 200);
+  // Even the hardest pull that still settles (just short of the over-pull swap threshold, clamped
+  // to max_dy and past the nearest-page midpoint) stays on the last page.
+  cl_assert_equal_i(swap_layer_touch_settle_offset(200, -70, max_dy_with_peek, page), 200);
+}
+
+// =============================================================================================
 // Registration lifecycle.
 // =============================================================================================
 

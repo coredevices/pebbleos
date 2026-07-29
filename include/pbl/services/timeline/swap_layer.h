@@ -162,4 +162,12 @@ typedef enum SwapTouchLiftoffAction {
 
 SwapTouchLiftoffAction swap_layer_touch_liftoff_action(int16_t base_offset, int16_t delta_y,
                                                        int16_t max_dy);
+
+//! @internal Test seam: the offset a Settle liftoff (or a cancelled pan) animates to. The raw
+//! target is clamp(base_offset - delta_y, 0, max_dy); with \a page_h > 0 it is then quantized to
+//! the nearest page boundary, never past the last whole page below \a max_dy (which may include
+//! the next-notification peek). Round displays pass LAYOUT_HEIGHT — the circular text flow is
+//! computed for page-aligned rest positions — while rect passes 0 and settles freely.
+int16_t swap_layer_touch_settle_offset(int16_t base_offset, int16_t delta_y, int16_t max_dy,
+                                       int16_t page_h);
 #endif  // CONFIG_TOUCH
