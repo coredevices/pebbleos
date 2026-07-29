@@ -1541,9 +1541,11 @@ void menu_layer_set_scroll_vibe_on_blocked(MenuLayer *menu_layer, bool scroll_vi
 // supplies that vtable (s_menu_touch_nav_ops) at registration; the apply functions below stay the
 // public per-menu gesture surface (and the unit-test entry points).
 //
-// Live scrolling happens on pan Updated. The selection is frozen for the whole pan (cell height can
-// depend on the selection, so moving it would reflow the content under the finger) and only changes
-// on liftoff, through the full selection_will_change contract.
+// Live scrolling happens on pan Updated. On a plain (non-center-focused) menu the selection is
+// frozen for the whole pan and never changes on liftoff — a pan scrolls, a tap selects. A
+// center-focused menu is a carousel instead: the focus stays pinned at the viewport centre, so the
+// row crossing the centre becomes the selection live during the pan (through the full
+// selection_will_change contract), and liftoff settles the selected row to the exact centre.
 
 // Two independent taps within this window on the same menu count as a "double tap" and activate the
 // last tap-selected row (there is no dedicated double-tap recognizer). CALIBRATION: ~300ms is the
@@ -1677,27 +1679,110 @@ static MenuIndex prv_menu_run_will_change(MenuLayer *menu_layer, MenuIndex candi
 }
 
 // ---------------------------------------------------------------------------------------------
+// Center-focused (carousel) pan: selection tracks the viewport centre
+
+// Move the selection to \a index WITHOUT repositioning the scroll — the finger owns the offset.
+// menu_layer_set_selected_index cannot be used mid-pan: on a center-focused menu it always snaps
+// the offset so the new selection is centred (prv_corrected_scroll_align), which would fight the
+// finger on every crossing.
+static void prv_menu_touch_reselect_row(MenuLayer *menu_layer, MenuIndex index) {
+  const MenuCellSpan prev_selection = menu_layer->selection;
+  const int16_t comp = menu_index_compare(&index, &menu_layer->selection.index);
+  if (comp == 0) {
+    return;
+  }
+  MenuSelectIndexIterator it = {
+    .it = {
+      .menu_layer = menu_layer,
+      .row_callback_after_geometry = prv_menu_layer_iterator_selection_index_callback,
+      .section_callback = prv_menu_layer_iterator_noop_callback,
+      .should_continue = true,
+      .cursor = menu_layer->selection,
+    },
+    .selection = {
+      .index = index,
+    },
+    .did_change_selection = false,
+  };
+  prv_walk_with_iterator((int8_t)comp, &it.it);
+  if (!it.did_change_selection) {
+    return;
+  }
+  // Any selection move invalidates the double-tap window (same rule as prv_apply_selection_change).
+  menu_layer->double_tap_armed = false;
+  const bool up = (comp < 0);
+  prv_menu_layer_update_selection_highlight(menu_layer, up, false /* animated */,
+                                            true /* change_ongoing_animation */);
+  prv_announce_selection_changed(menu_layer, prev_selection.index);
+}
+
+// Adopt the row under the viewport centre as the selection, through the will_change contract: a
+// veto keeps the old row focused (the content still scrolls), a redirect focuses the redirected
+// row. The newly focused row inflates toward the centre (its height reflow is absorbed by its
+// centre-facing edge), so the content under the finger does not jump; the inflation also gives the
+// boundary natural hysteresis.
+static void prv_menu_touch_track_center_row(MenuLayer *menu_layer) {
+  const int16_t frame_h = menu_layer->scroll_layer.layer.frame.size.h;
+  const int16_t offset_y = scroll_layer_get_content_offset(&menu_layer->scroll_layer).y;
+  MenuIndex candidate;
+  if (!menu_layer_touch_find_row_at_content_y(menu_layer, frame_h / 2 - offset_y, &candidate)) {
+    // Centre is past the content ends (the clamp widens by half a frame) or on a header/gap: keep
+    // the current focus.
+    return;
+  }
+  if (menu_index_compare(&candidate, &menu_layer->selection.index) == 0) {
+    return;
+  }
+  prv_menu_touch_reselect_row(menu_layer, prv_menu_run_will_change(menu_layer, candidate));
+}
+
+// Scroll so the current selection sits exactly at the viewport centre. Mirrors the
+// MenuRowAlignCenter case of prv_menu_layer_update_selection_scroll_position, which cannot be used
+// here because it forces animated=false on center-focused menus.
+static void prv_menu_touch_settle_to_center(MenuLayer *menu_layer, bool animated) {
+  const int16_t frame_h = menu_layer->scroll_layer.layer.frame.size.h;
+  const int16_t y =
+      (int16_t)(frame_h / 2 - menu_layer->selection.y - menu_layer->selection.h / 2);
+  scroll_layer_set_content_offset(&menu_layer->scroll_layer, GPoint(0, y), animated);
+}
+
+// ---------------------------------------------------------------------------------------------
 // Gesture handlers (also the unit-test entry surface)
 
 void menu_layer_touch_handle_pan_update(MenuLayer *menu_layer, GPoint base,
                                         GPoint delta_since_start) {
   const int16_t new_y = prv_menu_touch_clamp_offset_y(menu_layer, base.y + delta_since_start.y);
   scroll_layer_set_content_offset(&menu_layer->scroll_layer, GPoint(0, new_y), false);
-  // Selection is intentionally NOT touched here — it only moves on snap.
+  if (menu_layer->center_focused) {
+    prv_menu_touch_track_center_row(menu_layer);
+  }
+  // Plain menus: selection intentionally NOT touched — a pan scrolls, a tap selects.
 }
 
 void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint final_delta) {
-  // Liftoff: settle the final (unthrottled) scroll offset only. The selection is intentionally left
-  // exactly where it was — a finger pan scrolls the content, it must not reselect the centre row (it
-  // may even scroll the selection off-screen, which is acceptable).
+  // Liftoff: settle the final (unthrottled) scroll offset.
   const int16_t new_y = prv_menu_touch_clamp_offset_y(menu_layer, base.y + final_delta.y);
   scroll_layer_set_content_offset(&menu_layer->scroll_layer, GPoint(0, new_y), false);
+  if (!menu_layer->center_focused) {
+    // Plain menus: the selection is intentionally left exactly where it was — a finger pan scrolls
+    // the content, it must not reselect (it may even scroll the selection off-screen).
+    return;
+  }
+  // Carousel liftoff: the final delta may have crossed one more boundary than the last throttled
+  // pan update saw, so re-track first, then glide the focused row into the exact centre.
+  prv_menu_touch_track_center_row(menu_layer);
+  prv_menu_touch_settle_to_center(menu_layer, true /* animated */);
 }
 
 void menu_layer_touch_handle_cancel(MenuLayer *menu_layer) {
-  // The selection never moved during the pan and the content is already settled, so a cancelled pan
-  // has nothing to do.
-  (void)menu_layer;
+  if (!menu_layer->center_focused) {
+    // The selection never moved during the pan and the content is already settled, so a cancelled
+    // pan has nothing to do.
+    return;
+  }
+  // A cancel means something else took over (gesture steal, window change): leave the carousel in
+  // a stable state immediately, without an animation that could outlive the handover.
+  prv_menu_touch_settle_to_center(menu_layer, false /* animated */);
 }
 
 void menu_layer_touch_handle_tap(MenuLayer *menu_layer, GPoint point_on_screen) {

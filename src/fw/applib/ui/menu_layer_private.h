@@ -46,13 +46,14 @@ bool menu_layer_touch_find_row_at_content_y(MenuLayer *menu_layer, int16_t conte
                                             MenuIndex *index_out);
 
 //! Live scroll during a pan: move the content to \a base + \a delta_since_start, coarsely clamped.
-//! The selection index is intentionally left unchanged (cell height depends on the selection, so
-//! moving it would reflow the content under the finger).
+//! On a plain menu the selection index is intentionally left unchanged. On a center-focused menu
+//! the focus stays pinned at the viewport centre: the row crossing the centre becomes the
+//! selection live, through the full selection_will_change contract (veto/redirect honoured).
 void menu_layer_touch_handle_pan_update(MenuLayer *menu_layer, GPoint base, GPoint delta_since_start);
 
-//! Snap on liftoff — the single moment the selection may change. Applies the last (unthrottled) pan
-//! delta, then runs the full selection_will_change contract for the row at the selection focus and
-//! commits it with \c menu_layer_set_selected_index(.., MenuRowAlignCenter, animated=!center_focused).
+//! Liftoff. Applies the last (unthrottled) pan delta. A plain menu only settles the offset — the
+//! selection never moves on a pan. A center-focused menu re-tracks the row under the centre and
+//! then glides it to the exact centre (animated).
 void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint final_delta);
 
 //! One-step tap activation through the same contract: map \a point_on_screen into the scroll
@@ -64,7 +65,8 @@ void menu_layer_touch_handle_tap(MenuLayer *menu_layer, GPoint point_on_screen);
 //! Horizontal swipe: right activates the selected row, left emits BACK through the touch bridge.
 void menu_layer_touch_handle_swipe(MenuLayer *menu_layer, SwipeDirection direction);
 
-//! Cancelled gesture: a synchronous snap with no velocity and a single client callback.
+//! Cancelled gesture: a plain menu has nothing to settle; a center-focused menu re-centres its
+//! selection synchronously (no animation) so the handover leaves a stable state.
 void menu_layer_touch_handle_cancel(MenuLayer *menu_layer);
 
 //! @internal Test seam: zero the per-task Tier-1 gesture singletons for cross-test isolation.

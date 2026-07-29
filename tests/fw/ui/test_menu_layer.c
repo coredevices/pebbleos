@@ -704,7 +704,8 @@ void test_menu_layer__touch_tap_below_status_bar(void) {
   cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 0);
 }
 
-// ---- Criterion 2: a pan (Liftoff) settles the offset only and NEVER moves the selection ----
+// ---- Criterion 2: on a plain menu, a pan (Liftoff) settles the offset only and NEVER moves the
+// selection (center-focused carousels track the centre instead — see the carousel section) ----
 
 // Scrolling down then lifting off must leave the selection index exactly where it was (it may even
 // scroll off-screen) and must not run the selection contract or activate anything.
@@ -744,25 +745,115 @@ void test_menu_layer__touch_snap_up_leaves_selection_unchanged(void) {
   cl_assert_equal_i(s_select_click_count, 0);
 }
 
-void test_menu_layer__touch_snap_center_focused_leaves_selection_unchanged(void) {
+// ---- Center-focused (carousel): the focus stays pinned at the viewport centre ----
+
+// A pan on a center-focused menu moves the row crossing the centre into the selection, live,
+// through the will_change contract. The offset keeps following the finger — no re-centring
+// happens until liftoff.
+void test_menu_layer__touch_pan_center_focused_tracks_center_row(void) {
   MenuLayer l;
   menu_layer_init(&l, &GRect(0, 0, 144, 180));
   menu_layer_set_center_focused(&l, true);
   prv_set_touch_callbacks(&l);
   menu_layer_reload_data(&l);
-  menu_layer_set_selected_index(&l, MenuIndex(0, 3), MenuRowAlignCenter, false);
-  const MenuIndex before = menu_layer_get_selected_index(&l);
-  const int16_t base_offset = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  const int16_t base = scroll_layer_get_content_offset(&l.scroll_layer).y;  // row 0 centred
   prv_reset_touch_counters();
+  // Drag up two (uniform 44px) rows: row 2 crosses the centre.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, base), GPoint(0, -88));
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 2);   // focus tracked the centre
+  cl_assert_equal_i(s_will_change_count, 1);                     // through the contract
+  cl_assert_equal_i(s_selection_changed_count, 1);
+  cl_assert_equal_i(s_select_click_count, 0);                    // a pan never activates
+  // The finger owns the offset: no re-centring mid-pan.
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, base - 88);
+}
 
-  // #27 decision: free scroll everywhere, including center_focused. A pan Liftoff must only settle
-  // the offset, never re-centre the selection back to the middle.
-  menu_layer_touch_handle_snap(&l, GPoint(0, base_offset), GPoint(0, -50));
-  const MenuIndex after = menu_layer_get_selected_index(&l);
-  cl_assert_equal_i(after.row, before.row);                            // selection unchanged
-  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, base_offset - 50);  // settled
-  cl_assert_equal_i(s_will_change_count, 0);
+// A veto keeps the old row focused; the content still scrolls under it.
+void test_menu_layer__touch_pan_center_focused_veto_keeps_selection(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  const int16_t base = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  prv_reset_touch_counters();
+  s_will_change_mode = WillChange_Veto;
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, base), GPoint(0, -88));
+  cl_assert_equal_i(s_will_change_count, 1);
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 0);   // vetoed: focus stays
+  cl_assert_equal_i(s_selection_changed_count, 0);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, base - 88);  // still scrolled
+}
+
+// Liftoff adopts the row under the centre and glides it to the exact centre (this replaces the
+// former "#27 free scroll everywhere" behaviour for center-focused menus).
+void test_menu_layer__touch_snap_center_focused_settles_center_row(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  const int16_t base = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  prv_reset_touch_counters();
+  // -100 leaves the centre inside row 2 but off its exact centre, so a settle is required (a
+  // two-row drag of -88 would land dead-centre and hide a missing settle).
+  menu_layer_touch_handle_snap(&l, GPoint(0, base), GPoint(0, -100));
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 2);   // nearest row adopted
+  cl_assert_equal_i(s_will_change_count, 1);
+  cl_assert_equal_i(s_select_click_count, 0);                    // snapping never activates
+  // The settle glide is animated. The stubbed property animation cannot be driven to its target
+  // here, so assert it was scheduled; the exact-centre target math is pinned by the cancel test,
+  // which runs the same settle synchronously.
+  Animation *settle = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(settle != NULL);
+  cl_assert(animation_is_scheduled(settle));
+}
+
+// A cancelled pan on a carousel re-centres synchronously (no animation to outlive the handover).
+void test_menu_layer__touch_cancel_center_focused_recenters(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  const int16_t base = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  prv_reset_touch_counters();
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, base), GPoint(0, -100));  // row 2, off-grid
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 2);
+  menu_layer_touch_handle_cancel(&l);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y,
+                    90 - l.selection.y - l.selection.h / 2);     // immediately centred
   cl_assert_equal_i(s_select_click_count, 0);
+}
+
+// Selection-dependent cell heights (the round launcher configuration): crossing a boundary
+// reflows the rows — the newly focused row inflates toward the centre — and the selection span
+// must reflect the new layout while the offset keeps following the finger.
+void test_menu_layer__touch_pan_center_focused_tracks_with_focus_heights(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  menu_layer_set_callbacks(&l, NULL, &(MenuLayerCallbacks){
+    .draw_row = prv_draw_row,
+    .get_num_rows = prv_get_num_rows,
+    .get_cell_height = prv_get_row_height_depending_on_selection_state,
+    .selection_will_change = prv_touch_will_change,
+    .selection_changed = prv_touch_selection_changed,
+    .select_click = prv_touch_select_click,
+  });
+  menu_layer_reload_data(&l);
+  const int FOCUSED = MENU_CELL_ROUND_FOCUSED_TALL_CELL_HEIGHT;
+  const int NORMAL = menu_cell_basic_cell_height();
+  const int16_t base = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  prv_reset_touch_counters();
+  // Aim the centre at the exact middle of row 1 under the OLD layout (row 1 spans
+  // [FOCUSED, FOCUSED + NORMAL) while row 0 is still focused), robust to the constants' parity.
+  const int16_t target_offset = (int16_t)(90 - FOCUSED - NORMAL / 2);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, base), GPoint(0, target_offset - base));
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 1);
+  cl_assert_equal_i(l.selection.y, NORMAL);        // row 0 deflated above it
+  cl_assert_equal_i(l.selection.h, FOCUSED);       // the focused row inflated
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, target_offset);
 }
 
 // ---- Criterion 3: tap selects, a second tap on the selected row activates ----
@@ -1010,7 +1101,7 @@ void test_menu_layer__touch_reload_disarms_double_tap(void) {
   cl_assert_equal_i(s_select_click_count, 0);                 // no stale activation
 }
 
-// ---- Criterion 4: during a pan the selection is frozen and no client callbacks fire ----
+// ---- Criterion 4: on a plain menu the selection is frozen during a pan; no client callbacks ----
 
 void test_menu_layer__touch_pan_freezes_selection(void) {
   MenuLayer l;
