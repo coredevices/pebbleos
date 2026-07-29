@@ -140,6 +140,10 @@ const TapRecognizerData *tap_recognizer_get_data(const Recognizer *recognizer) {
 GPoint tap_recognizer_get_tap_point(const Recognizer *recognizer) {
   const TapRecognizerData *data = recognizer_get_impl_data((Recognizer *)recognizer,
                                                            &s_tap_recognizer_impl);
+  if (!data) {
+    // SDK-reachable with a NULL or non-tap recognizer: reject, don't crash.
+    return GPointZero;
+  }
   return data->state.tap_point;
 }
 

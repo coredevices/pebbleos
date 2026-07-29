@@ -9,7 +9,10 @@
 #include "applib/ui/recognizer/recognizer_impl.h"
 #include "applib/ui/recognizer/recognizer_list.h"
 #include "applib/ui/recognizer/recognizer_manager.h"
+#include "applib/ui/recognizer/pan.h"
 #include "applib/ui/recognizer/recognizer_private.h"
+#include "applib/ui/recognizer/swipe.h"
+#include "applib/ui/recognizer/tap.h"
 #include "applib/ui/recognizer/touch_nav.h"
 
 #include "pbl/drivers/rtc.h"
@@ -1151,4 +1154,30 @@ void test_touch_nav__gated_preemption_drops_active_pan(void) {
   cl_assert_equal_i(s_widget.pan_snap_calls, 1);
 
   touch_nav_registry_remove(&s_state, TouchNavWidgetType_Menu, &node);
+}
+
+// The typed getters are SDK-exported: handed a NULL or wrong-type recognizer (all three types live
+// on this state) they must return a neutral value, never deref the mismatched impl data.
+void test_touch_nav__typed_getters_reject_wrong_type(void) {
+  const GPoint zero = GPointZero;
+
+  GPoint p = tap_recognizer_get_tap_point(s_state.pan);
+  cl_assert_equal_i(p.x, zero.x);
+  cl_assert_equal_i(p.y, zero.y);
+  p = pan_recognizer_get_total_delta(s_state.tap);
+  cl_assert_equal_i(p.x, zero.x);
+  cl_assert_equal_i(p.y, zero.y);
+  p = pan_recognizer_get_delta_since_start(NULL);
+  cl_assert_equal_i(p.x, zero.x);
+  cl_assert_equal_i(p.y, zero.y);
+  p = pan_recognizer_get_velocity(s_state.swipe);
+  cl_assert_equal_i(p.x, zero.x);
+  cl_assert_equal_i(p.y, zero.y);
+  cl_assert_equal_i(swipe_recognizer_get_direction(s_state.tap), SwipeDirection_None);
+  p = swipe_recognizer_get_velocity(NULL);
+  cl_assert_equal_i(p.x, zero.x);
+  cl_assert_equal_i(p.y, zero.y);
+  p = tap_recognizer_get_tap_point(NULL);
+  cl_assert_equal_i(p.x, zero.x);
+  cl_assert_equal_i(p.y, zero.y);
 }

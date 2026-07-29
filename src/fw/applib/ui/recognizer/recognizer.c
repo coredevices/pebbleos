@@ -154,8 +154,9 @@ Recognizer *recognizer_init_static_with_data(void *storage, const RecognizerImpl
 }
 
 void *recognizer_get_impl_data(Recognizer *recognizer, const RecognizerImpl *impl) {
-  PBL_ASSERTN(recognizer);
-  if (recognizer->impl != impl) {
+  // NULL-safe: this is reached from SDK-exported typed getters with app-supplied pointers, which
+  // must reject bad input rather than assert or crash.
+  if (!recognizer || (recognizer->impl != impl)) {
     return NULL;
   }
   return recognizer->impl_data;
@@ -257,9 +258,13 @@ void recognizer_set_fail_after(Recognizer *recognizer, Recognizer *fail_after) {
     return;
   }
 
-  if (fail_after->fail_after == recognizer) {
-    // Avoid circular dependency
-    return;
+  // Reject any cycle, not just a direct A<->B pair: walking the proposed chain from fail_after
+  // must never reach recognizer, or every member would wait on another's failure forever. The
+  // walk terminates because this guard keeps existing chains acyclic.
+  for (const Recognizer *r = fail_after; r; r = r->fail_after) {
+    if (r == recognizer) {
+      return;
+    }
   }
   recognizer->fail_after = fail_after;
 }

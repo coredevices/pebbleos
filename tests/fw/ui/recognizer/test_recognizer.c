@@ -609,3 +609,35 @@ void test_recognizer__list_iterate(void) {
   recognizer_list_iterate(&list, prv_list_iterator, &end);
   cl_assert_equal_i(s_list_idx, 2);
 }
+
+void test_recognizer__set_fail_after_rejects_cycles(void) {
+  NEW_RECOGNIZER(a) = test_recognizer_create(&s_test_impl_data, NULL);
+  NEW_RECOGNIZER(b) = test_recognizer_create(&s_test_impl_data, NULL);
+  NEW_RECOGNIZER(c) = test_recognizer_create(&s_test_impl_data, NULL);
+
+  recognizer_set_fail_after(a, b);
+  recognizer_set_fail_after(b, c);
+  cl_assert_equal_p(a->fail_after, b);
+  cl_assert_equal_p(b->fail_after, c);
+
+  // Direct two-cycle rejected: b -> a would close a <-> b.
+  recognizer_set_fail_after(b, a);
+  cl_assert_equal_p(b->fail_after, c);
+
+  // Transitive cycle rejected too: c -> a would close a -> b -> c -> a, and every member of the
+  // ring would wait forever on another's failure.
+  recognizer_set_fail_after(c, a);
+  cl_assert_equal_p(c->fail_after, NULL);
+}
+
+void test_recognizer__get_impl_data_rejects_bad_input(void) {
+  NEW_RECOGNIZER(r) = test_recognizer_create(&s_test_impl_data, NULL);
+  static const RecognizerImpl s_other_impl = {};
+
+  // NULL recognizer: reachable from the SDK typed getters with app input; reject, don't assert.
+  cl_assert_equal_p(recognizer_get_impl_data(NULL, r->impl), NULL);
+  // Wrong impl: NULL rather than the raw impl_data of a different recognizer type.
+  cl_assert_equal_p(recognizer_get_impl_data(r, &s_other_impl), NULL);
+  // Matching impl still resolves.
+  cl_assert(recognizer_get_impl_data(r, r->impl) != NULL);
+}

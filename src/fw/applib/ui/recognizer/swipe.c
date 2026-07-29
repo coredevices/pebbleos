@@ -241,11 +241,18 @@ const SwipeRecognizerData *swipe_recognizer_get_data(const Recognizer *recognize
 SwipeDirection swipe_recognizer_get_direction(const Recognizer *recognizer) {
   const SwipeRecognizerData *data = recognizer_get_impl_data((Recognizer *)recognizer,
                                                              &s_swipe_recognizer_impl);
+  if (!data) {
+    // SDK-reachable with a NULL or non-swipe recognizer: reject, don't crash.
+    return SwipeDirection_None;
+  }
   return data->state.direction;
 }
 
 GPoint swipe_recognizer_get_velocity(const Recognizer *recognizer) {
   const SwipeRecognizerData *data = recognizer_get_impl_data((Recognizer *)recognizer,
                                                              &s_swipe_recognizer_impl);
+  if (!data) {
+    return GPointZero;
+  }
   return prv_compute_velocity(data);
 }

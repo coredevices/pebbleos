@@ -246,23 +246,36 @@ const PanRecognizerData *pan_recognizer_get_data(const Recognizer *recognizer) {
 GPoint pan_recognizer_get_total_delta(const Recognizer *recognizer) {
   const PanRecognizerData *data = recognizer_get_impl_data((Recognizer *)recognizer,
                                                            &s_pan_recognizer_impl);
+  if (!data) {
+    // SDK-reachable with a NULL or non-pan recognizer: reject, don't crash.
+    return GPointZero;
+  }
   return gpoint_sub(data->state.last_point, data->state.touch_down_point);
 }
 
 GPoint pan_recognizer_get_delta_since_start(const Recognizer *recognizer) {
   const PanRecognizerData *data = recognizer_get_impl_data((Recognizer *)recognizer,
                                                            &s_pan_recognizer_impl);
+  if (!data) {
+    return GPointZero;
+  }
   return gpoint_sub(data->state.last_point, data->state.start_point);
 }
 
 GPoint pan_recognizer_get_delta_since_prev(const Recognizer *recognizer) {
   const PanRecognizerData *data = recognizer_get_impl_data((Recognizer *)recognizer,
                                                            &s_pan_recognizer_impl);
+  if (!data) {
+    return GPointZero;
+  }
   return gpoint_sub(data->state.last_point, data->state.prev_point);
 }
 
 GPoint pan_recognizer_get_velocity(const Recognizer *recognizer) {
   const PanRecognizerData *data = recognizer_get_impl_data((Recognizer *)recognizer,
                                                            &s_pan_recognizer_impl);
+  if (!data) {
+    return GPointZero;
+  }
   return prv_compute_velocity(data);
 }
