@@ -382,9 +382,11 @@ static GTextNode *prv_create_structured_glance_title_subtitle_node(
 
   // Set the vertical container's width to exactly what it should be so it doesn't resize based
   // on its changing content (e.g. scrolling subtitle)
+  // Clamped: near the round display edge the arc inset can leave less room than the icon needs,
+  // and a negative width must not reach text layout
   vertical_node->container.size.w =
-      glance_frame->size.w - structured_glance->icon_horizontal_margin -
-          structured_glance->icon_max_size.w;
+      MAX(0, glance_frame->size.w - structured_glance->icon_horizontal_margin -
+          structured_glance->icon_max_size.w);
 
   return &vertical_node->container.node;
 }
@@ -464,6 +466,11 @@ static void prv_draw_processed(KinoReel *reel, GContext *ctx, GPoint offset,
   const int16_t horizontal_inset = PBL_IF_RECT_ELSE(6, 23);
 #endif
   glance_frame = grect_inset_internal(glance_frame, horizontal_inset, 0);
+  // A row dragged to the display edge can be entirely outside the circle; grect_inset then
+  // returns GRectZero (origin included), so drawing would misplace the icon at (0, 0)
+  if (grect_is_empty(&glance_frame)) {
+    return;
+  }
 
   GTextNode *structured_glance_node = prv_create_structured_glance_node(structured_glance,
                                                                         &glance_frame);
