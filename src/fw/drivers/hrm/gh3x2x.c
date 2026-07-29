@@ -34,6 +34,8 @@ void gh3026_reset_pin_ctrl(uint8_t pin_level) {
 #define GH3X2X_FIFO_WATERMARK_CONFIG 80
 #define GH3X2X_HR_SAMPLING_RATE 25
 #define GH3X2X_HRV_SAMPLING_RATE 100
+// The Goodix HRV algorithm reports at most 4 RR intervals per result
+#define GH3X2X_HRV_MAX_RRI_PER_RESULT 4
 
 static volatile uint32_t s_hrm_int_flag = false;
 static volatile uint32_t s_hrm_timer_flag = false;
@@ -176,10 +178,14 @@ void gh3x2x_hrv_result_report(const int32_t *rri, int32_t confidence, int32_t va
     hrm_manager_new_data_cb(&hrm_data);
     return;
   }
-  if (valid_num > 4) {
-    valid_num = 4;
+  if (valid_num > GH3X2X_HRV_MAX_RRI_PER_RESULT) {
+    valid_num = GH3X2X_HRV_MAX_RRI_PER_RESULT;
   }
   for (int32_t i = 0; i < valid_num; i++) {
+    if ((rri[i] <= 0) || (rri[i] > UINT16_MAX)) {
+      // Not a plausible RR interval; don't let the uint16_t cast wrap it into one
+      continue;
+    }
     HRMData hrm_data = {0};
     hrm_data.features = HRMFeature_HRV;
     hrm_data.hrv_ppi_ms = (uint16_t)rri[i];
