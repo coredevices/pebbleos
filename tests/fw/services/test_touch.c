@@ -23,6 +23,15 @@
 
 void kernel_free(void *p) {}
 
+// Declared in syscall/syscall.h; in the test build DEFINE_SYSCALL is a plain function.
+void sys_touch_set_raw_subscribed(bool subscribed);
+
+// sys_touch_set_raw_subscribed marks the calling task; make it settable.
+static PebbleTask s_current_task = PebbleTask_App;
+PebbleTask pebble_task_get_current(void) {
+  return s_current_task;
+}
+
 static EventServiceAddSubscriberCallback s_add_subscriber_cb;
 static EventServiceRemoveSubscriberCallback s_remove_subscriber_cb;
 
@@ -61,6 +70,9 @@ void test_touch__initialize(void) {
   touch_service_set_globally_enabled(true);
   // Nav pref is a module static too; default it off between tests.
   touch_set_nav_enabled(false);
+  // The raw-slot mark is a module static; clear the App task's bit between tests.
+  s_current_task = PebbleTask_App;
+  sys_touch_set_raw_subscribed(false);
 }
 
 void test_touch__cleanup(void) {
@@ -185,6 +197,30 @@ void test_touch__backlight_and_app_share_sensor(void) {
 void test_touch__has_app_subscribers_app(void) {
   cl_assert(!touch_has_app_subscribers());
 
+  // Only the explicit raw-slot mark (touch_service_subscribe) counts.
+  sys_touch_set_raw_subscribed(true);
+  cl_assert(touch_has_app_subscribers());
+
+  sys_touch_set_raw_subscribed(false);
+  cl_assert(!touch_has_app_subscribers());
+}
+
+void test_touch__has_app_subscribers_ignores_shared_subscriptions(void) {
+  // The nav twins' system-slot handlers subscribe through the same per-task
+  // event-service subscription as raw handlers; those subscriptions must NOT
+  // read as app subscribers, or wake-on-every-touch comes back with menu
+  // gestures off.
+  s_add_subscriber_cb(PebbleTask_KernelMain);  // modal twin
+  s_add_subscriber_cb(PebbleTask_App);         // app twin
+  cl_assert(!touch_has_app_subscribers());
+  s_remove_subscriber_cb(PebbleTask_App);
+  s_remove_subscriber_cb(PebbleTask_KernelMain);
+}
+
+void test_touch__has_app_subscribers_cleared_on_subscription_death(void) {
+  // A dead app cannot unsubscribe: when its shared subscription is torn down
+  // (event-service task cleanup), the raw-slot mark must be dropped with it.
+  sys_touch_set_raw_subscribed(true);
   s_add_subscriber_cb(PebbleTask_App);
   cl_assert(touch_has_app_subscribers());
 
@@ -204,13 +240,13 @@ void test_touch__has_app_subscribers_backlight(void) {
 
   // With an app also subscribed, the call reflects the app, regardless of the
   // backlight subscription state.
-  s_add_subscriber_cb(PebbleTask_App);
+  sys_touch_set_raw_subscribed(true);
   cl_assert(touch_has_app_subscribers());
 
   touch_set_backlight_enabled(false);
   cl_assert(touch_has_app_subscribers());
 
-  s_remove_subscriber_cb(PebbleTask_App);
+  sys_touch_set_raw_subscribed(false);
   cl_assert(!touch_has_app_subscribers());
 }
 
@@ -220,7 +256,9 @@ void test_touch__has_app_subscribers_nav(void) {
   touch_set_backlight_enabled(true);
   cl_assert(!touch_has_app_subscribers());
 
-  // Nav on reports app subscribers regardless of the actual subscriber set.
+  // The nav gate reports app subscribers regardless of the actual subscriber
+  // set. The shell only raises it when nav is effectively on (master pref AND
+  // the touch-navigation sub-pref).
   touch_set_nav_enabled(true);
   cl_assert(touch_has_app_subscribers());
 
@@ -236,10 +274,10 @@ void test_touch__has_app_subscribers_nav(void) {
   touch_set_system_hold(false);
 
   // Nav off + a real raw subscriber → true.
-  s_add_subscriber_cb(PebbleTask_App);
+  sys_touch_set_raw_subscribed(true);
   cl_assert(touch_has_app_subscribers());
 
-  s_remove_subscriber_cb(PebbleTask_App);
+  sys_touch_set_raw_subscribed(false);
   touch_set_backlight_enabled(false);
 }
 
@@ -364,9 +402,15 @@ void test_touch__wake_gate_formula(void) {
 }
 
 void test_touch__wake_gate_guard_matrix(void) {
-  // No backlight driver: never latches.
-  TouchWakeGateResult none = touch_wake_gate_on_touchdown(false, false, false, true);
-  cl_assert(!none.latch);
+  // No backlight driver (gesture-wake mode): a touch that begins with the
+  // screen off can only be a wake attempt -- it must not act invisibly on the
+  // UI, so it latches non-navigational regardless of `after`/DnD.
+  cl_assert(touch_wake_gate_on_touchdown(false, false, false, false).latch);
+  cl_assert(touch_wake_gate_on_touchdown(false, false, false, true).latch);
+  cl_assert(touch_wake_gate_on_touchdown(false, true, false, false).latch);
+  // Screen already on: the touch navigates.
+  cl_assert(!touch_wake_gate_on_touchdown(false, false, true, true).latch);
+  cl_assert(!touch_wake_gate_on_touchdown(false, true, true, true).latch);
 
   // Driven, no DnD: latch strictly by the formula.
   TouchWakeGateResult driven = touch_wake_gate_on_touchdown(true, false, false, true);

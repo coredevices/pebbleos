@@ -128,19 +128,13 @@ static bool prv_registry_contains_node(TouchNavState *state, const TouchNavWidge
 }
 
 static bool prv_registry_contains_layer(TouchNavState *state, const struct Layer *layer) {
-  for (TouchNavWidgetNode *n = state->menu_head; n; n = n->next) {
-    if (n->layer == layer) {
-      return true;
-    }
-  }
-  for (TouchNavWidgetNode *n = state->swap_head; n; n = n->next) {
-    if (n->layer == layer) {
-      return true;
-    }
-  }
-  for (TouchNavWidgetNode *n = state->scroll_head; n; n = n->next) {
-    if (n->layer == layer) {
-      return true;
+  const TouchNavWidgetNode *const heads[] = {state->menu_head, state->scroll_head,
+                                             state->swap_head};
+  for (unsigned i = 0; i < ARRAY_LENGTH(heads); i++) {
+    for (const TouchNavWidgetNode *n = heads[i]; n; n = n->next) {
+      if (n->layer == layer) {
+        return true;
+      }
     }
   }
   return false;
@@ -458,9 +452,11 @@ void touch_nav_dispatch(const TouchEvent *touch_event, void *context) {
   TouchNavState *state = context;
   PBL_ASSERTN(state && state->manager && state->ops);
 
-  // Master pref off: inert even if a stale subscription remains. The recognizer set is never
-  // activated, no route is resolved, and the bridge synthesizes nothing.
-  if (!touch_nav_enabled()) {
+  // Nothing navigating: inert even if a stale subscription remains. The recognizer set is never
+  // activated, no route is resolved, and the bridge synthesizes nothing. System nav covers the
+  // kernel twin and participating apps; app-nav-active covers an opted-in app riding the master
+  // pref alone.
+  if (!touch_nav_enabled() && !touch_app_nav_active()) {
     return;
   }
 
@@ -606,10 +602,13 @@ void touch_nav_transaction_apply(const TouchNavTxnOps *ops, bool enable) {
   }
 }
 
-bool touch_nav_app_twin_active(bool pref_enabled, bool participating) {
-  // Both conditions are required: the master pref gates the whole feature, and participation keeps
-  // third-party apps inert by default. Either one false leaves the app twin unsubscribed.
-  return pref_enabled && participating;
+bool touch_nav_app_twin_active(bool system_nav_enabled, bool master_nav_enabled,
+                               bool participating, bool opted_in) {
+  // Two ways in, nothing else: a participating app (system apps by default) rides the SYSTEM nav
+  // state (master pref AND the Touch Navigation sub-pref), while an app that explicitly opted in
+  // (app_touch_navigation_enable) follows the master pref alone -- a user who turned the system
+  // navigation off has not turned off the app's own gestures.
+  return (system_nav_enabled && participating) || (master_nav_enabled && opted_in);
 }
 
 bool touch_nav_app_bridge_disabled(bool window_opt_out, bool app_has_raw_subscriber) {
@@ -618,22 +617,42 @@ bool touch_nav_app_bridge_disabled(bool window_opt_out, bool app_has_raw_subscri
   return window_opt_out || app_has_raw_subscriber;
 }
 
-void touch_nav_app_twin_subscribe(const TouchNavTwinOps *ops, bool participating) {
+static bool prv_app_twin_should_be_active(const TouchNavTwinOps *ops, bool participating,
+                                          bool opted_in) {
+  const bool master = ops->master_enabled ? ops->master_enabled(ops->ctx) : false;
+  return touch_nav_app_twin_active(ops->pref_enabled(ops->ctx), master, participating, opted_in);
+}
+
+void touch_nav_app_twin_subscribe(const TouchNavTwinOps *ops, bool participating, bool opted_in) {
   PBL_ASSERTN(ops && ops->pref_enabled && ops->install_handler);
-  if (touch_nav_app_twin_active(ops->pref_enabled(ops->ctx), participating)) {
+  if (prv_app_twin_should_be_active(ops, participating, opted_in)) {
     ops->install_handler(ops->ctx);
   }
 }
 
-void touch_nav_app_twin_reconcile(const TouchNavTwinOps *ops, bool *participating, bool enable) {
-  PBL_ASSERTN(ops && participating && ops->remove_handler);
-  if (*participating == enable) {
+void touch_nav_app_twin_reconcile(const TouchNavTwinOps *ops, bool *participating, bool *opted_in,
+                                  bool enable) {
+  PBL_ASSERTN(ops && participating && opted_in && ops->remove_handler);
+  if ((*participating == enable) && (*opted_in == enable)) {
     // No transition: never double-subscribe, never unsubscribe a twin we did not subscribe.
     return;
   }
   *participating = enable;
+  *opted_in = enable;
   if (enable) {
-    touch_nav_app_twin_subscribe(ops, true);
+    touch_nav_app_twin_subscribe(ops, true, true);
+  } else {
+    ops->remove_handler(ops->ctx);
+  }
+}
+
+void touch_nav_app_twin_resync(const TouchNavTwinOps *ops, bool participating, bool opted_in) {
+  PBL_ASSERTN(ops && ops->pref_enabled && ops->install_handler && ops->remove_handler);
+  // Bring the installed state in line with the current prefs for the RUNNING app: a pref flip must
+  // not blindly unsubscribe an opted-in app (it follows the master pref) nor leave a
+  // no-longer-eligible app subscribed. Install and remove are both idempotent.
+  if (prv_app_twin_should_be_active(ops, participating, opted_in)) {
+    ops->install_handler(ops->ctx);
   } else {
     ops->remove_handler(ops->ctx);
   }

@@ -159,6 +159,7 @@ void app_click_config_setup_with_window(ClickManager *click_manager, struct Wind
 
 // Touch-nav collaborators for the kernel twin.
 bool touch_nav_enabled(void) { return s_nav_enabled; }
+bool touch_app_nav_active(void) { return false; }
 
 void touch_service_set_system_handler(TouchServiceHandler handler, void *context) {
   s_kernel_handler = handler;

@@ -25,9 +25,15 @@ static int16_t s_last_y;
 static PebbleMutex *s_touch_mutex;
 
 static uint8_t s_subscriber_count = 0;
+//! Bitmask by PebbleTask of tasks with a live raw-slot subscription
+//! (touch_service_subscribe). Tracked explicitly because the nav twins'
+//! system-slot handlers share the same per-task event-service subscription, so
+//! raw subscribers cannot be derived from s_subscriber_count.
+static uint8_t s_raw_subscriber_tasks = 0;
 static bool s_backlight_subscribed = false;
 static bool s_system_hold_subscribed = false;
 static bool s_nav_enabled = false;
+static bool s_app_nav_active = false;
 static bool s_globally_enabled = true;
 static bool s_rotated = false;
 
@@ -55,6 +61,14 @@ static void prv_remove_subscriber_cb(PebbleTask task) {
   if (--s_subscriber_count == 0 && s_globally_enabled) {
     touch_sensor_set_enabled(false);
   }
+  // An app whose shared touch subscription disappears (task exit, or both
+  // slots emptied) cannot have a live raw handler or nav dispatcher anymore;
+  // drop its raw-slot mark and the app-nav-active flag so a crashed app cannot
+  // leak backlight-follow behavior.
+  if (task == PebbleTask_App) {
+    s_raw_subscriber_tasks &= (uint8_t)~(1u << task);
+    s_app_nav_active = false;
+  }
   PBL_LOG_DBG("Touch: subscriber removed, count=%" PRIu8, s_subscriber_count);
   mutex_unlock(s_touch_mutex);
 }
@@ -81,19 +95,33 @@ void touch_set_nav_enabled(bool enabled) {
   mutex_unlock(s_touch_mutex);
 }
 
+bool touch_app_nav_active(void) {
+  mutex_lock(s_touch_mutex);
+  const bool active = s_app_nav_active;
+  mutex_unlock(s_touch_mutex);
+  return active;
+}
+
+void touch_set_app_nav_active(bool active) {
+  mutex_lock(s_touch_mutex);
+  s_app_nav_active = active;
+  mutex_unlock(s_touch_mutex);
+}
+
 bool touch_has_app_subscribers(void) {
-  // When nav is enabled the shell always wants touch treated as active, so
-  // short-circuit before inspecting the raw subscriber arithmetic. Evaluated
-  // outside the lock to avoid re-entering the non-recursive touch mutex.
-  if (touch_nav_enabled()) {
+  // Anything actively navigating by touch wants touch treated as active -- the
+  // screen wakes and stays lit on any touch: system nav (master pref AND the
+  // touch-navigation sub-pref) or an opted-in app driving nav under the master
+  // pref alone. Evaluated outside the lock (non-recursive mutex).
+  if (touch_nav_enabled() || touch_app_nav_active()) {
     return true;
   }
   mutex_lock(s_touch_mutex);
-  // The backlight gesture subscription and the nav system hold are both tracked
-  // in s_subscriber_count; exclude them so this only reflects real app subscribers.
-  const uint8_t held_count =
-      (s_backlight_subscribed ? 1 : 0) + (s_system_hold_subscribed ? 1 : 0);
-  const bool has_apps = s_subscriber_count > held_count;
+  // Only explicit raw-slot subscriptions (touch_service_subscribe) count as
+  // app subscribers. The event-service count cannot be used: the nav twins'
+  // system-slot handlers share the same per-task subscription and would read
+  // as apps here, re-enabling wake-on-every-touch with menu gestures off.
+  const bool has_apps = (s_raw_subscriber_tasks != 0);
   mutex_unlock(s_touch_mutex);
   return has_apps;
 }
@@ -128,6 +156,17 @@ bool touch_service_is_globally_enabled(void) {
 
 DEFINE_SYSCALL(bool, sys_touch_service_is_enabled, void) {
   return touch_service_is_globally_enabled();
+}
+
+DEFINE_SYSCALL(void, sys_touch_set_raw_subscribed, bool subscribed) {
+  const PebbleTask task = pebble_task_get_current();
+  mutex_lock(s_touch_mutex);
+  if (subscribed) {
+    s_raw_subscriber_tasks |= (uint8_t)(1u << task);
+  } else {
+    s_raw_subscriber_tasks &= (uint8_t)~(1u << task);
+  }
+  mutex_unlock(s_touch_mutex);
 }
 
 DEFINE_SYSCALL(void, sys_touch_reset, void) {
@@ -290,8 +329,11 @@ void touch_release_active(void) {
 TouchWakeGateResult touch_wake_gate_on_touchdown(bool backlight_driven, bool dnd, bool before,
                                                  bool after) {
   if (!backlight_driven) {
-    // Nothing drives the backlight for this touch: it never latches.
-    return (TouchWakeGateResult){.latch = false};
+    // Nothing drives the backlight for this touch (gesture-wake mode, e.g. nav
+    // without menu gestures): a touch that begins with the screen off can only
+    // be a wake attempt and must not act invisibly on the UI under the finger,
+    // so latch it non-navigational. With the screen on, it navigates.
+    return (TouchWakeGateResult){.latch = !before};
   }
   // Non-navigational when the screen was off and this touch woke it (or DnD
   // suppressed the wake while it was off): the tap targets the wake, not the UI.

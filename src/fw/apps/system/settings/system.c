@@ -70,9 +70,6 @@ enum {
   DebuggingItemAccelShakeLogInfo,
   DebuggingItemVibeLogInfo,
   DebuggingItemCompactSettingsDbs,
-#ifdef CONFIG_TOUCH
-  DebuggingItemTouchEnable,
-#endif
   DebuggingItem_Count,
 };
 
@@ -507,9 +504,6 @@ static const char* s_debugging_titles[DebuggingItem_Count] = {
   [DebuggingItemAccelShakeLogInfo] = i18n_noop("Shake Log Info"),
   [DebuggingItemVibeLogInfo] = i18n_noop("Vibe Log Info"),
   [DebuggingItemCompactSettingsDbs] = i18n_noop("Compact Settings DBs"),
-#ifdef CONFIG_TOUCH
-  [DebuggingItemTouchEnable] = i18n_noop("Touch enable"),
-#endif
 };
 
 static void prv_debugging_draw_row_callback(GContext* ctx, const Layer *cell_layer,
@@ -549,11 +543,6 @@ static void prv_debugging_draw_row_callback(GContext* ctx, const Layer *cell_lay
     subtitle_text = shell_prefs_get_vibe_log_info_enabled() ?
                         i18n_get("Enabled", data) : i18n_get("Disabled", data);
   }
-#ifdef CONFIG_TOUCH
-  else if (cell_index->row == DebuggingItemTouchEnable) {
-    subtitle_text = touch_is_globally_enabled() ? i18n_get("On", data) : i18n_get("Off", data);
-  }
-#endif
   menu_cell_basic_draw(ctx, cell_layer, title, subtitle_text, NULL);
 }
 
@@ -601,11 +590,6 @@ static void prv_debugging_select_callback(MenuLayer *menu_layer,
     case DebuggingItemCompactSettingsDbs:
       prv_compact_settings_dbs();
       break;
-#ifdef CONFIG_TOUCH
-    case DebuggingItemTouchEnable:
-      touch_set_globally_enabled(!touch_is_globally_enabled());
-      break;
-#endif
     default:
       WTF;
   }

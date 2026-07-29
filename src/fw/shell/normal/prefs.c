@@ -94,8 +94,8 @@ static uint8_t s_backlight_touch_wake = BacklightTouchWake_DoubleTap;
 #define PREF_KEY_TOUCH_ENABLED "touchEnabled"
 static bool s_touch_enabled = true;
 
-#define PREF_KEY_TOUCH_NAVIGATION "touchNavEnabled"
-static bool s_touch_navigation_enabled = false;
+#define PREF_KEY_TOUCH_NAVIGATION_MENU "touchNavMenuEnabled"
+static bool s_touch_navigation_menu_enabled = false;
 
 #define PREF_KEY_MOTION_SENSITIVITY "motionSensitivity"
 static uint8_t s_motion_sensitivity = 55; // Default to Medium
@@ -438,18 +438,45 @@ static bool prv_set_s_backlight_touch_wake(uint8_t *wake) {
   return true;
 }
 
+#ifdef CONFIG_TOUCH
+// System touch navigation is active only while BOTH prefs are on: the master
+// "Touch" switch (the global touch kill, PREF_KEY_TOUCH_ENABLED) and the
+// "Touch Navigation" sub-pref. The enable/disable transaction (twin
+// subscriptions + permanent sensor hold) keys on the conjunction. Third-party
+// apps that explicitly opted in follow the master pref alone.
+static bool prv_touch_navigation_effective(void) {
+  return s_touch_enabled && s_touch_navigation_menu_enabled;
+}
+#endif
+
 static bool prv_set_s_touch_enabled(bool *enabled) {
+#ifdef CONFIG_TOUCH
+  const bool was_effective = prv_touch_navigation_effective();
+  const bool was_on = s_touch_enabled;
+#endif
   s_touch_enabled = *enabled;
 #ifdef CONFIG_TOUCH
   touch_service_set_globally_enabled(*enabled);
+  if (prv_touch_navigation_effective() != was_effective) {
+    touch_nav_set_enabled(prv_touch_navigation_effective());
+  } else if (was_on != *enabled) {
+    // Effective system nav unchanged (sub-pref off), but an opted-in running app follows the
+    // master "Touch" pref alone: re-evaluate its twin.
+    touch_nav_master_changed();
+  }
 #endif
   return true;
 }
 
-static bool prv_set_s_touch_navigation_enabled(bool *enabled) {
-  s_touch_navigation_enabled = *enabled;
+static bool prv_set_s_touch_navigation_menu_enabled(bool *enabled) {
 #ifdef CONFIG_TOUCH
-  touch_nav_set_enabled(*enabled);
+  const bool was_effective = prv_touch_navigation_effective();
+#endif
+  s_touch_navigation_menu_enabled = *enabled;
+#ifdef CONFIG_TOUCH
+  if (prv_touch_navigation_effective() != was_effective) {
+    touch_nav_set_enabled(prv_touch_navigation_effective());
+  }
 #endif
   return true;
 }
@@ -1047,7 +1074,7 @@ void shell_prefs_init(void) {
 #ifdef CONFIG_TOUCH
   touch_set_backlight_enabled(s_backlight_touch_wake != BacklightTouchWake_Off);
   touch_service_set_globally_enabled(s_touch_enabled);
-  touch_nav_set_enabled(s_touch_navigation_enabled);
+  touch_nav_set_enabled(prv_touch_navigation_effective());
 #endif
 }
 
@@ -1352,12 +1379,12 @@ void touch_set_globally_enabled(bool enable) {
   prv_pref_set(PREF_KEY_TOUCH_ENABLED, &enable, sizeof(enable));
 }
 
-bool touch_navigation_is_enabled(void) {
-  return s_touch_navigation_enabled;
+bool touch_navigation_menu_is_enabled(void) {
+  return s_touch_navigation_menu_enabled;
 }
 
-void touch_set_navigation_enabled(bool enable) {
-  prv_pref_set(PREF_KEY_TOUCH_NAVIGATION, &enable, sizeof(enable));
+void touch_set_navigation_menu_enabled(bool enable) {
+  prv_pref_set(PREF_KEY_TOUCH_NAVIGATION_MENU, &enable, sizeof(enable));
 }
 
 #ifdef CONFIG_DYNAMIC_BACKLIGHT

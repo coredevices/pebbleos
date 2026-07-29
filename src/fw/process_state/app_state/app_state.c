@@ -120,6 +120,10 @@ typedef struct {
   //! Whether this app participates in touch navigation. Set at launch to whether the current app is
   //! a system app; a third-party app can opt in at runtime via app_touch_navigation_enable().
   bool touch_nav_participating;
+  //! Whether this app EXPLICITLY opted in via app_touch_navigation_enable(). An opted-in app
+  //! follows the master "Touch" pref alone; mere participation (system apps) follows the system
+  //! nav state (master AND the Touch Navigation sub-pref).
+  bool touch_nav_opted_in;
 #endif
 
   uint8_t *js_runtime_context_buffer;
@@ -234,18 +238,28 @@ static bool prv_app_twin_pref_enabled(void *ctx) {
   return touch_nav_enabled();
 }
 
+static bool prv_app_twin_master_enabled(void *ctx) {
+  // The master "Touch" switch IS the global touch kill: an opted-in app follows it alone.
+  return touch_service_is_globally_enabled();
+}
+
 static void prv_app_twin_install_handler(void *ctx) {
   // touch_service_set_system_handler also no-ops for watchfaces, so they never receive emulation.
   touch_service_set_system_handler(touch_nav_dispatch, &s_app_state_ptr->touch_nav_state);
+  // Mark the app twin live so the dispatch gate and touch-driven backlight treat this app as
+  // navigating even when system nav (the Touch Navigation sub-pref) is off.
+  touch_set_app_nav_active(true);
 }
 
 static void prv_app_twin_remove_handler(void *ctx) {
+  touch_set_app_nav_active(false);
   recognizer_manager_cancel_and_reset(&s_app_state_ptr->recognizer_manager);
   touch_service_set_system_handler(NULL, NULL);
 }
 
 static const TouchNavTwinOps s_app_twin_ops = {
   .pref_enabled = prv_app_twin_pref_enabled,
+  .master_enabled = prv_app_twin_master_enabled,
   .install_handler = prv_app_twin_install_handler,
   .remove_handler = prv_app_twin_remove_handler,
 };
@@ -266,6 +280,7 @@ NOINLINE void app_state_init(void) {
   // in via app_touch_navigation_enable(), so the unsafe direction (unknown -> on) cannot happen.
   s_app_state_ptr->touch_nav_participating =
       app_install_id_from_system(app_manager_get_current_app_id());
+  s_app_state_ptr->touch_nav_opted_in = false;
 #endif
 
   animation_private_state_init(&s_app_state_ptr->animation_state);
@@ -516,21 +531,30 @@ TouchNavState *app_state_get_touch_nav_state(void) {
 }
 
 void app_touch_nav_subscribe(void) {
-  // Install the nav dispatcher into the touch service system slot only when the master pref is on
-  // AND this app participates: a third-party app that has not opted in stays inert even with the
-  // pref on. The gate/decision lives in touch_nav.c (unit-testable via s_app_twin_ops).
-  touch_nav_app_twin_subscribe(&s_app_twin_ops, s_app_state_ptr->touch_nav_participating);
+  // Install the nav dispatcher into the touch service system slot only when the twin gate passes:
+  // system nav for participating (system) apps, the master pref alone for explicitly opted-in
+  // apps. The gate/decision lives in touch_nav.c (unit-testable via s_app_twin_ops).
+  touch_nav_app_twin_subscribe(&s_app_twin_ops, s_app_state_ptr->touch_nav_participating,
+                               s_app_state_ptr->touch_nav_opted_in);
 }
 
 void app_touch_nav_unsubscribe(void) {
   prv_app_twin_remove_handler(NULL);
 }
 
+void app_touch_nav_resync(void) {
+  // Re-evaluate the gate for the running app after a pref flip: keeps an opted-in app subscribed
+  // when only the Touch Navigation sub-pref turned off, removes it when the master pref did.
+  touch_nav_app_twin_resync(&s_app_twin_ops, s_app_state_ptr->touch_nav_participating,
+                            s_app_state_ptr->touch_nav_opted_in);
+}
+
 void app_touch_nav_set_participating(bool enable) {
-  // Reconcile the subscription with the new participation state: subscribe on opt-in (a no-op while
-  // the master pref is off, until the pref turns on and the app resubscribes), unsubscribe on
-  // opt-out. Idempotent when the value is unchanged.
-  touch_nav_app_twin_reconcile(&s_app_twin_ops, &s_app_state_ptr->touch_nav_participating, enable);
+  // Reconcile the subscription with the new opt-in state: subscribe on opt-in (a no-op while the
+  // master pref is off, until the pref turns on and the app resubscribes), unsubscribe on opt-out.
+  // Idempotent when nothing changes.
+  touch_nav_app_twin_reconcile(&s_app_twin_ops, &s_app_state_ptr->touch_nav_participating,
+                               &s_app_state_ptr->touch_nav_opted_in, enable);
 }
 #endif
 

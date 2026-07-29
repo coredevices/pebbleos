@@ -263,12 +263,15 @@ typedef struct TouchNavTxnOps {
 //! callback, and finally release the sensor hold.
 void touch_nav_transaction_apply(const TouchNavTxnOps *ops, bool enable);
 
-//! Gate for the app-task touch-nav twin. The twin only installs the system touch handler when the
-//! master pref is on AND this app participates in touch navigation. System apps participate by
-//! default; third-party apps are inert unless they opt in (\ref app_touch_navigation_enable), so a
-//! third-party app never gets touch nav merely because the master pref is on. Factored here (out of
-//! app_state.c) so the gate is unit-testable without the kernel app-state singleton.
-bool touch_nav_app_twin_active(bool pref_enabled, bool participating);
+//! Gate for the app-task touch-nav twin. A participating app (system apps participate by default)
+//! rides the SYSTEM nav state (\a system_nav_enabled: master pref AND the Touch Navigation
+//! sub-pref), while an app that explicitly opted in via \ref app_touch_navigation_enable
+//! (\a opted_in) follows the master pref alone (\a master_nav_enabled) -- turning the system
+//! navigation off does not turn off an app's own gestures. A third-party app that never opted in
+//! stays inert under every pref combination. Factored here (out of app_state.c) so the gate is
+//! unit-testable without the kernel app-state singleton.
+bool touch_nav_app_twin_active(bool system_nav_enabled, bool master_nav_enabled,
+                               bool participating, bool opted_in);
 
 //! Gate for the app-task Tier-2 bridge (feeds the \ref TouchNavOps top_bridge_disabled op). Reports
 //! the bridge as disabled -- routing the gesture to \ref TouchNavRoute_None so NO button is
@@ -283,8 +286,11 @@ bool touch_nav_app_bridge_disabled(bool window_opt_out, bool app_has_raw_subscri
 //! the subscribe/reconcile state machine is unit-testable independently of the kernel app-state
 //! singleton (mirrors \ref TouchNavTxnOps). Any op is consulted through \a ctx.
 typedef struct TouchNavTwinOps {
-  //! @return the master nav pref (touch_nav_enabled()).
+  //! @return the effective SYSTEM nav state (touch_nav_enabled()).
   bool (*pref_enabled)(void *ctx);
+  //! @return the master "Touch" switch alone (touch_service_is_globally_enabled(): the global
+  //! touch kill). NULL reads as off, so an opted-in app cannot activate without the op wired.
+  bool (*master_enabled)(void *ctx);
   //! Install the system touch handler for this task's nav twin (subscribe).
   void (*install_handler)(void *ctx);
   //! Cancel any in-flight gesture and clear the system touch handler (unsubscribe). Safe to call
@@ -293,12 +299,18 @@ typedef struct TouchNavTwinOps {
   void *ctx;
 } TouchNavTwinOps;
 
-//! Install the app twin's touch handler iff the master pref is on AND the app participates
-//! (\ref touch_nav_app_twin_active). A no-op otherwise. Safe to call repeatedly.
-void touch_nav_app_twin_subscribe(const TouchNavTwinOps *ops, bool participating);
+//! Install the app twin's touch handler iff \ref touch_nav_app_twin_active says so. A no-op
+//! otherwise. Safe to call repeatedly.
+void touch_nav_app_twin_subscribe(const TouchNavTwinOps *ops, bool participating, bool opted_in);
 
-//! Reconcile the twin with a new participation value (the opt-in API path). \a participating points
-//! at the caller's stored flag. Idempotent: when the value is unchanged this is a no-op (no
-//! double-subscribe, no spurious unsubscribe). On a false->true transition it subscribes (installing
-//! only when the pref is on); on true->false it removes the handler.
-void touch_nav_app_twin_reconcile(const TouchNavTwinOps *ops, bool *participating, bool enable);
+//! Reconcile the twin with a new opt-in value (the app_touch_navigation_enable path). The flags
+//! point at the caller's stored state; both are set to \a enable. Idempotent: when nothing changes
+//! this is a no-op (no double-subscribe, no spurious unsubscribe). On enabling it subscribes
+//! (installing only when the gate passes); on disabling it removes the handler.
+void touch_nav_app_twin_reconcile(const TouchNavTwinOps *ops, bool *participating, bool *opted_in,
+                                  bool enable);
+
+//! Re-evaluate the gate for the RUNNING app after a pref flip and install or remove the handler
+//! accordingly. Unlike the disable transaction's old unconditional unsubscribe, this keeps an
+//! opted-in app subscribed when only the Touch Navigation sub-pref turned off.
+void touch_nav_app_twin_resync(const TouchNavTwinOps *ops, bool participating, bool opted_in);

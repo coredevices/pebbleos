@@ -144,6 +144,11 @@ void app_touch_nav_subscribe(void);
 //! Unsubscribe the app task's nav dispatcher and cancel any in-flight gesture. Runs on the app task.
 void app_touch_nav_unsubscribe(void);
 
+//! Re-evaluate the app twin's gate for the running app after a pref flip and install or remove the
+//! nav dispatcher accordingly (keeps an opted-in app subscribed when only the Touch Navigation
+//! sub-pref turned off).
+void app_touch_nav_resync(void);
+
 //! Privileged setter behind the app_touch_navigation_enable() SDK call (invoked via the
 //! sys_app_touch_navigation_enable syscall). Sets this app's touch-nav participation and reconciles
 //! the app twin's subscription with the master pref (subscribe when enabling with the pref on,

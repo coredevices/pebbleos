@@ -35,6 +35,7 @@
 
 static bool s_nav_enabled = true;
 bool touch_nav_enabled(void) { return s_nav_enabled; }
+bool touch_app_nav_active(void) { return false; }
 
 static TouchNavState s_touch_nav_state;
 struct TouchNavState *app_state_get_touch_nav_state(void) { return &s_touch_nav_state; }
@@ -261,7 +262,8 @@ void test_scroll_layer_touch__pan_start_cancels_running_animation(void) {
 // Drive a full pan through the dispatcher only if the app twin would be subscribed. The pan Starts
 // on the first update (latch) and live-scrolls on the second (Updated) before liftoff.
 static void prv_twin_pan(bool participating, int16_t sy, int16_t my, int16_t ey) {
-  if (!touch_nav_app_twin_active(s_nav_enabled, participating)) {
+  if (!touch_nav_app_twin_active(s_nav_enabled, false /* master */, participating,
+                                 false /* opted_in */)) {
     return;  // twin not subscribed: the dispatcher is never wired, registry stays inert
   }
   prv_drive(TouchEvent_Touchdown, 100, sy);
@@ -282,7 +284,7 @@ void test_scroll_layer_touch__third_party_inert_with_pref_on(void) {
 
   // Third-party app, no opt-in: the twin is inactive despite the pref, so the pan never routes.
   const bool participating = false;
-  cl_assert(!touch_nav_app_twin_active(s_nav_enabled, participating));
+  cl_assert(!touch_nav_app_twin_active(s_nav_enabled, false, participating, false));
   prv_twin_pan(participating, 150, 110, 60);
   cl_assert_equal_i(scroll_layer_get_content_offset(&sl).y, 0);   // inert
   cl_assert_equal_i(s_bridge.emit_count, 0);
@@ -290,7 +292,7 @@ void test_scroll_layer_touch__third_party_inert_with_pref_on(void) {
 
   // A participating (system / opted-in) app on the very same registry does scroll.
   const bool sys = true;
-  cl_assert(touch_nav_app_twin_active(s_nav_enabled, sys));
+  cl_assert(touch_nav_app_twin_active(s_nav_enabled, false, sys, false));
   prv_twin_pan(sys, 150, 110, 60);
   cl_assert(scroll_layer_get_content_offset(&sl).y < 0);
 

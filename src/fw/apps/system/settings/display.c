@@ -425,9 +425,11 @@ static void prv_backlight_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
 #ifdef CONFIG_TOUCH
     case SettingsBacklightTouchWake:
       title = i18n_noop("Wake on touch");
-      // Touch navigation already wakes on every touch, so this setting is superseded while it is on.
-      subtitle = touch_navigation_is_enabled() ? i18n_noop("On (nav)")
-                                               : s_touch_wake_labels[backlight_get_touch_wake()];
+      // Full touch navigation (master Touch + Touch Navigation) wakes on every touch, so this
+      // setting is superseded while both are on.
+      subtitle = (touch_is_globally_enabled() && touch_navigation_menu_is_enabled())
+                     ? i18n_noop("On (nav)")
+                     : s_touch_wake_labels[backlight_get_touch_wake()];
       break;
 #endif
     case SettingsBacklightAmbientSensor:
@@ -552,6 +554,7 @@ enum SettingsDisplayItem {
   SettingsDisplayBacklightSettings,
 #ifdef CONFIG_TOUCH
   SettingsDisplayTouchNav,
+  SettingsDisplayTouchNavMenus,
 #endif
 #ifdef CONFIG_ORIENTATION_MANAGER
   SettingsDisplayOrientation,
@@ -569,6 +572,13 @@ static bool prv_display_item_is_visible(uint16_t item) {
   if (item == SettingsDisplayBacklightSettings) {
     return backlight_get_preset() == BacklightPreset_Advanced;
   }
+#ifdef CONFIG_TOUCH
+  // The Touch Navigation row (native menu gestures) only has an effect while the master Touch
+  // switch is on.
+  if (item == SettingsDisplayTouchNavMenus) {
+    return touch_is_globally_enabled();
+  }
+#endif
   return true;
 }
 
@@ -596,7 +606,12 @@ static void prv_display_select_click_cb(SettingsCallbacks *context, uint16_t row
       break;
 #ifdef CONFIG_TOUCH
     case SettingsDisplayTouchNav:
-      touch_set_navigation_enabled(!touch_navigation_is_enabled());
+      // The master "Touch" row IS the global touch kill switch:
+      // off = sensor down, events dropped, nothing touch-driven anywhere.
+      touch_set_globally_enabled(!touch_is_globally_enabled());
+      break;
+    case SettingsDisplayTouchNavMenus:
+      touch_set_navigation_menu_enabled(!touch_navigation_menu_is_enabled());
       break;
 #endif
 #ifdef CONFIG_ORIENTATION_MANAGER
@@ -636,7 +651,11 @@ static void prv_display_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
 #ifdef CONFIG_TOUCH
     case SettingsDisplayTouchNav:
       title = i18n_noop("Touch");
-      subtitle = touch_navigation_is_enabled() ? i18n_noop("On") : i18n_noop("Off");
+      subtitle = touch_is_globally_enabled() ? i18n_noop("On") : i18n_noop("Off");
+      break;
+    case SettingsDisplayTouchNavMenus:
+      title = i18n_noop("Touch Navigation");
+      subtitle = touch_navigation_menu_is_enabled() ? i18n_noop("On") : i18n_noop("Off");
       break;
 #endif
 #ifdef CONFIG_ORIENTATION_MANAGER

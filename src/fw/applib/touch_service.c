@@ -84,6 +84,7 @@ void touch_service_subscribe(TouchServiceHandler handler, void *context) {
   state->raw_handler = handler;
   state->raw_context = context;
   sys_touch_reset();
+  sys_touch_set_raw_subscribed(handler != NULL);
   prv_update_subscription(state);
 }
 
@@ -95,6 +96,7 @@ void touch_service_unsubscribe(void) {
   // Clear only the app-facing raw slot; the system slot persists.
   state->raw_handler = NULL;
   state->raw_context = NULL;
+  sys_touch_set_raw_subscribed(false);
   prv_update_subscription(state);
 }
 

@@ -81,8 +81,10 @@ static void prv_app_subscribe_cb(void *unused) {
   app_touch_nav_subscribe();
 }
 
-static void prv_app_unsubscribe_cb(void *unused) {
-  app_touch_nav_unsubscribe();
+static void prv_app_resync_cb(void *unused) {
+  // Re-evaluate rather than blindly unsubscribe: an app that explicitly opted in follows the
+  // master pref alone, so turning only the Touch Navigation sub-pref off must not cut it off.
+  app_touch_nav_resync();
 }
 
 // --- Concrete transaction ops ------------------------------------------------------------------
@@ -110,7 +112,7 @@ static void prv_kernel_cancel_reset_unsub(void *ctx) {
 }
 
 static void prv_app_unsubscribe(void *ctx) {
-  process_manager_send_callback_event_to_process(PebbleTask_App, prv_app_unsubscribe_cb, NULL);
+  process_manager_send_callback_event_to_process(PebbleTask_App, prv_app_resync_cb, NULL);
 }
 
 static void prv_release_system_hold(void *ctx) {
@@ -136,6 +138,12 @@ void touch_nav_set_enabled(bool enable) {
     // Also pick up any already-running app so nav starts working without a relaunch.
     process_manager_send_callback_event_to_process(PebbleTask_App, prv_app_subscribe_cb, NULL);
   }
+}
+
+void touch_nav_master_changed(void) {
+  // The master pref flipped without changing the effective system state (the Touch Navigation
+  // sub-pref is off): only an opted-in running app is affected, so re-evaluate its twin.
+  process_manager_send_callback_event_to_process(PebbleTask_App, prv_app_resync_cb, NULL);
 }
 
 #endif  // CONFIG_TOUCH

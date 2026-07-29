@@ -29,13 +29,24 @@ void touch_set_backlight_enabled(bool enabled);
 //! subscription). Taken when the master nav pref turns on, released when off.
 void touch_set_system_hold(bool held);
 
-//! @return true when the master nav pref is enabled. Defaults to off; the shell
-//! drives it via touch_set_nav_enabled().
+//! @return true when SYSTEM touch navigation is effectively enabled. Defaults
+//! to off; the shell drives it via touch_set_nav_enabled() with the
+//! conjunction of the master "Touch" pref and the "Touch Navigation" sub-pref.
 bool touch_nav_enabled(void);
 
-//! Set the master nav-enabled pref flag. Intended to be driven by the shell's
-//! pref system when the user toggles the nav feature.
+//! Set the system nav gate. Intended to be driven by the shell's pref system
+//! when the effective (master AND sub-pref) nav state changes.
 void touch_set_nav_enabled(bool enabled);
+
+//! @return true while the app twin's nav dispatcher is installed for the
+//! running app (system nav active, or an opted-in third-party app under the
+//! master pref). Set by the app twin's install/remove ops and cleared when the
+//! app's shared touch subscription is torn down, so a dead app cannot leave it
+//! stuck. Feeds the dispatch gate and touch-driven backlight behavior.
+bool touch_app_nav_active(void);
+
+//! Mark whether the app twin's nav dispatcher is installed.
+void touch_set_app_nav_active(bool active);
 
 //! @return true if at least one subscriber is currently registered for touch events.
 bool touch_has_app_subscribers(void);

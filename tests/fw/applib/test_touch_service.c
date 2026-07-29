@@ -57,6 +57,11 @@ void sys_touch_reset(void) {
   s_touch_reset_count++;
 }
 
+static bool s_raw_subscribed;
+void sys_touch_set_raw_subscribed(bool subscribed) {
+  s_raw_subscribed = subscribed;
+}
+
 bool sys_touch_service_is_enabled(void) {
   return true;
 }

@@ -221,11 +221,12 @@ bool touch_is_globally_enabled(void) {
 void touch_set_globally_enabled(bool enable) {
 }
 
-bool touch_navigation_is_enabled(void) {
+
+bool touch_navigation_menu_is_enabled(void) {
   return false;
 }
 
-void touch_set_navigation_enabled(bool enable) {
+void touch_set_navigation_menu_enabled(bool enable) {
 }
 
 bool bt_persistent_storage_get_airplane_mode_enabled(void) {
