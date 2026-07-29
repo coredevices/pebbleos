@@ -32,6 +32,14 @@ clar(bld,
 
 clar(bld,
      sources_ant_glob=(
+      "src/fw/services/bluetooth/ble_hid.c "
+      "tests/fakes/fake_rtc.c "
+     ),
+     test_sources_ant_glob="test_ble_hid.c",
+     defines=['CONFIG_BT_HID_REMOTE'])
+
+clar(bld,
+     sources_ant_glob=(
         "src/fw/services/bluetooth/local_addr.c"
      ),
      test_sources_ant_glob="test_local_addr.c")

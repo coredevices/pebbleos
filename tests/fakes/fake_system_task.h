@@ -23,12 +23,27 @@ static ListNode *s_system_task_callback_head = NULL;
 static bool s_invoke_as_current = false;
 static uint32_t system_task_available_space = ~(uint32_t)0;
 
+//! One callback accepted but held back before it reaches the queue. The real
+//! system_task_add_callback() makes a caller wait for a free slot rather than
+//! failing it, so work can be handed over long before it is queued and can land
+//! behind work the caller never saw. See fake_system_task_defer_next_add().
+static SystemTaskEventCallback s_deferred_cb = NULL;
+static void *s_deferred_data = NULL;
+static bool s_defer_next_add = false;
+
 bool system_task_add_callback(SystemTaskEventCallback cb, void *data) {
+  cl_assert(cb);
+  if (s_defer_next_add) {
+    s_defer_next_add = false;
+    s_deferred_cb = cb;
+    s_deferred_data = data;
+    return true;
+  }
+
   SystemTaskCallbackNode *node = (SystemTaskCallbackNode *) malloc(sizeof(SystemTaskCallbackNode));
   cl_assert(node != NULL);
   list_init(&node->node);
 
-  cl_assert(cb);
   node->callback = cb;
   node->data = data;
 
@@ -61,6 +76,25 @@ void system_task_set_available_space(uint32_t space) {
 //
 void stub_invoke_system_task_as_current(void) {
   s_invoke_as_current = !s_invoke_as_current;
+}
+
+//! Accept the next add without queueing it, standing in for a caller parked in
+//! system_task_add_callback() until a slot frees up. Release it with
+//! fake_system_task_flush_deferred().
+void fake_system_task_defer_next_add(void) {
+  s_defer_next_add = true;
+}
+
+//! Queue whatever fake_system_task_defer_next_add() held back, as if the slot
+//! its caller was waiting for had just come free.
+void fake_system_task_flush_deferred(void) {
+  SystemTaskEventCallback cb = s_deferred_cb;
+  void *data = s_deferred_data;
+  s_deferred_cb = NULL;
+  s_deferred_data = NULL;
+  if (cb) {
+    system_task_add_callback(cb, data);
+  }
 }
 
 ////////////////////////////////////
@@ -104,6 +138,10 @@ void fake_system_task_callbacks_invoke_pending(void) {
 }
 
 void fake_system_task_callbacks_cleanup(void) {
+  s_defer_next_add = false;
+  s_deferred_cb = NULL;
+  s_deferred_data = NULL;
+
   SystemTaskCallbackNode *node = (SystemTaskCallbackNode *) s_system_task_callback_head;
   while (node) {
     SystemTaskCallbackNode *next = (SystemTaskCallbackNode *) list_get_next(&node->node);
