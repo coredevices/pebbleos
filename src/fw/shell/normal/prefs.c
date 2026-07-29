@@ -271,9 +271,18 @@ static uint8_t s_alarms_app_opened = 0;
 
 #define PREF_KEY_ACTIVITY_HRM_PREFERENCES "hrmPreferences"
 static ActivityHRMSettings s_activity_hrm_preferences = ACTIVITY_HRM_DEFAULT_PREFERENCES;
+#if !UNITTEST
+_Static_assert(sizeof(ActivityHRMSettings) == 3,
+               "ActivityHRMSettings changed size; prv_migrate_activity_hrm_prefs() only widens "
+               "records whose fields were appended!");
+#endif
 
 #define PREF_KEY_ACTIVITY_SPO2_PREFERENCES "spo2Preferences"
 static ActivitySpO2Settings s_activity_spo2_preferences = ACTIVITY_SPO2_DEFAULT_PREFERENCES;
+#if !UNITTEST
+_Static_assert(sizeof(ActivitySpO2Settings) == 1,
+               "sizeof(ActivitySpO2Settings) grew, stored records need migrating!");
+#endif
 
 // Blood oxygen on/off. Synced from the phone (and the on-watch toggle) as a
 // single bool byte under its own key, mirroring the mobile app's
@@ -1000,6 +1009,27 @@ static void prv_convert_deprecated_dynamic_intensity_key(SettingsFile *file) {
 }
 #endif
 
+// hrmPreferences gained fields twice without a version tag, and the loader below only
+// accepts an exact size match. A short record would otherwise be skipped on every boot,
+// silently replacing the user's settings with the defaults (HR on, 10 minute interval).
+// Fields have only ever been appended, so a short record is a valid prefix of the
+// current struct and the trailing fields keep their defaults.
+static void prv_migrate_activity_hrm_prefs(SettingsFile *file) {
+  const size_t key_len = sizeof(PREF_KEY_ACTIVITY_HRM_PREFERENCES);
+  const int stored_len = settings_file_get_len(file, PREF_KEY_ACTIVITY_HRM_PREFERENCES, key_len);
+  if (stored_len <= 0 || stored_len >= (int)sizeof(ActivityHRMSettings)) {
+    return;
+  }
+
+  ActivityHRMSettings settings = ACTIVITY_HRM_DEFAULT_PREFERENCES;
+  if (settings_file_get(file, PREF_KEY_ACTIVITY_HRM_PREFERENCES, key_len, &settings, stored_len) !=
+      S_SUCCESS) {
+    return;
+  }
+
+  PBL_LOG_INFO("Widening %d byte hrmPreferences record", stored_len);
+  settings_file_set(file, PREF_KEY_ACTIVITY_HRM_PREFERENCES, key_len, &settings, sizeof(settings));
+}
 
 // ------------------------------------------------------------------------------------
 static void prv_pref_set(const char* key, const void *value, size_t val_len);
@@ -1030,6 +1060,7 @@ void shell_prefs_init(void) {
 #ifdef CONFIG_DYNAMIC_BACKLIGHT
   prv_convert_deprecated_dynamic_intensity_key(&file);
 #endif
+  prv_migrate_activity_hrm_prefs(&file);
 
 #if !TIMELINE_PEEK_WATCHFACE_FIT_SUPPORTED
   {
@@ -2041,7 +2072,9 @@ bool activity_prefs_heart_rate_is_enabled(void) {
 HRMonitoringInterval activity_prefs_get_hrm_measurement_interval(void) {
   uint8_t interval = s_activity_hrm_preferences.measurement_interval;
   if (interval >= HRMonitoringIntervalCount) {
-    return HRMonitoringInterval_10Min;
+    // Unrecognized value means the stored pref is corrupt, so fall back to the
+    // cheapest interval that keeps the feature working rather than the costliest.
+    return HRMonitoringInterval_1Hour;
   }
   return (HRMonitoringInterval)interval;
 }
@@ -2103,7 +2136,8 @@ void activity_prefs_set_blood_oxygen_activity_tracking_enabled(bool enabled) {
 HRMonitoringInterval activity_prefs_get_spo2_measurement_interval(void) {
   uint8_t interval = s_activity_spo2_preferences.measurement_interval;
   if (interval >= HRMonitoringIntervalCount) {
-    return HRMonitoringInterval_10Min;
+    // See activity_prefs_get_hrm_measurement_interval().
+    return HRMonitoringInterval_1Hour;
   }
   return (HRMonitoringInterval)interval;
 }
