@@ -1549,7 +1549,9 @@ static inline void prv_text_walk_lines(GContext* ctx, TextLayout* const layout,
 
   TextBoxParams *text_box = &ctx->text_draw_state.text_box;
 
-  if (grect_is_empty(&text_box->box)) {
+  // Degenerate boxes draw nothing; negative sizes must not reach line layout
+  // (grect_is_empty only catches sizes that are exactly zero)
+  if (text_box->box.size.w <= 0 || text_box->box.size.h <= 0) {
     return;
   }
 
