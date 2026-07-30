@@ -23,4 +23,9 @@ clar(ctx,
              'CONFIG_BATTERY_WARNING_SECOND_PERCENT=8'],
     platforms = ['obelix'])
 
+clar(ctx,
+    sources_ant_glob = " src/fw/shell/normal/button_lock.c",
+    test_sources_ant_glob = 'test_button_lock.c',
+    defines=['CONFIG_TOUCH=1'])
+
 # vim:filetype=python
