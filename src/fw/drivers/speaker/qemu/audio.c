@@ -88,12 +88,12 @@ void qemu_audio_irq_handler(AudioDevice *dev) {
   // Clear the interrupt
   REG32(dev->base_addr + AUDIO_INTSTAT) = INT_BUFAVAIL;
 
-  // Schedule callback on system task
+  // Schedule callback on system task; a drop is retried on the next interrupt
   if (dev->state->trans_cb) {
     bool should_context_switch = false;
-    system_task_add_callback_from_isr(prv_audio_system_task_cb,
-                                      (void *)dev->state,
-                                      &should_context_switch);
+    system_task_add_callback_from_isr_droppable(prv_audio_system_task_cb,
+                                                (void *)dev->state,
+                                                &should_context_switch);
     portEND_SWITCHING_ISR(should_context_switch);
   }
 }

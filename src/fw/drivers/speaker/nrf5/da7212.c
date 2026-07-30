@@ -301,10 +301,12 @@ static void prv_maybe_request_refill_from_isr(AudioDeviceState *state) {
     return;
   }
 
+  // A dropped refill is retried on the next I2S buffer event; a momentary
+  // underrun beats resetting the system over a full queue.
   state->callback_pending = true;
   bool should_context_switch = false;
-  if (!system_task_add_callback_from_isr(prv_audio_trans_bg, state,
-                                         &should_context_switch)) {
+  if (!system_task_add_callback_from_isr_droppable(prv_audio_trans_bg, state,
+                                                   &should_context_switch)) {
     state->callback_pending = false;
   }
 }
