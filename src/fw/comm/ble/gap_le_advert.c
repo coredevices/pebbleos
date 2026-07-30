@@ -549,6 +549,9 @@ void gap_le_advert_init(void) {
     };
 
     s_is_advertising = false;
+    // Not cleared by the disconnect handler if the stack went down while
+    // connected (airplane mode): a stale true pauses the cycle timer.
+    s_is_connected = false;
     s_gap_le_advert_is_initialized = true;
   }
 unlock:
