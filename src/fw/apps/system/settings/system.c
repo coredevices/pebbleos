@@ -148,6 +148,7 @@ typedef enum {
   SystemMenuItemInformation,
   SystemMenuItemCertification,
   SystemMenuItemStationaryToggle,
+  SystemMenuItemButtonLock,
   SystemMenuItemDebugging,
   SystemMenuItemShutDown,
   SystemMenuItemFactoryReset,
@@ -158,10 +159,51 @@ static const char *s_item_titles[SystemMenuItem_Count] = {
   [SystemMenuItemInformation]   = i18n_noop("Information"),
   [SystemMenuItemCertification] = i18n_noop("Certification"),
   [SystemMenuItemStationaryToggle] = i18n_noop("Stand-By Mode"),
+  [SystemMenuItemButtonLock]    = i18n_noop("Button Lock"),
   [SystemMenuItemDebugging]     = i18n_noop("Debugging"),
   [SystemMenuItemShutDown]      = i18n_noop("Shut Down"),
   [SystemMenuItemFactoryReset]  = i18n_noop("Factory Reset"),
 };
+
+// Button Lock Settings
+/////////////////////////////
+
+static const uint32_t s_button_lock_hold_values[] = { 0, 1000, 2000, 3000, 5000, 10000 };
+
+static const char *s_button_lock_hold_labels[] = {
+  i18n_noop("Off"),
+  i18n_noop("1 Second"),
+  i18n_noop("2 Seconds"),
+  i18n_noop("3 Seconds"),
+  i18n_noop("5 Seconds"),
+  i18n_noop("10 Seconds"),
+};
+
+static int prv_button_lock_get_selection_index(void) {
+  const uint32_t hold_ms = shell_prefs_get_button_lock_hold_ms();
+  for (size_t i = 0; i < ARRAY_LENGTH(s_button_lock_hold_values); i++) {
+    if (s_button_lock_hold_values[i] == hold_ms) {
+      return i;
+    }
+  }
+  return 0;
+}
+
+static void prv_button_lock_menu_select(OptionMenu *option_menu, int selection, void *context) {
+  shell_prefs_set_button_lock_hold_ms(s_button_lock_hold_values[selection]);
+  app_window_stack_remove(&option_menu->window, true /* animated */);
+}
+
+static void prv_button_lock_menu_push(SettingsSystemData *data) {
+  const OptionMenuCallbacks callbacks = {
+    .select = prv_button_lock_menu_select,
+  };
+  const char *title = PBL_IF_RECT_ELSE(i18n_noop("BUTTON LOCK"), i18n_noop("Button Lock"));
+  settings_option_menu_push(title, OptionMenuContentType_SingleLine,
+                            prv_button_lock_get_selection_index(), &callbacks,
+                            ARRAY_LENGTH(s_button_lock_hold_labels), true /* icons_enabled */,
+                            s_button_lock_hold_labels, data);
+}
 
 // Common status bar component is used across all windows that need them.
 // This will init it and set the correct style to be used within the settings
@@ -1301,6 +1343,9 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
     case SystemMenuItemStationaryToggle:
       subtitle = stationary_get_enabled() ? i18n_get("On", data) : i18n_get("Off", data);
       break;
+    case SystemMenuItemButtonLock:
+      subtitle = i18n_get(s_button_lock_hold_labels[prv_button_lock_get_selection_index()], data);
+      break;
     case SystemMenuItemShutDown:
     case SystemMenuItemInformation:
     case SystemMenuItemCertification:
@@ -1330,6 +1375,9 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       break;
     case SystemMenuItemStationaryToggle:
       stationary_set_enabled(!stationary_get_enabled());
+      break;
+    case SystemMenuItemButtonLock:
+      prv_button_lock_menu_push(data);
       break;
     case SystemMenuItemShutDown:
       launcher_task_add_callback(prv_shutdown_cb, 0);
