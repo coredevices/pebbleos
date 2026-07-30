@@ -2170,7 +2170,7 @@ msgstr "Spazieren"
 #: ../src/fw/apps/system/workout/utils.c:98
 #: ../src/fw/services/activity/activity_insights.c:1623
 msgid "Run"
-msgstr "Lauf"
+msgstr "Laufen"
 
 #. / Workout automatically detected dialog text
 #: ../src/fw/apps/system/workout/utils.c:116
