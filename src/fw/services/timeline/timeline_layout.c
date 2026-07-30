@@ -85,7 +85,7 @@ static const TimelineLayoutStyle s_style_large = {
   .thin_can_have_secondary = true,
   .fat_future_title_offset_y = 25,
   .fat_past_title_offset_y = -30,
-  .thin_future_title_offset_y = 45,
+  .thin_future_title_offset_y = 0,
   .thin_past_title_offset_y = 10,
 };
 
@@ -503,16 +503,20 @@ static GTextNode *prv_create_pin_view_node(TimelineLayout *layout) {
   const bool is_fat = (layout->layout_layer.mode == LayoutLayerModePinnedFat);
   PBL_UNUSED const bool is_thin = (layout->layout_layer.mode == LayoutLayerModePinnedThin);
   const TimelineLayoutStyle *style = prv_get_style();
-  const bool thin_can_have_secondary = style->thin_can_have_secondary;
+  // Round thin pins only have room for the time and a one-line title
+  const bool thin_can_have_secondary =
+      style->thin_can_have_secondary && PBL_IF_ROUND_ELSE(false, true);
   const bool has_secondary =
       (((is_peek || is_fat || thin_can_have_secondary) && !IS_EMPTY_STRING(secondary_text)) ||
        (is_peek && (rtc_get_time() < layout->info->timestamp)));
   const int peek_text_width =
       DISP_COLS - TIMELINE_PEEK_ICON_BOX_WIDTH - (2 * TIMELINE_PEEK_MARGIN);
   const GPoint peek_text_offset = GPoint(TIMELINE_PEEK_MARGIN, PBL_IF_RECT_ELSE(-5, -6));
-  const GTextOverflowMode overflow =
-      (has_secondary && !is_peek) ? GTextOverflowModeTrailingEllipsis : GTextOverflowModeFill;
-  if (PBL_IF_ROUND_ELSE(!is_thin, true)) {
+  // Large round displays fit two full events on screen: the thin pin shows a one-line title too
+  const bool thin_has_title = (PBL_ROUND && PBL_DISPLAY_HEIGHT >= 200);
+  const GTextOverflowMode overflow = ((has_secondary || (is_thin && thin_has_title)) && !is_peek) ?
+      GTextOverflowModeTrailingEllipsis : GTextOverflowModeFill;
+  if (PBL_IF_ROUND_ELSE(!is_thin || thin_has_title, true)) {
     // Move the hour and title closer together
     const int hour_title_margin = is_fat ? style->fat_time_margin_h : style->thin_time_margin_h;
     if (time_text_node) {
@@ -546,6 +550,14 @@ static GTextNode *prv_create_pin_view_node(TimelineLayout *layout) {
     }
     primary_node->max_size.h = num_primary_lines * fonts_get_font_height(primary_node->font);
     primary_node->overflow = overflow;
+    // TODO: PBL-30522 Enable timeline list view text flow
+    // Remove when text flow is enabled
+    if (PBL_IF_ROUND_ELSE(is_thin && thin_has_title, false)) {
+      // Keep the one-line title inside the round display edge
+      const int padding_left = 36;
+      primary_node->node.offset.x += padding_left;
+      primary_node->node.margin.w += padding_left;
+    }
     if (!is_peek) {
       primary_node->node.margin.h = style->primary_list_margin_h;
     } else if (has_secondary) {
@@ -639,7 +651,12 @@ static void prv_get_pin_view_bounds(TimelineLayout *layout, GRect *box_out) {
   }
   box_out->size.w -= timeline_layer_get_ideal_sidebar_width();
   if (PBL_IF_ROUND_ELSE(layout->layout_layer.mode == LayoutLayerModePinnedThin, false)) {
+#if PBL_DISPLAY_HEIGHT >= 200
+    // Fit the time header and a one-line title
+    const int thin_height = 64;
+#else
     const int thin_height = 20;
+#endif
     box_out->size.h = thin_height;
   } else if (layout->layout_layer.mode == LayoutLayerModePinnedFat) {
     box_out->size.h -= PBL_IF_ROUND_ELSE(30, 20);
