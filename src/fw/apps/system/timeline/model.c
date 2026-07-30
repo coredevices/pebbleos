@@ -79,6 +79,24 @@ static int prv_get_prev_item_idx(void) {
       TIMELINE_NUM_ITEMS_IN_MODEL);
 }
 
+bool timeline_model_prepare_prev(void) {
+  if (timeline_model_get_current_state() == NULL) {
+    return false;
+  }
+  const int prev_idx = prv_get_prev_item_idx();
+  const int first_idx = s_model_data->first_index;
+  timeline_iter_copy_state(
+      &s_model_data->states[prev_idx],
+      &s_model_data->states[first_idx],
+      &s_model_data->iters[prev_idx],
+      &s_model_data->iters[first_idx]);
+  if (!iter_prev(&s_model_data->iters[prev_idx])) {
+    s_model_data->states[prev_idx].node = NULL;
+    return false;
+  }
+  return true;
+}
+
 static Iterator *prv_get_iter(int index) {
   return &s_model_data->iters[prv_adj_to_raw_idx(index)];
 }

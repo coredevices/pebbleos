@@ -84,9 +84,9 @@ static const TimelineLayoutStyle s_style_large = {
   .primary_secondary_peek_margin_h = -5,
   .thin_can_have_secondary = true,
   .fat_future_title_offset_y = 25,
-  .fat_past_title_offset_y = -30,
+  .fat_past_title_offset_y = 6,
   .thin_future_title_offset_y = 0,
-  .thin_past_title_offset_y = 10,
+  .thin_past_title_offset_y = 0,
 };
 
 static const TimelineLayoutStyle * const s_styles[NumPreferredContentSizes] = {
@@ -557,8 +557,8 @@ static GTextNode *prv_create_pin_view_node(TimelineLayout *layout) {
     // TODO: PBL-30522 Enable timeline list view text flow
     // Remove when text flow is enabled
     if (PBL_IF_ROUND_ELSE(is_thin && thin_has_title, false)) {
-      // Keep the one-line title inside the round display edge
-      const int padding_left = 30;
+      // Keep the one-line title inside the round display edge, including the bottom slot
+      const int padding_left = 47;
       primary_node->node.offset.x += padding_left;
       primary_node->node.margin.w += padding_left;
     }
@@ -657,7 +657,7 @@ static void prv_get_pin_view_bounds(TimelineLayout *layout, GRect *box_out) {
   if (PBL_IF_ROUND_ELSE(layout->layout_layer.mode == LayoutLayerModePinnedThin, false)) {
 #if PBL_DISPLAY_HEIGHT >= 200
     // Fit the time header and a one-line title
-    const int thin_height = 58;
+    const int thin_height = 44;
 #else
     const int thin_height = 20;
 #endif

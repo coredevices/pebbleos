@@ -44,6 +44,12 @@ bool timeline_model_is_empty(void);
 
 int timeline_model_get_num_items(void);
 
+//! Load the item before the current one into the retained slot so it can be read with
+//! timeline_model_get_iter_state(-1)
+//! Only call while no layout references the retained state: preparing frees its pin buffer
+//! @return whether an item before the current one exists
+bool timeline_model_prepare_prev(void);
+
 //! Iterate the model towards the "next" direction
 //! @param new_idx Set the raw index of the new iterator if new_idx is not NULL
 //! @param has_next set to whether or not there is a new third item in the list, i.e. false =

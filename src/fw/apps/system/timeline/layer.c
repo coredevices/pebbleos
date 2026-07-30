@@ -96,14 +96,14 @@ static const TimelineLayerStyle s_style_large = {
   .future_fin_offset_y = 37,
   .past_top_margin = PBL_IF_RECT_ELSE(7, 18),
   .past_thin_pin_margin = 11,
-  .future_top_margin = PBL_IF_RECT_ELSE(7, 39),
+  .future_top_margin = PBL_IF_RECT_ELSE(7, 16),
   .left_margin = 9,
   .right_margin = 14,
   .icon_offset_y = 3,
   .icon_right_margin = PBL_IF_RECT_ELSE(6, 12),
   .fat_pin_height = 131,
-  // PBL-42540: This property is dependent on the screen size.
-  .thin_pin_height = 88,
+  // PBL-42540: This property is dependent on the screen size. Round fits two thin pins.
+  .thin_pin_height = PBL_IF_RECT_ELSE(88, 46),
   .day_sep_dot_diameter = 12,
   .day_sep_offset.y = -21,
   .past_day_sep_dot_offset_y = PBL_IF_RECT_ELSE(-16, -32),
@@ -116,6 +116,10 @@ static const TimelineLayerStyle * const s_styles[NumPreferredContentSizes] = {
   [PreferredContentSizeLarge] = &s_style_large,
   [PreferredContentSizeExtraLarge] = &s_style_large,
 };
+
+// Larger round displays keep the previous pin on screen in slot 0 above the focused pin,
+// mirroring center-focused menus: previous, current and next are all visible.
+#define TIMELINE_LAYER_SHOWS_PREV_PIN (PBL_ROUND && PBL_DISPLAY_HEIGHT >= 200)
 
 static int16_t s_height_offsets[TIMELINE_NUM_ITEMS_IN_TIMELINE_LAYER];
 static const int s_visible_items[] = {1, 2};
@@ -281,11 +285,33 @@ static void prv_destroy_layout(TimelineLayer *layer, int index) {
 
 static void prv_destroy_nonvisible_items(TimelineLayer *layer) {
   for (int i = 0; i < (int)ARRAY_LENGTH(s_nonvisible_items); i++) {
+    if (TIMELINE_LAYER_SHOWS_PREV_PIN && (s_nonvisible_items[i] == 0)) {
+      // Slot 0 stays on screen as the previous pin
+      continue;
+    }
     TimelineLayout *timeline_layout = layer->layouts[s_nonvisible_items[i]];
     if (timeline_layout) {
       prv_destroy_layout(layer, s_nonvisible_items[i]);
       layer->layouts[s_nonvisible_items[i]] = NULL;
     }
+  }
+}
+
+// Fill slot 0 with the item before the current one so it shows above the focused pin.
+// Only fills an empty slot: the model's retained state must not be reloaded while a
+// layout still references it.
+static void prv_populate_prev_item(TimelineLayer *layer) {
+  if (!TIMELINE_LAYER_SHOWS_PREV_PIN || layer->layouts[0] || timeline_model_is_empty()) {
+    return;
+  }
+  if (!timeline_model_prepare_prev()) {
+    return;
+  }
+  TimelineIterState *state = timeline_model_get_iter_state(-1);
+  prv_create_layout(layer, state, 0);
+  layout_set_mode((LayoutLayer *)layer->layouts[0], LayoutLayerModePinnedThin);
+  if (state->current_day != layer->current_day) {
+    prv_set_layout_hidden(layer->layouts[0], true);
   }
 }
 
@@ -334,6 +360,10 @@ static void prv_update_pins_mode(TimelineLayer *layer) {
       LayoutLayerMode mode = prv_get_mode(i + 1);
       layout_set_mode((LayoutLayer *)timeline_layout, mode);
     }
+  }
+  if (TIMELINE_LAYER_SHOWS_PREV_PIN && layer->layouts[0]) {
+    // The previous pin remains visible above the focused pin as a thin pin
+    layout_set_mode((LayoutLayer *)layer->layouts[0], LayoutLayerModePinnedThin);
   }
 }
 
@@ -549,6 +579,7 @@ static void prv_up_down_stopped(Animation *animation, bool is_finished, void *co
   prv_update_pins_mode(layer);
   prv_set_layouts_to_final_position(layer);
   prv_destroy_nonvisible_items(layer);
+  prv_populate_prev_item(layer);
   prv_place_day_separator(layer);
   prv_place_end_of_timeline(layer);
 }
@@ -764,6 +795,10 @@ void timeline_layer_reset(TimelineLayer *layer) {
 
   // reset the layouts
   prv_reset_layouts(layer);
+  if (TIMELINE_LAYER_SHOWS_PREV_PIN && layer->layouts[0]) {
+    // The retained previous pin may be stale after a reset; recreate it below
+    prv_destroy_layout(layer, 0);
+  }
   prv_destroy_nonvisible_items(layer);
   timeline_layer_set_layouts_hidden(layer, false);
 
@@ -773,6 +808,7 @@ void timeline_layer_reset(TimelineLayer *layer) {
     layer->current_day = layer->layouts[index]->info->current_day;
   }
 
+  prv_populate_prev_item(layer);
   prv_hide_non_current_day_items(layer);
   prv_place_day_separator(layer);
   prv_place_end_of_timeline(layer);
@@ -898,6 +934,20 @@ void timeline_layer_init(TimelineLayer *layer, const GRect *frame_ref,
   // layouts
   layer->scroll_direction = scroll_direction;
   layer->move_delta = prv_get_scroll_delta(layer);
+#if TIMELINE_LAYER_SHOWS_PREV_PIN
+  // Previous thin pin on top, focused fat pin center, next thin pin at the bottom
+  if (scroll_direction == TimelineScrollDirectionUp) {
+    s_height_offsets[2] = style->past_top_margin;
+    s_height_offsets[1] = style->past_top_margin + style->thin_pin_height;
+    s_height_offsets[0] = s_height_offsets[1] + style->fat_pin_height;
+    s_height_offsets[3] = style->past_top_margin - 2 * style->fat_pin_height;
+  } else {
+    s_height_offsets[0] = style->future_top_margin;
+    s_height_offsets[1] = style->future_top_margin + style->thin_pin_height;
+    s_height_offsets[2] = s_height_offsets[1] + style->fat_pin_height;
+    s_height_offsets[3] = s_height_offsets[2] + 2 * style->fat_pin_height;
+  }
+#else
   if (scroll_direction == TimelineScrollDirectionUp) {
     s_height_offsets[0] = (PAST_TOP_MARGIN_EXTRA + style->thin_pin_height +
                            (2 * style->fat_pin_height));
@@ -912,6 +962,7 @@ void timeline_layer_init(TimelineLayer *layer, const GRect *frame_ref,
     s_height_offsets[3] = (style->future_top_margin + style->fat_pin_height +
                            (2 * style->fat_pin_height));
   }
+#endif
   // layouts layer - contains all the pin
   layer_init(&layer->layouts_layer, &(GRect) { .size = frame_ref->size });
   layer_set_clips(&layer->layouts_layer, false);
