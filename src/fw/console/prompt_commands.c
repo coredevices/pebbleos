@@ -1711,6 +1711,7 @@ void command_pin_test(void) {
     { "Team Standup", "Conference Room 2", 30, 30 },
     { "Lunch with Alex", "Cafe Milano", 120, 60 },
     { "Quarterly Planning Review Meeting", "Building 3, Floor 2", 240, 90 },
+    { "Yoga Class", "Studio 5", 1200, 60 },
   };
 
   for (size_t i = 0; i < ARRAY_LENGTH(s_test_pins); i++) {
