@@ -17,6 +17,7 @@
 #include "pbl/services/system_task.h"
 #include "pbl/services/activity/health_util.h"
 #include "pbl/services/activity/hr_util.h"
+#include "apps/system/workout/utils.h"
 #include "pbl/services/notifications/notification_storage.h"
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/timeline/health_layout.h"
@@ -1642,14 +1643,8 @@ static void prv_add_metric_duration_info(StringList *headings, int headings_buf_
                                          duration_s, headings);
   }
 
-  const char *activity_label;
-  if (session->type == ActivitySessionType_Run) {
-    activity_label = i18n_get("Run", headings);
-  } else if (session->type == ActivitySessionType_Walk) {
-    activity_label = i18n_get("Walk", headings);
-  } else {
-    activity_label = i18n_get("Workout", headings);
-  }
+  const char *activity_label = i18n_get(workout_utils_get_name_for_activity(session->type),
+                                        headings);
   string_list_add_string(headings, headings_buf_size, activity_label, headings_buf_size);
   string_list_add_string(values, values_buf_size, duration_str, values_buf_size);
 }
