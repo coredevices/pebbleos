@@ -30,6 +30,9 @@ extern void command_touch_nav_enable(void);
 extern void command_touch_nav_disable(void);
 extern void command_notif_test(void);
 #endif
+#ifndef CONFIG_RECOVERY_FW
+extern void command_pin_test(void);
+#endif
 
 extern void command_stats_dump_now(void);
 extern void command_stats_dump_current(void);
@@ -321,6 +324,9 @@ static const Command s_prompt_commands[] = {
   { "notif test", command_notif_test, 0 },
 #endif  // CONFIG_RECOVERY_FW
 #endif
+#ifndef CONFIG_RECOVERY_FW
+  { "pin test", command_pin_test, 0 },
+#endif  // CONFIG_RECOVERY_FW
   { "reset", command_reset, 0 },
   { "crash", command_crash, 0 },
   { "hard crash", command_hard_crash, 0 },

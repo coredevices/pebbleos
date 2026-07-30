@@ -1692,3 +1692,42 @@ void command_touch_nav_log(void) {
   }
 }
 #endif
+
+#ifndef CONFIG_RECOVERY_FW
+#include "pbl/services/timeline/item.h"
+#include "pbl/services/timeline/timeline.h"
+#include "util/time/time.h"
+#include <pbl/drivers/rtc.h>
+
+// TEST: inject calendar pins so the timeline UI can be exercised in QEMU (no companion needed).
+void command_pin_test(void) {
+  static const struct {
+    const char *title;
+    const char *location;
+    int16_t start_offset_min;
+    uint16_t duration_min;
+  } s_test_pins[] = {
+    { "Morning Run", "Riverside Park", -180, 45 },
+    { "Team Standup", "Conference Room 2", 30, 30 },
+    { "Lunch with Alex", "Cafe Milano", 120, 60 },
+    { "Quarterly Planning Review Meeting", "Building 3, Floor 2", 240, 90 },
+  };
+
+  for (size_t i = 0; i < ARRAY_LENGTH(s_test_pins); i++) {
+    AttributeList attr_list = {};
+    attribute_list_add_cstring(&attr_list, AttributeIdTitle, s_test_pins[i].title);
+    attribute_list_add_cstring(&attr_list, AttributeIdLocationName, s_test_pins[i].location);
+    TimelineItem *item = timeline_item_create_with_attributes(
+        rtc_get_time() + (s_test_pins[i].start_offset_min * SECONDS_PER_MINUTE),
+        s_test_pins[i].duration_min, TimelineItemTypePin, LayoutIdCalendar, &attr_list, NULL);
+    attribute_list_destroy_list(&attr_list);
+    if (item) {
+      timeline_add(item);
+      timeline_item_destroy(item);
+    }
+  }
+
+  char buf[32];
+  prompt_send_response_fmt(buf, sizeof(buf), "test pins added");
+}
+#endif  // CONFIG_RECOVERY_FW
