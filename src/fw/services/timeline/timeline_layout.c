@@ -548,13 +548,17 @@ static GTextNode *prv_create_pin_view_node(TimelineLayout *layout) {
       gpoint_add_eq(&primary_node->node.offset, peek_text_offset);
       primary_node->max_size.w = peek_text_width;
     }
+    if (PBL_IF_ROUND_ELSE(is_thin && thin_has_title, false)) {
+      // De-emphasize the next event: lighter title face than the focused pin
+      primary_node->font = system_theme_get_font_for_default_size(TextStyleFont_PinSubtitle);
+    }
     primary_node->max_size.h = num_primary_lines * fonts_get_font_height(primary_node->font);
     primary_node->overflow = overflow;
     // TODO: PBL-30522 Enable timeline list view text flow
     // Remove when text flow is enabled
     if (PBL_IF_ROUND_ELSE(is_thin && thin_has_title, false)) {
       // Keep the one-line title inside the round display edge
-      const int padding_left = 36;
+      const int padding_left = 30;
       primary_node->node.offset.x += padding_left;
       primary_node->node.margin.w += padding_left;
     }
@@ -653,7 +657,7 @@ static void prv_get_pin_view_bounds(TimelineLayout *layout, GRect *box_out) {
   if (PBL_IF_ROUND_ELSE(layout->layout_layer.mode == LayoutLayerModePinnedThin, false)) {
 #if PBL_DISPLAY_HEIGHT >= 200
     // Fit the time header and a one-line title
-    const int thin_height = 64;
+    const int thin_height = 58;
 #else
     const int thin_height = 20;
 #endif
