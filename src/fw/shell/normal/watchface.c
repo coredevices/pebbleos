@@ -24,18 +24,14 @@
 #include "pbl/services/notifications/do_not_disturb.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#ifdef CONFIG_ORIENTATION_MANAGER
-#include "shell/prefs.h"
-#endif 
 
 #define QUICK_LAUNCH_HOLD_MS (400)
 #define BIT_SET (1)
 #define BIT_CLEAR (0)
+// Button events are remapped at the driver level when the display is rotated
+// (left-hand mode), so these masks are correct in either orientation.
 #define COMBO_BACK_UP_BUTTONS ((BIT_SET << BUTTON_ID_BACK) | (BIT_SET << BUTTON_ID_UP))
 #define COMBO_UP_DOWN_BUTTONS ((BIT_SET << BUTTON_ID_UP) | (BIT_SET << BUTTON_ID_DOWN))
-#ifdef CONFIG_ORIENTATION_MANAGER
-#define COMBO_BACK_UP_FLIPPED_BUTTONS ((BIT_SET << BUTTON_ID_BACK) | (BIT_SET << BUTTON_ID_DOWN))
-#endif
 
 static ClickManager s_click_manager;
 static uint8_t s_buttons_pressed = BIT_CLEAR;
@@ -65,41 +61,20 @@ static bool prv_is_combo_pressed(uint8_t combo_buttons) {
 }
 
 static bool prv_combo_is_enabled(uint8_t combo_buttons) {
-#ifdef CONFIG_ORIENTATION_MANAGER
-  const bool orientation_flipped = display_orientation_is_left();
-  if (orientation_flipped && combo_buttons == COMBO_BACK_UP_FLIPPED_BUTTONS) {
-    return quick_launch_combo_back_up_is_enabled();
-  } else if (!orientation_flipped && combo_buttons == COMBO_BACK_UP_BUTTONS) {
-    return quick_launch_combo_back_up_is_enabled();
-  } else if (combo_buttons == COMBO_UP_DOWN_BUTTONS) {
-    return quick_launch_combo_up_down_is_enabled();
-  }
-#else
   if (combo_buttons == COMBO_BACK_UP_BUTTONS) {
     return quick_launch_combo_back_up_is_enabled();
   } else if (combo_buttons == COMBO_UP_DOWN_BUTTONS) {
     return quick_launch_combo_up_down_is_enabled();
   }
-#endif
   return false;
 }
 
 static AppInstallId prv_combo_get_app(uint8_t combo_buttons) {
-#ifdef CONFIG_ORIENTATION_MANAGER
-  if (combo_buttons == COMBO_BACK_UP_FLIPPED_BUTTONS) {
-    return quick_launch_combo_back_up_get_app();
-  } else if (combo_buttons == COMBO_BACK_UP_BUTTONS) {
-    return quick_launch_combo_back_up_get_app();
-  } else if (combo_buttons == COMBO_UP_DOWN_BUTTONS) {
-    return quick_launch_combo_up_down_get_app();
-  }
-#else
   if (combo_buttons == COMBO_BACK_UP_BUTTONS) {
     return quick_launch_combo_back_up_get_app();
   } else if (combo_buttons == COMBO_UP_DOWN_BUTTONS) {
     return quick_launch_combo_up_down_get_app();
   }
-#endif
   return INSTALL_ID_INVALID;
 }
 
@@ -140,40 +115,17 @@ static void prv_combo_back_timer_callback(void *data) {
 static void prv_check_combo_back_hold(void) {
   uint8_t combo_buttons = BIT_CLEAR;
 
-#ifdef CONFIG_ORIENTATION_MANAGER
-  const bool orientation_flipped = display_orientation_is_left();
-  if (orientation_flipped && prv_is_combo_pressed(COMBO_BACK_UP_FLIPPED_BUTTONS)) {
-    combo_buttons = COMBO_BACK_UP_FLIPPED_BUTTONS;
-  } else if (!orientation_flipped && prv_is_combo_pressed(COMBO_BACK_UP_BUTTONS)) {
-    combo_buttons = COMBO_BACK_UP_BUTTONS;
-  } else if (prv_is_combo_pressed(COMBO_UP_DOWN_BUTTONS)) {
-    combo_buttons = COMBO_UP_DOWN_BUTTONS;
-  }
-#else
   if (prv_is_combo_pressed(COMBO_BACK_UP_BUTTONS)) {
     combo_buttons = COMBO_BACK_UP_BUTTONS;
   } else if (prv_is_combo_pressed(COMBO_UP_DOWN_BUTTONS)) {
     combo_buttons = COMBO_UP_DOWN_BUTTONS;
   }
-#endif
 
   if (combo_buttons != BIT_CLEAR) {
     if (s_combo_back_hold_timer == NULL) {
       s_active_combo_buttons = combo_buttons;
       // Cancel individual button timers to prevent them from firing.
       // This ensures only the combo executes, not individual hold handlers.
-#ifdef CONFIG_ORIENTATION_MANAGER
-      if (combo_buttons == COMBO_BACK_UP_FLIPPED_BUTTONS) {
-        click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_BACK]);
-        click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_DOWN]);
-      } else if (combo_buttons == COMBO_BACK_UP_BUTTONS) {
-        click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_BACK]);
-        click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_UP]);
-      } else {
-        click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_UP]);
-        click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_DOWN]);
-      }
-#else
       if (combo_buttons == COMBO_BACK_UP_BUTTONS) {
         click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_BACK]);
         click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_UP]);
@@ -181,7 +133,6 @@ static void prv_check_combo_back_hold(void) {
         click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_UP]);
         click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_DOWN]);
       }
-#endif
       s_combo_back_hold_timer =
           app_timer_register(QUICK_LAUNCH_HOLD_MS, prv_combo_back_timer_callback, NULL);
     }
