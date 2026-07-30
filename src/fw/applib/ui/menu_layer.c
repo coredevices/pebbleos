@@ -312,21 +312,29 @@ static inline int16_t prv_menu_layer_get_header_height(MenuLayer *menu_layer,
   }
 }
 
+static inline int16_t prv_menu_layer_get_default_cell_height(MenuLayer *menu_layer,
+    MenuIndex *cell_index) {
+#if PBL_ROUND && PBL_DISPLAY_HEIGHT >= 200
+  if (menu_layer->center_focused) {
+    return menu_layer_is_index_selected(menu_layer, cell_index) ?
+        MENU_CELL_ROUND_FOCUSED_SHORT_CELL_HEIGHT : MENU_CELL_ROUND_UNFOCUSED_TALL_CELL_HEIGHT;
+  }
+#endif
+  return menu_cell_basic_cell_height();
+}
+
 static inline int16_t prv_menu_layer_get_cell_height(MenuLayer *menu_layer, MenuIndex
     *cell_index, bool provide_correct_selection_index) {
-  if (menu_layer->callbacks.get_cell_height) {
-    const MenuIndex prev_selection_index = menu_layer->selection.index;
-    if (!provide_correct_selection_index) {
-      menu_layer->selection.index.section = MENU_INDEX_NOT_FOUND;
-    }
-    const int16_t result = menu_layer->callbacks.get_cell_height(menu_layer, cell_index,
-                                                                 menu_layer->callback_context);
-
-    menu_layer->selection.index = prev_selection_index;
-    return result;
-  } else {
-    return menu_cell_basic_cell_height();  // default
+  const MenuIndex prev_selection_index = menu_layer->selection.index;
+  if (!provide_correct_selection_index) {
+    menu_layer->selection.index.section = MENU_INDEX_NOT_FOUND;
   }
+  const int16_t result = menu_layer->callbacks.get_cell_height ?
+      menu_layer->callbacks.get_cell_height(menu_layer, cell_index,
+                                            menu_layer->callback_context) :
+      prv_menu_layer_get_default_cell_height(menu_layer, cell_index);
+  menu_layer->selection.index = prev_selection_index;
+  return result;
 }
 
 static inline void prv_menu_layer_draw_separator(MenuLayer *menu_layer, Layer *cell_layer,
