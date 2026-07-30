@@ -2152,7 +2152,7 @@ msgstr "Freies Workout"
 #: ../src/fw/apps/system/workout/workout.c:261
 #: ../src/fw/services/activity/activity_insights.c:1627
 msgid "Workout"
-msgstr "Training"
+msgstr "Workout"
 
 #. #-#-#-#-#  fw.pot (PACKAGE VERSION)  #-#-#-#-#
 #. / Walk Label
