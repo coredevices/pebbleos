@@ -319,6 +319,10 @@ static GColor s_theme_highlight_color = GColorVividCerulean;
 #define PREF_KEY_MENU_SCROLL_VIBE_BEHAVIOR "menuScrollVibeBehavior"
 #define PREF_KEY_MUSIC_SHOW_VOLUME_CONTROLS "musicShowVolumeControls"
 #define PREF_KEY_MUSIC_SHOW_PROGRESS_BAR "musicShowProgressBar"
+#define PREF_KEY_BUTTON_LOCK_HOLD_MS "buttonLockHoldMs"
+
+//! Hold duration for the button lock combo; 0 disables the feature.
+static uint32_t s_button_lock_hold_ms = 0;
 
 static bool s_menu_scroll_wrap_around = false;
 static MenuScrollVibeBehavior s_menu_scroll_vibe_behavior = MenuScrollNoVibe;
@@ -859,6 +863,21 @@ static bool prv_set_s_theme_highlight_color(GColor *color) {
   return true;
 }
 #endif
+
+static bool prv_set_s_button_lock_hold_ms(uint32_t *hold_ms) {
+  switch (*hold_ms) {
+    case 0:
+    case 1000:
+    case 2000:
+    case 3000:
+    case 5000:
+    case 10000:
+      s_button_lock_hold_ms = *hold_ms;
+      return true;
+    default:
+      return false;
+  }
+}
 
 static bool prv_set_s_menu_scroll_wrap_around(bool *enabled) {
   s_menu_scroll_wrap_around = *enabled;
@@ -2114,6 +2133,14 @@ void shell_prefs_set_theme_highlight_color(GColor color) {
 #ifdef CONFIG_THEMING
   prv_pref_set(PREF_KEY_THEME_HIGHLIGHT_COLOR, &color, sizeof(GColor));
 #endif
+}
+
+uint32_t shell_prefs_get_button_lock_hold_ms(void) {
+  return s_button_lock_hold_ms;
+}
+
+void shell_prefs_set_button_lock_hold_ms(uint32_t hold_ms) {
+  prv_pref_set(PREF_KEY_BUTTON_LOCK_HOLD_MS, &hold_ms, sizeof(uint32_t));
 }
 
 bool shell_prefs_get_menu_scroll_wrap_around_enable(void) {
