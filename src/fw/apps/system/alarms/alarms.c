@@ -209,12 +209,6 @@ static uint16_t prv_alarm_list_get_num_rows_callback(struct MenuLayer *menu_laye
   return list_count((ListNode*) data->alarm_list_head) + 1;
 }
 
-static int16_t prv_alarm_list_get_cell_height_callback(struct MenuLayer *menu_layer,
-                                                       MenuIndex *cell_index,
-                                                       void *callback_context) {
-  return menu_cell_basic_cell_height();
-}
-
 static void prv_alarm_list_draw_row_callback(GContext *ctx, const Layer *cell_layer,
                                              MenuIndex *cell_index, void *callback_context) {
   AlarmsAppData *data = (AlarmsAppData *)callback_context;
@@ -389,7 +383,6 @@ static void prv_handle_init(void) {
   menu_layer_set_callbacks(&data->menu_layer, data, &(MenuLayerCallbacks) {
     .get_num_sections = prv_alarm_list_get_num_sections_callback,
     .get_num_rows = prv_alarm_list_get_num_rows_callback,
-    .get_cell_height = prv_alarm_list_get_cell_height_callback,
     .draw_row = prv_alarm_list_draw_row_callback,
     .select_click = prv_alarm_list_select_callback,
     .selection_changed = prv_alarm_list_selection_changed_callback
