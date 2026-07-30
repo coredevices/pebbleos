@@ -73,6 +73,7 @@
 #include "pbl/services/wakeup.h"
 #include "pbl/services/runlevel.h"
 #include "shell/normal/app_idle_timeout.h"
+#include "shell/normal/button_lock.h"
 #include "shell/normal/watchface.h"
 #include "shell/prefs.h"
 #include "shell/shell_event_loop.h"
@@ -182,12 +183,13 @@ static void back_button_force_quit_handler(void *data) {
 static void launcher_handle_button_event(PebbleEvent* e) {
   ButtonId button_id = e->button.button_id;
   const bool watchface_running = app_manager_is_watchface_running();
+  const bool swallow = button_lock_handle_button_event(e);
 
   // trigger the backlight on any button down event
   if (e->type == PEBBLE_BUTTON_DOWN_EVENT) {
     PBL_ANALYTICS_ADD(button_pressed_count, 1);
 
-    if (button_id == BUTTON_ID_BACK && !watchface_running &&
+    if (!swallow && button_id == BUTTON_ID_BACK && !watchface_running &&
         process_metadata_get_run_level(
             app_manager_get_current_app_md()) == ProcessAppRunLevelNormal) {
       // Start timer for force-quitting app
@@ -226,6 +228,12 @@ static void launcher_handle_button_event(PebbleEvent* e) {
   }
 
   app_idle_timeout_refresh();
+
+  if (swallow) {
+    // Button lock: hide the event from every task.
+    e->task_mask = (PebbleTaskBitset)~0;
+    return;
+  }
 
   if (compositor_is_animating()) {
     // mask the app task if we're already animating

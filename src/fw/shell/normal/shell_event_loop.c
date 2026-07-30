@@ -34,6 +34,7 @@
 #include "pbl/services/timeline/event.h"
 #include "shell/normal/app_idle_timeout.h"
 #include "shell/normal/battery_ui.h"
+#include "shell/normal/button_lock.h"
 #include "shell/normal/quick_launch.h"
 #include "shell/normal/watchface.h"
 #include "shell/prefs.h"
@@ -65,6 +66,7 @@ void shell_event_loop_init(void) {
   app_outbox_service_init();
   app_message_sender_init();
   watchface_init();
+  button_lock_init();
   timeline_peek_init();
   // Start activity tracking if enabled
   if (activity_prefs_tracking_is_enabled()) {

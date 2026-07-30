@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "quick_launch.h"
+#include "shell/normal/button_lock.h"
 #include "shell/normal/quick_launch.h"
 #include "shell/normal/watchface.h"
 #include "shell/normal/prefs_sync.h"
@@ -460,7 +461,11 @@ static bool prv_set_s_touch_enabled(bool *enabled) {
 #endif
   s_touch_enabled = *enabled;
 #ifdef CONFIG_TOUCH
-  touch_service_set_globally_enabled(*enabled);
+  // While the button lock holds touch disabled, only update the persisted pref (e.g. on a
+  // phone-side write); unlocking restores the touch service from it.
+  if (!button_lock_is_locked()) {
+    touch_service_set_globally_enabled(*enabled);
+  }
   if (prv_touch_navigation_effective() != was_effective) {
     touch_nav_set_enabled(prv_touch_navigation_effective());
   } else if (was_on != *enabled) {
