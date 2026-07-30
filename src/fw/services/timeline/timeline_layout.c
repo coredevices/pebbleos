@@ -232,9 +232,9 @@ void timeline_layout_get_icon_frame(const GRect *bounds, TimelineScrollDirection
   PBL_UNUSED const int offset_y_rect = -5;
   // Center the icon vertically at screen center (offsets differ by content size/style)
   const bool use_large_style = (PreferredContentSizeDefault >= PreferredContentSizeLarge);
-  // s_style_large: future_top_margin=39, past layout origin=117, icon_offset_y=3
+  // s_style_large: future focused pin origin=62, past focused pin origin=64, icon_offset_y=3
   // s_style_medium: future_top_margin=39, past layout origin=61, icon_offset_y=0
-  PBL_UNUSED const int offset_y_round = use_large_style ? (is_future ? 76 : -2)
+  PBL_UNUSED const int offset_y_round = use_large_style ? (is_future ? 53 : 51)
                                                         : (is_future ? 40 : 17);
   const GPoint origin = {
     .x = bounds->size.w - size.w + 2,
