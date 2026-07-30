@@ -83,8 +83,8 @@ static const TimelineLayoutStyle s_style_large = {
   // depends on whether the remaining screen space after fat permits.
   .primary_secondary_peek_margin_h = -5,
   .thin_can_have_secondary = true,
-  .fat_future_title_offset_y = 25,
-  .fat_past_title_offset_y = 6,
+  .fat_future_title_offset_y = 4,
+  .fat_past_title_offset_y = 22,
   .thin_future_title_offset_y = 0,
   .thin_past_title_offset_y = 0,
 };
