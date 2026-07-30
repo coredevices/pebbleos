@@ -173,9 +173,12 @@ static void prv_process_pdm_buffer(MicDeviceState *state, int16_t *pdm_data) {
   if (available_data >= frame_size_bytes && !state->main_pending) {
     state->main_pending = true;
 
-    // Dispatch to low-priority system task instead of kernel event queue
+    // Dispatch to low-priority system task instead of kernel event queue.
+    // A drop is retried on the next PDM buffer event; losing samples beats
+    // resetting the system over a full queue.
     bool should_context_switch = false;
-    if (!system_task_add_callback_from_isr(prv_dispatch_samples_system_task, NULL, &should_context_switch)) {
+    if (!system_task_add_callback_from_isr_droppable(prv_dispatch_samples_system_task, NULL,
+                                                     &should_context_switch)) {
       state->main_pending = false;
     }
   }
