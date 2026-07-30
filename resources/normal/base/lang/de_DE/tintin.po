@@ -1003,7 +1003,7 @@ msgstr "Bluetooth"
 #: ../src/fw/apps/system/settings/display.c:46
 #: ../src/fw/services/alarms/alarm.c:1284
 msgid "Custom"
-msgstr "Anders"
+msgstr "Benutzerdefiniert"
 
 #: ../src/fw/apps/system/settings/display.c:67
 #: ../src/fw/apps/system/settings/display.c:647
