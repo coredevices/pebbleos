@@ -28,6 +28,12 @@ typedef void (*SystemTaskEventCallback)(void *data);
 //!                              resuming the previous task. See portEND_SWITCHING_ISR()
 bool system_task_add_callback_from_isr(SystemTaskEventCallback cb, void *data, bool* should_context_switch);
 
+//! Same as system_task_add_callback_from_isr(), except a full queue drops the callback and
+//! returns false instead of resetting the system. Only use this when losing the callback is
+//! tolerable, e.g. a periodic refill that a later interrupt retries.
+bool system_task_add_callback_from_isr_droppable(SystemTaskEventCallback cb, void *data,
+                                                 bool *should_context_switch);
+
 //! @param cb Callback function that will later be called from the system task
 //! @param data Context pointer passed to the callback
 bool system_task_add_callback(SystemTaskEventCallback cb, void *data);

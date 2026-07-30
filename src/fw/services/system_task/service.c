@@ -138,26 +138,42 @@ static void handle_system_task_send_failure(SystemTaskEventCallback cb, uintptr_
   reset_due_to_software_failure();
 }
 
+static bool prv_send_to_queue_from_isr(SystemTaskEventCallback cb, void *data,
+                                       bool *should_context_switch) {
+  SystemTaskEvent event = {
+    .cb = cb,
+    .data = data,
+  };
+
+  signed portBASE_TYPE tmp = pdFALSE;
+  bool success = (xQueueSendToBackFromISR(s_system_task_queue, &event, &tmp) == pdTRUE);
+  *should_context_switch = (tmp == pdTRUE);
+
+  return success;
+}
+
 bool system_task_add_callback_from_isr(SystemTaskEventCallback cb, void *data, bool* should_context_switch) {
   // Capture caller LR at entry; reading from a deeper helper is unreliable.
   uintptr_t caller_lr = (uintptr_t)__builtin_return_address(0);
   if (!prv_is_accepting_callbacks()) {
     return false;
   }
-  SystemTaskEvent event = {
-    .cb = cb,
-    .data = data,
-  };
 
-  signed portBASE_TYPE tmp;
-  bool success = (xQueueSendToBackFromISR(s_system_task_queue, &event, &tmp) == pdTRUE);
+  bool success = prv_send_to_queue_from_isr(cb, data, should_context_switch);
   if (!success) {
     handle_system_task_send_failure(cb, caller_lr);
   }
 
-  *should_context_switch = (tmp == pdTRUE);
-
   return success;
+}
+
+bool system_task_add_callback_from_isr_droppable(SystemTaskEventCallback cb, void *data,
+                                                 bool *should_context_switch) {
+  if (!prv_is_accepting_callbacks()) {
+    return false;
+  }
+
+  return prv_send_to_queue_from_isr(cb, data, should_context_switch);
 }
 
 bool system_task_add_callback(SystemTaskEventCallback cb, void *data) {
