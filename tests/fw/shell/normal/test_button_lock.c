@@ -106,7 +106,10 @@ void dialog_pop(Dialog *dialog) {
   s_num_dialogs_popped++;
 }
 
+static ModalPriority s_last_dialog_priority;
+
 WindowStack *modal_manager_get_window_stack(ModalPriority priority) {
+  s_last_dialog_priority = priority;
   return NULL;
 }
 
@@ -183,6 +186,7 @@ void test_button_lock__initialize(void) {
   s_num_dialogs_created = 0;
   s_num_dialogs_popped = 0;
   s_last_dialog_text = NULL;
+  s_last_dialog_priority = ModalPriorityInvalid;
 }
 
 void test_button_lock__cleanup(void) {}
@@ -216,6 +220,8 @@ void test_button_lock__lock_engages_after_hold(void) {
   cl_assert_equal_i(s_num_short_pulses, 1);
   cl_assert(!s_touch_enabled);
   cl_assert_equal_s(s_last_dialog_text, "Buttons Locked");
+  // Popups must outrank notifications/calls, but stay below pairing/alarms.
+  cl_assert_equal_i(s_last_dialog_priority, ModalPriorityAlert);
 
   // The first button's DOWN was delivered, so its UP must be too.
   cl_assert(!prv_release(BUTTON_ID_BACK));

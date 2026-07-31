@@ -55,7 +55,9 @@ static SimpleDialog *prv_push_popup(const char *text, const DialogCallbacks *cal
     dialog_set_callbacks(dialog, callbacks, NULL);
   }
   i18n_free(msg, dialog);
-  simple_dialog_push(simple_dialog, modal_manager_get_window_stack(ModalPriorityGeneric));
+  // Alert: above notifications/calls so the feedback is visible over them, but
+  // below BT pairing and alarms, which must never be hidden by a lock toast.
+  simple_dialog_push(simple_dialog, modal_manager_get_window_stack(ModalPriorityAlert));
   return simple_dialog;
 }
 
