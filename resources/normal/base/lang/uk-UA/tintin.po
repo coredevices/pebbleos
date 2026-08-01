@@ -3495,6 +3495,12 @@ msgstr "Відбійний молот"
 msgid "Gentle"
 msgstr "Ніжно"
 
+
+msgid "Hibernate"
+msgstr ""
+
+msgid "Do you want to hibernate?"
+msgstr ""
 #~ msgid "Default"
 #~ msgstr "За замовчуванням"
 

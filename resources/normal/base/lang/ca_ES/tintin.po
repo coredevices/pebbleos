@@ -3500,6 +3500,12 @@ msgstr "Martell pneumàtic"
 msgid "Gentle"
 msgstr "Suau"
 
+
+msgid "Hibernate"
+msgstr ""
+
+msgid "Do you want to hibernate?"
+msgstr ""
 #~ msgid "Default"
 #~ msgstr "Per defecte"
 

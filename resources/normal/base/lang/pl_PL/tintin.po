@@ -3495,6 +3495,12 @@ msgstr "Młot pneumatyczny"
 msgid "Gentle"
 msgstr "Delikatny"
 
+
+msgid "Hibernate"
+msgstr ""
+
+msgid "Do you want to hibernate?"
+msgstr ""
 #~ msgid "Default"
 #~ msgstr "Domyślna"
 

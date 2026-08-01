@@ -3459,6 +3459,12 @@ msgstr "Presslufthammer"
 msgid "Gentle"
 msgstr "Sanft"
 
+
+msgid "Hibernate"
+msgstr ""
+
+msgid "Do you want to hibernate?"
+msgstr ""
 #~ msgid "Default"
 #~ msgstr "Standard"
 

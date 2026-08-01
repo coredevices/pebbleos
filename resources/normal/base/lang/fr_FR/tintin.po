@@ -3506,6 +3506,12 @@ msgstr "Marteau piqueur"
 msgid "Gentle"
 msgstr "Doux"
 
+
+msgid "Hibernate"
+msgstr ""
+
+msgid "Do you want to hibernate?"
+msgstr ""
 #~ msgid "Default"
 #~ msgstr "Normal"
 

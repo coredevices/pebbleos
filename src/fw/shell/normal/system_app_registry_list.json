@@ -660,6 +660,12 @@
       "md_fn": "airplane_mode_toggle_get_app_info"
     },
     {
+      "id": -101,
+      "enum": "HIBERNATE_TOGGLE",
+      "md_fn": "hibernate_toggle_get_app_info",
+      "ifdefs": ["CONFIG_HIBERNATE"]
+    },
+    {
       "id": -97,
       "enum": "SPORTS",
       "md_fn": "sports_app_get_info"

@@ -3455,6 +3455,12 @@ msgstr "钻孔机"
 msgid "Gentle"
 msgstr "Gentle"
 
+
+msgid "Hibernate"
+msgstr ""
+
+msgid "Do you want to hibernate?"
+msgstr ""
 #~ msgid "Default"
 #~ msgstr "Default"
 

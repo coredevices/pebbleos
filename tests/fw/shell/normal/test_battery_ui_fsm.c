@@ -57,6 +57,12 @@ void enter_standby(RebootReasonCode reason) {
   s_entered_standby = true;
 }
 
+#ifdef CONFIG_HIBERNATE
+void enter_mcu_shutdown(RebootReasonCode reason) {
+  // no-op stub; hibernate shutdown is tested separately.
+}
+#endif
+
 bool do_not_disturb_is_active(void) {
   return s_dnd_on;
 }
