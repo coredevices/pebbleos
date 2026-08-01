@@ -46,10 +46,15 @@ PROCESS_INFO_VISIBILITY_SHOWN_ON_COMMUNICATION = 1 << 2
 PROCESS_INFO_ALLOW_JS = 1 << 3
 PROCESS_INFO_HAS_WORKER = 1 << 4
 
-# Max app size, including the struct and reloc table
+# Max app size, including the struct and reloc table. Fallback for callers that pass no limit; the
+# build passes the platform's MAX_APP_BINARY_SIZE from tools/pebble_sdk_platform.py.
 # Note that even if the app is smaller than this, it still may be too big, as it needs to share this
 # space with applib/ which changes in size from release to release.
 MAX_APP_BINARY_SIZE = 0x10000
+
+# PebbleProcessInfo.load_size and .virtual_size are uint16_t, so neither can exceed this whatever
+# the platform allows for the total. Only the reloc table, stored past load_size, can use the rest.
+MAX_PROCESS_INFO_SIZE_FIELD = 0xFFFF
 
 # This number is a rough estimate, but should not be less than the available space.
 # Currently, app_state uses up a small part of the app space.
@@ -77,7 +82,10 @@ def inject_metadata(
     timestamp,
     allow_js=False,
     has_worker=False,
+    max_binary_size=None,
 ):
+    if max_binary_size is None:
+        max_binary_size = MAX_APP_BINARY_SIZE
 
     if target_binary[-4:] != ".bin":
         raise Exception(
@@ -245,7 +253,7 @@ def inject_metadata(
 
     with open(target_binary, "r+b") as f:
         total_app_image_size = app_load_size + (len(reloc_entries) * 4)
-        if total_app_image_size > MAX_APP_BINARY_SIZE:
+        if total_app_image_size > max_binary_size:
             raise Exception(
                 "App image size is %u (app %u relocation table %u). Must be smaller "
                 "than %u bytes"
@@ -253,8 +261,17 @@ def inject_metadata(
                     total_app_image_size,
                     app_load_size,
                     len(reloc_entries) * 4,
-                    MAX_APP_BINARY_SIZE,
+                    max_binary_size,
                 )
+            )
+
+        # Checked here so the pack() below cannot raise a bare struct.error.
+        if app_load_size > MAX_PROCESS_INFO_SIZE_FIELD:
+            raise Exception(
+                "App load size is %u bytes. The loaded image must be %u bytes or smaller, "
+                "because PebbleProcessInfo.load_size is a uint16_t. The relocation table is "
+                "stored past the loaded image and does not count towards this."
+                % (app_load_size, MAX_PROCESS_INFO_SIZE_FIELD)
             )
 
         def read_value_at_offset(offset, format_str, size):
@@ -273,6 +290,14 @@ def inject_metadata(
             app_flags = app_flags | PROCESS_INFO_HAS_WORKER
 
         app_virtual_size = get_virtual_size(target_elf)
+
+        # Same uint16_t ceiling as load_size, on the .text + .data + .bss total this time.
+        if app_virtual_size > MAX_PROCESS_INFO_SIZE_FIELD:
+            raise Exception(
+                "App virtual size is %u bytes (.text + .data + .bss). Must be %u bytes or "
+                "smaller, because PebbleProcessInfo.virtual_size is a uint16_t."
+                % (app_virtual_size, MAX_PROCESS_INFO_SIZE_FIELD)
+            )
 
         struct_changes = {
             "load_size": app_load_size,

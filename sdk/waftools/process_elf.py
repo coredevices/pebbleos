@@ -39,5 +39,7 @@ def generate_bin_file(task_gen, bin_type, elf_file, has_pkjs, has_worker):
         timestamp=task_gen.bld.env.TIMESTAMP,
         has_pkjs=has_pkjs,
         has_worker=has_worker,
+        # Read now: bld.env is only this platform's ConfigSet during the caller's loop.
+        max_binary_size=task_gen.bld.env.PLATFORM["MAX_APP_BINARY_SIZE"],
     )
     return bin_file

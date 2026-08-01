@@ -137,6 +137,7 @@ def gen_inject_metadata_rule(
     timestamp,
     has_pkjs,
     has_worker,
+    max_binary_size=None,
 ):
     """
     Copy from src_bin_file to dst_bin_file and inject the correct meta-data into the
@@ -149,6 +150,7 @@ def gen_inject_metadata_rule(
     :param timestamp: the timestamp of the project build
     :param has_pkjs: boolean for whether the project contains code using PebbleKit JS
     :param has_worker: boolean for whether the project has a worker binary
+    :param max_binary_size: the platform's maximum app image size, or None for the default
     """
 
     def inject_data_rule(task):
@@ -175,6 +177,7 @@ def gen_inject_metadata_rule(
             timestamp,
             allow_js=has_pkjs,
             has_worker=has_worker,
+            max_binary_size=max_binary_size,
         )
 
     sources = [src_bin_file, elf_file]
