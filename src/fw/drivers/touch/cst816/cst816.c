@@ -252,27 +252,27 @@ void touch_sensor_init(void) {
   rv = prv_read_data(CST816_CHIP_ID_REG, &chip_id, 1, 1);
   if (!rv) {
     PBL_LOG_ERR("Could not read CST816 chip ID");
-    return;
+  } else {
+    rv = prv_read_data(CST816_FW_VERSION_REG, &fw_version, 1, 1);
+    if (!rv) {
+      PBL_LOG_ERR("Could not read CST816 firmware version");
+    } else {
+      PBL_LOG_DBG("CST816 firmware: 0x%02X", fw_version);
+    }
   }
-
-  rv = prv_read_data(CST816_FW_VERSION_REG, &fw_version, 1, 1);
-  if (!rv) {
-    PBL_LOG_ERR("Could not read CST816 firmware version");
-    return;
-  }
-
-  PBL_LOG_DBG("CST816 firmware: 0x%02X", fw_version);
 
   uint8_t target_ver = app_bin[sizeof(app_bin) + CST816_FW_VER_INFO_INDEX];
 
-  if (target_ver != fw_version) {
-    if (cst816_enter_bootmode()) {
-      rv = cst816_fw_update();
-      if (!rv) {
-        return;
-      }
-    } else {
+  // A chip stranded in boot mode by an interrupted update stops answering at
+  // the work-mode address; only a reflash brings it back, so attempt the
+  // update even when the probe above failed.
+  if (!rv || target_ver != fw_version) {
+    if (!cst816_enter_bootmode()) {
       PBL_LOG_ERR("Could not enter CST816 boot mode");
+      return;
+    }
+    rv = cst816_fw_update();
+    if (!rv) {
       return;
     }
   }
