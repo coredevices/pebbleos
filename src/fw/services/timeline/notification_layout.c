@@ -617,6 +617,10 @@ static void prv_layout_destroy(LayoutLayer *layout) {
   NotificationLayout *notification_layout = (NotificationLayout *)layout;
   prv_destroy_view(notification_layout);
   kino_layer_deinit(&notification_layout->icon_layer);
+  // Every other layout deinits its base layer before freeing (see timeline_layout_deinit);
+  // skipping it leaks attached recognizers and frees a layer the touch system may still
+  // reference.
+  layer_deinit(&notification_layout->layout.layer);
   task_free(notification_layout);
 }
 

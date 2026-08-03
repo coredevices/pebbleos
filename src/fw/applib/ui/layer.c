@@ -373,6 +373,13 @@ void layer_remove_from_parent(Layer *child) {
   if (!child || child->parent == NULL) {
     return;
   }
+#ifdef CONFIG_TOUCH
+  // Must run while child->window is still set (cleared below). A subtree that leaves the
+  // tree mid-gesture must drop the recognizer manager's active-layer latch: the layers may
+  // be freed right after removal without a layer_deinit (e.g. the swap-layer layout path),
+  // leaving the latch dangling.
+  prv_invalidate_manager_active_layer(child);
+#endif
   if (child->parent->window) {
     window_schedule_render(child->parent->window);
   }

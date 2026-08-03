@@ -11,6 +11,8 @@
 
 WEAK void layer_init(Layer *layer, const GRect *frame) { }
 
+WEAK void layer_deinit(Layer *layer) { }
+
 WEAK void layer_add_child(Layer *parent, Layer *child) { }
 
 WEAK void layer_mark_dirty(Layer *layer) { }
