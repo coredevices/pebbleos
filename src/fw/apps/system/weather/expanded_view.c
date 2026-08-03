@@ -210,19 +210,19 @@ static void prv_set_from_forecast(const WeatherLocationForecast *f,
   }
   s_ev->high   = f->today_high;
   s_ev->low    = f->today_low;
-  // ROUND: the sunset card's UV widget shows the CURRENT hour's UV (today_uv_now), which is
-  // the live reading once the phone sends the minor-4 hourly block and falls back to the day's
-  // figure until then. Rect keeps the day's figure in its dial — this is a gabbro-only change.
-  s_ev->uv     = PBL_IF_ROUND_ELSE(f->today_uv_now, f->today_uv);
+  // BOTH SHAPES : the sunset card's
+  // UV readout shows the CURRENT hour's UV (today_uv_now) — the live reading once the phone
+  // sends the minor-4 hourly block, falling back to the day's figure until then.
+  s_ev->uv     = f->today_uv_now;
   s_ev->precip = f->today_precip_mm;
   s_ev->wind   = f->today_wind_mph;
-  // ROUND: the card's icon is typed by the CURRENT HOUR (current_type_now) — the same field
-  // the mainscreen header and the hero fly use — so the flown icon and the card icon can
-  // never disagree when the phone's synced 'current' and its hourly slot diverge (seen
-  // on-watch as a rain->overcast repaint at the landing instant). Rect keeps the synced field.
+  // BOTH SHAPES : the card's icon is typed by the CURRENT HOUR
+  // (current_type_now) — the same field the mainscreen header and the hero fly use — so the
+  // flown icon and the card icon can never disagree when the phone's synced 'current' and
+  // its hourly slot diverge (seen on the round watch as a rain->overcast repaint at the
+  // landing instant; rect's header reads the same field now, so it needs the same seam fix).
   GDrawCommandImage *raw = gdraw_command_image_create_with_resource(
-      weather_type_icon_large_resource(
-          PBL_IF_ROUND_ELSE(f->current_type_now, f->current_weather_type)));
+      weather_type_icon_large_resource(f->current_type_now));
   if (raw) {
     s_ev->icon = gdraw_command_image_clone(raw);   // writable copy so we can scale it
     gdraw_command_image_destroy(raw);

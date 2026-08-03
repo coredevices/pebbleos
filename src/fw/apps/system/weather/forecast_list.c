@@ -174,8 +174,8 @@ typedef struct {
   uint8_t          *squash_scratch;  // full-screen snapshot, re-sampled while overwriting the fb
   bool              squash_captured; // ROUND capture-once: snapshot filled — later frames skip
                                      // the scene render + fb copy and only resample (step 2)
-  bool              refresh_deferred; // ROUND: a phone sync landed mid-report-scene; the heavy
-                                      // visual reload waits for the scene end (see
+  bool              refresh_deferred; // BOTH shapes: a phone sync landed mid-report-scene;
+                                      // the heavy visual reload waits for the scene end (see
                                       // forecast_list_update_data / prv_apply_deferred_refresh)
 #endif
 #if WEATHER_PLATFORM_TOUCH_COLOR
@@ -1167,10 +1167,12 @@ static void prv_start_report_stage3(void);
 static void prv_start_report_stage4(void);
 static void prv_report_stage4_stopped(Animation *anim, bool finished, void *context);
 
-#if PBL_ROUND
-// Apply a weather refresh that arrived while the report scene was playing (deferred by
-// forecast_list_update_data so its flash PDC re-reads can't starve the 240ms stage-4 bow
-// of its few frames). Called from every scene exit — finish and cancel alike.
+#if WEATHER_ANIM_5DAY
+// BOTH SHAPES : apply a weather refresh that
+// arrived while the report scene was playing (deferred by forecast_list_update_data so its
+// flash PDC re-reads can't starve the 240ms stage-4 bow of its few frames — the framework
+// jumps missed animations straight to their final frame, which erased the bow). Called
+// from every scene exit — finish and cancel alike.
 static void prv_apply_deferred_refresh(void) {
   if (!s_list || !s_list->refresh_deferred) return;
   s_list->refresh_deferred = false;
@@ -3847,13 +3849,14 @@ void forecast_list_update_data(const WeatherLocationForecast *days, size_t num_d
   }
 
   if (s_list->canvas) {
-#if PBL_ROUND && WEATHER_ANIM_5DAY
-    // A phone sync landing mid-report-scene starves the animation service: prv_load_icons
-    // re-reads every PDC from flash on the app task, and the 240ms stage-4 bow only gets
-    // 3-4 frames on this hardware to begin with — one such stall collapses it to its final
-    // (blank) frame, which is exactly the on-watch "the bow sometimes doesn't play". The
-    // day data is copied above (cheap); the heavy visual refresh waits for the scene end
-    // (prv_report_scene_finished applies it from every stage-4/cancel exit).
+#if WEATHER_ANIM_5DAY
+    // BOTH SHAPES: a phone sync landing mid-report-scene starves the animation service —
+    // prv_load_icons re-reads every PDC from flash on the app task, and the 240ms stage-4
+    // bow only gets a handful of frames to begin with; one such stall collapses it to its
+    // final (blank) frame (the stage-4 bow was intermittently invisible on round hardware —
+    // the same scene and the same window exist on rect). The day data is copied above
+    // (cheap); the heavy visual refresh waits for the scene end
+    // (prv_apply_deferred_refresh runs from every stage-4/cancel exit).
     if (s_list->report_fx != 0 || s_report_anim) {
       s_list->refresh_deferred = true;
       return;
