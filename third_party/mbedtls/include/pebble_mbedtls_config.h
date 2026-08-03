@@ -31,7 +31,10 @@ void kernel_free(void *ptr);
 #define MBEDTLS_ECP_DP_SECP256R1_ENABLED
 #define MBEDTLS_ECDH_C
 
-/* Favor small flash/RAM footprint over ECC speed. */
+/* Favor small flash/RAM footprint over ECC speed, but keep the NIST fast
+ * reduction: the generic division-based path makes one P-256 point multiply
+ * slow enough to trip the task watchdog. */
+#define MBEDTLS_ECP_NIST_OPTIM
 #define MBEDTLS_ECP_WINDOW_SIZE 2
 #define MBEDTLS_ECP_FIXED_POINT_OPTIM 0
 
