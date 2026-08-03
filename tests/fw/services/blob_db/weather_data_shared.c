@@ -139,6 +139,9 @@ static WeatherDBEntry *prv_create_entry(const WeatherDBEntry *base_entry, char *
   const size_t entry_size = sizeof(WeatherDBEntry) + data_size;
   WeatherDBEntry *entry = task_zalloc_check(entry_size);
   *entry = *base_entry;
+  // The strings are appended after the FULL current struct, so the record must
+  // carry the current minor — a lower minor moves the strings offset forward.
+  entry->minor_version = WEATHER_DB_CURRENT_MINOR_VERSION;
   entry->pstring16s.data_size = data_size;
   entry->last_update_time_utc = rtc_get_time();
 
@@ -266,7 +269,8 @@ status_t weather_db_insert_stale(const uint8_t *key, int key_len, const uint8_t 
 
 size_t weather_shared_data_insert_stale_entry(WeatherDBKey *key) {
   const WeatherDBEntry stale_entry = {
-    .version = WEATHER_DB_CURRENT_VERSION - 1,
+    // v3 is still parseable (legacy support); only older versions are stale.
+    .version = WEATHER_DB_LEGACY_VERSION - 1,
     .is_current_location = true,
     .current_temp = 68,
     .current_weather_type = WeatherType_Sun,

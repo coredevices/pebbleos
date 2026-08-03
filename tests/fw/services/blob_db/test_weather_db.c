@@ -121,13 +121,77 @@ static void prv_check_invalid_version_code_not_inserted(uint8_t version) {
 }
 
 void test_weather_db__lower_version_not_inserted(void) {
-  for (size_t version = 0; version < WEATHER_DB_CURRENT_VERSION; version++) {
+  // v3 (WEATHER_DB_LEGACY_VERSION) stays insertable for the phone-app rollout window.
+  for (size_t version = 0; version < WEATHER_DB_LEGACY_VERSION; version++) {
     prv_check_invalid_version_code_not_inserted(version);
   }
 }
 
 void test_weather_db__higher_version_not_inserted(void) {
   prv_check_invalid_version_code_not_inserted(WEATHER_DB_CURRENT_VERSION + 1);
+}
+
+void test_weather_db__newer_minor_not_inserted(void) {
+  const WeatherDBEntry *existing_entry = weather_shared_data_get_entry(0);
+  const size_t entry_size = sizeof(*existing_entry);
+
+  WeatherDBEntry *new_entry = task_zalloc_check(entry_size);
+  *new_entry = *existing_entry;
+  // A newer minor appends fixed fields, which moves the trailing strings — this
+  // firmware cannot locate them, so the record must be rejected.
+  new_entry->minor_version = WEATHER_DB_CURRENT_MINOR_VERSION + 1;
+
+  WeatherDBKey key = (WeatherDBKey) {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5
+  };
+  cl_assert_equal_i(E_INVALID_ARGUMENT, weather_db_insert((uint8_t*)&key,
+                                                          sizeof(WeatherDBKey),
+                                                          (uint8_t*)new_entry,
+                                                          entry_size));
+  task_free(new_entry);
+}
+
+void test_weather_db__legacy_v3_inserted(void) {
+  // A well-formed legacy v3 record (v3 fixed prefix + trailing pstrings) must
+  // still be accepted during the phone-app rollout window.
+  const char *location = "SEATTLE";
+  const char *phrase = "Rainy";
+  const size_t data_size = strlen(location) + strlen(phrase) + (sizeof(uint16_t) * 2);
+  const size_t entry_size = sizeof(WeatherDBEntryV3) + data_size;
+
+  WeatherDBEntryV3 *entry = task_zalloc_check(entry_size);
+  *entry = (WeatherDBEntryV3) {
+    .version = WEATHER_DB_LEGACY_VERSION,
+    .is_current_location = true,
+    .current_temp = 55,
+    .current_weather_type = WeatherType_LightRain,
+    .today_high_temp = 58,
+    .today_low_temp = 48,
+    .tomorrow_weather_type = WeatherType_CloudyDay,
+    .tomorrow_high_temp = 60,
+    .tomorrow_low_temp = 50,
+    .last_update_time_utc = rtc_get_time(),
+  };
+  entry->pstring16s.data_size = data_size;
+
+  PascalString16List pstring16_list;
+  pstring_project_list_on_serialized_array(&pstring16_list, &entry->pstring16s);
+  PascalString16 *location_name = pstring_create_pstring16_from_string((char *)location);
+  PascalString16 *short_phrase = pstring_create_pstring16_from_string((char *)phrase);
+  pstring_add_pstring16_to_list(&pstring16_list, location_name);
+  pstring_add_pstring16_to_list(&pstring16_list, short_phrase);
+  pstring_destroy_pstring16(location_name);
+  pstring_destroy_pstring16(short_phrase);
+
+  WeatherDBKey key = (WeatherDBKey) {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6
+  };
+  cl_assert_equal_i(S_SUCCESS, weather_db_insert((uint8_t*)&key,
+                                                 sizeof(WeatherDBKey),
+                                                 (uint8_t*)entry,
+                                                 entry_size));
+  cl_assert_equal_i(S_SUCCESS, weather_db_delete((uint8_t*)&key, sizeof(WeatherDBKey)));
+  task_free(entry);
 }
 
 status_t weather_db_get_num_keys(uint16_t *val_out);

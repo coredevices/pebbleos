@@ -2563,6 +2563,154 @@
       "type": "pdc",
       "name": "AIRPLANE",
       "file": "normal/base/images/Pebble_80x80_Airplane.svg"
+    },
+    {
+      "type": "png",
+      "name": "WX_SUNNY_TINY",
+      "file": "normal/base/images/wx_sunny_day_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_SUNNY_SMALL",
+      "file": "normal/base/images/wx_sunny_day_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_PARTLY_TINY",
+      "file": "normal/base/images/wx_partly_cloudy_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_PARTLY_SMALL",
+      "file": "normal/base/images/wx_partly_cloudy_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_CLOUDY_TINY",
+      "file": "normal/base/images/wx_cloudy_day_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_CLOUDY_SMALL",
+      "file": "normal/base/images/wx_cloudy_day_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_LIGHTRAIN_TINY",
+      "file": "normal/base/images/wx_light_rain_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_LIGHTRAIN_SMALL",
+      "file": "normal/base/images/wx_light_rain_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_HEAVYRAIN_TINY",
+      "file": "normal/base/images/wx_heavy_rain_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_HEAVYRAIN_SMALL",
+      "file": "normal/base/images/wx_heavy_rain_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_LIGHTSNOW_TINY",
+      "file": "normal/base/images/wx_light_snow_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_LIGHTSNOW_SMALL",
+      "file": "normal/base/images/wx_light_snow_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_HEAVYSNOW_TINY",
+      "file": "normal/base/images/wx_heavy_snow_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_HEAVYSNOW_SMALL",
+      "file": "normal/base/images/wx_heavy_snow_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_RAINSNOW_TINY",
+      "file": "normal/base/images/wx_raining_and_snowing_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_RAINSNOW_SMALL",
+      "file": "normal/base/images/wx_raining_and_snowing_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_GENERIC_TINY",
+      "file": "normal/base/images/wx_generic_weather_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_GENERIC_SMALL",
+      "file": "normal/base/images/wx_generic_weather_50x50.png"
+    },
+    {
+      "type": "pdc",
+      "name": "WX_SUNNY_LARGE",
+      "file": "normal/base/images/wx_sunny_day_80x80.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "WX_PARTLY_LARGE",
+      "file": "normal/base/images/wx_partly_cloudy_80x80.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "WX_CLOUDY_LARGE",
+      "file": "normal/base/images/wx_cloudy_day_80x80.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "WX_GENERIC_LARGE",
+      "file": "normal/base/images/wx_generic_weather_80x80.svg"
+    },
+    {
+      "type": "raw",
+      "name": "GLOBE_CUBEMAP",
+      "file": "normal/base/raw/globe_cubemap_packed.deflate",
+      "_comment": [
+        "raw-deflate + u32 size prefix (tools/deflate_resource.py);",
+        "inflated at load by globe_view.c prv_load_inflated"
+      ]
+    },
+    {
+      "type": "raw",
+      "name": "GLOBE_STARFIELD",
+      "file": "normal/base/raw/globe_starfield.deflate"
+    },
+    {
+      "type": "raw",
+      "name": "GLOBE_BW_SEQUENCE",
+      "file": "normal/base/raw/globe_bw_sequence.deflate",
+      "_comment": [
+        "PDC PAYLOAD (8-byte file header stripped) deflated; the loader",
+        "inflates + gdraw_command_sequence_validate()s it"
+      ]
+    },
+    {
+      "type": "raw",
+      "name": "GLOBE_CRADLE_PDC",
+      "file": "normal/base/raw/globe_cradle.pdc"
+    },
+    {
+      "type": "raw",
+      "name": "WX_WEATHER_ICONS_PDC",
+      "file": "normal/base/raw/weather_icons.pdc"
+    },
+    {
+      "type": "pdc",
+      "name": "WEATHER_REPORT_PAPER",
+      "file": "normal/base/images/Pebble_80x80_Weather_report.svg"
     }
   ],
   "timeline": [

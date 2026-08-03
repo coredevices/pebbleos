@@ -39,12 +39,20 @@ static bool prv_entry_update_time_too_old_to_be_valid(const time_t update_time_u
 static bool prv_fill_forecast_from_entry(WeatherDBEntry *entry,
                                          WeatherLocationForecast *forecast_out) {
   PascalString16List pstring16_list;
-  pstring_project_list_on_serialized_array(&pstring16_list, &entry->pstring16s);
+  // v3 and v4 records place the trailing strings at different offsets; locate
+  // them by the record's version (see weather_db.h).
+  pstring_project_list_on_serialized_array(&pstring16_list, weather_db_entry_get_strings(entry));
   PascalString16 *location_pstring =
       pstring_get_pstring16_from_list(&pstring16_list, WeatherDbStringIndex_LocationName);
 
   PascalString16 *phrase_pstring =
       pstring_get_pstring16_from_list(&pstring16_list, WeatherDbStringIndex_ShortPhrase);
+
+  // The string block is phone-controlled; a record can carry fewer strings than we index.
+  if (!location_pstring || !phrase_pstring) {
+    PBL_LOG_ERR("Weather entry is missing its location/phrase strings");
+    return false;
+  }
 
   const bool is_valid_entry_update_time =
       (entry->last_update_time_utc != WEATHER_SERVICE_INVALID_DATA_LAST_UPDATE_TIME);
