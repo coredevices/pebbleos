@@ -37,7 +37,6 @@ typedef enum {
   VoiceRecordingError_FileOpen,     //!< could not create the recording file
   VoiceRecordingError_Write,        //!< writing to flash failed
   VoiceRecordingError_MicStart,     //!< the microphone failed to start
-  VoiceRecordingError_Save,         //!< finalizing the recording failed
 } VoiceRecordingError;
 
 typedef enum {
@@ -150,15 +149,9 @@ uint32_t voice_recording_list_page(VoiceRecordingInfo *out, uint32_t max, uint32
 //! Enumerate stored recordings belonging to \a app_uuid.
 uint32_t voice_recording_list_owned_by(VoiceRecordingInfo *out, uint32_t max, const Uuid *app_uuid);
 
-//! @return total bytes occupied on flash by stored recordings.
-uint32_t voice_recording_total_bytes(void);
-
 //! Delete a stored recording.
 //! @return true on success.
 bool voice_recording_delete(VoiceRecordingId id);
-
-//! Delete every stored recording.
-void voice_recording_delete_all(void);
 
 //! Delete every stored recording created by \a app_uuid. Called when the app is
 //! uninstalled so orphaned recordings do not consume the storage budget forever.

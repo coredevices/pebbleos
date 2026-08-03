@@ -9,9 +9,7 @@
 #ifdef CONFIG_MIC
 #include "pbl/services/voice/voice_recording.h"
 #include "process_management/app_manager.h"
-#endif
 
-#ifdef CONFIG_MIC
 // The applib struct is a copy of the service struct (the SDK-exported header must be
 // self-contained); the list syscall casts between them, so their layouts must match exactly.
 #define ASSERT_FIELD_MATCHES(field) \

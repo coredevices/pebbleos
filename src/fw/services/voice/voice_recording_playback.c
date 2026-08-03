@@ -23,7 +23,6 @@ PBL_LOG_MODULE_DECLARE(service_voice, CONFIG_SERVICE_VOICE_LOG_LEVEL);
 #define VOICE_REC_PLAY_VOLUME (100)
 
 static PebbleMutex *s_lock;
-static bool s_playing;
 static int s_fd = -1;
 static TimerID s_timer = TIMER_INVALID_ID;
 static int16_t *s_pcm;
@@ -47,18 +46,16 @@ static void prv_cleanup(void) {
   s_pcm_offset = 0;
   s_remaining = 0;
   s_stream_id = SPEAKER_STREAM_ID_INVALID;
-  s_playing = false;
   s_playback_id = VOICE_RECORDING_ID_INVALID;
 }
 
 static void prv_feed(void *data) {
   mutex_lock(s_lock);
-  if (!s_playing) {
+  if (s_fd < 0) {
     mutex_unlock(s_lock);
     return;
   }
 
-  bool eof = false;
   while (true) {
     if (s_pcm_bytes > 0) {
       uint32_t written = 0;
@@ -80,8 +77,10 @@ static void prv_feed(void *data) {
     const int frame_len =
         voice_recording_storage_read_frame(s_fd, &s_remaining, frame, sizeof(frame));
     if (frame_len <= 0) {
-      eof = true;
-      break;
+      speaker_service_stream_close_session(s_stream_id);
+      prv_cleanup();
+      mutex_unlock(s_lock);
+      return;
     }
 
     const int samples = voice_speex_decode_frame(frame, frame_len, s_pcm);
@@ -98,18 +97,12 @@ static void prv_feed(void *data) {
     }
   }
 
-  if (eof && (s_pcm_bytes == 0)) {
-    speaker_service_stream_close_session(s_stream_id);
-    prv_cleanup();
-  } else {
-    new_timer_start(s_timer, VOICE_REC_PLAY_FEED_MS, prv_feed, NULL, 0);
-  }
+  new_timer_start(s_timer, VOICE_REC_PLAY_FEED_MS, prv_feed, NULL, 0);
   mutex_unlock(s_lock);
 }
 
 void voice_recording_playback_init(void) {
   s_lock = mutex_create();
-  s_playing = false;
   s_fd = -1;
   s_timer = TIMER_INVALID_ID;
   s_pcm = NULL;
@@ -124,7 +117,7 @@ bool voice_recording_playback_start(VoiceRecordingId id) {
   mutex_lock(s_lock);
   bool ok = false;
 
-  if (s_playing) {
+  if (s_fd >= 0) {
     goto unlock;
   }
 
@@ -154,7 +147,6 @@ bool voice_recording_playback_start(VoiceRecordingId id) {
 
   s_pcm_bytes = 0;
   s_pcm_offset = 0;
-  s_playing = true;
   s_playback_id = id;
   if (s_timer == TIMER_INVALID_ID) {
     s_timer = new_timer_create();
@@ -173,7 +165,7 @@ unlock:
 
 void voice_recording_playback_stop(void) {
   mutex_lock(s_lock);
-  if (s_playing) {
+  if (s_fd >= 0) {
     new_timer_stop(s_timer);
     speaker_service_stream_stop_session(s_stream_id);
     prv_cleanup();
@@ -183,7 +175,7 @@ void voice_recording_playback_stop(void) {
 
 bool voice_recording_playback_is_active(void) {
   mutex_lock(s_lock);
-  const bool playing = s_playing;
+  const bool playing = (s_fd >= 0);
   mutex_unlock(s_lock);
   return playing;
 }

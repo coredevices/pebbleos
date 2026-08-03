@@ -15,7 +15,7 @@
 PBL_LOG_MODULE_DECLARE(service_voice, CONFIG_SERVICE_VOICE_LOG_LEVEL);
 
 #define VOICE_REC_MAGIC (0x56524331)
-#define VOICE_REC_CONTAINER_VERSION (1)
+#define VOICE_REC_CONTAINER_VERSION (2)
 #define VOICE_REC_PREFIX "vrec_"
 #define VOICE_REC_TEMP_PREFIX "vrecT_"
 #define VOICE_REC_NAME_MAX (16)
@@ -27,9 +27,7 @@ typedef struct PACKED {
   AudioTransferInfoSpeex speex;
   uint32_t created;
   Uuid app_uuid;
-  uint32_t frame_count;
   uint32_t duration_ms;
-  uint32_t data_bytes;
 } VoiceRecordingHeader;
 
 // Cached sum of bytes occupied by valid recordings. Computed once at init, then maintained
@@ -38,10 +36,6 @@ typedef struct PACKED {
 // All mutators run under the voice_recording lock.
 static uint32_t s_total_bytes;
 static bool s_total_bytes_valid;
-
-// Recording excluded from the current voice_recording_storage_delete_all() pass (its file is
-// held open by a transcription stream). Only valid while that call runs.
-static VoiceRecordingId s_delete_all_skip_id = VOICE_RECORDING_ID_INVALID;
 
 static uint32_t prv_compute_total_bytes(void);
 static bool prv_read_header(int fd, VoiceRecordingHeader *header);
@@ -86,9 +80,7 @@ static void prv_fill_header(VoiceRecordingHeader *header,
       .speex = metadata->speex,
       .created = metadata->created,
       .app_uuid = metadata->app_uuid,
-      .frame_count = metadata->frame_count,
       .duration_ms = metadata->duration_ms,
-      .data_bytes = metadata->data_bytes,
   };
 }
 
@@ -162,17 +154,6 @@ int voice_recording_storage_open_temp(VoiceRecordingId id, uint32_t payload_capa
   return fd;
 }
 
-void voice_recording_storage_close_temp(int fd, bool remove) {
-  if (fd < 0) {
-    return;
-  }
-  if (remove) {
-    pfs_close_and_remove(fd);
-  } else {
-    pfs_close(fd);
-  }
-}
-
 void voice_recording_storage_remove_temp(VoiceRecordingId id) {
   char name[VOICE_REC_NAME_MAX];
   prv_make_name(name, sizeof(name), VOICE_REC_TEMP_PREFIX, id);
@@ -242,8 +223,7 @@ static bool prv_read_header(int fd, VoiceRecordingHeader *header) {
   if ((file_size < sizeof(*header)) ||
       (pfs_read(fd, header, sizeof(*header)) != (int)sizeof(*header)) ||
       (header->magic != VOICE_REC_MAGIC) ||
-      (header->container_version != VOICE_REC_CONTAINER_VERSION) ||
-      (header->data_bytes > file_size - sizeof(*header))) {
+      (header->container_version != VOICE_REC_CONTAINER_VERSION)) {
     return false;
   }
   return true;
@@ -262,7 +242,7 @@ int voice_recording_storage_open_payload(VoiceRecordingId id, uint32_t *data_byt
     pfs_close(fd);
     return -1;
   }
-  *data_bytes_out = header.data_bytes;
+  *data_bytes_out = pfs_get_file_size(fd) - sizeof(header);
   return fd;
 }
 
@@ -306,9 +286,8 @@ bool voice_recording_storage_get_metadata(VoiceRecordingId id,
         .speex = header.speex,
         .created = header.created,
         .app_uuid = header.app_uuid,
-        .frame_count = header.frame_count,
         .duration_ms = header.duration_ms,
-        .data_bytes = header.data_bytes,
+        .data_bytes = pfs_get_file_size(fd) - sizeof(header),
     };
   }
   pfs_close(fd);
@@ -448,27 +427,6 @@ bool voice_recording_storage_delete(VoiceRecordingId id) {
     s_total_bytes_valid = false;  // recomputed lazily on next query
   }
   return removed;
-}
-
-static bool prv_is_deletable_recording_file(const char *name) {
-  if (!prv_is_recording_file(name)) {
-    return false;
-  }
-  VoiceRecordingId id;
-  return !((s_delete_all_skip_id != VOICE_RECORDING_ID_INVALID) && prv_parse_id(name, &id) &&
-           (id == s_delete_all_skip_id));
-}
-
-void voice_recording_storage_delete_all(VoiceRecordingId skip_id) {
-  s_delete_all_skip_id = skip_id;
-  pfs_remove_files(prv_is_deletable_recording_file);
-  s_delete_all_skip_id = VOICE_RECORDING_ID_INVALID;
-  if (skip_id == VOICE_RECORDING_ID_INVALID) {
-    s_total_bytes = 0;
-    s_total_bytes_valid = true;
-  } else {
-    s_total_bytes_valid = false;  // one file was kept; recompute lazily
-  }
 }
 
 void voice_recording_storage_delete_owned_by(const Uuid *app_uuid, VoiceRecordingId skip_id) {

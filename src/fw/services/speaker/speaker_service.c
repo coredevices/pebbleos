@@ -718,18 +718,17 @@ alloc_fail:
   return false;
 }
 
-static bool prv_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
-                            SpeakerStreamId *id_out) {
+static SpeakerStreamId prv_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt) {
   mutex_lock(s_lock);
 
   if (!s_state.initialized) {
     mutex_unlock(s_lock);
-    return false;
+    return SPEAKER_STREAM_ID_INVALID;
   }
 
   if (!prv_can_preempt(pri)) {
     mutex_unlock(s_lock);
-    return false;
+    return SPEAKER_STREAM_ID_INVALID;
   }
 
   // Stop any existing playback
@@ -740,7 +739,7 @@ static bool prv_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat f
   if (!pcm_stream_init(&s_state.pcm_stream, PCM_STREAM_DEFAULT_SIZE_BYTES)) {
     PBL_LOG_ERR("Failed to allocate PCM stream buffer");
     mutex_unlock(s_lock);
-    return false;
+    return SPEAKER_STREAM_ID_INVALID;
   }
 
   s_state.state = SpeakerStatePlaying;
@@ -755,25 +754,20 @@ static bool prv_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat f
   s_state.prev_samples[0] = 0;
   s_state.prev_samples[1] = 0;
 
-  if (id_out) {
-    *id_out = s_state.stream_id;
-  }
-
   prv_start_audio(vol);
 
+  const SpeakerStreamId id = s_state.stream_id;
   mutex_unlock(s_lock);
-  return true;
+  return id;
 }
 
 bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt) {
-  return prv_stream_open(pri, vol, fmt, NULL);
+  return prv_stream_open(pri, vol, fmt) != SPEAKER_STREAM_ID_INVALID;
 }
 
 SpeakerStreamId speaker_service_stream_open_session(SpeakerPriority pri, uint8_t vol,
                                                     SpeakerPcmFormat fmt) {
-  SpeakerStreamId id = SPEAKER_STREAM_ID_INVALID;
-  prv_stream_open(pri, vol, fmt, &id);
-  return id;
+  return prv_stream_open(pri, vol, fmt);
 }
 
 uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes) {

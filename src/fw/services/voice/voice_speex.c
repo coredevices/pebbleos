@@ -274,17 +274,14 @@ typedef struct {
   void *dec_state;
   SpeexBits bits;
   uint32_t frame_size;
-  bool initialized;
 } VoiceSpeexDecoder;
 
-static VoiceSpeexDecoder s_decoder = {0};
+static VoiceSpeexDecoder s_decoder;
 
 bool voice_speex_decoder_init(void) {
-  if (s_decoder.initialized) {
+  if (s_decoder.dec_state) {
     return true;
   }
-
-  memset(&s_decoder, 0, sizeof(s_decoder));
 
   s_decoder.dec_state = speex_decoder_init(&speex_wb_mode);
   if (!s_decoder.dec_state) {
@@ -299,29 +296,25 @@ bool voice_speex_decoder_init(void) {
   int enh = 1;
   speex_decoder_ctl(s_decoder.dec_state, SPEEX_SET_ENH, &enh);
 
-  s_decoder.initialized = true;
   PBL_LOG_DBG("Speex decoder initialized: frame_size=%" PRIu32, s_decoder.frame_size);
   return true;
 }
 
 void voice_speex_decoder_deinit(void) {
-  if (!s_decoder.initialized) {
+  if (!s_decoder.dec_state) {
     return;
   }
-  if (s_decoder.dec_state) {
-    speex_decoder_destroy(s_decoder.dec_state);
-    s_decoder.dec_state = NULL;
-  }
+  speex_decoder_destroy(s_decoder.dec_state);
   speex_bits_destroy(&s_decoder.bits);
   memset(&s_decoder, 0, sizeof(s_decoder));
 }
 
 int voice_speex_get_decoder_frame_size(void) {
-  return s_decoder.initialized ? (int)s_decoder.frame_size : 0;
+  return s_decoder.dec_state ? (int)s_decoder.frame_size : 0;
 }
 
 int voice_speex_decode_frame(const uint8_t *encoded, int len, int16_t *out_pcm) {
-  if (!s_decoder.initialized || !encoded || !out_pcm || (len <= 0)) {
+  if (!s_decoder.dec_state || !encoded || !out_pcm || (len <= 0)) {
     return -1;
   }
 

@@ -56,7 +56,7 @@ bool audio_recording_is_playing(void) {
 
 // One-shot transcription of a stored recording. Owns a headless-ish voice window (recording mode)
 // and tears everything down once the result event fires.
-typedef struct AudioTranscription {
+typedef struct {
   VoiceWindow *voice_window;
   AudioTranscriptionCallback callback;
   void *context;
@@ -119,13 +119,10 @@ bool audio_recording_transcribe(AudioRecordingId recording_id, uint32_t buffer_s
     return false;
   }
 
-  char *buffer = NULL;
-  if (buffer_size > 0) {
-    buffer = applib_malloc(buffer_size);
-    if (!buffer) {
-      applib_free(transcription);
-      return false;
-    }
+  char *buffer = buffer_size ? applib_malloc(buffer_size) : NULL;
+  if (buffer_size && !buffer) {
+    applib_free(transcription);
+    return false;
   }
 
   VoiceWindow *voice_window = voice_window_create_for_recording(buffer, buffer_size, recording_id);
@@ -146,7 +143,7 @@ bool audio_recording_transcribe(AudioRecordingId recording_id, uint32_t buffer_s
       .context = transcription,
     },
   };
-  if (pebble_task_get_current() == PebbleTask_App) {
+  if (from_app) {
     transcription->app_focus_sub = (EventServiceInfo) {
       .type = PEBBLE_APP_DID_CHANGE_FOCUS_EVENT,
       .handler = prv_app_focus_handler,
@@ -161,7 +158,7 @@ bool audio_recording_transcribe(AudioRecordingId recording_id, uint32_t buffer_s
   }
 
   event_service_client_subscribe(&transcription->result_sub);
-  if (pebble_task_get_current() == PebbleTask_App) {
+  if (from_app) {
     event_service_client_subscribe(&transcription->app_focus_sub);
   }
   return true;

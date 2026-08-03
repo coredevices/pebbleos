@@ -104,7 +104,6 @@ static const char *prv_error_label(VoiceRecordingError error) {
     case VoiceRecordingError_FileOpen:
       return i18n_noop("The recording file could not be opened.");
     case VoiceRecordingError_Write:
-    case VoiceRecordingError_Save:
       return i18n_noop("The recording could not be saved.");
     case VoiceRecordingError_MicStart:
       return i18n_noop("The microphone could not start.");

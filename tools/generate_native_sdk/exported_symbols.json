@@ -4,7 +4,7 @@
               "You should also make sure you are obeying our API design guidelines:",
               "https://pebbletechnology.atlassian.net/wiki/display/DEV/SDK+API+Design+Guidelines"
             ],
-  "revision" : "109",
+  "revision" : "110",
   "version" : "2.0",
   "files": [
     "include/pbl/drivers/ambient_light.h",
@@ -1056,7 +1056,7 @@
           "type": "group",
           "name": "AudioRecording",
           "appOnly": true,
-          "addedRevision": "106",
+          "addedRevision": "110",
           "exports": [
             {
               "type": "type",
@@ -1070,46 +1070,46 @@
             }, {
               "type": "function",
               "name": "audio_recording_start",
-              "addedRevision": "106"
+              "addedRevision": "110"
             }, {
               "type": "function",
               "name": "audio_recording_stop",
-              "addedRevision": "106"
+              "addedRevision": "110"
             }, {
               "type": "function",
               "name": "audio_recording_cancel",
-              "addedRevision": "106"
+              "addedRevision": "110"
             }, {
               "type": "function",
               "name": "audio_recording_is_active",
-              "addedRevision": "106"
+              "addedRevision": "110"
             }, {
               "type": "function",
               "name": "audio_recording_list",
-              "addedRevision": "106"
+              "addedRevision": "110"
             }, {
               "type": "function",
               "name": "audio_recording_delete",
-              "addedRevision": "106"
+              "addedRevision": "110"
             }, {
               "type": "function",
               "name": "audio_recording_play",
-              "addedRevision": "106"
+              "addedRevision": "110"
             }, {
               "type": "function",
               "name": "audio_recording_stop_playback",
-              "addedRevision": "106"
+              "addedRevision": "110"
             }, {
               "type": "function",
               "name": "audio_recording_is_playing",
-              "addedRevision": "106"
+              "addedRevision": "110"
             }, {
               "type": "type",
               "name": "AudioTranscriptionCallback"
             }, {
               "type": "function",
               "name": "audio_recording_transcribe",
-              "addedRevision": "106"
+              "addedRevision": "110"
             }
           ]
         }, {

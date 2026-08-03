@@ -43,13 +43,7 @@ PBL_LOG_MODULE_DECLARE(service_voice, CONFIG_SERVICE_VOICE_LOG_LEVEL);
 #define VOICE_REC_TOTAL_STORAGE_BYTES (KiBYTES(1024))
 #define VOICE_REC_STAGING_SIZE (1024)
 
-typedef enum {
-  RecState_Idle = 0,
-  RecState_Recording,
-} RecState;
-
 static PebbleMutex *s_lock;
-static RecState s_state = RecState_Idle;
 static VoiceRecordingId s_active_id = VOICE_RECORDING_ID_INVALID;
 static VoiceRecordingId s_next_id = 1;
 static PebbleTask s_owner_task = PebbleTask_Unknown;
@@ -109,7 +103,7 @@ static bool prv_flush_staging(void) {
 }
 
 static void prv_data_handler(int16_t *samples, size_t sample_count, void *context) {
-  if ((s_state != RecState_Recording) || s_capped) {
+  if ((s_active_id == VOICE_RECORDING_ID_INVALID) || s_capped) {
     return;
   }
 
@@ -148,13 +142,16 @@ static void prv_data_handler(int16_t *samples, size_t sample_count, void *contex
 }
 
 static void prv_close_temp(bool remove) {
-  voice_recording_storage_close_temp(s_temp_fd, remove);
+  if (remove) {
+    pfs_close_and_remove(s_temp_fd);
+  } else {
+    pfs_close(s_temp_fd);
+  }
   s_temp_fd = -1;
 }
 
 static void prv_reset(void) {
   voice_speex_set_quality(VOICE_SPEEX_QUALITY_DEFAULT);
-  s_state = RecState_Idle;
   s_active_id = VOICE_RECORDING_ID_INVALID;
   s_owner_task = PebbleTask_Unknown;
   s_data_bytes = 0;
@@ -168,7 +165,6 @@ static void prv_fill_metadata(VoiceRecordingStorageMetadata *metadata) {
       .channels = (uint16_t)mic_get_channels(MIC),
       .created = s_created,
       .app_uuid = s_app_uuid,
-      .frame_count = s_frame_count,
       .data_bytes = s_data_bytes,
   };
   voice_speex_get_transfer_info(&metadata->speex);
@@ -179,12 +175,12 @@ static void prv_fill_metadata(VoiceRecordingStorageMetadata *metadata) {
 }
 
 static bool prv_stop_locked(VoiceRecordingId id) {
-  if ((s_state != RecState_Recording) || (id != s_active_id)) {
+  if ((id == VOICE_RECORDING_ID_INVALID) || (id != s_active_id)) {
     return false;
   }
 
   new_timer_stop(s_max_timer);
-  s_state = RecState_Idle;
+  s_active_id = VOICE_RECORDING_ID_INVALID;
   mic_stop(MIC);
 
   bool ok = prv_flush_staging();
@@ -209,12 +205,12 @@ static bool prv_stop_locked(VoiceRecordingId id) {
 }
 
 static void prv_cancel_locked(VoiceRecordingId id) {
-  if ((s_state != RecState_Recording) || (id != s_active_id)) {
+  if ((id == VOICE_RECORDING_ID_INVALID) || (id != s_active_id)) {
     return;
   }
 
   new_timer_stop(s_max_timer);
-  s_state = RecState_Idle;
+  s_active_id = VOICE_RECORDING_ID_INVALID;
   mic_stop(MIC);
   prv_close_temp(true);
   prv_reset();
@@ -255,7 +251,7 @@ VoiceRecordingId voice_recording_start(void) {
   VoiceRecordingId id = VOICE_RECORDING_ID_INVALID;
   s_last_error = VoiceRecordingError_None;
 
-  if ((s_state != RecState_Idle) || voice_recording_playback_is_active()) {
+  if ((s_active_id != VOICE_RECORDING_ID_INVALID) || voice_recording_playback_is_active()) {
     PBL_LOG_DBG("Recording or playback already in progress");
     s_last_error = VoiceRecordingError_Busy;
     goto unlock;
@@ -344,7 +340,6 @@ VoiceRecordingId voice_recording_start(void) {
   static const uint8_t s_speex_quality[] = {4, 6, 8};
   voice_speex_set_quality(s_speex_quality[s_config.quality]);
 
-  s_state = RecState_Recording;
   s_active_id = id;
   s_next_id = (id == UINT16_MAX) ? 1 : (id + 1);
 
@@ -363,7 +358,7 @@ unlock:
 bool voice_recording_stop(VoiceRecordingId id) {
   mutex_lock(s_lock);
   bool stopped;
-  if ((s_state != RecState_Idle) && (id == s_active_id)) {
+  if (id == s_active_id) {
     stopped = prv_stop_locked(id);
   } else {
     // The recording may have just been auto-stopped (duration cap or storage full) before this
@@ -400,13 +395,13 @@ void voice_recording_cleanup_task(PebbleTask task) {
 
 bool voice_recording_in_progress(void) {
   mutex_lock(s_lock);
-  const bool recording = (s_state == RecState_Recording);
+  const bool recording = (s_active_id != VOICE_RECORDING_ID_INVALID);
   mutex_unlock(s_lock);
   return recording;
 }
 
 static bool prv_is_owned_by_locked(VoiceRecordingId id, const Uuid *app_uuid) {
-  if ((s_state == RecState_Recording) && (id == s_active_id)) {
+  if ((s_active_id != VOICE_RECORDING_ID_INVALID) && (id == s_active_id)) {
     return uuid_equal(&s_app_uuid, app_uuid);
   }
   VoiceRecordingStorageMetadata metadata;
@@ -440,10 +435,6 @@ uint32_t voice_recording_list_owned_by(VoiceRecordingInfo *out, uint32_t max,
   return voice_recording_storage_list_owned_by(out, max, app_uuid);
 }
 
-uint32_t voice_recording_total_bytes(void) {
-  return voice_recording_storage_total_bytes();
-}
-
 bool voice_recording_delete(VoiceRecordingId id) {
   mutex_lock(s_lock);
   if (voice_recording_playback_is_playing_id(id)) {
@@ -464,14 +455,6 @@ bool voice_recording_delete(VoiceRecordingId id) {
   return deleted;
 }
 
-void voice_recording_delete_all(void) {
-  mutex_lock(s_lock);
-  voice_recording_playback_stop();
-  // Skip a recording held open by an active transcription stream (see voice_recording_delete).
-  voice_recording_storage_delete_all(voice_transcribing_recording_id());
-  mutex_unlock(s_lock);
-}
-
 void voice_recording_delete_owned_by(const Uuid *app_uuid) {
   if (!app_uuid) {
     return;
@@ -490,7 +473,8 @@ void voice_recording_delete_owned_by(const Uuid *app_uuid) {
 
 bool voice_recording_play(VoiceRecordingId id) {
   mutex_lock(s_lock);
-  const bool started = (s_state == RecState_Idle) && voice_recording_playback_start(id);
+  const bool started =
+      (s_active_id == VOICE_RECORDING_ID_INVALID) && voice_recording_playback_start(id);
   if (started) {
     const bool from_app = (pebble_task_get_current() == PebbleTask_App) &&
                           !app_install_id_from_system(app_manager_get_current_app_id());

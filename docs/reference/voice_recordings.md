@@ -7,8 +7,8 @@ recordings they created. The system settings application and a compatible
 companion can manage recordings from every source.
 
 This feature requires a firmware build with `CONFIG_MIC`. Playback additionally
-requires a speaker. The application API was added in SDK revision 106
-(SDK version major `0x5`, minor `0x67`).
+requires a speaker. The application API was added in SDK revision 110
+(SDK version major `0x5`, minor `0x6b`).
 
 ## Architecture
 

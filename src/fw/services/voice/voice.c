@@ -69,18 +69,10 @@ static uint32_t s_session_generation = 0;      // Monotonic session counter
 static uint32_t s_timeout_generation = 0;      // Generation tied to currently scheduled timeout
 static bool s_teardown_in_progress = false;    // Debounce concurrent teardown paths
 
-// Audio source for the current session: the live microphone (default), or a stored recording
-// streamed to the phone for transcription.
-typedef enum {
-  VoiceAudioSource_Mic = 0,
-  VoiceAudioSource_Recording,
-} VoiceAudioSource;
-
-static VoiceAudioSource s_audio_source;
 static int s_rec_fd = -1;          // payload descriptor of the recording being streamed
 static VoiceRecordingId s_rec_id = VOICE_RECORDING_ID_INVALID;  // valid while s_rec_fd is open
 static uint32_t s_rec_total;       // total encoded payload bytes to stream
-static uint32_t s_rec_sent;        // encoded payload bytes streamed so far
+static uint32_t s_rec_remaining;   // encoded payload bytes left to stream
 static uint8_t s_rec_last_pct;     // last reported upload progress (0-100)
 static TimerID s_feed_timer = TIMER_INVALID_ID;
 
@@ -148,7 +140,7 @@ static void prv_stop_feed(void) {
 
 // Stop the active audio source (mic or recording feed) without touching the audio endpoint.
 static void prv_stop_audio_source(void) {
-  if (s_audio_source == VoiceAudioSource_Recording) {
+  if (s_rec_fd >= 0) {
     prv_stop_feed();
   } else {
     mic_stop(MIC);
@@ -190,14 +182,9 @@ static void prv_cancel_early_session(void) {
 static void prv_reset(void) {
   s_state = SessionState_Idle;
   s_session_id = AUDIO_ENDPOINT_SESSION_INVALID_ID;
-  if (s_rec_fd >= 0) {
-    pfs_close(s_rec_fd);
-    s_rec_fd = -1;
-  }
-  s_rec_id = VOICE_RECORDING_ID_INVALID;
-  s_audio_source = VoiceAudioSource_Mic;
+  prv_stop_feed();
   s_rec_total = 0;
-  s_rec_sent = 0;
+  s_rec_remaining = 0;
   s_rec_last_pct = 0;
 }
 
@@ -231,7 +218,6 @@ static void prv_audio_transfer_stopped_handler(AudioEndpointSessionId session_id
 
   PBL_LOG_DBG("Stopping recording due to phone request");
   // TODO: Handle this better: there is no feedback to the UI that we've stopped recording
-  s_state = SessionState_WaitForSessionResult;
   prv_stop_recording();
   s_timeout_generation = s_session_generation;
   prv_start_result_timeout();
@@ -245,8 +231,7 @@ static void prv_finish_feed(void *data) {
   const uint32_t generation = (uint32_t)(uintptr_t)data;
   mutex_lock(s_lock);
   if ((generation != s_session_generation) || s_teardown_in_progress ||
-      (s_state != SessionState_Recording) ||
-      (s_audio_source != VoiceAudioSource_Recording)) {
+      (s_state != SessionState_Recording) || (s_rec_fd < 0)) {
     mutex_unlock(s_lock);
     return;
   }
@@ -263,9 +248,7 @@ static void prv_finish_feed(void *data) {
 // transfer and waits for the transcription result.
 static void prv_feed_recording(void *unused) {
   mutex_lock(s_lock);
-  if (s_teardown_in_progress ||
-      (s_state != SessionState_Recording) ||
-      (s_audio_source != VoiceAudioSource_Recording)) {
+  if (s_teardown_in_progress || (s_state != SessionState_Recording) || (s_rec_fd < 0)) {
     mutex_unlock(s_lock);
     return;
   }
@@ -273,10 +256,8 @@ static void prv_feed_recording(void *unused) {
   bool eof = false;
   for (int i = 0; i < VOICE_REC_FRAMES_PER_FEED; i++) {
     uint8_t frame[VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE];
-    uint32_t remaining = s_rec_total - s_rec_sent;
     const int frame_len =
-        voice_recording_storage_read_frame(s_rec_fd, &remaining, frame, sizeof(frame));
-    s_rec_sent = s_rec_total - remaining;
+        voice_recording_storage_read_frame(s_rec_fd, &s_rec_remaining, frame, sizeof(frame));
     if (frame_len <= 0) {
       eof = true;
       break;
@@ -284,9 +265,9 @@ static void prv_feed_recording(void *unused) {
     audio_endpoint_add_frame(s_session_id, frame, frame_len);
   }
 
-  const uint8_t pct = (s_rec_total > 0)
-                          ? (uint8_t)(((uint64_t)s_rec_sent * 100) / s_rec_total)
-                          : 100;
+  const uint8_t pct =
+      (s_rec_total > 0) ? (uint8_t)(((uint64_t)(s_rec_total - s_rec_remaining) * 100) / s_rec_total)
+                        : 100;
   if (pct != s_rec_last_pct) {
     s_rec_last_pct = pct;
     prv_send_progress_event(pct);
@@ -306,35 +287,27 @@ static void prv_feed_recording(void *unused) {
 static bool prv_start_recording(void) {
   PBL_LOG_DBG("prv_start_recording called");
 
-  if (s_audio_source == VoiceAudioSource_Recording) {
+  if (s_rec_fd >= 0) {
     PBL_LOG_DBG("Streaming stored recording (%"PRIu32" bytes)", s_rec_total);
     if (s_feed_timer == TIMER_INVALID_ID) {
       s_feed_timer = new_timer_create();
     }
-    s_rec_sent = 0;
+    s_rec_remaining = s_rec_total;
     s_rec_last_pct = 0;
     new_timer_start(s_feed_timer, VOICE_REC_FEED_MS, prv_feed_recording, NULL, 0);
     return true;
   }
 
-  // Start microphone with Speex frame buffer
   int16_t *frame_buffer = voice_speex_get_frame_buffer();
-  size_t frame_size_samples = voice_speex_get_frame_size();  // Get frame size in samples
-
-  PBL_LOG_DBG("Got Speex frame buffer: %p, frame_size_samples: %zu", frame_buffer, frame_size_samples);
-
-  if (frame_buffer && frame_size_samples > 0) {
-    PBL_LOG_DBG("Starting microphone with frame buffer");
-    if (!mic_start(MIC, &prv_audio_data_handler, NULL, frame_buffer, frame_size_samples)) {
-      PBL_LOG_ERR("Failed to start microphone for voice session");
-      return false;
-    }
-    PBL_LOG_DBG("Microphone started successfully");
-  } else {
+  const size_t frame_size_samples = voice_speex_get_frame_size();
+  if (!frame_buffer || (frame_size_samples == 0)) {
     PBL_LOG_ERR("Invalid Speex frame buffer");
     return false;
   }
-
+  if (!mic_start(MIC, prv_audio_data_handler, NULL, frame_buffer, frame_size_samples)) {
+    PBL_LOG_ERR("Failed to start microphone for voice session");
+    return false;
+  }
   return true;
 }
 
@@ -474,7 +447,7 @@ void voice_init(void) {
 
 // Common session bring-up shared by the microphone and recording sources: allocates a session
 // generation, sets up both endpoints, sends the setup message with the given Speex transfer info,
-// and starts the setup timeout. Expects s_lock held and s_audio_source already set by the caller.
+// and starts the setup timeout. Expects s_lock held.
 static VoiceSessionId prv_start_session(VoiceEndpointSessionType session_type,
                                         const AudioTransferInfoSpeex *transfer_info) {
   // Start new session generation and clear teardown guard
@@ -557,8 +530,6 @@ VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type) {
     return VOICE_SESSION_ID_INVALID;
   }
 
-  s_audio_source = VoiceAudioSource_Mic;
-
   AudioTransferInfoSpeex transfer_info;
   voice_speex_get_transfer_info(&transfer_info);
   PBL_LOG_DBG("Got Speex transfer info: sample_rate=%"PRIu32", bit_rate=%"PRIu16", frame_size=%"PRIu16,
@@ -611,12 +582,9 @@ VoiceSessionId voice_start_dictation_from_recording(VoiceRecordingId recording_i
     return VOICE_SESSION_ID_INVALID;
   }
 
-  s_audio_source = VoiceAudioSource_Recording;
   s_rec_fd = fd;
   s_rec_id = recording_id;
   s_rec_total = data_bytes;
-  s_rec_sent = 0;
-  s_rec_last_pct = 0;
 
   // The stored frames already use the system Speex parameters; describe them to the phone straight
   // from the recording header (no Speex encoder needed for a pre-encoded source).
@@ -656,7 +624,6 @@ void voice_stop_dictation(VoiceSessionId session_id) {
     return;
   }
 
-  s_state = SessionState_WaitForSessionResult;
   prv_stop_recording();
   prv_start_result_timeout();
 
