@@ -947,10 +947,17 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
                 GColorBlack, GTextAlignmentLeft);
   line.y += fonts_get_font_height(fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   line.y += label_temp_gap;
+  // Even ink gaps down the temp / hi-lo / condition stack (matching
+  // gabbro's equal spacing), with the CONDITION anchored back at its original row so it
+  // sits just above the forecast sentence (10px, as before). Measured: temp ink ends 63,
+  // condition ink 93..106, sentence at 117. The -1 after the temp centres the hi/lo in
+  // the 29px between (air 7 above / 6 below its mass); the -1 after the hi/lo keeps the
+  // condition riding at 93. (The temp trim moves everything below it; only the hi/lo trim
+  // moves the condition relative to the hi/lo.)
   line.y += prv_draw_text(line, cw, ctx, t->temp, layout->temperature_font,
-                          GColorBlack, GTextAlignmentLeft);
+                          GColorBlack, GTextAlignmentLeft) - 1;
   line.y += prv_draw_text(line, cw, ctx, t->highlow, layout->high_low_phrase_font,
-                          GColorBlack, GTextAlignmentLeft) - 2;
+                          GColorBlack, GTextAlignmentLeft) - 1;
   if (t->phrase && t->phrase[0]) {
     // Width-limited so a long phrase ellipsizes before the disc (disc's left
     // edge sits ~x116 in content coords).

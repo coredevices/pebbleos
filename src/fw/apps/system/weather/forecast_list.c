@@ -355,13 +355,12 @@ static void prv_draw_gabbro_pdc_icon(GContext *ctx, WeatherType weather_type,
 }
 #endif
 
-// ROUND header shows the CURRENT-HOUR conditions (Eric): type/temp/phrase derived from the
-// hourly arrays at the location's local hour, falling back to the synced current when the
-// record has no hourly block. Rect keeps the synced current everywhere. ONLY the mainscreen
-// header uses these — the card, clock, globe and report stay on the synced fields.
+// BOTH SHAPES : the mainscreen header
+// shows the CURRENT-HOUR conditions — type/temp/phrase derived from the hourly arrays at
+// the location's local hour, falling back to the synced current when the record has no
+// hourly block. The clock centre reads the same field so the two can never disagree.
 static WeatherType prv_header_type(void) {
-  return PBL_IF_ROUND_ELSE(s_list->days[0].current_type_now,
-                           s_list->days[0].current_weather_type);
+  return s_list->days[0].current_type_now;
 }
 
 // Pre-format condition strings so the draw proc does zero formatting work.
@@ -369,7 +368,7 @@ static void prv_format_conditions(void) {
   for (int i = 0; i < (int)s_list->num_days; i++) {
     const WeatherLocationForecast *f = &s_list->days[i];
     const char *phrase = (i == 0)
-        ? PBL_IF_ROUND_ELSE(f->current_phrase_now, f->current_weather_phrase)
+        ? f->current_phrase_now   // current-hour phrase, both shapes (falls back to synced)
         : f->current_weather_phrase;
     const char *condition = (phrase && phrase[0]) ? phrase : "--";
     snprintf(s_list->condition_str[i], sizeof(s_list->condition_str[i]), "%s", condition);
@@ -2272,11 +2271,11 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
   if (n > R5_MAX_COLS) n = R5_MAX_COLS;
   const WeatherLocationForecast *fan = &s_list->days[0];  // fan = today onward
 #else
-  // Eric , round: the strip STARTS AT TODAY — the header above shows conditions
-  // RIGHT NOW (current-hour), and the strip's first column is today's daily forecast, then
-  // the next four days .
-  // Same five columns, same geometry — only the day window shifts.
-  const int fan_start = PBL_IF_ROUND_ELSE(0, 1);
+  // the strip STARTS AT TODAY — the header above shows conditions RIGHT NOW
+  // (current-hour), and the strip's first column is today's daily forecast, then the next
+  // four days Same five
+  // columns, same geometry — only the day window shifts.
+  const int fan_start = 0;
   int n = total - fan_start;
   if (n > R5_MAX_COLS) n = R5_MAX_COLS;
   if (n < 0) n = 0;
@@ -2329,8 +2328,8 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
         s_list->date_cache_expiry = now + 60;   // retry shortly; localtime failed
       }
       for (int i = 0; i < n && i < R5_MAX_COLS; i++) {
-        prv_fill_weekday_label(i + (R5_TODAY_IN_FAN ? 0 : PBL_IF_ROUND_ELSE(0, 1)),
-                               fan[i].label, s_list->weekday_cache[i],
+        // Day offset == column index: the fan starts at TODAY on both shapes .
+        prv_fill_weekday_label(i, fan[i].label, s_list->weekday_cache[i],
                                sizeof(s_list->weekday_cache[i]));
       }
       s_list->today_header_dirty = true;   // icon centring depends on the date width
@@ -2427,7 +2426,7 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
     }
   }
   char tnow[16];
-  const int hdr_temp = PBL_IF_ROUND_ELSE(today->current_temp_now, today->current_temp);
+  const int hdr_temp = today->current_temp_now;   // current-hour temp, both shapes
   if (hdr_temp != WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP) {
     snprintf(tnow, sizeof(tnow), "%d\xC2\xB0", hdr_temp);
   } else {
@@ -2525,11 +2524,11 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
       graphics_fill_circle(ctx, GPoint(cx, dcy), R5_DISC_R);
     }
 #endif
-    // pdc_icons[] is indexed by DAY (loaded from days[k]); the fan window starts at day
-    // fan_start, so the icon for column i is pdc_icons[i + fan_start]. The old hard-coded
-    // +1 predates the today-first window and put TOMORROW'S icon on TODAY'S disc (caught by
-    // the user: "the coloured circles aren't reflecting their weather").
-    const int icon_day = i + PBL_IF_ROUND_ELSE(0, 1);
+    // pdc_icons[] is indexed by DAY (loaded from days[k]); the fan window starts at day 0
+    // (today-first, both shapes since ), so the icon for column i is
+    // pdc_icons[i]. The old hard-coded +1 predates the today-first window and put
+    // TOMORROW'S icon on TODAY'S disc (the icons visibly mismatched their columns).
+    const int icon_day = i;
     if (s_list->pdc_icons[icon_day]) {
       GSize isz = gdraw_command_image_get_bounds_size(s_list->pdc_icons[icon_day]);
       const GRect ibox = { GPoint(cx - isz.w / 2, R5_ICON_CY - ss + bow - dsc - isz.h / 2), isz };

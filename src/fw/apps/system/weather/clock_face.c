@@ -667,7 +667,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   bool centre_is_temp = (s_cf->day_index == 0);
   bool centre_valid = centre_is_temp
       ? (s_cf->num_days > 0 &&
-         PBL_IF_ROUND_ELSE(s_cf->days[0].current_temp_now, s_cf->days[0].current_temp)
+         s_cf->days[0].current_temp_now
              != WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP)
       : true;
   if (centre_valid) {
@@ -682,12 +682,10 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
       char stg_buf[8];
       GFont centre_font;
       if (centre_is_temp) {
-        // ROUND: the CURRENT-HOUR temp — the same source as the mainscreen header, and the
-        // same number the reveal shows at the highlighted hour. The synced current_temp said
-        // "23" here while the header (hourly-now) said "18" — two screens, two "currents".
-        snprintf(stg_buf, sizeof(stg_buf), "%d",
-                 PBL_IF_ROUND_ELSE(s_cf->days[0].current_temp_now,
-                                   s_cf->days[0].current_temp));
+        // BOTH shapes : the CURRENT-HOUR temp — the
+        // same source as the mainscreen header, so the two screens can never disagree
+        // (the synced current_temp once said "23" here while the header said "18").
+        snprintf(stg_buf, sizeof(stg_buf), "%d", s_cf->days[0].current_temp_now);
         centre_font = s_cf->temp_font;
       } else {
         weather_fill_weekday_abbrev(s_cf->day_index, NULL, stg_buf, sizeof(stg_buf));
