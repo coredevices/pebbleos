@@ -3,7 +3,6 @@
 
 #include "applib/graphics/framebuffer.h"
 #include "applib/graphics/graphics.h"
-#include "apps/system/weather/layout.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/content_indicator.h"
 #include "applib/ui/content_indicator_private.h"
@@ -28,6 +27,7 @@
 /////////////////////
 
 #include "fake_content_indicator.h"
+#include "fake_pbl_std.h"
 #include "fake_spi_flash.h"
 #include "fixtures/load_test_resources.h"
 
@@ -66,6 +66,19 @@
 #include "fw/graphics/test_graphics.h"
 #include "fw/graphics/util.h"
 
+// Included LAST: this drags in pebble_compat.h, whose function-like macros
+// (SDK->firmware name remaps) would otherwise rewrite the stub headers above.
+// Undo the libc remaps the harness itself needs.
+#include "apps/system/weather/weather_app_layout.h"
+#undef malloc
+#undef calloc
+#undef free
+#undef time
+#undef localtime
+#undef resource_size
+#undef resource_get_handle
+#undef resource_load
+
 // Setup and Teardown
 ////////////////////////////////////
 
@@ -86,6 +99,9 @@ void test_weather_app_layout__initialize(void) {
 
   const GContextInitializationMode context_init_mode = GContextInitializationMode_System;
   graphics_context_init(&s_ctx, fb, context_init_mode);
+  // The layout measures text via app_graphics_text_layout_get_content_size,
+  // which draws its context from app_state.
+  s_app_state_get_graphics_context = &s_ctx;
 
   framebuffer_clear(fb);
 
@@ -108,31 +124,31 @@ void test_weather_app_layout__cleanup(void) {
 // Helpers
 //////////////////////
 
-static void prv_create_layout_for_forecast(const WeatherLocationForecast *forecast,
-                                           WeatherAppLayout *layout, Window *window) {
-  window_init(window, WINDOW_NAME("Weather"));
-  weather_app_layout_init(layout, &s_ctx.dest_bitmap.bounds);
-  weather_app_layout_set_data(layout, forecast);
-  window_set_user_data(window, layout);
-
-  Layer *window_root_layer = window_get_root_layer(window);
-  layer_add_child(window_root_layer, &layout->root_layer);
-  window_set_on_screen(window, true, true);
+// The data source mirrors the synced current_* fields into the current-hour
+// fields when a record carries no hourly block — the layout expects both.
+static void prv_mirror_current_hour(WeatherLocationForecast *forecast) {
+  forecast->current_type_now = forecast->current_weather_type;
+  forecast->current_temp_now = forecast->current_temp;
+  forecast->current_phrase_now = forecast->current_weather_phrase;
 }
 
-static void prv_create_layout_for_forecast_and_render(const WeatherLocationForecast *forecast) {
-  Window window;
-  WeatherAppLayout layout = {};
-  prv_create_layout_for_forecast(forecast, &layout, &window);
-  window_render(&window, &s_ctx);
-}
+static void prv_create_layout_and_render(WeatherLocationForecast *today,
+                                         WeatherLocationForecast *next) {
+  prv_mirror_current_hour(today);
+  if (next) {
+    prv_mirror_current_hour(next);
+  }
 
-static void prv_create_layout_for_forecast_and_render_with_down_arrow_indicator(
-      const WeatherLocationForecast *forecast) {
   Window window;
   WeatherAppLayout layout = {};
-  prv_create_layout_for_forecast(forecast, &layout, &window);
-  weather_app_layout_set_down_arrow_visible(&layout, true);
+  window_init(&window, WINDOW_NAME("Weather"));
+  weather_app_layout_init(&layout, &s_ctx.dest_bitmap.bounds);
+  weather_app_layout_set_data(&layout, today, next);
+  window_set_user_data(&window, &layout);
+
+  Layer *window_root_layer = window_get_root_layer(&window);
+  layer_add_child(window_root_layer, layout.root_layer);
+  window_set_on_screen(&window, true, true);
   window_render(&window, &s_ctx);
 }
 
@@ -140,37 +156,70 @@ static void prv_create_layout_for_forecast_and_render_with_down_arrow_indicator(
 //////////////////////
 
 void test_weather_app_layout__render_palo_alto(void) {
-  const WeatherLocationForecast forecast = {
+  WeatherLocationForecast today = {
     .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
     .current_temp = 68,
     .today_high = 68,
     .today_low = 58,
+    .today_uv = 5,
+    .today_uv_now = 5,
+    .today_precip_mm = 20,
+    .today_wind_mph = 8,
+    .today_wind_dir_deg = 270,
+    .today_feels = 66,
     .current_weather_type = WeatherType_Sun,
     .current_weather_phrase = "Sunny",
-    .tomorrow_high = 62,
-    .tomorrow_low = 52,
-    .tomorrow_weather_type = WeatherType_PartlyCloudy,
+  };
+  WeatherLocationForecast next = {
+    .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .current_temp = 62,
+    .today_high = 62,
+    .today_low = 52,
+    .current_weather_type = WeatherType_PartlyCloudy,
+    .current_weather_phrase = "Partly Cloudy",
   };
 
-  prv_create_layout_for_forecast_and_render(&forecast);
+  prv_create_layout_and_render(&today, &next);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
 }
 
 static void prv_render_long_strings_test(bool is_current_location) {
-  const WeatherLocationForecast forecast = {
-      .location_name = "QWERTYUIO ASEDDFFGHHJ",
-      .is_current_location = is_current_location,
-      .current_temp = 68,
-      .today_high = 68,
-      .today_low = 58,
-      .current_weather_type = WeatherType_PartlyCloudy,
-      .current_weather_phrase = "Cloudy with 90% chance of meatballs",
-      .tomorrow_high = 62,
-      .tomorrow_low = 52,
-      .tomorrow_weather_type = WeatherType_Sun,
+  WeatherLocationForecast today = {
+    .location_name = "QWERTYUIO ASEDDFFGHHJ",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .is_current_location = is_current_location,
+    .current_temp = 68,
+    .today_high = 68,
+    .today_low = 58,
+    .current_weather_type = WeatherType_PartlyCloudy,
+    .current_weather_phrase = "Cloudy with 90% chance of meatballs",
+  };
+  WeatherLocationForecast next = {
+    .location_name = "QWERTYUIO ASEDDFFGHHJ",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .is_current_location = is_current_location,
+    .current_temp = 62,
+    .today_high = 62,
+    .today_low = 52,
+    .current_weather_type = WeatherType_Sun,
+    .current_weather_phrase = "Sunny",
   };
 
-  prv_create_layout_for_forecast_and_render(&forecast);
+  prv_create_layout_and_render(&today, &next);
 }
 
 void test_weather_app_layout__render_longer_strings(void) {
@@ -186,179 +235,302 @@ void test_weather_app_layout__render_longer_strings_for_current_location(void) {
 }
 
 void test_weather_app_layout__render_large_numbers(void) {
-  const WeatherLocationForecast forecast = {
+  WeatherLocationForecast today = {
     .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
     .current_temp = -88,
     .today_high = -88,
     .today_low = -88,
     .current_weather_type = WeatherType_Sun,
     .current_weather_phrase = "Sunny",
-    .tomorrow_high = -99,
-    .tomorrow_low = -99,
-    .tomorrow_weather_type = WeatherType_PartlyCloudy,
+  };
+  WeatherLocationForecast next = {
+    .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .current_temp = -99,
+    .today_high = -99,
+    .today_low = -99,
+    .current_weather_type = WeatherType_PartlyCloudy,
+    .current_weather_phrase = "Partly Cloudy",
   };
 
-  prv_create_layout_for_forecast_and_render(&forecast);
+  prv_create_layout_and_render(&today, &next);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
 }
 
 void test_weather_app_layout__render_cloudy_light_snow(void) {
-  const WeatherLocationForecast forecast = {
+  WeatherLocationForecast today = {
     .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
     .current_temp = -88,
     .today_high = -88,
     .today_low = -88,
     .current_weather_type = WeatherType_CloudyDay,
     .current_weather_phrase = "Cloudy",
-    .tomorrow_high = -99,
-    .tomorrow_low = -99,
-    .tomorrow_weather_type = WeatherType_LightSnow,
+  };
+  WeatherLocationForecast next = {
+    .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .current_temp = -99,
+    .today_high = -99,
+    .today_low = -99,
+    .current_weather_type = WeatherType_LightSnow,
+    .current_weather_phrase = "Light Snow",
   };
 
-  prv_create_layout_for_forecast_and_render(&forecast);
+  prv_create_layout_and_render(&today, &next);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
 }
 
 void test_weather_app_layout__render_light_rain_heavy_rain(void) {
-  const WeatherLocationForecast forecast = {
+  WeatherLocationForecast today = {
     .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
     .current_temp = -88,
     .today_high = -88,
     .today_low = -88,
     .current_weather_type = WeatherType_LightRain,
     .current_weather_phrase = "Light Rain",
-    .tomorrow_high = -99,
-    .tomorrow_low = -99,
-    .tomorrow_weather_type = WeatherType_HeavyRain,
+  };
+  WeatherLocationForecast next = {
+    .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .current_temp = -99,
+    .today_high = -99,
+    .today_low = -99,
+    .current_weather_type = WeatherType_HeavyRain,
+    .current_weather_phrase = "Heavy Rain",
   };
 
-  prv_create_layout_for_forecast_and_render(&forecast);
+  prv_create_layout_and_render(&today, &next);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
 }
 
 void test_weather_app_layout__render_generic_generic(void) {
-  const WeatherLocationForecast forecast = {
-      .location_name = "HOUSTON",
-      .current_temp = 110,
-      .today_high = 120,
-      .today_low = 85,
-      .current_weather_type = WeatherType_Generic,
-      .current_weather_phrase = "Humid AF",
-      .tomorrow_high = 500,
-      .tomorrow_low = 100,
-      .tomorrow_weather_type = WeatherType_Generic,
+  WeatherLocationForecast today = {
+    .location_name = "HOUSTON",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .current_temp = 110,
+    .today_high = 120,
+    .today_low = 85,
+    .current_weather_type = WeatherType_Generic,
+    .current_weather_phrase = "Humid AF",
+  };
+  WeatherLocationForecast next = {
+    .location_name = "HOUSTON",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .current_temp = 500,
+    .today_high = 500,
+    .today_low = 100,
+    .current_weather_type = WeatherType_Generic,
+    .current_weather_phrase = "Humid AF",
   };
 
-  prv_create_layout_for_forecast_and_render(&forecast);
+  prv_create_layout_and_render(&today, &next);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
 }
 
 void test_weather_app_layout__render_heavy_snow_rain_snow(void) {
-  const WeatherLocationForecast forecast = {
+  WeatherLocationForecast today = {
     .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
     .current_temp = -88,
     .today_high = -88,
     .today_low = -88,
     .current_weather_type = WeatherType_HeavySnow,
     .current_weather_phrase = "Heavy Snow",
-    .tomorrow_high = -99,
-    .tomorrow_low = -99,
-    .tomorrow_weather_type = WeatherType_RainAndSnow,
+  };
+  WeatherLocationForecast next = {
+    .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .current_temp = -99,
+    .today_high = -99,
+    .today_low = -99,
+    .current_weather_type = WeatherType_RainAndSnow,
+    .current_weather_phrase = "Rain and Snow",
   };
 
-  prv_create_layout_for_forecast_and_render(&forecast);
+  prv_create_layout_and_render(&today, &next);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
 }
 
-void test_weather_app_layout__render_down_arrow(void) {
-  const WeatherLocationForecast forecast = {
+void test_weather_app_layout__render_no_next_forecast(void) {
+  WeatherLocationForecast today = {
     .location_name = "PALO ALTO",
-    .current_temp = -88,
-    .today_high = -88,
-    .today_low = -88,
-    .current_weather_type = WeatherType_HeavySnow,
-    .current_weather_phrase = "Heavy Snow",
-    .tomorrow_high = -99,
-    .tomorrow_low = -99,
-    .tomorrow_weather_type = WeatherType_RainAndSnow,
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .current_temp = 68,
+    .today_high = 68,
+    .today_low = 58,
+    .current_weather_type = WeatherType_Sun,
+    .current_weather_phrase = "Sunny",
   };
 
-  prv_create_layout_for_forecast_and_render_with_down_arrow_indicator(&forecast);
+  prv_create_layout_and_render(&today, NULL);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
 }
 
 void test_weather_app_layout__render_all_unknown_values(void) {
-  const WeatherLocationForecast forecast = {
+  WeatherLocationForecast today = {
     .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .current_temp = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
+    .today_high = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
+    .today_low = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
+    .today_uv = -1,
+    .today_uv_now = -1,
+    .today_precip_mm = -1,
+    .today_wind_mph = -1,
+    .today_wind_dir_deg = -1,
+    .today_feels = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
+    .current_weather_type = WeatherType_Unknown,
+    .current_weather_phrase = "",
+  };
+  WeatherLocationForecast next = {
+    .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
     .current_temp = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
     .today_high = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
     .today_low = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
     .current_weather_type = WeatherType_Unknown,
     .current_weather_phrase = "",
-    .tomorrow_high = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
-    .tomorrow_low = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
-    .tomorrow_weather_type = WeatherType_Unknown,
   };
 
-  prv_create_layout_for_forecast_and_render(&forecast);
+  prv_create_layout_and_render(&today, &next);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
 }
 
 void test_weather_app_layout__render_some_unknown_values(void) {
-  const WeatherLocationForecast forecast = {
+  WeatherLocationForecast today = {
     .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
     .current_temp = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
     .today_high = 99,
     .today_low = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
+    .today_uv = -1,
+    .today_precip_mm = -1,
+    .today_wind_mph = -1,
     .current_weather_type = WeatherType_Sun,
     .current_weather_phrase = "",
-    .tomorrow_high = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
-    .tomorrow_low = -99,
-    .tomorrow_weather_type = WeatherType_Unknown,
+  };
+  WeatherLocationForecast next = {
+    .location_name = "PALO ALTO",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .current_temp = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
+    .today_high = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP,
+    .today_low = -99,
+    .current_weather_type = WeatherType_Unknown,
+    .current_weather_phrase = "",
   };
 
-  prv_create_layout_for_forecast_and_render(&forecast);
+  prv_create_layout_and_render(&today, &next);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
 }
 
 void test_weather_app_layout__render_current_location(void) {
-  const WeatherLocationForecast forecast = {
-      .location_name = "PHILADELPHIA",
-      .is_current_location = true,
-      .current_temp = 13,
-      .today_high = 15,
-      .today_low = -2,
-      .current_weather_type = WeatherType_HeavySnow,
-      .current_weather_phrase = "Heavy Snow",
-      .tomorrow_high = 26,
-      .tomorrow_low = 3,
-      .tomorrow_weather_type = WeatherType_RainAndSnow,
+  WeatherLocationForecast today = {
+    .location_name = "PHILADELPHIA",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .is_current_location = true,
+    .current_temp = 13,
+    .today_high = 15,
+    .today_low = -2,
+    .current_weather_type = WeatherType_HeavySnow,
+    .current_weather_phrase = "Heavy Snow",
+  };
+  WeatherLocationForecast next = {
+    .location_name = "PHILADELPHIA",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .is_current_location = true,
+    .current_temp = 26,
+    .today_high = 26,
+    .today_low = 3,
+    .current_weather_type = WeatherType_RainAndSnow,
+    .current_weather_phrase = "Rain and Snow",
   };
 
-  prv_create_layout_for_forecast_and_render_with_down_arrow_indicator(&forecast);
+  prv_create_layout_and_render(&today, &next);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
 }
 
 void test_weather_app_layout__render_long_current_location_name_pbl_38049(void) {
-  const WeatherLocationForecast forecast = {
-      .location_name = "DA'AN DISTRICT",
-      .is_current_location = true,
-      .current_temp = 30,
-      .today_high = 33,
-      .today_low = 26,
-      .current_weather_type = WeatherType_CloudyDay,
-      .current_weather_phrase = "M Cloudy",
-      .tomorrow_high = 34,
-      .tomorrow_low = 26,
-      .tomorrow_weather_type = WeatherType_HeavyRain,
+  WeatherLocationForecast today = {
+    .location_name = "DA'AN DISTRICT",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .is_current_location = true,
+    .current_temp = 30,
+    .today_high = 33,
+    .today_low = 26,
+    .current_weather_type = WeatherType_CloudyDay,
+    .current_weather_phrase = "M Cloudy",
+  };
+  WeatherLocationForecast next = {
+    .location_name = "DA'AN DISTRICT",
+    .today_wmo = -1,
+    .today_humidity = -1,
+    .today_visibility_m = -1,
+    .today_precip_sum_mm = -1,
+    .is_current_location = true,
+    .current_temp = 34,
+    .today_high = 34,
+    .today_low = 26,
+    .current_weather_type = WeatherType_HeavyRain,
+    .current_weather_phrase = "Heavy Rain",
   };
 
-  prv_create_layout_for_forecast_and_render_with_down_arrow_indicator(&forecast);
-  cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
-}
-
-// renders a blank image
-void test_weather_app_layout__render_empty_view(void) {
-  prv_create_layout_for_forecast_and_render(NULL);
+  prv_create_layout_and_render(&today, &next);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
 }

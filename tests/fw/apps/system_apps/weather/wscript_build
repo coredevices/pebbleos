@@ -79,9 +79,12 @@ clar(ctx,
                         " src/fw/applib/ui/content_indicator.c" \
                         " tests/fakes/fake_fonts.c" \
                         " src/fw/applib/ui/shadows.c" \
-                        " src/fw/apps/system/weather/layout.c" \
+                        " src/fw/applib/ui/bitmap_layer.c" \
+                        " src/fw/applib/graphics/gdraw_command_transforms.c" \
+                        " src/fw/apps/system/weather/weather_app_layout.c" \
+                        " src/fw/apps/system/weather/weather_math.c" \
                         " src/fw/services/timeline/timeline_resources.c" \
-                        " src/fw/services/weather/weather_types.c" \
+                        " src/fw/apps/system/weather/weather_types.c" \
                         " src/fw/util/buffer.c" \
                         " tests/fixtures/resources/timeline_resource_table.auto.c",
      test_sources_ant_glob = "test_weather_app_layout.c",

@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "clock_face.h"
@@ -8,6 +8,8 @@
 #include "weather_math.h"
 #include "weather_types.h"
 #include "pebble_compat.h"
+#include "pbl/services/clock.h"   // clock_is_24h_style
+#include "util/graphics.h"        // raw_image_{get,set}_value_for_bitdepth
 #include <time.h>
 
 // ---- Layout ----
@@ -30,15 +32,23 @@
   #define ICON_ORBIT_RX   PBL_IF_ROUND_ELSE(100, 87)
   #define ICON_ORBIT_RY   PBL_IF_ROUND_ELSE(100, 94)
 #else
-  // Chalk: 180×180 round
-  #define ICON_ORBIT_RX   63
-  #define ICON_ORBIT_RY   63
+  // Small displays. Chalk: 180x180 round. Flint/asterix: 144x168 rect - the
+  // oval hugs the screen edge minus the 25px icons.
+  #define ICON_ORBIT_RX   PBL_IF_ROUND_ELSE(63, 58)
+  #define ICON_ORBIT_RY   PBL_IF_ROUND_ELSE(63, 68)
 #endif
 
 #define ICON_SIZE         25   // Emery/native tiny weather bitmap size
+// Small rect (flint/asterix 144x168): r17 discs merge at this orbit's ~30px
+// neighbour spacing — shrink them to keep a visible gap.
+#define CLOCK_SMALL_RECT  (!PBL_ROUND && PBL_DISPLAY_HEIGHT < 200)
+#define CLOCK_DISC_R      (CLOCK_SMALL_RECT ? 13 : (ICON_SIZE * 7 / 10))
 // Round clock icons draw 1:1 from the 25x25 TINY PNGs (CLOCK ids now map to TINY),
 // so the slot must be 25 to avoid the previous 50->30 crop. Emery uses ICON_SIZE.
-#define CLOCK_ICON_SIZE   PBL_IF_ROUND_ELSE(25, ICON_SIZE)
+// Small rect: the 12-icon ring's orbit spacing is ~30px; with the BW discs
+// gone the bare 25px art of diagonal neighbours visually collides, so the
+// dial icons shrink to 20px at load (see prv_shrink_dial_icon).
+#define CLOCK_ICON_SIZE   PBL_IF_ROUND_ELSE(25, (CLOCK_SMALL_RECT ? 20 : ICON_SIZE))
 #define SWIPE_THRESHOLD   20
 #define CLOCK_INTRO_DURATION_MS 520
 // Rect: 50ms. ROUND (gabbro smoothness step 4): 66ms = exactly 2 animation-service ticks,
@@ -90,7 +100,7 @@ typedef struct {
   bool     reveal_active;    // true while reveal/hide animation is in progress
   AnimationProgress reveal_p;
   Animation        *reveal_anim;
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
   int16_t  touch_start_x;
   int16_t  touch_start_y;
   bool     touch_active;
@@ -113,15 +123,117 @@ static ClockFaceData *s_cf;
 static ClockFaceWrapCallback s_wrap_callback;
 static void *s_wrap_context;
 
+// System-app statics persist across launches (the fw image is not reloaded), and a
+// crashed run never reaches unload — clear them before the next run reads them.
+void clock_face_reset(void) {
+  s_cf = NULL;
+  s_wrap_callback = NULL;
+  s_wrap_context = NULL;
+}
+
 // ---- Helpers ----
 
 #define prv_bg_color_for_type weather_type_bg_color
-#if defined(PBL_PLATFORM_GABBRO)
-  #define prv_icon_res weather_type_icon_clock_resource
+#if CLOCK_SMALL_RECT
+  // 50px source art — downscaled to 20px at load (see prv_shrink_dial_icon).
+  #define prv_icon_res weather_type_icon_small_resource
 #else
   #define prv_icon_res weather_type_icon_tiny_resource
 #endif
 
+
+#if CLOCK_SMALL_RECT
+// Shrink the 50px SMALL icon to CLOCK_ICON_SIZE by box sampling with a dark
+// threshold: a destination pixel inks when >=30% of the source pixels it
+// covers are dark. The 25px TINY art can't downscale (its 1px strokes either
+// vanish or merge); the 50px art gives each destination pixel a 2-3px box to
+// vote from, which keeps the strokes one pixel and clean.
+static GBitmap *prv_shrink_dial_icon(GBitmap *src) {
+  if (!src) return NULL;
+  const GBitmapFormat fmt = gbitmap_get_format(src);
+  uint8_t bpp;
+  uint32_t entries;
+  switch (fmt) {
+    case GBitmapFormat1BitPalette: bpp = 1; entries = 2; break;
+    case GBitmapFormat2BitPalette: bpp = 2; entries = 4; break;
+    case GBitmapFormat4BitPalette: bpp = 4; entries = 16; break;
+    default: return src;   // unexpected format — draw at native size
+  }
+  const GRect sb = gbitmap_get_bounds(src);
+  const int dw = CLOCK_ICON_SIZE;
+  GColor *src_pal = gbitmap_get_palette(src);
+  if (!src_pal || sb.size.w <= dw) return src;
+
+  // Rank each palette entry once: 0 transparent, 1 light, 2 ink. The 50px art
+  // carries gray shading; anything that quantizes to the dark half is ink.
+  uint8_t rank[16] = { 0 };
+  for (uint32_t i = 0; i < entries; i++) {
+    if (!src_pal[i].a) continue;
+    const GColor8 gray = gcolor_get_grayscale(src_pal[i]);
+    rank[i] = (gcolor_equal(gray, GColorBlack) || gcolor_equal(gray, GColorDarkGray))
+        ? 2 : 1;
+  }
+
+  // The destination palette is purified to pure black/white: mid-gray fills
+  // would dither on 1-bit and turn the shrunken icons into mush.
+  GColor *pal = malloc(entries * sizeof(GColor));
+  if (!pal) return src;
+  for (uint32_t i = 0; i < entries; i++) {
+    if (rank[i] == 2)       pal[i] = GColorBlack;
+    else if (rank[i] == 1)  pal[i] = GColorWhite;
+    else                    pal[i] = src_pal[i];   // keep transparency
+  }
+  GBitmap *dst = gbitmap_create_blank_with_palette(GSize(dw, dw), fmt, pal,
+                                                   true /* free palette */);
+  if (!dst) {
+    free(pal);
+    return src;
+  }
+
+  const uint8_t *sdata = gbitmap_get_data(src);
+  const uint16_t sstride = gbitmap_get_bytes_per_row(src);
+  uint8_t *ddata = gbitmap_get_data(dst);
+  const uint16_t dstride = gbitmap_get_bytes_per_row(dst);
+  const int sw = sb.size.w, sh = sb.size.h;
+  // Canonical palette index per rank (first dark / light / transparent entry).
+  int dark_i = -1, light_i = -1, trans_i = -1;
+  for (uint32_t i = 0; i < entries; i++) {
+    if (rank[i] == 2 && dark_i < 0) dark_i = (int)i;
+    if (rank[i] == 1 && light_i < 0) light_i = (int)i;
+    if (rank[i] == 0 && trans_i < 0) trans_i = (int)i;
+  }
+  for (int y = 0; y < dw; y++) {
+    const int sy0 = y * sh / dw;
+    const int sy1 = ((y + 1) * sh + dw - 1) / dw;   // exclusive, >= sy0+1
+    for (int x = 0; x < dw; x++) {
+      const int sx0 = x * sw / dw;
+      const int sx1 = ((x + 1) * sw + dw - 1) / dw;
+      int n_dark = 0, n_light = 0, n_total = 0;
+      for (int sy = sy0; sy < sy1 && sy < sh; sy++) {
+        for (int sx = sx0; sx < sx1 && sx < sw; sx++) {
+          const uint8_t ci = raw_image_get_value_for_bitdepth(
+              sdata, (uint32_t)(sb.origin.x + sx), (uint32_t)(sb.origin.y + sy),
+              sstride, bpp);
+          n_total++;
+          if (rank[ci] == 2) n_dark++;
+          else if (rank[ci] == 1) n_light++;
+        }
+      }
+      int pick = trans_i;
+      if (dark_i >= 0 && n_dark * 10 >= n_total * 3) {
+        pick = dark_i;
+      } else if (light_i >= 0 && n_light * 2 > n_total) {
+        pick = light_i;
+      }
+      if (pick < 0) pick = 0;
+      raw_image_set_value_for_bitdepth(ddata, (uint32_t)x, (uint32_t)y, dstride,
+                                       bpp, (uint8_t)pick);
+    }
+  }
+  gbitmap_destroy(src);
+  return dst;
+}
+#endif
 
 // Load the tiny bitmap set once; the clock reuses these during animations.
 static void prv_load_bitmaps(void) {
@@ -153,6 +265,9 @@ static void prv_load_bitmaps(void) {
     if (used[i]) {
       s_cf->type_bitmaps[i] =
           gbitmap_create_with_resource(prv_icon_res((WeatherType)i));
+#if CLOCK_SMALL_RECT
+      s_cf->type_bitmaps[i] = prv_shrink_dial_icon(s_cf->type_bitmaps[i]);
+#endif
     }
   }
 }
@@ -284,8 +399,12 @@ static int prv_abs_hour_for_pos(int pos_1_to_12) {
   // i starts at 0 so the CURRENT hour lands on its own position (and is the
   // one highlighted) — starting at 1 put the current hour off the dial and
   // highlighted the NEXT hour, reading an hour ahead.
+  // Deliberately UNWRAPPED: values >= 24 are tomorrow's hours (h - 24), which
+  // the hourly arrays (today only) have no sample for. Wrapping with % 24 made
+  // every position past midnight read THIS MORNING's data and present it as
+  // tonight's forecast — lookups must bounds-check instead.
   for (int i = 0; i <= 11; i++) {
-    int h = (cur_h + i) % 24;
+    int h = cur_h + i;
     if (h % 12 == target_mod) return h;
   }
   return pos_1_to_12 % 12; // unreachable
@@ -301,6 +420,11 @@ static WeatherType prv_type_for_pos(int pos_1_to_12) {
   }
   // Fallback: daily
   if (s_cf->num_days == 0) return WeatherType_Unknown;
+  if (abs_hour >= 24 && s_cf->num_days > 1) {
+    // Past midnight — the hourly series covers today only, so use tomorrow's
+    // daily type for tonight's small hours.
+    return s_cf->days[1].current_weather_type;
+  }
   return s_cf->days[0].current_weather_type;
 }
 
@@ -558,7 +682,12 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
 
   for (int pos = 1; pos <= 12; pos++) {
     int32_t angle = (int32_t)TRIG_MAX_ANGLE * pos / 12 + angle_offset;
-    int nudge = PBL_IF_ROUND_ELSE(0, (pos == 3 ? 7 : pos == 9 ? 7 : 0));
+    // 3/9 o'clock icons pull 7px inward so 25px art clears the screen edge
+    // (rx 87 + 12.5 = 199.5 on emery's 200px). NOT on small rect: its dial
+    // icons are 20px and fit at the true orbit — the leftover nudge made the
+    // ring visibly lopsided and starved the pill's lane at 3/9.
+    int nudge = (CLOCK_SMALL_RECT || PBL_IF_ROUND_ELSE(1, 0))
+        ? 0 : ((pos == 3 || pos == 9) ? 7 : 0);
     int orbit_rx = ((int)(ICON_ORBIT_RX - nudge) * (int)intro_p / (int)ANIMATION_NORMALIZED_MAX);
     int orbit_ry = ((int)ICON_ORBIT_RY * (int)intro_p / (int)ANIMATION_NORMALIZED_MAX);
     int ix = cx + (int)((int32_t)sin_lookup(angle) * orbit_rx / TRIG_MAX_RATIO);
@@ -567,7 +696,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     WeatherType wt = prv_type_for_pos(pos);
     int idx = (wt <= WeatherType_RainAndSnow) ? (int)wt : (int)WeatherType_Generic;
 
-    int full_r = CLOCK_ICON_SIZE * 7 / 10;
+    int full_r = CLOCK_DISC_R;
     int circle_r = anim_done ? full_r
         : 2 + (int)((full_r - 2) * (int)intro_p / (int)ANIMATION_NORMALIZED_MAX);
 
@@ -599,13 +728,18 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
       if (show_temp_side) {
         graphics_context_set_fill_color(ctx, GColorWhite);
         graphics_fill_circle(ctx, GPoint(ix, iy), rr);
-        // Soft dithered grey outline (single pixel) instead of a hard black ring.
-        graphics_context_set_stroke_color(ctx, GColorLightGray);
+        // Colour: soft grey outline. BW: strokes cannot dither (LightGray
+        // maps to White and vanishes) — solid black is the only visible ring.
+        graphics_context_set_stroke_color(ctx,
+                                          PBL_IF_BW_ELSE(GColorBlack, GColorLightGray));
         graphics_context_set_stroke_width(ctx, 1);
         graphics_draw_circle(ctx, GPoint(ix, iy), rr);
       } else {
-        graphics_context_set_fill_color(ctx, prv_bg_color_for_type(wt));
-        graphics_fill_circle(ctx, GPoint(ix, iy), rr);
+        const GColor disc = weather_type_disc_color(wt);
+        if (!gcolor_equal(disc, GColorClear)) {
+          graphics_context_set_fill_color(ctx, disc);
+          graphics_fill_circle(ctx, GPoint(ix, iy), rr);
+        }
       }
 
       // Content: weather bitmap before the flip, temperature after — hidden during
@@ -613,10 +747,10 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
       if (show_icon) {
         GBitmap *bmp = icon_bmps[pos-1];
         if (bmp) {
-          graphics_context_set_compositing_mode(ctx, GCompOpSet);
-          graphics_draw_bitmap_in_rect(ctx, bmp,
+          weather_icon_draw(ctx, bmp,
               GRect(ix - CLOCK_ICON_SIZE / 2, iy - CLOCK_ICON_SIZE / 2,
-                    CLOCK_ICON_SIZE, CLOCK_ICON_SIZE));
+                    CLOCK_ICON_SIZE, CLOCK_ICON_SIZE),
+              false /* no dark grounds on this screen */);
         }
       } else if (show_temp_text) {
         int temp;
@@ -644,20 +778,22 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
 
     if (circle_r < 1) continue; // fully shrunk — skip background circle
 
+    const GColor disc = weather_type_disc_color(wt);
+    if (gcolor_equal(disc, GColorClear)) continue;
     graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-    graphics_context_set_fill_color(ctx, prv_bg_color_for_type(wt));
+    graphics_context_set_fill_color(ctx, disc);
     graphics_fill_circle(ctx, GPoint(ix, iy), circle_r);
   }
 
   // Draw icon bitmaps — doing this in a separate pass minimizes framebuffer captures
   if (!reveal_engaged && (anim_done || p > ANIMATION_NORMALIZED_MAX / 2)) {
-    graphics_context_set_compositing_mode(ctx, GCompOpSet);
     for (int i = 0; i < 12; i++) {
       if (!icon_bmps[i]) continue;
       int bx = icon_xs[i] - CLOCK_ICON_SIZE / 2;
       int by = icon_ys[i] - CLOCK_ICON_SIZE / 2;
-      graphics_draw_bitmap_in_rect(ctx, icon_bmps[i],
-          GRect(bx, by, CLOCK_ICON_SIZE, CLOCK_ICON_SIZE));
+      weather_icon_draw(ctx, icon_bmps[i],
+          GRect(bx, by, CLOCK_ICON_SIZE, CLOCK_ICON_SIZE),
+          false /* no dark grounds on this screen */);
     }
   }
 
@@ -667,7 +803,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   bool centre_is_temp = (s_cf->day_index == 0);
   bool centre_valid = centre_is_temp
       ? (s_cf->num_days > 0 &&
-         PBL_IF_ROUND_ELSE(s_cf->days[0].current_temp_now, s_cf->days[0].current_temp)
+         s_cf->days[0].current_temp_now
              != WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP)
       : true;
   if (centre_valid) {
@@ -682,12 +818,10 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
       char stg_buf[8];
       GFont centre_font;
       if (centre_is_temp) {
-        // ROUND: the CURRENT-HOUR temp — the same source as the mainscreen header, and the
-        // same number the reveal shows at the highlighted hour. The synced current_temp said
-        // "23" here while the header (hourly-now) said "18" — two screens, two "currents".
-        snprintf(stg_buf, sizeof(stg_buf), "%d",
-                 PBL_IF_ROUND_ELSE(s_cf->days[0].current_temp_now,
-                                   s_cf->days[0].current_temp));
+        // BOTH shapes : the CURRENT-HOUR temp — the
+        // same source as the mainscreen header, so the two screens can never disagree
+        // (the synced current_temp once said "23" here while the header said "18").
+        snprintf(stg_buf, sizeof(stg_buf), "%d", s_cf->days[0].current_temp_now);
         centre_font = s_cf->temp_font;
       } else {
         weather_fill_weekday_abbrev(s_cf->day_index, NULL, stg_buf, sizeof(stg_buf));
@@ -717,7 +851,10 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
       // Capture those pixels into a GBitmap
       GBitmap *fb = graphics_capture_frame_buffer(ctx);
       if (fb) {
-        GBitmap *bmp = gbitmap_create_blank(GSize(stg_w, stg_h), GBitmapFormat8Bit);
+        // BW boards refuse 8-bit blanks (prv_platform_supports_format) — the
+        // staging capture uses the native 1-bit format there.
+        GBitmap *bmp = gbitmap_create_blank(
+            GSize(stg_w, stg_h), PBL_IF_COLOR_ELSE(GBitmapFormat8Bit, GBitmapFormat1Bit));
         if (bmp) {
           weather_capture_framebuffer_rect(fb, bmp, GRect(stg_x, stg_y, stg_w, stg_h), 0);
           s_cf->temp_text_bmp     = bmp;
@@ -803,10 +940,16 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
             if (sx >= src_w) sx = src_w - 1;
             int ax = abs_x + dx;
             if (ax < (int)ri.min_x || ax > (int)ri.max_x) continue;
+            // Skip white pixels (background). The staging bitmap is 8-bit on
+            // colour and 1-bit on BW — read accordingly.
+#if PBL_BW
+            if (bitset8_get(srow, (unsigned)sx)) continue;
+            weather_fb_row_set(ri.data, ax, GColorBlackARGB8);
+#else
             uint8_t pixel = srow[sx];
-            // Skip white pixels (background) — GColor8 white = 0xFF
-            if (pixel == 0xFF) continue;
-            ri.data[ax] = pixel;
+            if (pixel == 0xFF) continue;   // GColor8 white
+            weather_fb_row_set(ri.data, ax, pixel);
+#endif
           }
         }
         graphics_release_frame_buffer(ctx, fb);
@@ -817,8 +960,14 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   // ---- Hour number labels — fade in during final third of animation ----
   // Pebble has no alpha; simulate fade: invisible (white) → light gray → dark gray
   // Start appearing at 60% progress, reach full color at 100%.
-  AnimationProgress fade_start = (AnimationProgress)(ANIMATION_NORMALIZED_MAX * 6 / 10);
-  if (p < fade_start) return;
+  // Small rect: labels and pill hold until the ring has LANDED — they are
+  // position references, and rendering them against still-sweeping icons
+  // reads as a broken layout on any frozen/slow frame (no fade to lose
+  // there anyway: gray label ink dithers on 1-bit, so it draws solid black).
+  AnimationProgress fade_start = CLOCK_SMALL_RECT
+      ? ANIMATION_NORMALIZED_MAX
+      : (AnimationProgress)(ANIMATION_NORMALIZED_MAX * 6 / 10);
+  if (!anim_done && p < fade_start) return;
   GColor label_color;
   if (anim_done || p > (AnimationProgress)(ANIMATION_NORMALIZED_MAX * 85 / 100)) {
     label_color = GColorDarkGray;
@@ -827,6 +976,9 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   } else {
     label_color = GColorLightGray;  // first step — light gray on white
   }
+  if (CLOCK_SMALL_RECT) {
+    label_color = GColorBlack;   // gray dithers to broken specks on 1-bit
+  }
   GFont label_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
 #if PBL_DISPLAY_HEIGHT >= 200
   #define LABEL_ORBIT_RX (ICON_ORBIT_RX - 42)
@@ -834,57 +986,76 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   #define DOT_ORBIT_RX  (ICON_ORBIT_RX - 27)
   #define DOT_ORBIT_RY  (ICON_ORBIT_RY - 27)
 #else
-  #define LABEL_ORBIT_RX (ICON_ORBIT_RX - 30)
-  #define LABEL_ORBIT_RY (ICON_ORBIT_RY - 30)
-  #define DOT_ORBIT_RX  (ICON_ORBIT_RX - 18)
-  #define DOT_ORBIT_RY  (ICON_ORBIT_RY - 18)
+  // Chalk keeps its ring; the small rects give the labels and dots more air
+  // so they clear the centre temperature.
+  #define LABEL_ORBIT_RX (ICON_ORBIT_RX - PBL_IF_ROUND_ELSE(30, 24))
+  #define LABEL_ORBIT_RY (ICON_ORBIT_RY - PBL_IF_ROUND_ELSE(30, 24))
+  #define DOT_ORBIT_RX  (ICON_ORBIT_RX - PBL_IF_ROUND_ELSE(18, 13))
+  #define DOT_ORBIT_RY  (ICON_ORBIT_RY - PBL_IF_ROUND_ELSE(18, 13))
+#endif
+#if CLOCK_SMALL_RECT
+  // Where the pill sits (0 = not on this day's dial) — anchors ring-adjacent
+  // to it are suppressed below.
+  int now_pos = 0;
+  if (s_cf->day_index == 0) {
+    for (int pos = 1; pos <= 12; pos++) {
+      if (prv_abs_hour_for_pos(pos) == cur_h24) { now_pos = pos; break; }
+    }
+  }
 #endif
   for (int pos = 1; pos <= 12; pos++) {
     int32_t angle = (int32_t)TRIG_MAX_ANGLE * pos / 12;
-    // Label nudge: 3 and 9 o'clock pulled 5px inward (their text sits widest horizontally)
+    // The CURRENT hour gets a bubble instead of a label; only today's clock
+    // highlights "now" — for other days "now" isn't on that day.
+    int abs_h = prv_abs_hour_for_pos(pos);
+    bool is_now = (s_cf->day_index == 0) && (abs_h == cur_h24);
+    // Label nudge: 3 and 9 o'clock pulled 5px inward (their text sits widest
+    // horizontally). NOT on small rect: anchors and pill share one orbit
+    // there, and nudging only some of them reads as misalignment (the 9
+    // anchor closer to the centre than the 3-side pill).
     int label_nudge = PBL_IF_ROUND_ELSE(0, (pos == 3 || pos == 9) ? 5 : 0);
+    if (CLOCK_SMALL_RECT) label_nudge = 0;
     int lx = cx + (int)((int32_t)sin_lookup(angle) * (LABEL_ORBIT_RX - label_nudge) / TRIG_MAX_RATIO);
     int ly = cy - (int)((int32_t)cos_lookup(angle) * LABEL_ORBIT_RY / TRIG_MAX_RATIO);
     // Dot between number and icon — 3 and 9 o'clock nudged 6px inward
     int dot_nudge = PBL_IF_ROUND_ELSE(0, (pos == 3 || pos == 9) ? 6 : 0);
     int ddx = cx + (int)((int32_t)sin_lookup(angle) * (DOT_ORBIT_RX - dot_nudge) / TRIG_MAX_RATIO);
     int ddy = cy - (int)((int32_t)cos_lookup(angle) * (DOT_ORBIT_RY - dot_nudge) / TRIG_MAX_RATIO);
-    // 24h hour number — the CURRENT hour gets a blue bubble (and no dot).
-    // Only today's clock highlights "now" — for other days "now" isn't on that
-    // day, so no hour is highlighted.
-    int abs_h = prv_abs_hour_for_pos(pos);
-    bool is_now = (s_cf->day_index == 0) && (abs_h == cur_h24);
+#if CLOCK_SMALL_RECT
+    // 144px: a full 12-label inner ring cannot fit — two-digit labels collide
+    // near the vertical. The dial is a true clock layout (hour N sits at its
+    // clock position), so only the cardinal anchors are labelled; the pill
+    // names the current hour and clock convention gives the rest. No tick
+    // dots either — the icons already mark the positions.
+    (void)ddx; (void)ddy;
+    if (!is_now && (pos % 3) != 0) continue;
+    // An anchor ring-adjacent to the pill shares its cramped corner (e.g. the
+    // 17h pill at 5 o'clock against the 18 anchor at 6) — the pill wins.
+    if (!is_now && now_pos > 0) {
+      const int ring_d = (pos - now_pos + 12) % 12;
+      if (ring_d == 1 || ring_d == 11) continue;
+    }
+#else
     if (!is_now) {
       graphics_context_set_fill_color(ctx, label_color);
       graphics_fill_circle(ctx, GPoint(ddx, ddy), 2);
     }
+#endif
+    int disp_h = abs_h % 24;   // abs_h >= 24 = tomorrow's hour — label wraps
+    if (!clock_is_24h_style()) {
+      disp_h %= 12;
+      if (disp_h == 0) disp_h = 12;   // 12h dials write 12, never 0
+    }
     char lbuf[4];
-    snprintf(lbuf, sizeof(lbuf), "%d", abs_h);
-    int lw   = (abs_h >= 10) ? 28 : 20;
-    int loff = (abs_h >= 10) ? -14 : -10;
+    snprintf(lbuf, sizeof(lbuf), "%d", disp_h);
+    int lw   = (disp_h >= 10) ? 28 : 20;
+    int loff = (disp_h >= 10) ? -14 : -10;
     GRect label_rect = GRect(lx + loff, ly - 12, lw, 18);
     GTextAlignment label_align = GTextAlignmentCenter;
     int pill_len = lw + 12;
     int pill_center_x = lx;
     int pill_center_y = ly + 1;
 
-#if defined(PBL_PLATFORM_GABBRO)
-    if (pos == 3 || pos == 9) {
-      const int side_slot_w = 30;
-      const int side_slot_inner_half = 14;
-      if (pos == 3) {
-        label_rect = GRect(lx - side_slot_inner_half, ly - 12,
-                           side_slot_w, 18);
-        label_align = GTextAlignmentLeft;
-      } else {
-        label_rect = GRect(lx + side_slot_inner_half - side_slot_w, ly - 12,
-                           side_slot_w, 18);
-        label_align = GTextAlignmentRight;
-      }
-      pill_len = side_slot_w + 12;
-      pill_center_x = label_rect.origin.x + label_rect.size.w / 2;
-    }
-#endif
 
     // The blue indicator fades in (scales up from a small dot) a few frames before
     // it settles, then stretches into the oval once the bitmaps have landed.
@@ -893,13 +1064,19 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     bool show_pill = is_now && (anim_done || p > pill_appear);
 
     if (show_pill) {
-      int r = 9;   // final radius => diameter 19
+      // Small rect: the 24px label lane cannot hold the stretched two-digit
+      // oval (it nips either the icon or the centre temperature). The pill is
+      // a compact r=9 CIRCLE there, with the number a size down (see below) —
+      // at r=9 the rim clears the icon art, the centre temperature and both
+      // by >=2px at every one of the twelve positions (r=10 grazes at the
+      // horizontals and the temp-corner diagonals).
+      int r = 9;
       int D = (pill_len - (r * 2)) / 2;
 
       int D_out = D - 5; // Pull the pill inwards 5px from the outside (the number-facing end)
-      if (D_out < 0) D_out = 0;
+      if (CLOCK_SMALL_RECT || D_out < 0) D_out = 0;
       int D_in = D - 8; // Pull the pill inwards from the center of the watch face (less padding on the inside)
-      if (D_in < 0) D_in = 0;
+      if (CLOCK_SMALL_RECT || D_in < 0) D_in = 0;
 
       if (!anim_done) {
         if (p < pill_settled) {
@@ -925,8 +1102,9 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
       int c2x = bcx - (int)((int32_t)sin_lookup(angle) * D_in / TRIG_MAX_RATIO);
       int c2y = bcy + (int)((int32_t)cos_lookup(angle) * D_in / TRIG_MAX_RATIO);
 
-      graphics_context_set_fill_color(ctx, GColorVividCerulean);
-      graphics_context_set_stroke_color(ctx, GColorVividCerulean);
+      const GColor pill_color = PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorBlack);
+      graphics_context_set_fill_color(ctx, pill_color);
+      graphics_context_set_stroke_color(ctx, pill_color);
       graphics_context_set_stroke_width(ctx, r * 2 + 1);
 
       graphics_fill_circle(ctx, GPoint(c1x, c1y), r);
@@ -938,7 +1116,17 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     } else {
       graphics_context_set_text_color(ctx, label_color);
     }
-    graphics_draw_text(ctx, lbuf, label_font, label_rect,
+    // The pill's number steps a size down on small rect (a G18B two-digit
+    // pokes past the r=9 circle's chord). LOCAL override only — assigning
+    // label_font here would leak the small font into every anchor drawn
+    // after the pill's loop position.
+    GFont draw_font = label_font;
+    GRect draw_rect = label_rect;
+    if (CLOCK_SMALL_RECT && show_pill) {
+      draw_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
+      draw_rect = GRect(lx - 14, ly - 7, 28, 14);
+    }
+    graphics_draw_text(ctx, lbuf, draw_font, draw_rect,
         GTextOverflowModeTrailingEllipsis, label_align, NULL);
   }
 
@@ -952,7 +1140,7 @@ static void prv_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 // ---- Touch input (touch colour platforms) ----
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 static void prv_touch_handler(const TouchEvent *event, void *context) {
   (void)context;
   if (!s_cf) return;
@@ -1065,7 +1253,7 @@ static void prv_window_appear(Window *window) {
     s_cf->reveal_anim = NULL;
   }
   if (s_cf->canvas) layer_mark_dirty(s_cf->canvas);
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
   touch_service_subscribe(prv_touch_handler, s_cf);
 #endif
   prv_note_clock_interaction();
@@ -1113,7 +1301,7 @@ static void prv_window_unload(Window *window) {
   }
   tick_timer_service_unsubscribe();
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
   touch_service_unsubscribe();
 #endif
 

@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "weather_app_layout.h"
@@ -11,6 +11,11 @@
 #include <time.h>
 
 #define WEATHER_APP_LAYOUT_TOP_PADDING PBL_IF_RECT_ELSE(4, 0)
+// Small rect (flint/asterix, 144x168): the emery 200x228 grid does not fit.
+// The page keeps its masthead + hero temp but drops the condition-phrase row
+// and the UV box (the description's alert line still carries UV), and the
+// today:tomorrow split moves up so the footer keeps its full row.
+#define WEATHER_APP_LAYOUT_RECT_SMALL (!PBL_ROUND && PBL_DISPLAY_HEIGHT < 200)
 #define WEATHER_APP_LAYOUT_CONTENT_LAYER_HORIZONTAL_INSET PBL_IF_RECT_ELSE(3, 2)
 #define WEATHER_APP_LAYOUT_LOCATION_BAR_Y PBL_IF_ROUND_ELSE(18, 0)
 #define WEATHER_APP_LAYOUT_ROUND_BAR_DEPTH 58
@@ -60,7 +65,8 @@
 #define WEATHER_APP_LAYOUT_TOMORROW_ICON_Y_ADJUST PBL_IF_ROUND_ELSE(15, 0)
 // Divider lands at screen y194 on round (separator_y 201, less the round-only 3px lift at the
 // draw site), y192 on emery.
-#define WEATHER_APP_LAYOUT_SEPARATOR_Y_ADJUST PBL_IF_ROUND_ELSE(28, 44)
+#define WEATHER_APP_LAYOUT_SEPARATOR_Y_ADJUST \
+  PBL_IF_ROUND_ELSE(28, (WEATHER_APP_LAYOUT_RECT_SMALL ? 30 : 44))
 // Footer rail: content x2 + 28 -> screen 42, clear of min_x 37 at the
 // label's bottom ink row (221).
 #define WEATHER_APP_LAYOUT_BOTTOM_TEXT_X_SHIFT PBL_IF_ROUND_ELSE(39, 0)
@@ -947,13 +953,21 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
                 GColorBlack, GTextAlignmentLeft);
   line.y += fonts_get_font_height(fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   line.y += label_temp_gap;
+  // Even ink gaps down the temp / hi-lo / condition stack (matching
+  // gabbro's equal spacing), with the CONDITION anchored back at its original row so it
+  // sits just above the forecast sentence (10px, as before). Measured: temp ink ends 63,
+  // condition ink 93..106, sentence at 117. The -1 after the temp centres the hi/lo in
+  // the 29px between (air 7 above / 6 below its mass); the -1 after the hi/lo keeps the
+  // condition riding at 93. (The temp trim moves everything below it; only the hi/lo trim
+  // moves the condition relative to the hi/lo.)
   line.y += prv_draw_text(line, cw, ctx, t->temp, layout->temperature_font,
-                          GColorBlack, GTextAlignmentLeft);
+                          GColorBlack, GTextAlignmentLeft) - 1;
   line.y += prv_draw_text(line, cw, ctx, t->highlow, layout->high_low_phrase_font,
-                          GColorBlack, GTextAlignmentLeft) - 2;
-  if (t->phrase && t->phrase[0]) {
+                          GColorBlack, GTextAlignmentLeft) - 1;
+  if (!WEATHER_APP_LAYOUT_RECT_SMALL && t->phrase && t->phrase[0]) {
     // Width-limited so a long phrase ellipsizes before the disc (disc's left
-    // edge sits ~x116 in content coords).
+    // edge sits ~x116 in content coords). The small rects skip the phrase row
+    // (the header icon carries the condition) to keep the description on-page.
     line.y += prv_draw_text(line, 112, ctx, t->phrase, layout->metrics_value_font,
                             GColorBlack, GTextAlignmentLeft) - 2;
   }
@@ -961,13 +975,14 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
   // warning, wind, precip. Measured and CENTERED in the band between the
   // condition text's bottom (the flow's current line) and the UV box top —
   // one- and two-line descriptions both float mid-band.
-  int box_top = off->y + 150;   // no-description fallback: the classic anchor
+  const int band_bot_anchor = WEATHER_APP_LAYOUT_RECT_SMALL ? 122 : 150;
+  int box_top = off->y + band_bot_anchor;   // no-description fallback: the classic anchor
   if (t->desc && t->desc[0]) {
     const GSize dsz = graphics_text_layout_get_content_size(
         t->desc, layout->metrics_font, GRect(0, 0, cw, 40),
         GTextOverflowModeWordWrap, GTextAlignmentLeft);
     const int band_top = line.y;
-    const int band_bot = off->y + 150;   // the box's nominal top (keeps desc placement)
+    const int band_bot = off->y + band_bot_anchor;  // the box's nominal top (keeps desc placement)
     int desc_y = band_top + (band_bot - band_top - dsz.h) / 2;
     if (desc_y < band_top) desc_y = band_top;
     graphics_context_set_text_color(ctx, GColorBlack);
@@ -995,7 +1010,7 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
   // the box is absent while the page slides and the weather bitmaps arc into
   // place, then simply APPEARS — fully drawn, no animation — on the first
   // static render once the animation settles (text_anim.active == false).
-  if (draw_uv_box && t->uv && t->uv[0] && t->uv[0] != '-') {
+  if (!WEATHER_APP_LAYOUT_RECT_SMALL && draw_uv_box && t->uv && t->uv[0] && t->uv[0] != '-') {
     int uvv = 0;
     for (const char *c = t->uv; *c >= '0' && *c <= '9'; c++) {
       uvv = uvv * 10 + (*c - '0');
@@ -1117,21 +1132,27 @@ static void prv_draw_bottom_rows(const WeatherAppLayout *layout, GPoint *off, in
   (void)gap; (void)phrase;
   off->x += WEATHER_APP_LAYOUT_BOTTOM_TEXT_X_SHIFT;   // 0 on rect
   const int row_y = off->y + 3;
+  // Small rect: no room for the 25px icon under the rule, so the footer is
+  // text-only in G14_BOLD and the label+temps take the full width.
+  GFont foot_font = WEATHER_APP_LAYOUT_RECT_SMALL ? layout->metrics_font
+                                                  : layout->tomorrow_font;
   char caps[24];
   prv_upcase_into(caps, sizeof(caps), label);
   graphics_context_set_text_color(ctx, GColorBlack);
   const GSize lsz = graphics_text_layout_get_content_size(
-      caps, layout->tomorrow_font, GRect(0, 0, 200, 20), GTextOverflowModeFill,
+      caps, foot_font, GRect(0, 0, 200, 20), GTextOverflowModeFill,
       GTextAlignmentLeft);
-  graphics_draw_text(ctx, caps, layout->tomorrow_font,
+  graphics_draw_text(ctx, caps, foot_font,
                      GRect(off->x, row_y, lsz.w + 2, 20),
                      GTextOverflowModeFill, GTextAlignmentLeft, NULL);
   // Derived from the frame the bitmap actually rests in, so the ellipsis point
   // can never drift away from the icon. On rect this is 190-25-3 = 162, exactly
   // what the old cw-based formula produced; on round it self-syncs to 177.
-  const int icon_left = layout->tomorrow_icon_rest_frame.origin.x;
+  const int icon_left = WEATHER_APP_LAYOUT_RECT_SMALL
+      ? (off->x + cw + 4)
+      : layout->tomorrow_icon_rest_frame.origin.x;
   const int tx = off->x + lsz.w + PBL_IF_RECT_ELSE(10, 5);
-  graphics_draw_text(ctx, highlow, layout->tomorrow_font,
+  graphics_draw_text(ctx, highlow, foot_font,
                      GRect(tx, row_y, icon_left - 4 - tx, 20),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 #endif
@@ -1186,7 +1207,7 @@ static void prv_draw_circle_at_layer(Layer *icon_layer, GContext *context,
                      frame.origin.y + sz.h / 2 - diam / 2),
     .size = GSize(diam, diam),
   };
-  prv_draw_weather_background(&bg_circle, context, weather_type_get_bg_color(weather_type));
+  prv_draw_weather_background(&bg_circle, context, weather_type_disc_color(weather_type));
 }
 
 #if WEATHER_APP_LAYOUT_USE_PDC_WEATHER_ICONS
@@ -1243,7 +1264,7 @@ static void prv_draw_current_escape_icon(Layer *layer, GContext *ctx) {
   }
   GRect bounds = layer_get_bounds(layer);
   prv_draw_weather_background(&bounds, ctx,
-      weather_type_get_bg_color(layout->anim_params.incoming_weather_type));
+      weather_type_disc_color(layout->anim_params.incoming_weather_type));
 
   GSize icon_size = layout->today_icon_rest_frame.size;
   GRect icon_rect = {
@@ -1307,7 +1328,7 @@ static void prv_draw_weather_icon_backgrounds(const WeatherAppLayout *layout,
           : 0;
 #endif
       const GColor bg =
-          weather_type_get_bg_color(layout->anim_params.outgoing_weather_type);
+          weather_type_disc_color(layout->anim_params.outgoing_weather_type);
       if (diam >= 4 && !gcolor_equal(bg, GColorClear)) {   // skip sub-dot residue
         graphics_context_set_fill_color(context, bg);
         graphics_fill_circle(context, c, (uint16_t)(diam / 2));
@@ -1758,7 +1779,9 @@ static void prv_icon_anim_stopped(Animation *anim, bool finished, void *context)
       }
     }
     // Restore the static tomorrow icon
-    layer_set_hidden(bitmap_layer_get_layer(layout->tomorrow_weather_icon_layer), false);
+    if (!WEATHER_APP_LAYOUT_RECT_SMALL) {   // small rect: footer is text-only
+      layer_set_hidden(bitmap_layer_get_layer(layout->tomorrow_weather_icon_layer), false);
+    }
 #if WEATHER_APP_LAYOUT_USE_PDC_WEATHER_ICONS
     prv_set_current_weather_pdc(layout, layout->forecast);
 #endif
@@ -1782,14 +1805,6 @@ static const AnimationImplementation s_icon_anim_impl = {
 
 #define LIST_ROWS_VISIBLE     4
 #define LIST_ICON_X           8
-#if defined(PBL_PLATFORM_GABBRO)
-#define LIST_GABBRO_ROW_PITCH   45
-#define LIST_GABBRO_CENTER_Y_SHIFT 0
-#define LIST_GABBRO_ICON_BASE_X 10
-#define LIST_GABBRO_TOP_FOCUS_GAP 21
-#define LIST_GABBRO_BOTTOM_FOCUS_MARGIN 48
-#define LIST_GABBRO_CURVE_BOOST_DIVISOR 800
-#endif
 
 
 
@@ -1918,7 +1933,7 @@ static void prv_draw_bitmap_scaled_to_root(GContext *ctx, GBitmap *src, GRect ro
       }
 
       // Top 2 bits are the alpha channel; 0b00 = transparent, skip it
-      if (pixel >> 6) row.data[ax] = pixel;
+      if (pixel >> 6) weather_fb_row_set(row.data, ax, pixel);
     }
   }
 
@@ -2005,7 +2020,9 @@ void weather_app_layout_init(WeatherAppLayout *layout, const GRect *frame) {
   layout->location_font        = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   layout->temperature_font     = fonts_get_system_font(FONT_KEY_LECO_36_BOLD_NUMBERS);
   layout->high_low_phrase_font = fonts_get_system_font(
-      PBL_IF_RECT_ELSE(FONT_KEY_GOTHIC_24_BOLD, FONT_KEY_GOTHIC_18_BOLD));
+      PBL_IF_RECT_ELSE(WEATHER_APP_LAYOUT_RECT_SMALL ? FONT_KEY_GOTHIC_18_BOLD
+                                                     : FONT_KEY_GOTHIC_24_BOLD,
+                       FONT_KEY_GOTHIC_18_BOLD));
   layout->metrics_font         = fonts_get_system_font(
       FONT_KEY_GOTHIC_14_BOLD);
   layout->metrics_value_font   = fonts_get_system_font(
@@ -2139,6 +2156,11 @@ void weather_app_layout_init(WeatherAppLayout *layout, const GRect *frame) {
   bitmap_layer_set_compositing_mode(layout->tomorrow_weather_icon_layer, GCompOpSet);
   layer_add_child(layout->content_layer,
                   bitmap_layer_get_layer(layout->tomorrow_weather_icon_layer));
+#if WEATHER_APP_LAYOUT_RECT_SMALL
+  // The footer is text-only on the small rects (the icon cannot fit under the
+  // rule); the layer stays for the shared animation plumbing, just hidden.
+  layer_set_hidden(bitmap_layer_get_layer(layout->tomorrow_weather_icon_layer), true);
+#endif
 
 #if WEATHER_APP_LAYOUT_USE_PDC_WEATHER_ICONS
   // A system app's PDC resource is mmap'd directly into READ-ONLY flash (no RAM
@@ -2314,7 +2336,9 @@ static bool prv_prepare_day_transition(WeatherAppLayout *layout,
     }
     animation_unschedule(old);
     layer_set_hidden(layout->outgoing_weather_icon_layer, true);
-    layer_set_hidden(bitmap_layer_get_layer(layout->tomorrow_weather_icon_layer), false);
+    if (!WEATHER_APP_LAYOUT_RECT_SMALL) {   // small rect: footer is text-only
+      layer_set_hidden(bitmap_layer_get_layer(layout->tomorrow_weather_icon_layer), false);
+    }
     layer_set_frame(bitmap_layer_get_layer(layout->current_weather_icon_layer),
                     layout->today_icon_rest_frame);
     // For a cancelled DOWN animation the layer roles were swapped: current_weather_icon_layer
@@ -2401,7 +2425,8 @@ static bool prv_prepare_day_transition(WeatherAppLayout *layout,
   // UP (going back):   reparent and animate it OUT along the arc.
   // DOWN (next day):   reparent and animate it IN from the arc if new_next exists.
   // Otherwise:         hide it immediately.
-  if (!animate_down && layout->next_forecast) {
+  // Small rect: the footer is text-only — the icon never joins the arc.
+  if (!WEATHER_APP_LAYOUT_RECT_SMALL && !animate_down && layout->next_forecast) {
     Layer *tmr = bitmap_layer_get_layer(layout->tomorrow_weather_icon_layer);
     GRect tmr_root = (GRect){
       GPoint(layout->content_layer_origin.x + layout->tomorrow_icon_rest_frame.origin.x,
@@ -2414,7 +2439,7 @@ static bool prv_prepare_day_transition(WeatherAppLayout *layout,
     layer_set_hidden(tmr, false);
     layout->anim_params.tomorrow_reparented = true;
     layout->anim_params.tomorrow_incoming = false;
-  } else if (animate_down && new_next) {
+  } else if (!WEATHER_APP_LAYOUT_RECT_SMALL && animate_down && new_next) {
     // Entrance: reparent but start frame will be set after circle_center is computed below.
     Layer *tmr = bitmap_layer_get_layer(layout->tomorrow_weather_icon_layer);
     layer_remove_from_parent(tmr);

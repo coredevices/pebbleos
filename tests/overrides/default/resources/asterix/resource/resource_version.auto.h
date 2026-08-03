@@ -1,5 +1,3 @@
-/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
-/* SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -9,6 +7,6 @@
 //
 
 static const ResourceVersion SYSTEM_RESOURCE_VERSION = {
-  .crc = 3275651253,
+  .crc = 411393884,
   .timestamp = 0
 };
