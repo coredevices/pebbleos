@@ -190,6 +190,7 @@ Or re-configure with the --relax_toolchain_restrictions option. """
         "-mthumb",
         "-ffreestanding",
         "-ffunction-sections",
+        "-fdata-sections",  # let --gc-sections drop unreferenced const/data objects too
         "-fbuiltin",
         "-fno-builtin-itoa",
     ]
