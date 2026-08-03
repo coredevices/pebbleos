@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "expanded_view.h"
@@ -59,7 +59,7 @@ typedef struct {
   // Whole-card horizontal slide (moook bounce), shared by the SELECT slide-out-left (then on_select
   // fires -> globe slides in from right) and the globe-BACK slide-in-from-left entrance.
   Animation        *slide_anim;
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
   int16_t  touch_start_x, touch_start_y;   // Touchdown origin for swipe detection
   bool     touch_active;
 #endif
@@ -68,6 +68,12 @@ typedef struct {
 } ExpandedViewData;
 
 static ExpandedViewData *s_ev;
+
+// System-app statics persist across launches (the fw image is not reloaded), and a
+// crashed run never reaches unload — clear them before the next run reads them.
+void expanded_view_reset(void) {
+  s_ev = NULL;
+}
 
 // ---- Sunset computation (fixed-point) -------------------------------------
 // There is no sunset field in the synced weather data and no firmware sunset API,
@@ -210,19 +216,19 @@ static void prv_set_from_forecast(const WeatherLocationForecast *f,
   }
   s_ev->high   = f->today_high;
   s_ev->low    = f->today_low;
-  // ROUND: the sunset card's UV widget shows the CURRENT hour's UV (today_uv_now), which is
-  // the live reading once the phone sends the minor-4 hourly block and falls back to the day's
-  // figure until then. Rect keeps the day's figure in its dial — this is a gabbro-only change.
-  s_ev->uv     = PBL_IF_ROUND_ELSE(f->today_uv_now, f->today_uv);
+  // BOTH SHAPES: the sunset card's
+  // UV readout shows the CURRENT hour's UV (today_uv_now) — the live reading once the phone
+  // sends the minor-4 hourly block, falling back to the day's figure until then.
+  s_ev->uv     = f->today_uv_now;
   s_ev->precip = f->today_precip_mm;
   s_ev->wind   = f->today_wind_mph;
-  // ROUND: the card's icon is typed by the CURRENT HOUR (current_type_now) — the same field
-  // the mainscreen header and the hero fly use — so the flown icon and the card icon can
-  // never disagree when the phone's synced 'current' and its hourly slot diverge (seen
-  // on-watch as a rain->overcast repaint at the landing instant). Rect keeps the synced field.
+  // BOTH SHAPES: the card's icon is typed by the CURRENT HOUR
+  // (current_type_now) — the same field the mainscreen header and the hero fly use — so the
+  // flown icon and the card icon can never disagree when the phone's synced 'current' and
+  // its hourly slot diverge (seen on the round watch as a rain->overcast repaint at the
+  // landing instant; rect's header reads the same field now, so it needs the same seam fix).
   GDrawCommandImage *raw = gdraw_command_image_create_with_resource(
-      weather_type_icon_large_resource(
-          PBL_IF_ROUND_ELSE(f->current_type_now, f->current_weather_type)));
+      weather_type_icon_large_resource(f->current_type_now));
   if (raw) {
     s_ev->icon = gdraw_command_image_clone(raw);   // writable copy so we can scale it
     gdraw_command_image_destroy(raw);
@@ -252,8 +258,10 @@ static void prv_set_from_forecast(const WeatherLocationForecast *f,
                                                       // 9 rows clear each side (measured)                          // icon/sunset/temp shift (EV_ICON_Y carries
                                                       // the icon's share, see expanded_view.h)
 #define EV_UV_BAR_Y       194                         // bar top row, just under the group
-#define EV_SUNSET_Y    PBL_IF_ROUND_ELSE(92 + EV_ROUND_GROUP_DY, 92)
-#define EV_TEMP_Y      PBL_IF_ROUND_ELSE(114 + EV_ROUND_GROUP_DY, 114)
+#define EV_SUNSET_Y    PBL_IF_ROUND_ELSE(92 + EV_ROUND_GROUP_DY, (EV_SMALL_RECT ? 82 : 92))
+#define EV_TEMP_Y      PBL_IF_ROUND_ELSE(114 + EV_ROUND_GROUP_DY, (EV_SMALL_RECT ? 102 : 114))
+// Small rect: the UV/RAIN meters as one centred text row (no room for dials).
+#define EV_METERS_Y    140
 #define EV_GAUGE_R     PBL_IF_ROUND_ELSE(20, 25)      // ring radius
 #define EV_GAUGE_CY    PBL_IF_ROUND_ELSE(228, 200)    // dial centre row
 #define EV_GAUGE_INSET PBL_IF_ROUND_ELSE(22, 0)       // pull both dials toward the centre column
@@ -376,7 +384,10 @@ void expanded_view_draw_glance_content(GContext *ctx, int W, int tdx, const char
   // string looks left-shifted), then the full string draws left-aligned from that origin with
   // the ° hanging off the right. Same trick as the "feels" cell and the clock centre capture.
   {
-    GFont tf = fonts_get_system_font(FONT_KEY_LECO_36_BOLD_NUMBERS);
+    // 144px wide: LECO_36 leaves "24/14\xc2\xb0" ~5px of margin — it can't read
+    // as centred. One step down keeps the hierarchy and restores the margins.
+    GFont tf = fonts_get_system_font(
+        EV_SMALL_RECT ? FONT_KEY_LECO_32_BOLD_NUMBERS : FONT_KEY_LECO_36_BOLD_NUMBERS);
     char body[16];
     strncpy(body, temp, sizeof(body) - 1);
     body[sizeof(body) - 1] = '\0';
@@ -384,8 +395,12 @@ void expanded_view_draw_glance_content(GContext *ctx, int W, int tdx, const char
     if (blen >= 2 && (uint8_t)body[blen - 2] == 0xC2 && (uint8_t)body[blen - 1] == 0xB0) {
       body[blen - 2] = '\0';   // strip the 2-byte UTF-8 degree sign
     }
+    // Small rect: LECO's degree glyph is a full-size ring, not a superscript —
+    // excluding it from the measure visibly right-shifts the row, so the whole
+    // string centres there.
     GSize bsz = graphics_text_layout_get_content_size(
-        body, tf, GRect(0, 0, W, 46), GTextOverflowModeFill, GTextAlignmentLeft);
+        EV_SMALL_RECT ? temp : body, tf,
+        GRect(0, 0, W, 46), GTextOverflowModeFill, GTextAlignmentLeft);
     // BOTH shapes: optical centring, degree sign excluded from the measure (it reads as an
     // appendage; true centring of the full string looks left-shifted). Round briefly used
     // true centring while dials flanked this row — the dials are gone, so the override is too.
@@ -423,10 +438,26 @@ void expanded_view_draw_glance_content(GContext *ctx, int W, int tdx, const char
                                    "CURRENT UV");
   }
 #else
-  prv_draw_gauge(ctx, W / 4 + EV_GAUGE_INSET + tdx,     EV_GAUGE_CY, EV_GAUGE_R,
-                 "UV",   uv,     11,  "",  uv < 0, prv_uv_severity_color(uv));
-  prv_draw_gauge(ctx, 3 * W / 4 - EV_GAUGE_INSET + tdx, EV_GAUGE_CY, EV_GAUGE_R,
-                 "RAIN", precip, 100, "%", precip < 0, GColorVividCerulean);
+  if (EV_SMALL_RECT) {
+    // 144x168: the r=25 dials cannot fit under the temp — one text row
+    // carries both readouts instead.
+    char meters[40];
+    char uv_part[16], rain_part[20];
+    if (uv >= 0) snprintf(uv_part, sizeof(uv_part), "UV %d", uv);
+    else         snprintf(uv_part, sizeof(uv_part), "UV --");
+    if (precip >= 0) snprintf(rain_part, sizeof(rain_part), "RAIN %d%%", precip);
+    else             snprintf(rain_part, sizeof(rain_part), "RAIN --");
+    snprintf(meters, sizeof(meters), "%s   %s", uv_part, rain_part);
+    graphics_context_set_text_color(ctx, GColorBlack);
+    graphics_draw_text(ctx, meters, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+                       GRect(tdx, EV_METERS_Y, W, 22),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  } else {
+    prv_draw_gauge(ctx, W / 4 + EV_GAUGE_INSET + tdx,     EV_GAUGE_CY, EV_GAUGE_R,
+                   "UV",   uv,     11,  "",  uv < 0, prv_uv_severity_color(uv));
+    prv_draw_gauge(ctx, 3 * W / 4 - EV_GAUGE_INSET + tdx, EV_GAUGE_CY, EV_GAUGE_R,
+                   "RAIN", precip, 100, "%", precip < 0, GColorVividCerulean);
+  }
 #endif
 }
 
@@ -474,10 +505,14 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   // SELECT opens the globe from this card on round too, so the affordance belongs there as well.
   // The nub sits on the glass's widest rows (117..142, where the chord still reaches x259), so
   // the whole protruding sliver stays on screen — nothing to re-inset for round.
-  const int select_protrusion = 5;
-  graphics_context_set_fill_color(ctx, GColorBlack);
-  graphics_fill_oval(ctx, GRect(W - select_protrusion, (b.size.h - 26) / 2, 26, 26),
-                     GOvalScaleModeFitCircle);
+  // Small rect: skipped — beside the full-height content column the clipped
+  // half-circle reads as a rendering glitch, not an affordance.
+  if (!EV_SMALL_RECT) {
+    const int select_protrusion = 5;
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_oval(ctx, GRect(W - select_protrusion, (b.size.h - 26) / 2, 26, 26),
+                       GOvalScaleModeFitCircle);
+  }
 
 #if PBL_ROUND
   // DOWN nav arrow — the system Health app's card-view indicator, same applib component and
@@ -502,7 +537,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
 // Slide duration + interpolation are shared with globe_view via weather_math.h
 // (WEATHER_HSLIDE_MS / weather_interpolate_moook_soft1) so the pair can't drift.
 
-// BOTH shapes since — round used to stub the pair into hard cuts.
+// BOTH shapes.
 static void prv_slide_out_stopped(Animation *anim, bool finished, void *context) {
   if (!s_ev) return;
   s_ev->slide_anim = NULL;   // property animation auto-destroys after a normal stop
@@ -558,7 +593,7 @@ static void prv_click_select(ClickRecognizerRef r, void *ctx) {
 }
 
 // ---- Touch input (touch colour platforms) ----
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 #define SWIPE_THRESHOLD 20   // px; same tap/swipe split as the other screens
 
 static void prv_touch_handler(const TouchEvent *event, void *context) {
@@ -665,7 +700,7 @@ static void prv_updated_timer_cb(void *ctx) {
 
 static void prv_window_appear(Window *window) {
   if (!s_ev) return;
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
   touch_service_subscribe(prv_touch_handler, s_ev);
 #endif
   // Hold "Last updated ..." for 2s, then swap it out for the time (once).
@@ -698,7 +733,7 @@ static void prv_window_load(Window *window) {
   layer_add_child(window_get_root_layer(window), s_ev->canvas);
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 // Unsubscribe on DISAPPEAR, not unload: when SELECT/swipe-left pushes the globe, weather.c
 // then REMOVES this card from under it — the card's late unload would clobber the touch
 // subscription the globe just made in its own appear (touch_service is a single slot).
@@ -754,7 +789,7 @@ void expanded_view_push(const WeatherLocationForecast *today,
   window_set_window_handlers(s_ev->window, (WindowHandlers){
     .load      = prv_window_load,
     .appear    = prv_window_appear,
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     .disappear = prv_window_disappear,
 #endif
     .unload    = prv_window_unload,

@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "forecast_list.h"
@@ -28,7 +28,6 @@
 // round watches (gabbro/getafix, PBL_ROUND) AND on emery/obelix (rectangular, CONFIG_TOUCH).
 // Other rect platforms keep the condensed scrolling list. The geometry inside the shared
 // draw branches on PBL_ROUND for the round-circle vs the emery-rectangle layout.
-#define WEATHER_ANIM_5DAY WEATHER_PLATFORM_TOUCH_COLOR
 
 #define MAX_ROWS         7
 #define ROWS_VISIBLE     4
@@ -46,34 +45,9 @@
 #define ROUND_SIDE_INSET PBL_IF_ROUND_ELSE(28, 0)
 #define ROUND_BAR_INSET  PBL_IF_ROUND_ELSE(44, 0)
 
-#if defined(PBL_PLATFORM_GABBRO)
-#define GABBRO_LIST_ROW_PITCH      45
-#define GABBRO_LIST_FOCUSED_HEIGHT 55
-#define GABBRO_LIST_ICON_SIZE      30
-#define GABBRO_LIST_ICON_RADIUS    17
-#define GABBRO_LIST_FOCUS_RADIUS   19
-#define GABBRO_LIST_CENTER_Y_SHIFT 0
-#define GABBRO_LIST_ICON_BASE_X    10
-#define GABBRO_LIST_TEXT_GAP       11
-#define GABBRO_LIST_EDGE_PAD       8
-#define GABBRO_LIST_TOP_FOCUS_GAP  21
-#define GABBRO_LIST_BOTTOM_FOCUS_MARGIN 48
-#define GABBRO_LIST_CURVE_BOOST_DIVISOR 800
-#define GABBRO_LIST_TOP_REST_VISIBLE_ROWS 4
-#define GABBRO_CAP_DEPTH           58
-#define GABBRO_CAP_RADIUS          207
-#define GABBRO_CAP_Y_ADJUST        -13
-#define GABBRO_CAP_TEXT_INSET      50
-#define GABBRO_CAP_TIME_Y          2
-#define GABBRO_CAP_LOCATION_Y      21
-#endif
 
 #define prv_weather_bg_color weather_type_bg_color
-#if defined(PBL_PLATFORM_GABBRO)
-#define prv_icon_res weather_type_icon_clock_resource
-#else
 #define prv_icon_res weather_type_icon_tiny_resource
-#endif
 
 // ---- State ----
 
@@ -92,10 +66,7 @@ typedef struct {
   GFont    loc_font;
   char     condition_str[MAX_ROWS][24];  // pre-formatted condition strings
   int      row_height;  // computed at load: (screen_h - LOCATION_BAR_H) / ROWS_VISIBLE
-#if defined(PBL_PLATFORM_GABBRO)
-  GDrawCommandSequence *icon_sequence;
-#endif
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   GDrawCommandImage *pdc_icons[MAX_ROWS];  // official PebbleOS weather PDC icons (round 5-day)
   GDrawCommandImage *today_pdc;            // larger today icon for the summary header
   AppTimer *sun_timer;                     // drives the today sun-ray swirl (only when Sun)
@@ -174,11 +145,11 @@ typedef struct {
   uint8_t          *squash_scratch;  // full-screen snapshot, re-sampled while overwriting the fb
   bool              squash_captured; // ROUND capture-once: snapshot filled — later frames skip
                                      // the scene render + fb copy and only resample (step 2)
-  bool              refresh_deferred; // ROUND: a phone sync landed mid-report-scene; the heavy
-                                      // visual reload waits for the scene end (see
+  bool              refresh_deferred; // BOTH shapes: a phone sync landed mid-report-scene;
+                                      // the heavy visual reload waits for the scene end (see
                                       // forecast_list_update_data / prv_apply_deferred_refresh)
 #endif
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
   int16_t  touch_start_x, touch_start_y;   // Touchdown origin for swipe detection
   bool     touch_active;
 #endif
@@ -206,24 +177,23 @@ typedef struct {
 
 static ForecastListData *s_list;
 
+#ifdef CONFIG_TOUCH
 // One 4x4 ordered-dither (bayer) table for every stipple on this screen
 // (icon crossfade).
 static const uint8_t s_bayer4[4][4] = {
   {  0,  8,  2, 10 }, { 12,  4, 14,  6 }, {  3, 11,  1,  9 }, { 15,  7, 13,  5 },
 };
+#endif
 
-#if !PBL_ROUND
+#if defined(CONFIG_TOUCH) && !PBL_ROUND
 static void prv_clock_loc_city(char *dst, size_t dst_size, const char *src);  // defined below
 #endif
 
 // ---- Helpers ----
 
 static int prv_max_scroll(void) {
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   return 0;  // round 5-day view is a single static screen — no scrolling
-#elif defined(PBL_PLATFORM_GABBRO)
-  int extra = (int)s_list->num_days - 1;
-  return extra > 0 ? extra * s_list->row_height : 0;
 #else
   int extra = (int)s_list->num_days - ROWS_VISIBLE;
   return extra > 0 ? extra * s_list->row_height : 0;
@@ -234,22 +204,10 @@ static void prv_fill_weekday_label(int day_index, const char *fallback,
                                    char *buffer, size_t buffer_size) {
   if (!buffer || buffer_size == 0) return;
 
-#if defined(PBL_PLATFORM_GABBRO)
-  if (fallback && fallback[0]) {
-    snprintf(buffer, buffer_size, "%s", fallback);
-    for (char *c = buffer; *c; c++) {
-      if (*c >= 'a' && *c <= 'z') *c = (char)(*c - 'a' + 'A');
-    }
-  } else {
-    snprintf(buffer, buffer_size, "---");
-  }
-  return;
-#else
   weather_fill_weekday_abbrev(day_index, fallback, buffer, buffer_size);
-#endif
 }
 
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
 #define R5_TODAY_ICON 40   // scaled size of the today-summary header icon
 
 // Official PebbleOS weather PDC icon (Pebble_25x25_*) for each app WeatherType.
@@ -284,14 +242,14 @@ static uint32_t prv_official_weather_pdc_res_small(WeatherType t) {
 #endif
 
 
+#ifdef CONFIG_TOUCH
 static WeatherType prv_header_type(void);
+#endif
 static void prv_load_icons(void) {
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   s_list->today_header_dirty = true;   // today's date/condition changed → recompute layout
 #endif
-#if defined(PBL_PLATFORM_GABBRO)
-  return;
-#elif WEATHER_ANIM_5DAY
+#if defined(CONFIG_TOUCH)
   // Round 5-day uses the official PebbleOS weather PDC icons, cloned into RAM
   // (a system-app resource is mmap'd READ-ONLY, so draw of the raw would fault).
   for (int i = 0; i < (int)s_list->num_days; i++) {
@@ -332,36 +290,16 @@ static void prv_load_icons(void) {
 #endif
 }
 
-#if defined(PBL_PLATFORM_GABBRO)
-static void prv_draw_gabbro_pdc_icon(GContext *ctx, WeatherType weather_type,
-                                     GPoint origin) {
-  if (!s_list) return;
-  if (!s_list->icon_sequence) {
-    s_list->icon_sequence =
-        gdraw_command_sequence_create_with_resource(RESOURCE_ID_WEATHER_CLOCK_ICONS_PDC);
-    if (!s_list->icon_sequence) return;
-  }
 
-  int frame_index = (int)weather_type;
-  if (frame_index > (int)WeatherType_RainAndSnow) {
-    frame_index = WeatherType_Generic;
-  }
-
-  GDrawCommandFrame *frame =
-      gdraw_command_sequence_get_frame_by_index(s_list->icon_sequence, frame_index);
-  if (frame) {
-    gdraw_command_frame_draw(ctx, s_list->icon_sequence, frame, origin);
-  }
-}
-#endif
-
-// BOTH SHAPES : the mainscreen header
+// BOTH SHAPES: the mainscreen header
 // shows the CURRENT-HOUR conditions — type/temp/phrase derived from the hourly arrays at
 // the location's local hour, falling back to the synced current when the record has no
 // hourly block. The clock centre reads the same field so the two can never disagree.
+#ifdef CONFIG_TOUCH
 static WeatherType prv_header_type(void) {
   return s_list->days[0].current_type_now;
 }
+#endif
 
 // Pre-format condition strings so the draw proc does zero formatting work.
 static void prv_format_conditions(void) {
@@ -419,168 +357,35 @@ static void prv_scroll_to(int target) {
   prv_scroll_to_ms(target, ANIM_MS, false);
 }
 
-#if defined(PBL_PLATFORM_GABBRO)
-static void prv_scroll_to_menu_repeat(int target) {
-  if (!s_list) return;
-  if (target < 0) target = 0;
-  if (target > prv_max_scroll()) target = prv_max_scroll();
 
-  if (s_list->anim) {
-    animation_unschedule(s_list->anim);
-    animation_destroy(s_list->anim);
-    s_list->anim = NULL;
-    s_list->scroll_offset_px = s_list->scroll_to;
+// Shared animation boilerplate: create + duration + curve + impl + optional stopped
+// handler + schedule. Every moook here runs a manual curve in its update proc, so
+// the wrapper just parameterizes the pieces that differ. (Shared region: used by
+// both the rect-only squash block below and the round+rect transitions further down.)
+static Animation *prv_start_anim(uint32_t dur_ms, AnimationCurve curve,
+                                 const AnimationImplementation *impl,
+                                 AnimationStoppedHandler stopped) {
+  Animation *a = animation_create();
+  animation_set_duration(a, dur_ms);
+  animation_set_curve(a, curve);
+  animation_set_implementation(a, impl);
+  if (stopped) {
+    animation_set_handlers(a, (AnimationHandlers){ .stopped = stopped }, NULL);
   }
-
-  prv_scroll_to_ms(target, 96, false);
+  animation_schedule(a);
+  return a;
 }
-#endif
+
+// SELECT-exit contract state — shared between the full report scene (CONFIG_TOUCH)
+// and the plain fallback slide every platform compiles, so these live outside the gate.
+static Animation *s_select_exit_anim;
+static void (*s_select_exit_done)(void *ctx);
+static void *s_select_exit_ctx;
 
 // ---- Drawing ----
 
-#if defined(PBL_PLATFORM_GABBRO)
-static int prv_round_content_inset(int screen_y, int screen_h) {
-  int radius = screen_h / 2;
-  int y_offset = screen_y - radius;
-  int32_t radius_sq = (int32_t)radius * radius;
-  int32_t y_sq = (int32_t)y_offset * y_offset;
-  int32_t sqrt_arg = radius_sq - y_sq;
-  if (sqrt_arg < 0) sqrt_arg = 0;
-  return GABBRO_LIST_ICON_BASE_X + radius - (int)weather_isqrt(sqrt_arg) +
-      (int)(y_sq / GABBRO_LIST_CURVE_BOOST_DIVISOR);
-}
 
-static int prv_gabbro_focus_y_for_scroll(int scroll_offset, int screen_h) {
-  int max_scroll = prv_max_scroll();
-  int top_y = GABBRO_CAP_DEPTH + GABBRO_LIST_TOP_FOCUS_GAP;
-  int bottom_y = screen_h - GABBRO_LIST_BOTTOM_FOCUS_MARGIN;
-  if (bottom_y < top_y) bottom_y = top_y;
-  if (max_scroll <= 0) return top_y;
-  if (scroll_offset < 0) scroll_offset = 0;
-  if (scroll_offset > max_scroll) scroll_offset = max_scroll;
-  return top_y + weather_scale_i32(bottom_y - top_y, scroll_offset, max_scroll);
-}
-
-static void prv_draw_gabbro_cap(GContext *ctx, int w) {
-  int hide_px = 0;
-  int hide_distance = s_list->row_height * 2;
-  if (hide_distance > 0) {
-    hide_px = (int)((int32_t)s_list->scroll_offset_px * GABBRO_CAP_DEPTH /
-                    hide_distance);
-    if (hide_px > GABBRO_CAP_DEPTH) hide_px = GABBRO_CAP_DEPTH;
-  }
-
-  int center_y = GABBRO_CAP_DEPTH - GABBRO_CAP_RADIUS +
-                 GABBRO_CAP_Y_ADJUST - hide_px;
-  if (center_y + GABBRO_CAP_RADIUS <= 0) return;
-
-  graphics_context_set_fill_color(ctx, GColorVividCerulean);
-  graphics_fill_circle(ctx, GPoint(w / 2, center_y), GABBRO_CAP_RADIUS);
-
-  graphics_context_set_text_color(ctx, GColorWhite);
-  GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
-  int safe = GABBRO_CAP_TEXT_INSET;
-
-  char time_str[8];
-  time_t now = time(NULL);
-  struct tm *lt = localtime(&now);
-  if (clock_is_24h_style()) {
-    strftime(time_str, sizeof(time_str), "%H:%M", lt);
-  } else {
-    strftime(time_str, sizeof(time_str), "%I:%M", lt);
-    if (time_str[0] == '0') memmove(time_str, time_str + 1, sizeof(time_str) - 1);
-  }
-
-  graphics_draw_text(ctx, time_str, font,
-      GRect(safe, GABBRO_CAP_TIME_Y - hide_px, w - safe * 2, 18),
-      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-
-  const char *loc = (s_list->num_days > 0 && s_list->days[0].location_name[0])
-                      ? s_list->days[0].location_name : "";
-  char city_name[48];
-  size_t city_len = 0;
-  while (loc[city_len] && loc[city_len] != ',' &&
-         city_len < sizeof(city_name) - 1) {
-    city_name[city_len] = loc[city_len];
-    city_len++;
-  }
-  while (city_len > 0 && city_name[city_len - 1] == ' ') city_len--;
-  city_name[city_len] = '\0';
-  graphics_draw_text(ctx, city_name, font,
-      GRect(safe, GABBRO_CAP_LOCATION_Y - hide_px, w - safe * 2, 19),
-      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-}
-
-static void prv_canvas_draw_gabbro(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_bounds(layer);
-  int W = bounds.size.w;
-  int H = bounds.size.h;
-  int off = s_list->scroll_offset_px;
-  int focus_y = prv_gabbro_focus_y_for_scroll(off, H) + GABBRO_LIST_CENTER_Y_SHIFT;
-  int rh = s_list->row_height;
-
-  graphics_context_set_fill_color(ctx, GColorWhite);
-  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-  graphics_context_set_compositing_mode(ctx, GCompOpSet);
-
-  for (int i = 0; i < (int)s_list->num_days; i++) {
-    if (off <= 0 && i >= GABBRO_LIST_TOP_REST_VISIBLE_ROWS) {
-      continue;
-    }
-
-    int row_center_y = focus_y + i * rh - off;
-    if (row_center_y < -GABBRO_LIST_FOCUSED_HEIGHT ||
-        row_center_y > H + GABBRO_LIST_FOCUSED_HEIGHT) {
-      continue;
-    }
-
-    int delta = row_center_y - focus_y;
-    int abs_delta = delta < 0 ? -delta : delta;
-    bool focused = abs_delta <= rh / 2;
-    const WeatherLocationForecast *f = &s_list->days[i];
-
-    int inset = prv_round_content_inset(row_center_y, H);
-    int icon_x = inset;
-    int draw_icon_size = GABBRO_LIST_ICON_SIZE;
-    int icon_y = row_center_y - draw_icon_size / 2;
-    int icon_cx = icon_x + draw_icon_size / 2;
-    int icon_r = focused ? GABBRO_LIST_FOCUS_RADIUS : GABBRO_LIST_ICON_RADIUS;
-
-    GColor bg = prv_weather_bg_color(f->current_weather_type);
-    if (!gcolor_equal(bg, GColorClear)) {
-      graphics_context_set_fill_color(ctx, bg);
-      graphics_fill_circle(ctx, GPoint(icon_cx, row_center_y), (uint16_t)icon_r);
-    }
-
-    prv_draw_gabbro_pdc_icon(ctx, f->current_weather_type, GPoint(icon_x, icon_y));
-
-    char weekday_label[16];
-    prv_fill_weekday_label(i, f->label, weekday_label, sizeof(weekday_label));
-
-    int text_x = icon_x + draw_icon_size + GABBRO_LIST_TEXT_GAP;
-    int text_w = W - text_x - inset - GABBRO_LIST_EDGE_PAD;
-    if (text_w < 28) text_w = 28;
-    graphics_context_set_text_color(ctx, focused ? GColorBlack : GColorDarkGray);
-
-    if (focused) {
-      graphics_draw_text(ctx, weekday_label, s_list->day_font,
-          GRect(text_x, row_center_y - 29, text_w, 28),
-          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-      graphics_draw_text(ctx, s_list->condition_str[i], s_list->condition_font,
-          GRect(text_x, row_center_y - 2, text_w, 22),
-          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    } else {
-      graphics_draw_text(ctx, weekday_label, s_list->loc_font,
-          GRect(text_x, row_center_y - 11, text_w, 22),
-          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    }
-  }
-
-  prv_draw_gabbro_cap(ctx, W);
-}
-#endif
-
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
 // ---- Single-view animated 5-day forecast --------------------------------------
 // All five days fit on one screen (no scrolling): a today header (large animated
 // condition icon + current temp / date / phrase), a centred row of weekday + icon
@@ -743,24 +548,6 @@ static int64_t prv_moook_hasted(int32_t n, int64_t from, int64_t to) {
   return interpolate_moook_soft(cut, from, to, 3);
 }
 
-// Shared animation boilerplate: create + duration + curve + impl + optional stopped
-// handler + schedule. Every moook here runs a manual curve in its update proc, so
-// the wrapper just parameterizes the pieces that differ. (Shared region: used by
-// both the rect-only squash block below and the round+rect transitions further down.)
-static Animation *prv_start_anim(uint32_t dur_ms, AnimationCurve curve,
-                                 const AnimationImplementation *impl,
-                                 AnimationStoppedHandler stopped) {
-  Animation *a = animation_create();
-  animation_set_duration(a, dur_ms);
-  animation_set_curve(a, curve);
-  animation_set_implementation(a, impl);
-  if (stopped) {
-    animation_set_handlers(a, (AnimationHandlers){ .stopped = stopped }, NULL);
-  }
-  animation_schedule(a);
-  return a;
-}
-
 // Shared: round's report stage 3 reuses the same fly slot for the paper clone.
 static void prv_clear_fly(void) {
   if (!s_list) return;
@@ -801,7 +588,7 @@ static void prv_render_squash_in(GContext *ctx) {
                         s_list->squash_mode);
 }
 
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
 // ---- Return-from-clock: whole-screen Timeline squash-stretch IN -------------------------
 // Squash directions (s_list->squash_mode; 0 = inactive).
 
@@ -879,7 +666,7 @@ static void prv_start_squash(int mode) {
 // scale-segment "zooms" (Timeline pin->card icon animation) from its header rect to the card's
 // 80x80 icon rect. On completion the card is revealed with its static icon exactly where the flown
 // icon landed. Falls back to a plain squash if the hero icon can't be set up.
-#endif  // WEATHER_ANIM_5DAY && !PBL_ROUND
+#endif  // CONFIG_TOUCH && !PBL_ROUND
 
 // Shared: the hero icon-fly + DOWN_EXIT squash now work on round too.
 static void prv_start_up_to_card(void) {
@@ -1143,13 +930,7 @@ static void prv_start_clock_stage1(void) {
 // report window hard-cuts in on the final frame.
 // ===================================================================================
 
-// SELECT-exit contract state — shared with the round/OOM fallback slide below, so these
-// three live OUTSIDE the rect gate.
-static Animation *s_select_exit_anim;
-static void (*s_select_exit_done)(void *ctx);
-static void *s_select_exit_ctx;
-
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
 static Animation *s_report_anim;               // stages 2-4 (stage 2 overlaps stage 1's tail)
 #define R5_REPORT_BALL_R      13                                  // = the SELECT nub's radius
 // The SELECT nub is fill_oval(GRect(W-5, (H-26)/2, 26, 26)) — a r13 circle centred at
@@ -1167,10 +948,12 @@ static void prv_start_report_stage3(void);
 static void prv_start_report_stage4(void);
 static void prv_report_stage4_stopped(Animation *anim, bool finished, void *context);
 
-#if PBL_ROUND
-// Apply a weather refresh that arrived while the report scene was playing (deferred by
-// forecast_list_update_data so its flash PDC re-reads can't starve the 240ms stage-4 bow
-// of its few frames). Called from every scene exit — finish and cancel alike.
+#ifdef CONFIG_TOUCH
+// BOTH SHAPES: apply a weather refresh that
+// arrived while the report scene was playing (deferred by forecast_list_update_data so its
+// flash PDC re-reads can't starve the 240ms stage-4 bow of its few frames — the framework
+// jumps missed animations straight to their final frame, which erased the bow). Called
+// from every scene exit — finish and cancel alike.
 static void prv_apply_deferred_refresh(void) {
   if (!s_list || !s_list->refresh_deferred) return;
   s_list->refresh_deferred = false;
@@ -1458,7 +1241,7 @@ static void prv_draw_exiting_paper(GContext *ctx) {
   gdraw_command_image_draw(ctx, clone, origin);
   gdraw_command_image_destroy(clone);
 }
-#endif  // WEATHER_ANIM_5DAY
+#endif  // CONFIG_TOUCH
 
 // ===================================================================================
 // Timeline up/down icon transition: a real TRAVEL scale-segment (NOT an in-place squash).
@@ -1761,13 +1544,6 @@ static void prv_draw_bottom_stats(GContext *ctx, const WeatherLocationForecast *
 #define R5_ICON_SLIDE      14    // px the icon travels during the fade transition
 #define R5_FADE_LEVELS     4     // dither steps for the cross-fade
 
-// Set to 1 to render the animated weather bitmaps (rain streaks, snow flakes, sun body +
-// rays) in monochrome black instead of their per-condition colours. Flip to 0 to restore the
-// original palette — the source colours live untouched in the PrecipStyle structs + the #else
-// branches here, so this one toggle is the whole revert. (Clouds are the official PDC art and
-// are unaffected either way.)
-#define WEATHER_ANIM_MONO_BLACK 1
-
 // The sun's body, drawn the way the PDC draws it: the EXACT octagon polygon from
 // Pebble_50x50_Sunny_day.svg (points (+-4.5,+-11.5)/(+-11.5,+-4.5) about the body centre,
 // x0.8 for the 40px icon -> (+-4,+-9)/(+-9,+-4)), rendered as WHITE FILL + a stroke-3 BLACK
@@ -1853,13 +1629,7 @@ static int prv_sun_proj(int32_t r10, int32_t trig, int c) {
 }
 
 static void prv_draw_animated_sun(GContext *ctx, GPoint c, int32_t phase, int scale_pct) {
-#if WEATHER_ANIM_MONO_BLACK
   const GColor sun_color = GColorBlack;
-#else
-  // Warm yellow-orange = the partly-cloudy disc colour on this screen (not pure red
-  // orange). Pulled from the same source so it matches exactly. This icon only.
-  const GColor sun_color = prv_weather_bg_color(WeatherType_PartlyCloudy);
-#endif
   graphics_context_set_antialiased(ctx, true);
   // The PDC's own octagon, fill + stroked outline (see prv_draw_sun_body).
   prv_draw_sun_body(ctx, c, scale_pct, sun_color);
@@ -2048,12 +1818,8 @@ static void prv_draw_flake(GContext *ctx, GPoint c, int r) {
 
 static void prv_draw_animated_precip(GContext *ctx, GPoint pdc_offset, int32_t phase,
                                      const PrecipStyle *st) {
-#if WEATHER_ANIM_MONO_BLACK
   const GColor main_col = GColorBlack;   // one ink for all precip — flakes included
   const GColor pale_col = main_col;      // (white flakes vanished on the white page)
-#else
-  const GColor main_col = st->main_col, pale_col = st->pale_col;
-#endif
   // phase is the sun-angle accumulator -> back to a tick count (sun-speed independent).
   const int tick = phase / R5_SUN_ANGLE_STEP;
   const int32_t ay = (int32_t)(tick % st->bob_ticks) * (TRIG_MAX_ANGLE / st->bob_ticks);
@@ -2163,7 +1929,7 @@ static void prv_fade_erase(GContext *ctx, GRect r, int keep, GColor bg) {
     for (int x = r.origin.x; x < r.origin.x + r.size.w; x++) {
       if (x < (int)ri.min_x || x > (int)ri.max_x) continue;
       if (s_bayer4[y & 3][x & 3] >= thr) {
-        ri.data[x] = bg.argb;
+        weather_fb_row_set(ri.data, x, bg.argb);
       }
     }
   }
@@ -2491,7 +2257,7 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
           GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
     }
 
-    GColor bg = prv_weather_bg_color(f->current_weather_type);
+    GColor bg = weather_type_disc_color(f->current_weather_type);
     // Discs claim the vanished label band on top of the section lift.
     const int dsc = R5_DISC_SCROLL_UP * ss / R5_SECTION_TRAVEL;
     const int dcy = R5_ICON_CY - ss + bow - dsc;  // disc centre-y after the slide
@@ -2524,10 +2290,9 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
       graphics_fill_circle(ctx, GPoint(cx, dcy), R5_DISC_R);
     }
 #endif
-    // pdc_icons[] is indexed by DAY (loaded from days[k]); the fan window starts at day 0
-    // (today-first, both shapes since ), so the icon for column i is
-    // pdc_icons[i]. The old hard-coded +1 predates the today-first window and put
-    // TOMORROW'S icon on TODAY'S disc (the icons visibly mismatched their columns).
+    // pdc_icons[] is indexed by DAY (loaded from days[k]); the fan window starts at
+    // day 0 (today-first on both shapes), so column i draws pdc_icons[i] — any offset
+    // here puts a NEIGHBOUR day's icon on the column's disc.
     const int icon_day = i;
     if (s_list->pdc_icons[icon_day]) {
       GSize isz = gdraw_command_image_get_bounds_size(s_list->pdc_icons[icon_day]);
@@ -2727,11 +2492,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
 #else
   if (!s_list) return;
 #endif
-#if defined(PBL_PLATFORM_GABBRO)
-  prv_canvas_draw_gabbro(layer, ctx);
-  return;
-#endif
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   if (s_list->report_fx == 4) {
     // Stage 4 — the paper's bow: white card, the paper squash-stretching off the left
     // (its own points deform — Timeline smiley exit), the caption sliding out with it.
@@ -2872,27 +2633,22 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     int ic_cx = icon_x + ICON_SIZE / 2;
     int ic_cy = ry + (rh - ICON_SIZE) / 2 + ICON_SIZE / 2;
     int radius = ICON_SIZE * 7 / 10;  // same as diam/2 = ICON_SIZE*14/10/2
-    GColor bg = prv_weather_bg_color(f->current_weather_type);
+    GColor bg = weather_type_disc_color(f->current_weather_type);
     if (!gcolor_equal(bg, GColorClear)) {
       graphics_context_set_fill_color(ctx, bg);
       graphics_fill_circle(ctx, GPoint(ic_cx, ic_cy), (uint16_t)radius);
     }
 
-    // Icon
     if (s_list->icons[i]) {
       int iy = ry + (rh - ICON_SIZE) / 2;
-      graphics_draw_bitmap_in_rect(ctx, s_list->icons[i],
-          GRect(icon_x, iy, ICON_SIZE, ICON_SIZE));
+      weather_icon_draw(ctx, s_list->icons[i],
+          GRect(icon_x, iy, ICON_SIZE, ICON_SIZE),
+          false /* rows sit on the white field */);
     }
 
     // Vertical text baseline — subtract 3px to correct for GOTHIC_18 internal top padding
     // so glyphs are visually centred in the row rather than sitting low.
     int ty = ry + (rh - 18) / 2 - 3;
-
-    int divider_x = day_label_x + DAY_LABEL_W + DAY_CONDITION_DIVIDER_GAP;
-    int condition_x = divider_x + CONDITION_TEXT_LEFT_GAP;
-    int condition_w = W - right_margin - condition_x;
-    if (condition_w < 20) condition_w = 20;
 
     // Day label
     char weekday_label[16];
@@ -2902,13 +2658,28 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
         GRect(day_label_x, ty, DAY_LABEL_W, 20),
         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
-    graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack));
-    graphics_draw_line(ctx, GPoint(divider_x, ry + 5), GPoint(divider_x, ry + rh - 5));
-
-    // Hi / Lo temperature — use pre-formatted string, zero allocation per frame
-    graphics_draw_text(ctx, s_list->condition_str[i], s_list->condition_font,
-        GRect(condition_x, ty, condition_w, 20),
-        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    // Hi over lo, right-aligned — the day's actual numbers, not a phrase that
+    // truncates to nothing in this narrow column. Bold hi / regular lo carries
+    // the warm-cool split without colour (this list is the BW mainscreen).
+    const int temp_x = day_label_x + DAY_LABEL_W + DAY_CONDITION_DIVIDER_GAP;
+    const int temp_w = W - right_margin - 4 - temp_x;
+    char temp_str[8];
+    if (f->today_high != WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP) {
+      snprintf(temp_str, sizeof(temp_str), "%d\xC2\xB0", f->today_high);
+    } else {
+      snprintf(temp_str, sizeof(temp_str), "--");
+    }
+    graphics_draw_text(ctx, temp_str, s_list->day_font,
+        GRect(temp_x, ry + 1, temp_w, 20),
+        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+    if (f->today_low != WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP) {
+      snprintf(temp_str, sizeof(temp_str), "%d\xC2\xB0", f->today_low);
+    } else {
+      snprintf(temp_str, sizeof(temp_str), "--");
+    }
+    graphics_draw_text(ctx, temp_str, s_list->condition_font,
+        GRect(temp_x, ry + rh / 2 - 2, temp_w, 20),
+        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
   }
 
   // Scroll indicator
@@ -2923,8 +2694,9 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
                        0, GCornerNone);
   }
 
-  // Blue location bar drawn last (covers any row that scrolled under it)
-  graphics_context_set_fill_color(ctx, GColorVividCerulean);
+  // Location bar drawn last (covers any row that scrolled under it). Solid black
+  // on the BW boards — the dithered blue rendered the white text unreadable.
+  graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorBlack));
   graphics_fill_rect(ctx, GRect(0, LOCATION_BAR_Y, W, LOCATION_BAR_H),
                      0, GCornerNone);
   graphics_context_set_text_color(ctx, GColorWhite);
@@ -2954,7 +2726,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
 
 // ---- Touch input (Emery only) ----
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 // Touch scroll/fling + swipe-navigation removed (the 5-day mainscreen no longer takes touch nav;
 // gestures will be re-added against the current layout later). The icon-interaction helpers below
 // stay — they are also driven by the button click handler.
@@ -2992,7 +2764,7 @@ static void prv_note_icon_interaction(void) {
 // ---- Button input ----
 // (The select-exit statics now live with the report-scene block above.)
 
-#if !PBL_ROUND
+#if defined(CONFIG_TOUCH) && !PBL_ROUND
 // ---- First-entry clock-slot intro: location -> time (the sunset card's swap) ----
 // City-only copy (split at the comma, like the round location bar).
 static void prv_clock_loc_city(char *dst, size_t dst_size, const char *src) {
@@ -3049,9 +2821,7 @@ static void prv_clock_loc_timer_cb(void *ctx) {
 #endif  // !PBL_ROUND (clock-slot intro draws only on the rect mainscreen)
 
 void forecast_list_replay_location_intro(void) {
-#if PBL_ROUND
-  // Round's mainscreen has no clock-slot intro — the API stays for weather.c.
-#else
+#if defined(CONFIG_TOUCH) && !PBL_ROUND
   if (!s_list) return;
   if (s_list->clock_loc_timer) {
     app_timer_cancel(s_list->clock_loc_timer);
@@ -3065,11 +2835,13 @@ void forecast_list_replay_location_intro(void) {
   s_list->clock_swap_active = false;
   s_list->clock_loc_show = false;
   s_list->clock_loc_done = false;   // the appear-arming runs again
+#else
+  // No clock-slot intro on this mainscreen — the API stays for weather.c.
 #endif
 }
 
 // Start the 2s hold — called when the screen first appears.
-#if !PBL_ROUND
+#if defined(CONFIG_TOUCH) && !PBL_ROUND
 static void prv_clock_loc_hold(void) {
   if (!s_list || !s_list->clock_loc_show || s_list->clock_loc_timer ||
       s_list->clock_swap_active) {
@@ -3082,7 +2854,7 @@ static void prv_clock_loc_hold(void) {
 static void prv_click_up_down(ClickRecognizerRef recognizer, void *context) {
   if (!s_list) return;
   bool down = click_recognizer_get_button_id(recognizer) == BUTTON_ID_DOWN;
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   // Mirror prv_click_select: while an exclusive transition owns the screen (clock burst,
   // squash to/from the card, hero icon-fly, select-exit slide) UP/DOWN presses are dropped —
   // starting a header transition mid-flight would fight it for header_scroll and desync the
@@ -3108,23 +2880,21 @@ static void prv_click_up_down(ClickRecognizerRef recognizer, void *context) {
   prv_note_icon_interaction();  // wake a faded today icon so it animates during the move
   return;
 #endif
+  // Button boards mirror the touch mainscreen's vertical ring: UP at the top
+  // opens the sunset card, DOWN at the bottom steps to the clock face. The
+  // globe/city-select sits behind the card's SELECT, same as on touch.
   if (down && s_list->scroll_to >= prv_max_scroll()) {
-#if defined(PBL_PLATFORM_GABBRO)
-    return;
-#else
-    if (s_list->on_city_select_cb) {
-      s_list->on_city_select_cb(s_list->on_city_select_ctx);
+    if (s_list->on_clock_request_cb) {
+      s_list->on_clock_request_cb(s_list->on_clock_request_ctx);
     }
     return;
-#endif
   }
-#if defined(PBL_PLATFORM_GABBRO)
-  if (click_recognizer_is_repeating(recognizer)) {
-    prv_scroll_to_menu_repeat(s_list->scroll_to +
-                              (down ? s_list->row_height : -s_list->row_height));
+  if (!down && s_list->scroll_to <= 0) {
+    if (s_list->on_up_request_cb) {
+      s_list->on_up_request_cb(s_list->on_up_request_ctx);
+    }
     return;
   }
-#endif
   prv_scroll_to(s_list->scroll_to + (down ? s_list->row_height : -s_list->row_height));
 }
 
@@ -3171,7 +2941,7 @@ static const AnimationImplementation s_select_exit_impl = { .update = prv_select
 
 bool forecast_list_get_today_icon_rect(GRect *out) {
   if (!s_list || !out) return false;
-#if WEATHER_ANIM_5DAY && !PBL_ROUND
+#if defined(CONFIG_TOUCH) && !PBL_ROUND
   if (!s_list->header_shown) return false;
   *out = GRect(s_list->today_icon_x, R5_TODAY_Y, R5_TODAY_ICON, R5_TODAY_ICON);
   return true;
@@ -3183,7 +2953,7 @@ bool forecast_list_get_today_icon_rect(GRect *out) {
 void forecast_list_start_select_exit(void (*done_cb)(void *ctx), void *ctx) {
   if (!s_list || !s_list->canvas) { if (done_cb) done_cb(ctx); return; }
   if (s_select_exit_anim) return;
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   if (s_report_anim || s_list->report_fx) return;
   // Mid-transition: REFUSE (the press is ignored) rather than fall back to the legacy
   // slide — the fallback exists for genuine scratch-OOM at rest, not as a degraded scene
@@ -3192,7 +2962,7 @@ void forecast_list_start_select_exit(void (*done_cb)(void *ctx), void *ctx) {
 #endif
   s_select_exit_done = done_cb;
   s_select_exit_ctx  = ctx;
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   // The full scene: whole-frame squash-left (stage 1), ball roll-in (2), unfold (3).
   if (!s_list->squash_mode) {
     if (s_list->anim) {   // capture-first, same defensive kill as prv_start_clock_stage1
@@ -3234,7 +3004,7 @@ static void prv_click_select(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer;
   (void)context;
   if (!s_list || !s_list->on_select_request_cb) return;
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   // Only from the resting main view (State A, no transition in flight) — same condition as the
   // "select" marker that advertises this button. BOTH shapes: the !PBL_ROUND on this gate
   // dated from before round drove the squashes — without it, SELECT pressed during a
@@ -3247,7 +3017,7 @@ static void prv_click_select(ClickRecognizerRef recognizer, void *context) {
 }
 
 // ---- Touch input (touch colour platforms) ----
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 #define SWIPE_THRESHOLD 20   // px; same tap/swipe split as clock_face + the original app
 
 static void prv_touch_handler(const TouchEvent *event, void *context) {
@@ -3296,7 +3066,7 @@ static void prv_touch_handler(const TouchEvent *event, void *context) {
 #endif
 
 // ---- Hold-to-scroll ----
-#if !defined(PBL_PLATFORM_GABBRO) && !WEATHER_ANIM_5DAY
+#ifndef CONFIG_TOUCH
 // Rectangular builds keep the previous physics-style continuous scrolling.
 // A 16ms ticker nudges scroll_offset_px by a velocity that ramps up each tick.
 // Velocity stored in 1/16 px units to allow smooth sub-pixel accumulation.
@@ -3362,19 +3132,14 @@ static void prv_list_raw_down_rel(ClickRecognizerRef r, void *ctx)   { prv_list_
 #endif
 
 static void prv_click_provider(void *context) {
-#if defined(PBL_PLATFORM_GABBRO)
-  window_single_repeating_click_subscribe(BUTTON_ID_UP, 100, prv_click_up_down);
-  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 100, prv_click_up_down);
-#else
   window_single_click_subscribe(BUTTON_ID_UP,     prv_click_up_down);
   window_single_click_subscribe(BUTTON_ID_DOWN,   prv_click_up_down);
-#endif
   window_single_click_subscribe(BUTTON_ID_BACK,   prv_click_back);
   window_single_click_subscribe(BUTTON_ID_SELECT, prv_click_select);
-#if !defined(PBL_PLATFORM_GABBRO) && !WEATHER_ANIM_5DAY
+#ifndef CONFIG_TOUCH
   // The legacy continuous hold-to-scroll spins prv_list_tick_cb against scroll_offset_px,
   // which is meaningless for the single-screen 5-day view (max scroll 0) and would consume
-  // a held DOWN press alongside the header transition. Disabled for WEATHER_ANIM_5DAY.
+  // a held DOWN press alongside the header transition. Disabled for CONFIG_TOUCH.
   window_raw_click_subscribe(BUTTON_ID_UP,   prv_list_raw_up_press,   prv_list_raw_up_rel,   NULL);
   window_raw_click_subscribe(BUTTON_ID_DOWN, prv_list_raw_down_press, prv_list_raw_down_rel, NULL);
 #endif
@@ -3382,7 +3147,7 @@ static void prv_click_provider(void *context) {
 
 // ---- Window lifecycle ----
 
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
 // One 80ms quantum of icon animation. Returns false when the driver should stop entirely
 // (covered by another window, or faded fully static); prv_window_appear rearms on return.
 static bool prv_sun_step(void) {
@@ -3445,7 +3210,7 @@ static void prv_icon_drv_update(Animation *anim, AnimationProgress p) {
   uint32_t dt = now - s_list->icon_drv_last_ms;
   s_list->icon_drv_last_ms = now;
   if (dt > 500) dt = 500;                       // clock hiccup / long-suspend guard
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   // Capture-once companion: while a squash freezes the scene at its snapshot, PAUSE the
   // icon's clock instead of letting the phase advance invisibly — otherwise the rays/drops
   // jump ~4 ticks the instant the live scene resumes. Swallowing dt here means the icon
@@ -3486,12 +3251,8 @@ static void prv_icon_driver_start(void) {
 
 static void prv_window_load(Window *window) {
   GRect bounds = layer_get_bounds(window_get_root_layer(window));
-#if defined(PBL_PLATFORM_GABBRO)
-  s_list->row_height = GABBRO_LIST_ROW_PITCH;
-#else
   // Divide available height evenly so exactly ROWS_VISIBLE rows fill the screen.
   s_list->row_height = (bounds.size.h - LIST_TOP_Y) / ROWS_VISIBLE;
-#endif
   // Apply initial scroll so the focused day is at the top.
   {
     int initial = s_list->start_day_index * s_list->row_height;
@@ -3506,20 +3267,14 @@ static void prv_window_load(Window *window) {
   layer_set_update_proc(s_list->canvas, prv_canvas_draw);
   layer_add_child(window_get_root_layer(window), s_list->canvas);
 
-#if defined(PBL_PLATFORM_GABBRO)
-  s_list->day_font       = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  s_list->condition_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  s_list->loc_font       = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-#else
   s_list->day_font       = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  s_list->condition_font = s_list->day_font;
+  s_list->condition_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
   s_list->loc_font       = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
-#endif
 
   prv_load_icons();
   prv_format_conditions();
 
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   s_list->header_shown  = true;   // State A: today header visible (calloc zeroed header_scroll)
   s_list->header_scroll = 0;
   if (s_list->num_days > 0 &&
@@ -3539,6 +3294,7 @@ static void prv_window_load(Window *window) {
 #endif
 }
 
+#ifdef CONFIG_TOUCH
 static void prv_hslide_in_stopped(Animation *anim, bool finished, void *context) {
   (void)anim; (void)finished; (void)context;
   s_hslide_anim = NULL;   // property animation auto-destroys after a normal stop
@@ -3548,16 +3304,19 @@ static void prv_hslide_in_stopped(Animation *anim, bool finished, void *context)
     layer_set_frame(s_list->canvas, home);
   }
 }
+#endif
 
 void forecast_list_arm_hslide_in(void) {
+#ifdef CONFIG_TOUCH
   s_pending_hslide_in = true;
+#endif
 }
 
 static void prv_window_appear(Window *window) {
   (void)window;
   // First-entry clock-slot intro: show the active location for 2s, then swap to the
   // time (sunset-card swap). Latched once per app run.
-#if !PBL_ROUND
+#if defined(CONFIG_TOUCH) && !PBL_ROUND
   if (s_list && !s_list->clock_loc_done && s_list->num_days > 0 &&
       s_list->days[0].location_name && s_list->days[0].location_name[0]) {
     s_list->clock_loc_done = true;
@@ -3565,18 +3324,18 @@ static void prv_window_appear(Window *window) {
     prv_clock_loc_hold();
   }
 #endif
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
   // (Re)claim the touch slot — a popping child (condensed/card/clock) unsubscribed in its
   // unload, which runs BEFORE this appear (window_transition_context_appearance_call_all).
   if (s_list) touch_service_subscribe(prv_touch_handler, s_list);
 #endif
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   // Rearm the icon driver if it parked itself while this window was covered.
   if (s_list && s_list->icon_fade > 0) {
     prv_icon_driver_start();
   }
 #endif
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   // Returning from the clock via UP: jelly-rise the forecast back in. Armed before the clock
   // dismissed, so this fires on the first revealed frame — no flash of the rested screen.
   if (s_list && s_pending_hslide_in && s_list->canvas) {
@@ -3631,7 +3390,7 @@ static void prv_window_appear(Window *window) {
 }
 
 static void prv_window_unload(Window *window) {
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
   touch_service_unsubscribe();
 #endif
   if (s_list && s_list->clock_loc_timer) {
@@ -3659,12 +3418,22 @@ static void prv_window_unload(Window *window) {
     animation_unschedule(old);
     animation_destroy(old);
   }
+#ifdef CONFIG_TOUCH
   if (s_list->clock_anim) {
     Animation *old = s_list->clock_anim;
     s_list->clock_anim = NULL;
     animation_unschedule(old);
     animation_destroy(old);
   }
+  // The hslide PropertyAnimation retargets the canvas layer, which is about to be
+  // destroyed — cancel it or a double-BACK during the slide dereferences the freed
+  // layer on the next animation frame.
+  if (s_hslide_anim) {
+    Animation *a = s_hslide_anim;
+    s_hslide_anim = NULL;
+    animation_unschedule(a);
+  }
+#endif
   // The select-exit slide is module-level, not per-instance: clear the done callback FIRST
   // (unschedule fires .stopped, which would otherwise invoke it mid-teardown), then cancel.
   s_select_exit_done = NULL;
@@ -3675,7 +3444,7 @@ static void prv_window_unload(Window *window) {
     animation_unschedule(a);
     animation_destroy(a);
   }
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   // BOTH shapes (the !PBL_ROUND exclusions dated from before round drove the report scene
   // and the squashes): cancel the scene animation and free the squash machinery at unload,
   // or the scratch (67.6KB on round) leaks and a scheduled animation outlives its window.
@@ -3697,13 +3466,7 @@ static void prv_window_unload(Window *window) {
   }
 #endif
 
-#if defined(PBL_PLATFORM_GABBRO)
-  if (s_list->icon_sequence) {
-    gdraw_command_sequence_destroy(s_list->icon_sequence);
-    s_list->icon_sequence = NULL;
-  }
-#endif
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   if (s_list->sun_timer) {
     app_timer_cancel(s_list->sun_timer);
     s_list->sun_timer = NULL;
@@ -3824,14 +3587,14 @@ void forecast_list_set_on_select_request(void (*cb)(void *ctx), void *ctx) {
 void forecast_list_arm_squash_in(void) {
   // Latched here (before the clock dismisses) and consumed by the forecast's appear handler,
   // so the jelly drop-in plays on the very first revealed frame. Rect-only; no-op elsewhere.
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   s_pending_squash_mode = SQUASH_DROP_IN;
 #endif
 }
 
 void forecast_list_arm_return_fly(void) {
   // Card -> forecast: rise-in PLUS the card icon flying back down into the header.
-#if WEATHER_ANIM_5DAY
+#ifdef CONFIG_TOUCH
   s_pending_squash_mode = SQUASH_RISE_IN;
   s_pending_return_fly = true;
 #endif
@@ -3847,23 +3610,26 @@ void forecast_list_update_data(const WeatherLocationForecast *days, size_t num_d
   }
 
   if (s_list->canvas) {
-#if PBL_ROUND && WEATHER_ANIM_5DAY
-    // A phone sync landing mid-report-scene starves the animation service: prv_load_icons
-    // re-reads every PDC from flash on the app task, and the 240ms stage-4 bow only gets
-    // 3-4 frames on this hardware to begin with — one such stall collapses it to its final
-    // (blank) frame, which is exactly the on-watch "the bow sometimes doesn't play". The
-    // day data is copied above (cheap); the heavy visual refresh waits for the scene end
-    // (prv_report_scene_finished applies it from every stage-4/cancel exit).
+#ifdef CONFIG_TOUCH
+    // BOTH SHAPES: a phone sync landing mid-report-scene starves the animation service —
+    // prv_load_icons re-reads every PDC from flash on the app task, and the 240ms stage-4
+    // bow only gets a handful of frames to begin with; one such stall collapses it to its
+    // final (blank) frame (the stage-4 bow was intermittently invisible on round hardware —
+    // the same scene and the same window exist on rect). The day data is copied above
+    // (cheap); the heavy visual refresh waits for the scene end
+    // (prv_apply_deferred_refresh runs from every stage-4/cancel exit).
     if (s_list->report_fx != 0 || s_report_anim) {
       s_list->refresh_deferred = true;
       return;
     }
 #endif
     prv_load_icons();
+#ifdef CONFIG_TOUCH
     // The icons were just destroyed + re-created (possibly with different point counts): any
     // jelly lookups cached mid-transition were built from the OLD geometry and would be
     // indexed out of bounds by the next scale_segmented frame — drop them so they rebuild.
     prv_free_jelly_lookups();
+#endif
     prv_format_conditions();
     layer_mark_dirty(s_list->canvas);
   }
@@ -3871,10 +3637,14 @@ void forecast_list_update_data(const WeatherLocationForecast *days, size_t num_d
 
 void forecast_list_set_glance(const char *sunset, const char *temp, int uv, int precip,
                               int wind) {
+#ifdef CONFIG_TOUCH
   if (!s_list) return;
   snprintf(s_list->fly_sunset, sizeof(s_list->fly_sunset), "%s", sunset ? sunset : "");
   snprintf(s_list->fly_temp,   sizeof(s_list->fly_temp),   "%s", temp   ? temp   : "");
   s_list->fly_uv     = uv;
   s_list->fly_precip = precip;
   s_list->fly_wind   = wind;
+#else
+  (void)sunset; (void)temp; (void)uv; (void)precip; (void)wind;
+#endif
 }
