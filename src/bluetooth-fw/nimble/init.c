@@ -8,6 +8,7 @@
 #include <comm/bt_lock.h>
 #include <host/ble_hs.h>
 #include <host/ble_hs_stop.h>
+#include <host/ble_sm.h>
 #include <host/util/util.h>
 #include <kernel/pebble_tasks.h>
 #include <nimble/nimble_port.h>
@@ -52,10 +53,26 @@ typedef enum {
 // with the vendor's ble_hs_enabled_state (Stopped<->OFF, Started<->ON).
 static DriverState s_driver_state = DriverStateStopped;
 
+// Pre-generate the SC ECDH keypair, which NimBLE otherwise creates lazily on
+// the first pairing after boot, deep in the L2CAP RX path on this task's small
+// stack. Generating it here keeps the expensive mbedtls P-256 computation off
+// the pairing hot path. The OOB output is a side product and is discarded.
+static void prv_pregenerate_sc_keys(void) {
+  struct ble_sm_sc_oob_data oob_data;
+
+  int rc = ble_sm_sc_oob_generate_data(&oob_data);
+  if (rc != 0) {
+    PBL_LOG_WRN("SC key pre-generation failed (0x%04x)", (uint16_t)rc);
+  } else {
+    PBL_LOG_DBG("SC keypair ready");
+  }
+}
+
 static void prv_sync_cb(void) {
   PBL_LOG_DBG("NimBLE host synchronized");
   xSemaphoreGive(s_host_started);
   bt_driver_handle_host_resynced();
+  prv_pregenerate_sc_keys();
 }
 
 static void prv_reset_cb(int reason) {
