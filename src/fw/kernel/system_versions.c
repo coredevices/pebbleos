@@ -140,6 +140,7 @@ static void prv_send_watch_versions(CommSession *session) {
   versions_msg.capabilities.smooth_fw_install_progress_support = 1;
   versions_msg.capabilities.custom_vibe_pattern_support = 1;
   versions_msg.capabilities.blob_db_version_support = 1;
+  versions_msg.capabilities.weather_db_v4_support = 1;
   bt_local_id_copy_address(&versions_msg.device_address);
 
   versions_msg.system_resources_version = resource_get_system_version();

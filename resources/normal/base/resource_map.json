@@ -2,6 +2,11 @@
   "comments": "This file contains resource definitions for Normal FW and 'common' overrides",
   "media": [
     {
+      "type": "png",
+      "name": "IMAGE_SUNNY_DAY_SMALL",
+      "file": "normal/base/images/weather_sunny_50x50.png"
+    },
+    {
       "name": "FONT_FALLBACK_INTERNAL",
       "characterRegex": "[0-9a-fx]"
     },
@@ -351,55 +356,55 @@
       "type": "font",
       "name": "LECO_20_BOLD_NUMBERS",
       "file": "normal/base/pbf/LECO_20_BOLD_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,°APMHBLTIN-]"
+      "characterRegex": "[ 0-9:/.,\u00b0APMHBLTIN-]"
     },
     {
       "type": "font",
       "name": "LECO_26_BOLD_NUMBERS_AM_PM",
       "file": "normal/base/pbf/LECO_26_BOLD_NUMBERS_AM_PM.pbf",
-      "characterRegex": "[ 0-9:/.,°ABPMHIK\\+\\-\\%]"
+      "characterRegex": "[ 0-9:/.,\u00b0ABPMHIK\\+\\-\\%]"
     },
     {
       "type": "font",
       "name": "LECO_32_BOLD_NUMBERS",
       "file": "normal/base/pbf/LECO_32_BOLD_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,°-%]"
+      "characterRegex": "[ 0-9:/.,\u00b0-%]"
     },
     {
       "type": "font",
       "name": "LECO_36_BOLD_NUMBERS",
       "file": "normal/base/pbf/LECO_36_BOLD_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,°-%+HM]"
+      "characterRegex": "[ 0-9:/.,\u00b0-%+HM]"
     },
     {
       "type": "font",
       "name": "LECO_38_BOLD_NUMBERS",
       "file": "normal/base/pbf/LECO_38_BOLD_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,°?-]"
+      "characterRegex": "[ 0-9:/.,\u00b0?-]"
     },
     {
       "type": "font",
       "name": "LECO_42_NUMBERS",
       "file": "normal/base/pbf/LECO_42_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,°-]"
+      "characterRegex": "[ 0-9:/.,\u00b0-]"
     },
     {
       "type": "font",
       "name": "LECO_28_LIGHT_NUMBERS",
       "file": "normal/base/pbf/LECO_28_LIGHT_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,°-]"
+      "characterRegex": "[ 0-9:/.,\u00b0-]"
     },
     {
       "type": "font",
       "name": "LECO_60_NUMBERS_AM_PM",
       "file": "normal/base/pbf/LECO_60_NUMBERS_AM_PM.pbf",
-      "characterRegex": "[ 0-9:/.,°ABPMHIK\\+\\-\\%]"
+      "characterRegex": "[ 0-9:/.,\u00b0ABPMHIK\\+\\-\\%]"
     },
     {
       "type": "font",
       "name": "LECO_60_BOLD_NUMBERS_AM_PM",
       "file": "normal/base/pbf/LECO_60_BOLD_NUMBERS_AM_PM.pbf",
-      "characterRegex": "[ 0-9:/.,°ABPMHIK\\+\\-\\%]"
+      "characterRegex": "[ 0-9:/.,\u00b0ABPMHIK\\+\\-\\%]"
     },
     {
       "type": "pbi8",
@@ -1834,14 +1839,14 @@
       "file": "normal/base/images/plus_dotted.png"
     },
     {
-      "type": "pdc",
+      "type": "raw",
       "name": "RESULT_SHREDDED_TINY",
-      "file": "normal/base/images/Pebble_25x25_Result_shredded.svg"
+      "file": "normal/base/raw/empty_stub.raw"
     },
     {
-      "type": "pdc",
+      "type": "raw",
       "name": "RESULT_SHREDDED_SMALL",
-      "file": "normal/base/images/Pebble_50x50_Result_shredded.svg"
+      "file": "normal/base/raw/empty_stub.raw"
     },
     {
       "type": "pdc",
@@ -2563,6 +2568,134 @@
       "type": "pdc",
       "name": "AIRPLANE",
       "file": "normal/base/images/Pebble_80x80_Airplane.svg"
+    },
+    {
+      "type": "png",
+      "name": "WX_SUNNY_TINY",
+      "file": "normal/base/images/wx_sunny_day_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_SUNNY_SMALL",
+      "file": "normal/base/images/wx_sunny_day_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_PARTLY_TINY",
+      "file": "normal/base/images/wx_partly_cloudy_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_PARTLY_SMALL",
+      "file": "normal/base/images/wx_partly_cloudy_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_CLOUDY_TINY",
+      "file": "normal/base/images/wx_cloudy_day_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_CLOUDY_SMALL",
+      "file": "normal/base/images/wx_cloudy_day_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_LIGHTRAIN_TINY",
+      "file": "normal/base/images/wx_light_rain_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_LIGHTRAIN_SMALL",
+      "file": "normal/base/images/wx_light_rain_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_HEAVYRAIN_TINY",
+      "file": "normal/base/images/wx_heavy_rain_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_HEAVYRAIN_SMALL",
+      "file": "normal/base/images/wx_heavy_rain_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_LIGHTSNOW_TINY",
+      "file": "normal/base/images/wx_light_snow_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_LIGHTSNOW_SMALL",
+      "file": "normal/base/images/wx_light_snow_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_HEAVYSNOW_TINY",
+      "file": "normal/base/images/wx_heavy_snow_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_HEAVYSNOW_SMALL",
+      "file": "normal/base/images/wx_heavy_snow_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_RAINSNOW_TINY",
+      "file": "normal/base/images/wx_raining_and_snowing_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_RAINSNOW_SMALL",
+      "file": "normal/base/images/wx_raining_and_snowing_50x50.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_GENERIC_TINY",
+      "file": "normal/base/images/wx_generic_weather_25x25.png"
+    },
+    {
+      "type": "png",
+      "name": "WX_GENERIC_SMALL",
+      "file": "normal/base/images/wx_generic_weather_50x50.png"
+    },
+    {
+      "type": "raw",
+      "name": "GLOBE_CUBEMAP",
+      "file": "normal/base/raw/globe_cubemap_packed.deflate",
+      "_comment": [
+        "raw-deflate + u32 size prefix (tools/deflate_resource.py);",
+        "inflated at load by globe_view.c prv_load_inflated"
+      ]
+    },
+    {
+      "type": "raw",
+      "name": "GLOBE_STARFIELD",
+      "file": "normal/base/raw/globe_starfield.deflate"
+    },
+    {
+      "type": "raw",
+      "name": "GLOBE_BW_SEQUENCE",
+      "file": "normal/base/raw/globe_bw_sequence.deflate",
+      "_comment": [
+        "PDC PAYLOAD (8-byte file header stripped) deflated; the loader",
+        "inflates + gdraw_command_sequence_validate()s it"
+      ]
+    },
+    {
+      "type": "raw",
+      "name": "GLOBE_CRADLE_PDC",
+      "file": "normal/base/raw/globe_cradle.pdc"
+    },
+    {
+      "type": "raw",
+      "name": "WX_WEATHER_ICONS_PDC",
+      "file": "normal/base/raw/weather_icons.pdc"
+    },
+    {
+      "type": "pdc",
+      "name": "WEATHER_REPORT_PAPER",
+      "file": "normal/base/images/Pebble_80x80_Weather_report.svg"
     }
   ],
   "timeline": [

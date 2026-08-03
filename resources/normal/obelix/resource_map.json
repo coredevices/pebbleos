@@ -367,6 +367,14 @@
       "name": "AGENCY_FB_88_THIN_NUMBERS_AM_PM",
       "file": "normal/base/pbf/AGENCY_FB_88_THIN_NUMBERS_AM_PM.pbf",
       "characterRegex": "[ 0-9:/.,°APMHIK\\+\\-\\%]"
+    },
+    {
+      "type": "raw",
+      "name": "WX_WEATHER_ICONS_PDC",
+      "file": "normal/base/raw/wx_icons_stub.bin",
+      "_comment": ["Round-only asset (weather_app_layout.c loads it under PBL_ROUND only):",
+                   "override with a 0-byte stub on this rect board. Entry merged BY NAME so",
+                   "resource ids (incl. the weather app's pinned 492-514) are unchanged."]
     }
   ]
 }
