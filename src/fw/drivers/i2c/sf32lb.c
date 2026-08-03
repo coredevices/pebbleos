@@ -38,6 +38,10 @@ void i2c_irq_handler(I2CBus *bus) {
   I2CTransferEvent event;
   portBASE_TYPE woken;
 
+  if (hdl->XferISR == NULL) {
+    return;
+  }
+
   (void)hdl->XferISR(hdl, 0, 0);
 
   state = HAL_I2C_GetState(hdl);
