@@ -82,6 +82,10 @@ bool alerts_preferences_dnd_is_smart_enabled(void);
 
 void alerts_preferences_dnd_set_smart_enabled(bool enable);
 
+bool alerts_preferences_dnd_is_sleep_enabled(void);
+
+void alerts_preferences_dnd_set_sleep_enabled(bool enable);
+
 //! Lock the alerts preferences mutex. Must be paired with alerts_preferences_unlock().
 void alerts_preferences_lock(void);
 

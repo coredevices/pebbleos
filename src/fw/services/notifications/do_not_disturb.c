@@ -40,8 +40,10 @@ PBL_LOG_MODULE_DECLARE(service_notifications, CONFIG_SERVICE_NOTIFICATIONS_LOG_L
 
 typedef struct DoNotDisturbData {
   TimerID update_timer_id;
+  ActivitySleepState sleep_state;
   bool is_in_schedule_period;
   bool manually_override_dnd;
+  bool sleep_dnd_override;
   bool was_active;
 } DoNotDisturbData;
 
@@ -49,6 +51,7 @@ static DoNotDisturbData s_data;
 
 static bool prv_is_smart_dnd_active(void);
 static bool prv_is_schedule_active(void);
+static bool prv_is_sleep_dnd_active(void);
 static void prv_set_schedule_mode_timer();
 
 static void prv_update_active_time(bool is_active) {
@@ -225,6 +228,43 @@ static bool prv_is_smart_dnd_active(void) {
           !s_data.manually_override_dnd);
 }
 
+static bool prv_sleep_state_is_asleep(ActivitySleepState state) {
+  return state == ActivitySleepStateLightSleep || state == ActivitySleepStateRestfulSleep;
+}
+
+static bool prv_is_sleep_dnd_active(void) {
+  return do_not_disturb_is_sleep_dnd_enabled() &&
+         prv_sleep_state_is_asleep(s_data.sleep_state) &&
+         !s_data.sleep_dnd_override;
+}
+
+static ActivitySleepState prv_get_sleep_state(void) {
+  int32_t sleep_state;
+  if (!activity_tracking_on() ||
+      !activity_get_metric(ActivityMetricSleepState, 1, &sleep_state)) {
+    return ActivitySleepStateUnknown;
+  }
+
+  switch (sleep_state) {
+    case ActivitySleepStateAwake:
+    case ActivitySleepStateRestfulSleep:
+    case ActivitySleepStateLightSleep:
+    case ActivitySleepStateUnknown:
+      return sleep_state;
+  }
+  return ActivitySleepStateUnknown;
+}
+
+static void prv_set_sleep_state(ActivitySleepState sleep_state) {
+  const bool was_asleep = prv_sleep_state_is_asleep(s_data.sleep_state);
+  const bool is_asleep = prv_sleep_state_is_asleep(sleep_state);
+  s_data.sleep_state = sleep_state;
+  if (was_asleep != is_asleep) {
+    s_data.sleep_dnd_override = false;
+  }
+  prv_do_update();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! Public Functions
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -236,7 +276,8 @@ DEFINE_SYSCALL(bool, sys_do_not_disturb_is_active, void) {
 bool do_not_disturb_is_active(void) {
   if (do_not_disturb_is_manually_enabled() ||
       prv_is_schedule_active() ||
-      prv_is_smart_dnd_active()) {
+      prv_is_smart_dnd_active() ||
+      prv_is_sleep_dnd_active()) {
     return true;
   }
   return false;
@@ -247,14 +288,24 @@ bool do_not_disturb_is_manually_enabled(void) {
 }
 
 void do_not_disturb_set_manually_enabled(bool enable) {
-  const bool is_auto_dnd = prv_is_current_schedule_enabled() ||
-                           do_not_disturb_is_smart_dnd_enabled();
+  const bool was_manually_enabled = do_not_disturb_is_manually_enabled();
+  const bool is_schedule_or_smart_dnd_active = prv_is_schedule_active() ||
+                                               prv_is_smart_dnd_active();
+  const bool is_schedule_or_smart_dnd_enabled = prv_is_current_schedule_enabled() ||
+                                                do_not_disturb_is_smart_dnd_enabled();
+  const bool is_sleep_dnd_active = prv_is_sleep_dnd_active();
   const bool was_active = do_not_disturb_is_active();
 
   alerts_preferences_dnd_set_manually_enabled(enable);
-  // Turning the manual DND OFF in an active DND mode overrides the automatic mode
-  if (!enable && was_active && is_auto_dnd) {
-    s_data.manually_override_dnd = true;
+  // Turning manual DND off overrides any automatic modes that are currently in effect.
+  if (!enable && was_active) {
+    if (is_schedule_or_smart_dnd_active ||
+        (was_manually_enabled && is_schedule_or_smart_dnd_enabled)) {
+      s_data.manually_override_dnd = true;
+    }
+    if (is_sleep_dnd_active) {
+      s_data.sleep_dnd_override = true;
+    }
   }
   prv_do_update();
 }
@@ -282,6 +333,16 @@ void do_not_disturb_toggle_smart_dnd(void) {
   } else {
     prv_toggle_smart_dnd(NULL);
   }
+}
+
+bool do_not_disturb_is_sleep_dnd_enabled(void) {
+  return alerts_preferences_dnd_is_sleep_enabled();
+}
+
+void do_not_disturb_toggle_sleep_dnd(void) {
+  alerts_preferences_dnd_set_sleep_enabled(!alerts_preferences_dnd_is_sleep_enabled());
+  s_data.sleep_dnd_override = false;
+  prv_do_update();
 }
 
 void do_not_disturb_get_schedule(DoNotDisturbScheduleType type,
@@ -312,6 +373,7 @@ void do_not_disturb_toggle_scheduled(DoNotDisturbScheduleType type) {
 void do_not_disturb_init(void) {
   s_data = (DoNotDisturbData) {
     .update_timer_id = new_timer_create(),
+    .sleep_state = prv_get_sleep_state(),
     .was_active = false,
   };
   prv_try_update_schedule_mode((void*) true);
@@ -327,6 +389,22 @@ void do_not_disturb_handle_pref_synced(void) {
 
 void do_not_disturb_handle_calendar_event(PebbleCalendarEvent *e) {
   prv_do_update();
+}
+
+void do_not_disturb_handle_activity_event(PebbleActivityEvent *e) {
+  switch (e->type) {
+    case PebbleActivityEvent_TrackingStarted:
+      prv_set_sleep_state(prv_get_sleep_state());
+      break;
+    case PebbleActivityEvent_TrackingStopped:
+      prv_set_sleep_state(ActivitySleepStateUnknown);
+      break;
+    case PebbleActivityEvent_SleepStateChanged:
+      prv_set_sleep_state(e->sleep_state);
+      break;
+    case PebbleActivityEventNum:
+      break;
+  }
 }
 
 void do_not_disturb_manual_toggle_with_dialog(void) {

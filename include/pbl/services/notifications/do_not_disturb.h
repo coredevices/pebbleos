@@ -62,6 +62,10 @@ bool do_not_disturb_is_smart_dnd_enabled(void);
 
 void do_not_disturb_toggle_smart_dnd(void);
 
+bool do_not_disturb_is_sleep_dnd_enabled(void);
+
+void do_not_disturb_toggle_sleep_dnd(void);
+
 void do_not_disturb_get_schedule(DoNotDisturbScheduleType type, DoNotDisturbSchedule *schedule_out);
 
 void do_not_disturb_set_schedule(DoNotDisturbScheduleType type, DoNotDisturbSchedule *schedule);
@@ -81,6 +85,8 @@ void do_not_disturb_handle_clock_change(void);
 void do_not_disturb_handle_pref_synced(void);
 
 void do_not_disturb_handle_calendar_event(PebbleCalendarEvent *e);
+
+void do_not_disturb_handle_activity_event(PebbleActivityEvent *e);
 
 void do_not_disturb_manual_toggle_with_dialog(void);
 
