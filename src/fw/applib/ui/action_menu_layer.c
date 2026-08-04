@@ -513,12 +513,22 @@ static void prv_scroll_handler(ClickRecognizerRef recognizer, void *context) {
   prv_set_selected_index(aml, new_idx, true /* animated */);
 }
 
-static void prv_select_handler(ClickRecognizerRef recognizer, void *context) {
-  ActionMenuLayer *aml = context;
+static void prv_activate_selection(ActionMenuLayer *aml) {
   const ActionMenuItem *item = prv_get_item_for_index(aml, aml->selected_index);
   if (item && aml->callbacks.select) {
     aml->callbacks.select(item, aml->context);
   }
+}
+
+static void prv_select_handler(ClickRecognizerRef recognizer, void *context) {
+  prv_activate_selection(context);
+}
+
+static void prv_select_click_cb(struct MenuLayer *menu_layer, MenuIndex *cell_index,
+                                void *callback_context) {
+  // Touch tap activation. The AML's own selected_index identifies the item (a short-item menu row
+  // holds several columns), matching the SELECT button path.
+  prv_activate_selection(callback_context);
 }
 
 static bool prv_aml_is_short(ActionMenuLayer *aml) {
@@ -658,6 +668,12 @@ static void prv_selection_changed_cb(struct MenuLayer *menu_layer, MenuIndex new
     prv_unschedule_item_animation(aml);
     aml->selected_index = new_index.row;
     prv_selection_changed(aml);
+  } else if (prv_get_menu_layer_row(aml, aml->selected_index) != new_index.row) {
+    // A touch tap moves the menu selection directly, bypassing prv_set_selected_index, so no
+    // column index was pre-set for this short-item row; adopt its first column.
+    prv_unschedule_item_animation(aml);
+    aml->selected_index = aml->num_items + (new_index.row - aml->num_items) * SHORT_COL_COUNT;
+    prv_selection_changed(aml);
   }
 }
 
@@ -795,7 +811,8 @@ void action_menu_layer_init(ActionMenuLayer *aml, const GRect *frame) {
       .draw_separator = prv_draw_separator_cb,
       .get_header_height = prv_get_header_height_cb,
       .draw_header = prv_draw_header_cb,
-      .selection_changed = prv_selection_changed_cb
+      .selection_changed = prv_selection_changed_cb,
+      .select_click = prv_select_click_cb,
   });
 
 #if !defined(CONFIG_RECOVERY_FW)

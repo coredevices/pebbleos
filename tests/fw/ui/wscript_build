@@ -222,6 +222,28 @@ clar(ctx,
     defines = ['CONFIG_TOUCH'],
     test_sources_ant_glob = "test_menu_layer.c")
 
+clar(ctx,
+    sources_ant_glob = "  " \
+                       " src/fw/applib/ui/action_menu_layer.c" \
+                       " src/fw/applib/ui/layer.c" \
+                       " src/fw/applib/ui/scroll_layer.c" \
+                       " src/fw/applib/ui/menu_layer.c" \
+                       " src/fw/applib/ui/shadows.c" \
+                       " src/fw/applib/ui/animation_interpolate.c "
+                       " src/fw/applib/ui/animation_timing.c" \
+                       " src/fw/applib/ui/recognizer/recognizer.c" \
+                       " src/fw/applib/ui/recognizer/recognizer_manager.c" \
+                       " src/fw/applib/ui/recognizer/pan.c" \
+                       " src/fw/applib/ui/recognizer/swipe.c" \
+                       " src/fw/applib/ui/recognizer/tap.c" \
+                       " src/fw/applib/ui/recognizer/touch_nav.c" \
+                       " src/fw/applib/graphics/gcolor_definitions.c" \
+                       " src/fw/applib/graphics/gtypes.c" \
+                       " tests/fakes/fake_rtc.c" \
+                       " tests/stubs/stubs_animation.c",
+    defines = ['CONFIG_TOUCH'],
+    test_sources_ant_glob = "test_action_menu_layer.c")
+
 menu_layer_system_cell_rendering_sources = \
     " src/fw/applib/fonts/codepoint.c" \
     " src/fw/applib/graphics/${BITDEPTH}_bit/framebuffer.c" \
