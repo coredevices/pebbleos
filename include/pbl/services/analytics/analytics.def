@@ -122,3 +122,9 @@ PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(app_tick_timer_second_subscribed)
 // Connectivity
 PBL_ANALYTICS_METRIC_DEFINE_TIMER(connectivity_connected_time_ms)
 PBL_ANALYTICS_METRIC_DEFINE_TIMER(connectivity_expected_time_ms)
+
+// Appended in record version 3. The conn-interval time buckets classify by
+// interval only, so a link stuck at slave latency 0 is indistinguishable from
+// one at latency 3 despite ~4x the radio duty; track latency-0 time directly.
+PBL_ANALYTICS_METRIC_DEFINE_TIMER(ble_conn_slave_lat0_time_ms)
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(ble_conn_param_update_count)
