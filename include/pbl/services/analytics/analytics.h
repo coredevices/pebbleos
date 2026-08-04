@@ -30,6 +30,12 @@ enum pbl_analytics_key {
   PBL_ANALYTICS_KEY_COUNT,
 };
 
+//! Bits for the drv_init_fail_flags metric. Only the first heartbeat after
+//! boot carries them.
+enum pbl_analytics_drv_init_fail_flag {
+  PBL_ANALYTICS_DRV_INIT_FAIL_HRM = 1U << 0U,
+};
+
 void pbl_analytics_init(void);
 
 void sys_pbl_analytics_set_signed(enum pbl_analytics_key key, int32_t signed_value);

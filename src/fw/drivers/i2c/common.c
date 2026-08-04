@@ -7,6 +7,7 @@
 
 #include "board/board.h"
 #include "debug/power_tracking.h"
+#include "pbl/services/analytics/analytics.h"
 #include <pbl/drivers/gpio.h>
 #include <pbl/drivers/rtc.h>
 #include "FreeRTOS.h"
@@ -242,6 +243,7 @@ static bool prv_do_transfer_locked(I2CBus *bus, I2CTransferDirection direction, 
           (bus->state->transfer_event == I2CTransferEvent_Error)) {
         if (bus->state->transfer_event == I2CTransferEvent_Error) {
           PBL_LOG_ERR("I2C Error on bus %s", bus->name);
+          PBL_ANALYTICS_ADD(i2c_transfer_error_count, 1);
         }
         complete = true;
         result = (bus->state->transfer_event == I2CTransferEvent_TransferComplete);
@@ -270,6 +272,7 @@ static bool prv_do_transfer_locked(I2CBus *bus, I2CTransferDirection direction, 
       i2c_hal_abort_transfer(bus);
       complete = true;
       PBL_LOG_ERR("Transfer timed out on bus %s", bus->name);
+      PBL_ANALYTICS_ADD(i2c_transfer_error_count, 1);
       break;
     }
   } while (!complete);

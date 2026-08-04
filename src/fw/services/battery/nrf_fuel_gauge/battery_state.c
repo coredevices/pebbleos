@@ -594,6 +594,7 @@ void pbl_analytics_external_collect_battery(void) {
   d_mv = battery_mv - s_analytics_last_voltage_mv;
   PBL_ANALYTICS_SET_UNSIGNED(battery_voltage, battery_mv);
   PBL_ANALYTICS_SET_SIGNED(battery_voltage_delta, d_mv);
+  PBL_ANALYTICS_SET_SIGNED(battery_temp_c, s_last_temp_mc);
   s_analytics_last_voltage_mv = battery_mv;
 
   d_soc_cpct = MAX((int32_t)s_analytics_last_cpct - (int32_t)battery_soc_cpct, 0);

@@ -6,6 +6,7 @@
 #include <pbl/drivers/hrm.h>
 #include "board/board.h"
 #include "kernel/util/sleep.h"
+#include "pbl/services/analytics/analytics.h"
 #include <pbl/logging/logging.h>
 
 #ifdef HRM_USE_GH3X2X
@@ -478,6 +479,7 @@ void hrm_init(HRMDevice *dev) {
   ret = Gh3x2xDemoInit();
   if (ret != 0) {
     PBL_LOG_ERR("GH3X2X failed to initialize");
+    PBL_ANALYTICS_ADD(drv_init_fail_flags, PBL_ANALYTICS_DRV_INIT_FAIL_HRM);
     return;
   }
 #else

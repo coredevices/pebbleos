@@ -132,3 +132,13 @@ PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(accel_stream_recovery_count)
 // Counted once per boot, on the first heartbeat, when the previous reboot
 // reason is in the error family (RebootReasonCode_Watchdog and above).
 PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(unexpected_reboot_count)
+// Battery temperature (mC at the fuel gauge); 0 on platforms without a
+// temperature source.
+PBL_ANALYTICS_METRIC_DEFINE_SCALED_SIGNED(battery_temp_c, 1000)
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(i2c_transfer_error_count)
+// Connected time at an interval outside every entry of the desired-params
+// table (e.g. a central-imposed 7.5 ms interval); previously misbucketed
+// into ble_conn_itvl_max_time_ms.
+PBL_ANALYTICS_METRIC_DEFINE_TIMER(ble_conn_itvl_other_time_ms)
+// Bitmask of driver init failures this boot, see pbl_analytics_drv_init_fail_flag.
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(drv_init_fail_flags)
