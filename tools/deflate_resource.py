@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
 """Compress a raw resource for the weather app's inflate-at-load path.
 
 Output layout: [u32 LE inflated_size][raw DEFLATE stream]
@@ -14,6 +17,7 @@ gdraw_command_sequence_validate(). Regenerate with:
 Searches window sizes / strategies for the smallest stream (matches what
 tinflate accepts: any raw-deflate window).
 """
+
 import argparse
 import struct
 import sys
@@ -35,8 +39,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("infile")
     ap.add_argument("outfile")
-    ap.add_argument("--pdc-payload", action="store_true",
-                    help="strip the 8-byte PDC header before compressing")
+    ap.add_argument(
+        "--pdc-payload",
+        action="store_true",
+        help="strip the 8-byte PDC header before compressing",
+    )
     args = ap.parse_args()
 
     data = open(args.infile, "rb").read()
@@ -52,8 +59,10 @@ def main() -> int:
 
     blob = struct.pack("<I", len(data)) + stream
     open(args.outfile, "wb").write(blob)
-    print(f"{args.infile}: {len(data)} -> {len(blob)} bytes "
-          f"({len(blob) * 100 // len(data)}%)")
+    print(
+        f"{args.infile}: {len(data)} -> {len(blob)} bytes "
+        f"({len(blob) * 100 // len(data)}%)"
+    )
     return 0
 
 

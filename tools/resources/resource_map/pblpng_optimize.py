@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 Google LLC
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 """Pixel-identical PNG shrink pass for pack resources.
 
@@ -15,11 +15,13 @@ single-IDAT + non-interlaced (uPNG requirements). optimize_png_bytes() verifies
 its own output round-trips to the identical index grid and returns the ORIGINAL
 bytes on any surprise, so the build can never regress correctness.
 """
+
 import struct
 import zlib
 
 try:
     import zopfli.zlib as _zopfli
+
     _HAVE_ZOPFLI = True
 except Exception:
     _HAVE_ZOPFLI = False
@@ -32,9 +34,9 @@ def _chunks(data):
     off = 8
     out = []
     while off < len(data):
-        (ln,) = struct.unpack(">I", data[off:off + 4])
-        typ = data[off + 4:off + 8]
-        out.append((typ, data[off + 8:off + 8 + ln]))
+        (ln,) = struct.unpack(">I", data[off : off + 4])
+        typ = data[off + 4 : off + 8]
+        out.append((typ, data[off + 8 : off + 8 + ln]))
         off += 12 + ln
     return out
 
@@ -56,23 +58,23 @@ def _unfilter(raw, height, stride):
     for _ in range(height):
         ft = raw[off]
         off += 1
-        line = bytearray(raw[off:off + stride])
+        line = bytearray(raw[off : off + stride])
         off += stride
         if ft == 1:
             for i in range(1, stride):
-                line[i] = (line[i] + line[i - 1]) & 0xff
+                line[i] = (line[i] + line[i - 1]) & 0xFF
         elif ft == 2:
             for i in range(stride):
-                line[i] = (line[i] + prev[i]) & 0xff
+                line[i] = (line[i] + prev[i]) & 0xFF
         elif ft == 3:
             for i in range(stride):
                 left = line[i - 1] if i else 0
-                line[i] = (line[i] + ((left + prev[i]) >> 1)) & 0xff
+                line[i] = (line[i] + ((left + prev[i]) >> 1)) & 0xFF
         elif ft == 4:
             for i in range(stride):
                 left = line[i - 1] if i else 0
                 ul = prev[i - 1] if i else 0
-                line[i] = (line[i] + _paeth(left, prev[i], ul)) & 0xff
+                line[i] = (line[i] + _paeth(left, prev[i], ul)) & 0xFF
         out += line
         prev = line
     return bytes(out)
@@ -86,14 +88,14 @@ def _apply_filter(ft, line, prev):
     for i in range(stride):
         left = line[i - 1] if i else 0
         if ft == 1:
-            out[i] = (line[i] - left) & 0xff
+            out[i] = (line[i] - left) & 0xFF
         elif ft == 2:
-            out[i] = (line[i] - prev[i]) & 0xff
+            out[i] = (line[i] - prev[i]) & 0xFF
         elif ft == 3:
-            out[i] = (line[i] - ((left + prev[i]) >> 1)) & 0xff
+            out[i] = (line[i] - ((left + prev[i]) >> 1)) & 0xFF
         else:
             ul = prev[i - 1] if i else 0
-            out[i] = (line[i] - _paeth(left, prev[i], ul)) & 0xff
+            out[i] = (line[i] - _paeth(left, prev[i], ul)) & 0xFF
     return bytes(out)
 
 
@@ -129,8 +131,12 @@ def _deflate_best(raw):
 
 
 def _chunk(typ, payload):
-    return (struct.pack(">I", len(payload)) + typ + payload +
-            struct.pack(">I", zlib.crc32(typ + payload) & 0xffffffff))
+    return (
+        struct.pack(">I", len(payload))
+        + typ
+        + payload
+        + struct.pack(">I", zlib.crc32(typ + payload) & 0xFFFFFFFF)
+    )
 
 
 def optimize_png_bytes(data):
@@ -153,7 +159,7 @@ def optimize_png_bytes(data):
                 idat += payload
         stride = (w * bd + 7) // 8
         flat = _unfilter(zlib.decompress(idat), h, stride)
-        rows = [flat[y * stride:(y + 1) * stride] for y in range(h)]
+        rows = [flat[y * stride : (y + 1) * stride] for y in range(h)]
 
         # highest used palette index (bit depth is PINNED — indices unchanged)
         maxidx = 0
@@ -163,11 +169,11 @@ def optimize_png_bytes(data):
                 v = (r[(x * bd) // 8] >> (8 - bd - ((x * bd) % 8))) & mask
                 if v > maxidx:
                     maxidx = v
-        nplte = plte[:3 * (maxidx + 1)] if (ct == 3 and plte) else plte
+        nplte = plte[: 3 * (maxidx + 1)] if (ct == 3 and plte) else plte
         ntrns = None
         if trns is not None:
-            t = trns[:maxidx + 1]
-            while t and t[-1] == 255:   # trailing opaque: decoder defaults to opaque
+            t = trns[: maxidx + 1]
+            while t and t[-1] == 255:  # trailing opaque: decoder defaults to opaque
                 t = t[:-1]
             ntrns = t if t else None
 
@@ -189,7 +195,7 @@ def optimize_png_bytes(data):
         vflat = _unfilter(zlib.decompress(best_stream), h, stride)
         if vflat != flat:
             return data
-        if plte is not None and nplte != plte[:len(nplte)]:
+        if plte is not None and nplte != plte[: len(nplte)]:
             return data
         return out if len(out) < len(data) else data
     except Exception:
