@@ -3044,6 +3044,23 @@ static void draw_city_label(GContext *ctx, GlobeView *view, GRect bounds) {
 
 static void draw_intro_title(GContext *ctx, GRect bounds, int globe_y,
                              GSize frame_size) {
+#if !PBL_ROUND
+    (void)globe_y;
+    (void)frame_size;
+
+    const int header_height = 38;
+    graphics_context_set_text_color(ctx, GColorBlack);
+    graphics_draw_text(ctx, "CITY SELECT",
+                       fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
+                       GRect(0, -2, bounds.size.w, header_height + 2),
+                       GTextOverflowModeTrailingEllipsis,
+                       GTextAlignmentCenter,
+                       NULL);
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx,
+                       GRect(0, header_height - 2, bounds.size.w, 2),
+                       0, GCornerNone);
+#else
     const char *title = "CITY SELECT";
     GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
     int planet_center_y = globe_y + frame_size.h / 2 +
@@ -3061,6 +3078,15 @@ static void draw_intro_title(GContext *ctx, GRect bounds, int globe_y,
                        GTextOverflowModeTrailingEllipsis,
                        GTextAlignmentCenter,
                        NULL);
+    // Divider under the title (round port of the rect city-select redesign): the same
+    // 2px black rule, FULL WIDTH — the round framebuffer clips each row to the glass,
+    // so drawing edge to edge lands it bezel-to-bezel. Rides title_y like the title.
+    {
+      const int rule_y = title_y + GLOBE_INTRO_TITLE_HEIGHT - 2;
+      graphics_context_set_fill_color(ctx, GColorBlack);
+      graphics_fill_rect(ctx, GRect(0, rule_y, bounds.size.w, 2), 0, GCornerNone);
+    }
+#endif
 }
 
 // Map-pin artwork lifted from the world cup app's location_pin.pdc (18x22 viewbox,
@@ -3102,7 +3128,41 @@ static void draw_saved_locations_pin(GContext *ctx, GPoint origin,
 
 static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
                                        GRect bounds, bool selected) {
-    const char *label = "saved locations";
+#if !PBL_ROUND
+    const char *label = "SAVED LOCATIONS";
+    const int side_inset = 10;
+    int y = bounds.size.h - GLOBE_SAVED_LABEL_HEIGHT;
+    if (selected) y += intro_selection_offset(view);
+
+    graphics_context_set_fill_color(ctx,
+                                    selected ? GColorVividCerulean
+                                             : GColorWhite);
+    graphics_fill_rect(ctx,
+                       GRect(0, y, bounds.size.w, GLOBE_SAVED_LABEL_HEIGHT),
+                       0, GCornerNone);
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, 2),
+                       0, GCornerNone);
+
+    GColor label_color = selected ? GColorWhite : GColorBlack;
+    GColor bg_color = selected ? GColorVividCerulean : GColorWhite;
+    draw_saved_locations_pin(ctx,
+                             GPoint(side_inset,
+                                    y + (GLOBE_SAVED_LABEL_HEIGHT -
+                                         GLOBE_SAVED_COG_SIZE) / 2),
+                             label_color, bg_color);
+
+    graphics_context_set_text_color(ctx, label_color);
+    graphics_draw_text(ctx, label,
+                       fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+                       GRect(0, y + 3, bounds.size.w,
+                             GLOBE_SAVED_LABEL_HEIGHT - 3),
+                       GTextOverflowModeTrailingEllipsis,
+                       GTextAlignmentCenter,
+                       NULL);
+#else
+    // Uppercase to match the rect city-select redesign's footer treatment.
+    const char *label = "SAVED LOCATIONS";
     GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
     // Constant string + constant font: measure once, not per intro frame (28.6fps while the
     // cradle animates).
@@ -3119,7 +3179,8 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
     // The TEXT centres on the screen; the pin hangs off its left (so the label reads
     // centred rather than the pin+text group being centred, which right-shifted the text).
     int text_x = (bounds.size.w - text_size.w) / 2;
-    int pin_x = text_x - GLOBE_SAVED_LABEL_GAP - GLOBE_SAVED_COG_SIZE;
+    // +4: pulled right off the chin's curve so the pin reads fully inside the glass.
+    int pin_x = text_x - GLOBE_SAVED_LABEL_GAP - GLOBE_SAVED_COG_SIZE + 4;
     if (pin_x < 2) pin_x = 2;
     int y = bounds.size.h - GLOBE_SAVED_LABEL_HEIGHT -
             GLOBE_SAVED_LABEL_ROUND_BOTTOM_INSET;
@@ -3130,11 +3191,11 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
         graphics_context_set_fill_color(ctx, GColorVividCerulean);
         graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, fill_h),
                            0, GCornerNone);
-    } else {
-        graphics_context_set_stroke_color(ctx, GColorLightGray);
-        graphics_draw_line(ctx, GPoint(0, y),
-                           GPoint(bounds.size.w, y));
     }
+    // Divider above the row, ALWAYS drawn (rect redesign parity): 2px black rule replacing
+    // the old selection-only 1px grey line, FULL WIDTH (the glass mask clips it edge to edge).
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, 2), 0, GCornerNone);
 
     GColor label_color = selected ? GColorWhite : GColorBlack;
     GColor bg_color = selected ? GColorVividCerulean : GColorWhite;
@@ -3152,6 +3213,7 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
                        GTextOverflowModeTrailingEllipsis,
                        GTextAlignmentLeft,
                        NULL);
+#endif
 }
 
 /**

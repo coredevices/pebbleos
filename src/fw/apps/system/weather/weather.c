@@ -611,6 +611,16 @@ static NOINLINE void prv_init(void) {
   WeatherAppData *data = app_zalloc_check(sizeof(WeatherAppData));
   app_state_set_user_data(data);
   s_data = data;
+#if WEATHER_PLATFORM_TOUCH_COLOR
+  // v4.32 runs a SYSTEM touch-navigation twin inside every system app by default: a system
+  // subscription slot sees each touch first and holds gestures while it classifies swipes
+  // into synthetic button events. This app carries its own complete touch navigation (every
+  // screen maps swipes itself, the globe pans on the raw stream), so the twin both delays
+  // and swallows our gestures — on-watch this read as "swipes are laggy or dead everywhere
+  // but the globe". Opt out so our raw touch_service subscriptions see the stream exactly
+  // as they did on the v4.18 base.
+  app_touch_navigation_enable(false);
+#endif
   // The animated forecast is the carousel base window; start the ring there.
   s_page = PAGE_LIST;
   // zalloc leaves coords at 0 — a VALID lat/lon (0°,0°). Unknown must be INT16_MIN so the

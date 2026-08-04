@@ -421,10 +421,11 @@ static void prv_touch_handler(const TouchEvent *event, void *context) {
 
 static void prv_select_click(MenuLayer *menu_layer, MenuIndex *cell_index,
                              void *context) {
+  // BOTH shapes (city-select redesign): SELECT on a saved-locations row is a no-op — the
+  // list is a read-only glance; city switching happens on the globe.
   (void)menu_layer;
-  SavedLocationsView *view = (SavedLocationsView *)context;
-  if (!view || !cell_index) return;
-  prv_activate_saved_row(view, cell_index->row);
+  (void)cell_index;
+  (void)context;
 }
 
 static void prv_window_unload(Window *window) {
