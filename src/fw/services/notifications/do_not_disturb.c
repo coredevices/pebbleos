@@ -278,12 +278,14 @@ static void prv_update_until_wake_state(void) {
 }
 
 static void prv_set_sleep_state(ActivitySleepState sleep_state) {
-  const bool was_asleep = prv_sleep_state_is_asleep(s_data.sleep_state);
-  const bool is_asleep = prv_sleep_state_is_asleep(sleep_state);
   s_data.sleep_state = sleep_state;
-  if (was_asleep != is_asleep) {
+
+  // Only clear the manual override when we've definitively observed waking up.
+  // This preserves the override across temporary tracking interruptions.
+  if (sleep_state == ActivitySleepStateAwake) {
     s_data.sleep_dnd_override = false;
   }
+
   prv_update_until_wake_state();
   prv_do_update();
 }
