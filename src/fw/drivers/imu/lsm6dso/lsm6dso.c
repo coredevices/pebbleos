@@ -7,6 +7,7 @@
 #include <pbl/drivers/i2c.h>
 #include <pbl/drivers/rtc.h>
 #include <pbl/drivers/gpio.h>
+#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/imu/units.h"
 #include "pbl/services/regular_timer.h"
 #include <pbl/logging/logging.h>
@@ -612,6 +613,7 @@ static void prv_lsm6dso_recover(void) {
   uint8_t val;
 
   LSM6DSO->state->num_recoveries++;
+  PBL_ANALYTICS_ADD(accel_stream_recovery_count, 1);
   PBL_LOG_WRN("Recovering accel stream (count %" PRIu32 ")",
           LSM6DSO->state->num_recoveries);
 

@@ -74,9 +74,18 @@ static const struct pbl_analytics_backend_ops *s_backend_ops[] = {
 };
 
 static void prv_heartbeat_system_task_cb(void *data) {
+  static bool s_reboot_reason_counted = false;
+
   PBL_ANALYTICS_SET_STRING(fw_version, TINTIN_METADATA.version_tag);
   PBL_ANALYTICS_SET_UNSIGNED(last_reboot_reason, reboot_reason_get_last_reboot_reason());
   PBL_ANALYTICS_SET_UNSIGNED(uptime_s, time_get_uptime_seconds());
+
+  if (!s_reboot_reason_counted) {
+    s_reboot_reason_counted = true;
+    if (reboot_reason_get_last_reboot_reason() >= RebootReasonCode_Watchdog) {
+      PBL_ANALYTICS_ADD(unexpected_reboot_count, 1);
+    }
+  }
 
   pbl_analytics_external_collect_battery();
   pbl_analytics_external_collect_cpu_stats();

@@ -128,3 +128,7 @@ PBL_ANALYTICS_METRIC_DEFINE_TIMER(connectivity_expected_time_ms)
 // one at latency 3 despite ~4x the radio duty; track latency-0 time directly.
 PBL_ANALYTICS_METRIC_DEFINE_TIMER(ble_conn_slave_lat0_time_ms)
 PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(ble_conn_param_update_count)
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(accel_stream_recovery_count)
+// Counted once per boot, on the first heartbeat, when the previous reboot
+// reason is in the error family (RebootReasonCode_Watchdog and above).
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(unexpected_reboot_count)
