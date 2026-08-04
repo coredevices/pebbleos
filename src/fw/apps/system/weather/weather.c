@@ -15,6 +15,7 @@
 
 #include "weather.h"
 #include "clock_face.h"
+#include "warning_dialog.h"
 #include "weather_report.h"
 #include "expanded_view.h"
 #include "forecast_list.h"
@@ -62,6 +63,7 @@ typedef struct WeatherAppData {
   char    current_loc_buf[64];
   int16_t current_lat_e2;
   int16_t current_lon_e2;
+  WeatherAppWarningDialog *warning_dialog;
 } WeatherAppData;
 
 static WeatherAppData *s_data;
@@ -200,7 +202,7 @@ static void prv_fill_days_from_ds(WeatherAppData *data, const WxDsForecast *ds) 
     struct tm *lt_h = localtime(&now_t);
     const int hour = lt_h ? lt_h->tm_hour : -1;
     if (ds->hourly_count == WX_DS_HOURLY && hour >= 0 && hour < WX_DS_HOURLY &&
-        ds->hourly_type[hour] <= WeatherType_Generic) {
+        ds->hourly_type[hour] <= WeatherType_RainAndSnow) {
       data->days[0].current_type_now   = (WeatherType)ds->hourly_type[hour];
       data->days[0].current_temp_now   = ds->hourly_temp[hour];
       // The hourly block has no phrase; derive one from the type. Static string — safe.
@@ -226,9 +228,9 @@ static void prv_fill_days_from_ds(WeatherAppData *data, const WxDsForecast *ds) 
         .current_temp = WX_DS_UNKNOWN_TEMP,
         .today_high = ds->daily[i].high,
         .today_low = ds->daily[i].low,
-        .today_uv = ds->daily[i].uv,             // per-day UV (seed; -1 for real v4)
+        .today_uv = ds->daily[i].uv,             // per-day UV (v4.1 daily_metrics; -1 when absent)
         .today_uv_now = -1,                      // hourly UV is today-only
-        .today_precip_mm = ds->daily[i].precip,  // per-day precip + wind (seed; -1 for real v4)
+        .today_precip_mm = ds->daily[i].precip,  // per-day precip + wind (v4.1; -1 when absent)
         .today_wind_mph = ds->daily[i].wind,
         .today_wind_dir_deg = ds->daily[i].wind_dir,
         .today_feels = ds->daily[i].feels,       // per-day feels-like (v4.2 daily_feels_like)
@@ -309,11 +311,34 @@ static void prv_read_current_location(WeatherAppData *data, WxDsForecast *scratc
   data->current_lon_e2 = scratch->longitude_e2;
 }
 
+static void prv_warning_dialog_dismiss_cb(void) {
+  if (s_data) {
+    s_data->warning_dialog = NULL;
+  }
+}
+
+// No synced locations: warn and leave the dialog as the ONLY window, exactly like
+// the original app — dismissing it empties the stack and app_event_loop returns,
+// so the app closes. Covers launch (nothing pushed yet, the pop is a no-op) and a
+// mid-run flush alike.
+static void prv_show_no_data_warning(WeatherAppData *data) {
+  if (data->warning_dialog) {
+    return;  // only show one dialog at a time
+  }
+  app_window_stack_pop_all(false /* animated */);
+  /// Shown when there are no forecasts available to show the user
+  const char *warning_text = i18n_get("No location information available. To see weather, add "
+                                      "locations in your Pebble mobile app.", data);
+  data->warning_dialog =
+      weather_app_warning_dialog_push(warning_text, prv_warning_dialog_dismiss_cb);
+}
+
 static void prv_refresh(WeatherAppData *data) {
   data->location_count = weather_ds_location_count();
   if (data->location_count <= 0) {
     data->days_received = 0;
     forecast_list_update_data(NULL, 0);
+    prv_show_no_data_warning(data);
     return;
   }
   if (data->active_index >= data->location_count) {
@@ -382,7 +407,7 @@ static void prv_push_clock(WeatherAppData *data, bool static_push) {
     if (hi <= lo) {
       hi = lo + 6;
     }
-    // Shared diurnal curve — same shape as the today seed so every day's dial
+    // Shared diurnal curve — one shape for every day so each day's dial
     // reads naturally.
     const int span = hi - lo;
     for (int h = 0; h < 24; h++) {
@@ -568,7 +593,17 @@ static void prv_globe_location_selected(int ds_index, bool force, void *ctx) {
 // Reached by tapping the globe cradle's saved-locations bar. Locations are owned
 // by the PHONE app; this screen only picks between them. It dismisses itself.
 static void prv_on_saved_location_selected(int ds_index, void *ctx) {
-  prv_select_ds_location((WeatherAppData *)ctx, ds_index);
+  WeatherAppData *data = (WeatherAppData *)ctx;
+  prv_select_ds_location(data, ds_index);
+  // Land on the MAINSCREEN, like a globe pin commit: clear every window between
+  // the saved-locations list (it dismisses itself right after this returns) and
+  // the forecast base. All unanimated — they sit hidden beneath the list.
+  if (data && data->globe_view) {
+    globe_view_dismiss(data->globe_view, false);
+  }
+  expanded_view_dismiss(false);
+  clock_face_dismiss(false);
+  s_page = PAGE_LIST;
 }
 
 static void prv_open_saved_locations(void *ctx) {
@@ -608,9 +643,25 @@ static void prv_handle_weather(PebbleEvent *event, void *context) {
 }
 
 static NOINLINE void prv_init(void) {
+  // System-app statics survive across launches and a crashed run never reaches
+  // unload — clear every module's launch-persistent state first (like s_page).
+  clock_face_reset();
+  expanded_view_reset();
+  weather_report_reset();
+
   WeatherAppData *data = app_zalloc_check(sizeof(WeatherAppData));
   app_state_set_user_data(data);
   s_data = data;
+#ifdef CONFIG_TOUCH
+  // v4.32 runs a SYSTEM touch-navigation twin inside every system app by default: a system
+  // subscription slot sees each touch first and holds gestures while it classifies swipes
+  // into synthetic button events. This app carries its own complete touch navigation (every
+  // screen maps swipes itself, the globe pans on the raw stream), so the twin both delays
+  // and swallows our gestures — on-watch this read as "swipes are laggy or dead everywhere
+  // but the globe". Opt out so our raw touch_service subscriptions see the stream exactly
+  // as they did on the v4.18 base.
+  app_touch_navigation_enable(false);
+#endif
   // The animated forecast is the carousel base window; start the ring there.
   s_page = PAGE_LIST;
   // zalloc leaves coords at 0 — a VALID lat/lon (0°,0°). Unknown must be INT16_MIN so the
@@ -619,6 +670,11 @@ static NOINLINE void prv_init(void) {
   data->current_lon_e2 = INT16_MIN;
 
   prv_refresh(data);
+  if (data->warning_dialog) {
+    // No data — the warning dialog is the only window; dismissing it exits the
+    // app. Skip the rest of the UI (globe, event subscription, base window).
+    return;
+  }
 
   // Create the globe once (held for the app's lifetime; ~31KB of cubemap +
   // starfield + sequence resources). prv_refresh ran first, so lat/lon is set.
@@ -636,8 +692,7 @@ static NOINLINE void prv_init(void) {
   clock_face_set_wrap_callback(prv_on_clock_wrap_to_main, data);
 
   // App-global weather event subscription: re-read the BlobDB whenever the phone
-  // writes a new weather record. (Moved here from the old main window's appear
-  // handler now that there is no persistent main window.)
+  // writes a new weather record (there is no persistent main window to host it).
   data->weather_event_info = (EventServiceInfo) {
     .type = PEBBLE_WEATHER_EVENT,
     .handler = prv_handle_weather,
@@ -651,7 +706,10 @@ static NOINLINE void prv_init(void) {
 
 static void prv_deinit(void) {
   if (s_data) {
-    event_service_client_unsubscribe(&s_data->weather_event_info);
+    if (s_data->weather_event_info.handler) {
+      event_service_client_unsubscribe(&s_data->weather_event_info);
+    }
+    i18n_free_all(s_data);
     clock_face_set_wrap_callback(NULL, NULL);
     if (s_data->globe_view) {
       globe_view_destroy(s_data->globe_view);

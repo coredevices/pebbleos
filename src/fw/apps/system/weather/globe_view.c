@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
 /**
@@ -12,6 +12,7 @@
 
 #include "weather_data_source.h"   // WX_DS_UNKNOWN_TEMP
 #include "weather_math.h"
+#include "applib/graphics/gdraw_command_transforms.h"
 #include "weather.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/vibes.h"
@@ -63,6 +64,11 @@
 #define GLOBE_CRUMPLE_POINT_DURATION_DEN 3
 #define GLOBE_CRUMPLE_SWEEP_ANGLE DEG_TO_TRIGANGLE(-45)
 #define GLOBE_CRADLE_CENTER_Y_OFFSET 5
+// Small rect (flint/asterix 144x168): the intro art was drawn for taller
+// screens — the cradle sequence, stand and arm scale down to fit between a
+// slimmer title band and a slimmer saved-locations bar.
+#define GLOBE_SMALL_RECT (!PBL_ROUND && PBL_DISPLAY_HEIGHT < 200)
+#define GLOBE_CRADLE_SCALE_PCT (GLOBE_SMALL_RECT ? 78 : 100)
 #define GLOBE_REVEAL_DURATION_MS 900
 #define GLOBE_REVEAL_REVERSE_DURATION_MS 420
 #define GLOBE_REVEAL_SPIN_STEPS 4
@@ -200,7 +206,9 @@ static void schedule_frame_timer(GlobeView *view);
 static void start_globe_idle_timer(GlobeView *view);
 static GRect clip_rect_to_bounds(GRect rect, GRect bounds);
 static void update_city_label_layer(GlobeView *view);
+#ifdef CONFIG_TOUCH
 static void set_free_roam_enabled(GlobeView *view, bool enabled);
+#endif
 static void show_intro_canvas(GlobeView *view);
 static void show_revealed_space_layers(GlobeView *view);
 static void mark_dynamic_globe_dirty(GlobeView *view);
@@ -211,7 +219,7 @@ static void release_visual_resources(GlobeView *view);
 static int bounce_offset(GlobeView *view);
 static void framebuffer_draw_starfield(GBitmap *fb, GlobeView *view,
                                        GRect bounds, GRect clip_rect);
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 static void stop_globe_coast(GlobeView *view, bool mark_dirty);
 static bool try_start_magnetic_city_lock(GlobeView *view, int radius_px);
 static bool point_is_on_revealed_globe(GlobeView *view, int16_t x, int16_t y);
@@ -254,9 +262,11 @@ static void sync_bw_elapsed_to_current_frame(GlobeView *view) {
 
 // positive_modulo is provided by util/math.h (same semantics) — using that.
 
+#ifdef CONFIG_TOUCH
 static int32_t abs_i32(int32_t value) {
     return value < 0 ? -value : value;
 }
+#endif
 
 static int rounded_divide(int value, int divisor) {
     if (divisor == 0) return 0;
@@ -364,7 +374,6 @@ static bool selected_city_is_valid(GlobeView *view, int city_index) {
            (e->is_current_location && view && view->has_current_location);
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
 static bool saved_entry_has_globe_coordinates(GlobeView *view,
                                               SavedLocationEntry *entry) {
     if (!entry) return false;
@@ -391,6 +400,7 @@ static int16_t saved_entry_longitude_e2(GlobeView *view,
     return entry ? entry->longitude_e2 : 0;
 }
 
+#ifdef CONFIG_TOUCH
 // Merged has-coordinates + coordinate fetch: one call per entry instead of
 // three, false when the entry has no usable globe position.
 static bool saved_entry_globe_coords(GlobeView *view, SavedLocationEntry *entry,
@@ -652,8 +662,14 @@ static bool color_highlight_bw_command(GDrawCommand *command,
     // Command 0 of every frame is the (low-poly) ocean disc; the land
     // polygons follow it, so recolor by position rather than command type.
     gdraw_command_set_stroke_color(command, GColorBlack);
+#if PBL_BW
+    // The colour tints quantize to a solid black blob on 1-bit — shade just
+    // the ocean disc 50% instead; land stays white line-art.
+    gdraw_command_set_fill_color(command, index == 0 ? GColorLightGray : GColorWhite);
+#else
     gdraw_command_set_fill_color(command, index == 0 ? GColorVividCerulean
                                                      : GColorScreaminGreen);
+#endif
     return true;
 }
 
@@ -700,16 +716,15 @@ static void draw_cradle(GContext *ctx, GlobeView *view, GPoint origin, GSize fra
     (void)frame_size;
     graphics_context_set_antialiased(ctx, false);
     graphics_context_set_fill_color(ctx, GColorBlack);
+    const int acx = GLOBE_CRADLE_ARM_CENTER_X * GLOBE_CRADLE_SCALE_PCT / 100;
+    const int acy = GLOBE_CRADLE_ARM_CENTER_Y * GLOBE_CRADLE_SCALE_PCT / 100;
+    const int aor = GLOBE_CRADLE_ARM_OUTER_RADIUS * GLOBE_CRADLE_SCALE_PCT / 100;
+    const int ath = GLOBE_CRADLE_ARM_THICKNESS * GLOBE_CRADLE_SCALE_PCT / 100;
     graphics_fill_radial(
         ctx,
-        GRect(
-            origin.x + GLOBE_CRADLE_ARM_CENTER_X - GLOBE_CRADLE_ARM_OUTER_RADIUS,
-            origin.y + GLOBE_CRADLE_ARM_CENTER_Y - GLOBE_CRADLE_ARM_OUTER_RADIUS,
-            GLOBE_CRADLE_ARM_OUTER_RADIUS * 2,
-            GLOBE_CRADLE_ARM_OUTER_RADIUS * 2
-        ),
+        GRect(origin.x + acx - aor, origin.y + acy - aor, aor * 2, aor * 2),
         GOvalScaleModeFitCircle,
-        GLOBE_CRADLE_ARM_THICKNESS,
+        ath,
         GLOBE_CRADLE_ARM_START_ANGLE,
         GLOBE_CRADLE_ARM_END_ANGLE
     );
@@ -783,7 +798,7 @@ static void matrix_identity(int32_t matrix[9]) {
     matrix[8] = GLOBE_ROT_SCALE;
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 static void matrix_copy(int32_t destination[9], const int32_t source[9]) {
     for (int i = 0; i < 9; i++) {
         destination[i] = source[i];
@@ -926,7 +941,7 @@ static void set_color_orientation(GlobeView *view,
     view->current_frame = bw_frame_for_longitude_e2((int16_t)longitude_e2);
     sync_bw_elapsed_to_current_frame(view);
     matrix_from_lat_lon(view->globe_rotation, latitude_e2, longitude_e2);
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     // 64-bit product: pm(lon) * width * 256 overflows int32 for most
     // western longitudes (pm >= 20972), which used to scatter the starfield.
     view->starfield_offset_x_q8 =
@@ -940,9 +955,11 @@ static void set_color_orientation(GlobeView *view,
 // The globe blobs are stored raw-deflate compressed in the pack ([u32 LE
 // inflated_size][raw DEFLATE stream], tools/deflate_resource.py) and inflated
 // here via the firmware's tinflate (the same raw-deflate decoder uPNG uses).
-// Buffers come from applib_malloc — the same app-task heap as malloc_try/free,
-// and the allocator gdraw_command_sequence_destroy's munmap-or-free path pairs
-// with, so the inflated BW sequence can be handed to the normal destroy path.
+// Buffers come from malloc_try — the app-task heap free() and the allocator
+// gdraw_command_sequence_destroy's munmap-or-free path pair with, so the
+// inflated BW sequence can be handed to the normal destroy path. The croaking
+// allocators are off-limits here: the globe is an optional visual, so heap
+// pressure must degrade to "no globe", never reboot the watch.
 // Returns NULL on any failure; *out_size gets the inflated size.
 static void *prv_load_inflated(uint32_t res_id, uint32_t *out_size) {
     ResHandle handle = resource_get_handle(res_id);
@@ -954,13 +971,13 @@ static void *prv_load_inflated(uint32_t res_id, uint32_t *out_size) {
     uint32_t inflated_size = 0;
     if (resource_load(handle, cbuf, csize) == csize) {
         memcpy(&inflated_size, cbuf, sizeof(inflated_size));   // LE prefix
-        out = applib_malloc(inflated_size);
+        out = malloc_try(inflated_size);
         if (out) {
             unsigned int dlen = inflated_size;
             if (tinflate_uncompress(out, &dlen, cbuf + sizeof(uint32_t),
                                     (unsigned int)(csize - sizeof(uint32_t))) != TINF_OK ||
                 dlen != inflated_size) {
-                applib_free(out);
+                free(out);
                 out = NULL;
             }
         }
@@ -1061,6 +1078,38 @@ static void ensure_visual_resources(GlobeView *view) {
         view->cradle_pdc = gdraw_command_image_create_with_resource(
             RESOURCE_ID_GLOBE_CRADLE_PDC);
     }
+
+#if GLOBE_SMALL_RECT
+    // Scale the writable clones once, right after load. (Both live in RAM —
+    // scaling an mmap'd resource would write read-only flash.)
+    if (view->bw_sequence && !view->bw_sequence_scaled) {
+        const GSize from = gdraw_command_sequence_get_bounds_size(view->bw_sequence);
+        if (from.w > 0 && from.h > 0) {
+            const GSize to = GSize((int16_t)(from.w * GLOBE_CRADLE_SCALE_PCT / 100),
+                                   (int16_t)(from.h * GLOBE_CRADLE_SCALE_PCT / 100));
+            const uint32_t frames = gdraw_command_sequence_get_num_frames(view->bw_sequence);
+            for (uint32_t i = 0; i < frames; i++) {
+                GDrawCommandFrame *frame =
+                    gdraw_command_sequence_get_frame_by_index(view->bw_sequence, i);
+                if (frame) {
+                    gdraw_command_list_scale(gdraw_command_frame_get_command_list(frame),
+                                             from, to);
+                }
+            }
+            gdraw_command_sequence_set_bounds_size(view->bw_sequence, to);
+        }
+        view->bw_sequence_scaled = true;
+    }
+    if (view->cradle_pdc && !view->cradle_pdc_scaled) {
+        const GSize from = gdraw_command_image_get_bounds_size(view->cradle_pdc);
+        if (from.w > 0 && from.h > 0) {
+            gdraw_command_image_scale(view->cradle_pdc,
+                                      GSize((int16_t)(from.w * GLOBE_CRADLE_SCALE_PCT / 100),
+                                            (int16_t)(from.h * GLOBE_CRADLE_SCALE_PCT / 100)));
+        }
+        view->cradle_pdc_scaled = true;
+    }
+#endif
 
     load_cubemap_resource(view);
     load_starfield_resource(view);
@@ -1197,7 +1246,7 @@ static void draw_forward_space_fade(GContext *ctx, GRect bounds, int amount,
             if (GLOBE_SPACE_FADE_DITHER[ay % GLOBE_SPACE_FADE_DITHER_SIZE]
                                       [ax % GLOBE_SPACE_FADE_DITHER_SIZE] <
                 coverage) {
-                ri.data[ax] = GColorBlackARGB8;
+                weather_fb_row_set(ri.data, ax, GColorBlackARGB8);
             }
         }
     }
@@ -1260,8 +1309,14 @@ static void clear_framebuffer_rect(GBitmap *fb, GRect rect) {
         int row_left = left < (int)ri.min_x ? (int)ri.min_x : left;
         int row_right = right > (int)ri.max_x ? (int)ri.max_x : right;
         if (row_right >= row_left) {
+#if PBL_BW
+            for (int ax = row_left; ax <= row_right; ax++) {
+                weather_fb_row_set(ri.data, ax, GColorBlackARGB8);
+            }
+#else
             memset(&ri.data[row_left], GColorBlackARGB8,
                    (size_t)(row_right - row_left + 1));
+#endif
         }
     }
 }
@@ -1278,12 +1333,18 @@ static void framebuffer_draw_starfield(GBitmap *fb, GlobeView *view,
     size_t available = (view->starfield_size - 2) / 3;
     if (count > available) count = (uint16_t)available;
 
+#ifdef CONFIG_TOUCH
     int offset_x = positive_modulo(
         (int)(view->starfield_offset_x_q8 / GLOBE_Q8_ONE),
         GLOBE_STARFIELD_WIDTH);
     int offset_y = positive_modulo(
         (int)(view->starfield_offset_y_q8 / GLOBE_Q8_ONE),
         GLOBE_STARFIELD_HEIGHT);
+#else
+    // No touch pan/coast on this platform, so the starfield never scrolls.
+    int offset_x = 0;
+    int offset_y = 0;
+#endif
     int clip_left = clip_rect.origin.x;
     int clip_top = clip_rect.origin.y;
     int clip_right = clip_rect.origin.x + clip_rect.size.w - 1;
@@ -1319,7 +1380,7 @@ static void framebuffer_draw_starfield(GBitmap *fb, GlobeView *view,
                 GBitmapDataRowInfo ri =
                     gbitmap_get_data_row_info(fb, (uint16_t)ay);
                 if (ax < (int)ri.min_x || ax > (int)ri.max_x) continue;
-                ri.data[ax] = starfield_color_from_flags(flags);
+                weather_fb_row_set(ri.data, ax, starfield_color_from_flags(flags));
             }
         }
     }
@@ -1377,7 +1438,7 @@ static NOINLINE void framebuffer_draw_ring(GBitmap *fb, GPoint center, int outer
             int dx = ax - center.x;
             int d2 = (dx * dx) + (dy * dy);
             if (d2 <= outer_sq && d2 >= inner_sq) {
-                ri.data[ax] = color;
+                weather_fb_row_set(ri.data, ax, color);
             }
         }
     }
@@ -1471,6 +1532,7 @@ static bool project_lat_lon_to_globe_point_with_depth(GlobeView *view,
     return true;
 }
 
+#ifdef CONFIG_TOUCH
 __attribute__((noinline)) static bool project_lat_lon_to_globe_point(GlobeView *view,
                                            int32_t latitude_e2,
                                            int32_t longitude_e2,
@@ -1483,7 +1545,6 @@ __attribute__((noinline)) static bool project_lat_lon_to_globe_point(GlobeView *
                                                     point_out, NULL);
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
 static int nearest_centered_city_index(GlobeView *view, int radius_px) {
     if (!view || !view->window || radius_px <= 0) return -1;
 
@@ -1623,7 +1684,7 @@ static void draw_saved_location_pins(GBitmap *fb, GlobeView *view,
         }
 
         bool emphasized = (i == view->selected_city_index);
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
         emphasized = emphasized && !view->is_free_roam;
         if (view->city_anim && view->hover_lock_active) {
             // Grow mid-swoop so the emphasis lands as the pin centres.
@@ -1665,13 +1726,46 @@ static void draw_saved_location_pins(GBitmap *fb, GlobeView *view,
     }
 }
 
-static void fill_row_span(uint8_t *row_data, int x0, int x1,
+#if PBL_BW
+// Ordered-dither quantizer for the globe raster: 2-bit-per-channel luminance
+// (green-weighted) against a 4x4 Bayer threshold, so the BW globe keeps its
+// shading bands — terrain vs sea vs glint vs atmosphere — instead of
+// collapsing into a solid disc.
+static inline bool prv_bw_lit(uint8_t argb8, int x, int y) {
+    static const uint8_t kBayer[4][4] = {
+        {  0,  8,  2, 10 }, { 12,  4, 14,  6 }, {  3, 11,  1,  9 }, { 15,  7, 13,  5 },
+    };
+    const int lum = ((argb8 >> 4) & 0x3) * 3 + ((argb8 >> 2) & 0x3) * 4 +
+                    (argb8 & 0x3) * 2;   // 0..27
+    return (lum * 16) > (kBayer[y & 3][x & 3] * 27 + 13);
+}
+#endif
+
+// One shaded globe pixel: colour boards write the byte; BW boards write the
+// Bayer-dithered bit. (weather_fb_row_set stays for pure black/white intents.)
+static inline void prv_globe_px(uint8_t *row_data, int x, int y, uint8_t argb8) {
+#if PBL_BW
+    bitset8_update(row_data, (unsigned)x, prv_bw_lit(argb8, x, y));
+#else
+    row_data[x] = argb8;
+#endif
+}
+
+static void fill_row_span(uint8_t *row_data, int y, int x0, int x1,
                           int lo, int hi, uint8_t color) {
     if (x0 < lo) x0 = lo;
     if (x1 > hi) x1 = hi;
-    if (x1 >= x0) {
-        memset(&row_data[x0], color, (size_t)(x1 - x0 + 1));
+    if (x1 < x0) return;
+#if PBL_BW
+    // Packed 1-bit rows: a byte memset would overrun the 20-byte row (it
+    // stomped the render context on flint) — write dithered bits instead.
+    for (int x = x0; x <= x1; x++) {
+        prv_globe_px(row_data, x, y, color);
     }
+#else
+    (void)y;
+    memset(&row_data[x0], color, (size_t)(x1 - x0 + 1));
+#endif
 }
 
 // Draws the non-textured rings of one globe row (the 4-step atmosphere
@@ -1681,7 +1775,7 @@ static void fill_row_span(uint8_t *row_data, int x0, int x1,
 // entry is offset by -1 because the textured test is a strict inequality
 // (dist^2 < inner^2).
 #define GLOBE_RING_COUNT 5
-static int fill_globe_ring_row(uint8_t *row_data, int cx, int dy_sq,
+static int fill_globe_ring_row(uint8_t *row_data, int y, int cx, int dy_sq,
                                const int32_t *radii_sq, int lo, int hi) {
     // Atmosphere halo: a luminous Celeste band on the rim itself (no hard
     // outline — it merges with the on-planet rim glow), fading into space.
@@ -1698,9 +1792,9 @@ static int fill_globe_ring_row(uint8_t *row_data, int cx, int dy_sq,
         spans[r] = rem >= 0 ? (int)weather_isqrt(rem) : -1;
     }
     for (int r = 0; r < GLOBE_RING_COUNT; r++) {
-        fill_row_span(row_data, cx - spans[r], cx - spans[r + 1] - 1,
+        fill_row_span(row_data, y, cx - spans[r], cx - spans[r + 1] - 1,
                       lo, hi, ring_colors[r]);
-        fill_row_span(row_data, cx + spans[r + 1] + 1, cx + spans[r],
+        fill_row_span(row_data, y, cx + spans[r + 1] + 1, cx + spans[r],
                       lo, hi, ring_colors[r]);
     }
     return spans[GLOBE_RING_COUNT];
@@ -1762,7 +1856,7 @@ static void draw_cubemap_globe_at_center(GContext *ctx, GlobeView *view,
         int row_right = clip_right > (int)ri.max_x ? (int)ri.max_x : clip_right;
         if (row_left > row_right) continue;
 
-        int t_span = fill_globe_ring_row(ri.data, cx, dy * dy, ring_radii_sq,
+        int t_span = fill_globe_ring_row(ri.data, ay, cx, dy * dy, ring_radii_sq,
                                          row_left, row_right);
         if (t_span < 0) continue;
         int lo = cx - t_span < row_left ? row_left : cx - t_span;
@@ -1822,7 +1916,7 @@ static void draw_cubemap_globe_at_center(GContext *ctx, GlobeView *view,
                          dither_row[ax % GLOBE_SPACE_FADE_DITHER_SIZE] < 8)) {
                         rim_color = GColorWhiteARGB8;
                     }
-                    ri.data[ax] = rim_color;
+                    prv_globe_px(ri.data, ax, ay, rim_color);
                     continue;
                 }
                 uint8_t tex = cubemap_sample(
@@ -1857,7 +1951,7 @@ static void draw_cubemap_globe_at_center(GContext *ctx, GlobeView *view,
                         color = GLOBE_HAZE_WASH_BY_BAND[band];
                     }
                 }
-                ri.data[ax] = color;
+                prv_globe_px(ri.data, ax, ay, color);
             }
         }
     }
@@ -1921,6 +2015,7 @@ static int32_t ease_out_quad(AnimationProgress progress) {
     return ANIMATION_NORMALIZED_MAX - weather_norm_square(inv);
 }
 
+#ifdef CONFIG_TOUCH
 // Integer ease-out-back (s = 7/4, ~10.5% peak overshoot at t~=0.58):
 // f(t) = 1 - (s+1)*inv^3 + s*inv^2, inv = 1-t. Fed to the hover-lock SERVO,
 // values past MAX drive the pin slightly PAST center and back — a real
@@ -1937,6 +2032,7 @@ static int32_t ease_out_back(AnimationProgress progress) {
     int32_t cap = ANIMATION_NORMALIZED_MAX + ANIMATION_NORMALIZED_MAX / 8;
     return eased > cap ? cap : eased;
 }
+#endif
 
 static AnimationProgress color_transition_grow_progress(int amount) {
     const int grow_start =
@@ -2023,7 +2119,7 @@ static void cancel_bounce_animation(GlobeView *view) {
     if (view) cancel_animation_slot(&view->bounce_anim);
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 static void stop_globe_coast(GlobeView *view, bool mark_dirty) {
     if (!view) return;
 
@@ -2058,7 +2154,7 @@ static bool commit_hovered_location(GlobeView *view) {
         cancel_city_animation(view);
     }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     stop_globe_coast(view, false);
     if (view->is_free_roam) {
         int city_index = nearest_centered_city_index(view,
@@ -2146,6 +2242,7 @@ static void set_text_layer_hidden(TextLayer *text_layer, bool hidden) {
     }
 }
 
+#ifdef CONFIG_TOUCH
 static void set_free_roam_enabled(GlobeView *view, bool enabled) {
     if (!view) return;
 
@@ -2167,6 +2264,7 @@ static void set_free_roam_enabled(GlobeView *view, bool enabled) {
         mark_dynamic_globe_dirty(view);
     }
 }
+#endif
 
 static void show_intro_canvas(GlobeView *view) {
     if (!view) return;
@@ -2202,8 +2300,12 @@ static void show_revealed_space_layers(GlobeView *view) {
         layer_set_hidden(view->globe_layer, false);
         layer_mark_dirty(view->globe_layer);
     }
+#ifdef CONFIG_TOUCH
     set_text_layer_hidden(view->city_label_layer,
                           view->is_free_roam && !view->hover_lock_active);
+#else
+    set_text_layer_hidden(view->city_label_layer, view->is_free_roam);
+#endif
 }
 
 static void city_anim_update(Animation *anim, AnimationProgress progress) {
@@ -2212,7 +2314,7 @@ static void city_anim_update(Animation *anim, AnimationProgress progress) {
 
     view->city_anim_progress = progress;
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     if (view->hover_lock_active && view->hover_city_index >= 0) {
         // Ease-out-BACK in the servo: eased exceeds MAX near the end, so
         // `remaining` goes briefly negative and the pin swings a few px PAST
@@ -2266,7 +2368,7 @@ static void city_anim_stopped(Animation *anim, bool finished, void *context) {
         view->city_anim = NULL;
     }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     if (view->hover_lock_active && view->hover_city_index >= 0) {
         if (owns_anim && finished) {
             settle_city_pin_to_center(view, view->hover_city_index);
@@ -2425,12 +2527,12 @@ static void start_city_rotation(GlobeView *view, int city_index) {
 
     if (!selected_city_is_valid(view, city_index)) return;
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     stop_globe_coast(view, false);
 #endif
     cancel_bounce_animation(view);
     view->selected_city_index = city_index;
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     set_free_roam_enabled(view, false);
     view->hover_lock_active = false;
     view->hover_city_index = -1;
@@ -2465,7 +2567,7 @@ static void start_city_rotation(GlobeView *view, int city_index) {
     mark_dynamic_globe_dirty(view);
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 // vx_q8/vy_q8: the coast velocity at the call (zeros when called at rest).
 // A pin still moving AWAY from center is not captured — the coast tick
 // retries at dead-stop, so a retrograde fling locks gently from standstill
@@ -2545,7 +2647,7 @@ static bool try_start_magnetic_city_lock(GlobeView *view, int radius_px) {
 static void navigate_city(GlobeView *view, bool is_down) {
     if (!view || view->city_anim) return;
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     stop_globe_coast(view, false);
     if (view->is_free_roam) {
         int nearest_index = nearest_centered_city_index(view, revealed_globe_radius());
@@ -2577,7 +2679,7 @@ static void navigate_city(GlobeView *view, bool is_down) {
     start_city_bounce(view, is_down);
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 __attribute__((noinline)) static int32_t clamp_globe_velocity_q8(int32_t value) {
     if (value > GLOBE_COAST_MAX_SPEED_Q8) return GLOBE_COAST_MAX_SPEED_Q8;
     if (value < -GLOBE_COAST_MAX_SPEED_Q8) return -GLOBE_COAST_MAX_SPEED_Q8;
@@ -2855,7 +2957,7 @@ static void toggle_reveal(GlobeView *view) {
         return;
     }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     stop_globe_coast(view, false);
     view->hover_lock_active = false;
 #endif
@@ -3044,6 +3146,24 @@ static void draw_city_label(GContext *ctx, GlobeView *view, GRect bounds) {
 
 static void draw_intro_title(GContext *ctx, GRect bounds, int globe_y,
                              GSize frame_size) {
+#if !PBL_ROUND
+    (void)globe_y;
+    (void)frame_size;
+
+    const int header_height = GLOBE_SMALL_RECT ? 24 : 38;
+    graphics_context_set_text_color(ctx, GColorBlack);
+    graphics_draw_text(ctx, "CITY SELECT",
+                       fonts_get_system_font(GLOBE_SMALL_RECT ? FONT_KEY_GOTHIC_18_BOLD
+                                                              : FONT_KEY_GOTHIC_28_BOLD),
+                       GRect(0, -2, bounds.size.w, header_height + 2),
+                       GTextOverflowModeTrailingEllipsis,
+                       GTextAlignmentCenter,
+                       NULL);
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx,
+                       GRect(0, header_height - 2, bounds.size.w, 2),
+                       0, GCornerNone);
+#else
     const char *title = "CITY SELECT";
     GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
     int planet_center_y = globe_y + frame_size.h / 2 +
@@ -3061,6 +3181,15 @@ static void draw_intro_title(GContext *ctx, GRect bounds, int globe_y,
                        GTextOverflowModeTrailingEllipsis,
                        GTextAlignmentCenter,
                        NULL);
+    // Divider under the title (round port of the rect city-select redesign): the same
+    // 2px black rule, FULL WIDTH — the round framebuffer clips each row to the glass,
+    // so drawing edge to edge lands it bezel-to-bezel. Rides title_y like the title.
+    {
+      const int rule_y = title_y + GLOBE_INTRO_TITLE_HEIGHT - 2;
+      graphics_context_set_fill_color(ctx, GColorBlack);
+      graphics_fill_rect(ctx, GRect(0, rule_y, bounds.size.w, 2), 0, GCornerNone);
+    }
+#endif
 }
 
 // Map-pin artwork lifted from the world cup app's location_pin.pdc (18x22 viewbox,
@@ -3102,7 +3231,45 @@ static void draw_saved_locations_pin(GContext *ctx, GPoint origin,
 
 static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
                                        GRect bounds, bool selected) {
-    const char *label = "saved locations";
+#if !PBL_ROUND
+    const char *label = "SAVED LOCATIONS";
+    const int side_inset = 10;
+    const int bar_h = GLOBE_SMALL_RECT ? 24 : GLOBE_SAVED_LABEL_HEIGHT;
+    int y = bounds.size.h - bar_h;
+    if (selected) y += intro_selection_offset(view);
+
+    // BW: the dithered blue read as noise under white text — the selected bar
+    // goes solid black instead.
+    const GColor sel_fill = PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorBlack);
+    graphics_context_set_fill_color(ctx, selected ? sel_fill : GColorWhite);
+    graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, bar_h), 0, GCornerNone);
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, 2),
+                       0, GCornerNone);
+
+    GColor label_color = selected ? GColorWhite : GColorBlack;
+    GColor bg_color = selected ? sel_fill : GColorWhite;
+    draw_saved_locations_pin(ctx,
+                             GPoint(side_inset,
+                                    y + (bar_h - GLOBE_SAVED_COG_SIZE) / 2),
+                             label_color, bg_color);
+
+    graphics_context_set_text_color(ctx, label_color);
+    // Small rect: centring the label under-laps the pin glyph — align it left
+    // of the remaining width instead.
+    const int text_x = GLOBE_SMALL_RECT ? (side_inset + GLOBE_SAVED_COG_SIZE + 6) : 0;
+    graphics_draw_text(ctx, label,
+                       fonts_get_system_font(GLOBE_SMALL_RECT ? FONT_KEY_GOTHIC_14_BOLD
+                                                              : FONT_KEY_GOTHIC_18_BOLD),
+                       GRect(text_x, y + (GLOBE_SMALL_RECT ? 2 : 3),
+                             bounds.size.w - text_x,
+                             bar_h - 3),
+                       GTextOverflowModeTrailingEllipsis,
+                       GLOBE_SMALL_RECT ? GTextAlignmentLeft : GTextAlignmentCenter,
+                       NULL);
+#else
+    // Uppercase to match the rect city-select redesign's footer treatment.
+    const char *label = "SAVED LOCATIONS";
     GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
     // Constant string + constant font: measure once, not per intro frame (28.6fps while the
     // cradle animates).
@@ -3119,7 +3286,8 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
     // The TEXT centres on the screen; the pin hangs off its left (so the label reads
     // centred rather than the pin+text group being centred, which right-shifted the text).
     int text_x = (bounds.size.w - text_size.w) / 2;
-    int pin_x = text_x - GLOBE_SAVED_LABEL_GAP - GLOBE_SAVED_COG_SIZE;
+    // +4: pulled right off the chin's curve so the pin reads fully inside the glass.
+    int pin_x = text_x - GLOBE_SAVED_LABEL_GAP - GLOBE_SAVED_COG_SIZE + 4;
     if (pin_x < 2) pin_x = 2;
     int y = bounds.size.h - GLOBE_SAVED_LABEL_HEIGHT -
             GLOBE_SAVED_LABEL_ROUND_BOTTOM_INSET;
@@ -3130,11 +3298,11 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
         graphics_context_set_fill_color(ctx, GColorVividCerulean);
         graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, fill_h),
                            0, GCornerNone);
-    } else {
-        graphics_context_set_stroke_color(ctx, GColorLightGray);
-        graphics_draw_line(ctx, GPoint(0, y),
-                           GPoint(bounds.size.w, y));
     }
+    // Divider above the row, ALWAYS drawn (rect redesign parity): 2px black rule replacing
+    // the old selection-only 1px grey line, FULL WIDTH (the glass mask clips it edge to edge).
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, 2), 0, GCornerNone);
 
     GColor label_color = selected ? GColorWhite : GColorBlack;
     GColor bg_color = selected ? GColorVividCerulean : GColorWhite;
@@ -3152,6 +3320,7 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
                        GTextOverflowModeTrailingEllipsis,
                        GTextAlignmentLeft,
                        NULL);
+#endif
 }
 
 /**
@@ -3276,7 +3445,7 @@ static void window_click_handler(ClickRecognizerRef recognizer, void *context) {
     }
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 static bool point_is_on_intro_globe(GlobeView *view, int16_t x, int16_t y) {
     if (!view || !view->window) return false;
 
@@ -3447,7 +3616,7 @@ static void window_appear_handler(Window *window) {
         schedule_frame_timer(view);
         start_globe_idle_timer(view);
     }
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     touch_service_subscribe(touch_handler, view);
 #endif
     mark_dynamic_globe_dirty(view);
@@ -3455,7 +3624,7 @@ static void window_appear_handler(Window *window) {
 
 static void window_disappear_handler(Window *window) {
     GlobeView *view = (GlobeView *)window_get_user_data(window);
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     // Always release the touch slot here (not in stop_animation): the globe is often
     // DESTROYED after the next window's appear already re-subscribed (commit -> forecast,
     // BACK -> card), and a late unsubscribe would clobber that window's subscription.
@@ -3463,7 +3632,7 @@ static void window_disappear_handler(Window *window) {
 #endif
     if (!view || !view->is_animating) return;
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     stop_globe_coast(view, false);
 #endif
     cancel_timer_slot(&view->animation_timer);
@@ -3547,7 +3716,10 @@ GlobeView *globe_view_create(void) {
         return NULL;
     }
 
-    text_layer_set_background_color(view->city_label_layer, GColorClear);
+    // BW: white-on-clear text sinks into the dithered globe — give the label a
+    // solid black chip. Colour keeps the borderless look over the dark space bg.
+    text_layer_set_background_color(view->city_label_layer,
+                                    PBL_IF_COLOR_ELSE(GColorClear, GColorBlack));
     text_layer_set_text_color(view->city_label_layer, GColorWhite);
     text_layer_set_font(view->city_label_layer,
                         fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
@@ -3564,7 +3736,7 @@ GlobeView *globe_view_create(void) {
     view->bw_frame_count = NUM_BW_FRAMES;
     view->bw_sequence_duration_ms = NUM_BW_FRAMES * GLOBE_FRAME_INTERVAL_MS;
     view->reveal_direction = 1;
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     view->hover_city_index = -1;
 #endif
     globe_view_reload_saved_locations(view);
@@ -3759,7 +3931,7 @@ void globe_view_start_animation(GlobeView *view) {
     view->bw_idle = false;
     view->bw_idle_slowdown_step = 0;
     view->intro_selection_ms = 0;
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     stop_globe_coast(view, false);
     view->hover_lock_active = false;
 #endif
@@ -3770,7 +3942,7 @@ void globe_view_start_animation(GlobeView *view) {
     layer_mark_dirty(view->canvas_layer);
     schedule_frame_timer(view);
     start_globe_idle_timer(view);
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     touch_service_subscribe(touch_handler, view);
 #endif
 }
@@ -3800,7 +3972,7 @@ void globe_view_stop_animation(GlobeView *view) {
 
     cancel_all_view_animations(view);
     view->is_revealing = false;
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     stop_globe_coast(view, false);
     // touch_service_unsubscribe lives in window_disappear_handler — stop_animation runs on
     // destroy AFTER the next window re-subscribed and must not clobber it.
@@ -3818,7 +3990,7 @@ void globe_view_stop_animation(GlobeView *view) {
 
 // Slide duration + interpolation are shared with expanded_view via weather_math.h
 // (WEATHER_HSLIDE_MS / weather_interpolate_moook_soft1) so the pair can't drift.
-// BOTH shapes since — round used to stub these into hard cuts.
+// BOTH shapes.
 
 static void prv_drop_stopped(Animation *anim, bool finished, void *context) {
     (void)finished;
@@ -3891,7 +4063,7 @@ void globe_view_slide_out_right(GlobeView *view) {
 
 
 // Entry coords for the focus search — platform-neutral (the touch build's
-// saved_entry_globe_coords twin lives inside WEATHER_PLATFORM_TOUCH_COLOR).
+// saved_entry_globe_coords twin lives inside CONFIG_TOUCH).
 static bool prv_entry_coords_for_focus(GlobeView *view, SavedLocationEntry *e,
                                        int32_t *lat, int32_t *lon) {
   if (!e) return false;
@@ -3929,7 +4101,7 @@ void globe_view_focus_coords(GlobeView *view, int16_t lat_e2, int16_t lon_e2) {
   cancel_city_animation(view);
   cancel_bounce_animation(view);
   view->selected_city_index = best;
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
   view->hover_city_index = best;
   view->hover_lock_active = true;
   set_free_roam_enabled(view, false);

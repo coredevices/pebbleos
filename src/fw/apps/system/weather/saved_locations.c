@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "saved_locations.h"
@@ -59,7 +59,7 @@ static GBitmap *prv_glance_icon(uint8_t type) {
 }
 
 static void prv_activate_saved_row(SavedLocationsView *view, int row);
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 static void prv_touch_handler(const TouchEvent *event, void *context);
 #endif
 
@@ -215,9 +215,10 @@ static void prv_draw_glance_row(GContext *ctx, const Layer *cell_layer,
   int title_x = 8;
   GBitmap *icon = prv_glance_icon(glance->weather_type);
   if (icon) {
-    graphics_context_set_compositing_mode(ctx, GCompOpSet);
-    graphics_draw_bitmap_in_rect(
-        ctx, icon, GRect(bounds.origin.x + 5, (bounds.size.h - 25) / 2, 25, 25));
+    // BW highlight is solid black — the icon ink inverts to stay visible.
+    weather_icon_draw(ctx, icon,
+                      GRect(bounds.origin.x + 5, (bounds.size.h - 25) / 2, 25, 25),
+                      PBL_IF_COLOR_ELSE(false, highlighted));
     title_x = 5 + 25 + 5;
   }
 
@@ -244,7 +245,8 @@ static void prv_draw_row(GContext *ctx, const Layer *cell_layer,
 
 static void saved_locations_dismiss(bool animated);   // defined below
 
-// Selecting a row switches the app to that location and closes the screen.
+// Activating a row (button SELECT or touch tap) switches the app to that
+// location and closes the screen — the same commit a globe pin selection makes.
 // Locations are added/removed in the phone app — the watch only picks.
 static void prv_activate_saved_row(SavedLocationsView *view, int row) {
   if (!view || row < 0 || row >= s_entry_count) return;
@@ -254,7 +256,7 @@ static void prv_activate_saved_row(SavedLocationsView *view, int row) {
   saved_locations_dismiss(true);
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 static uint32_t prv_now_ms(void) {
   time_t s = 0;
   uint16_t ms = 0;
@@ -422,8 +424,7 @@ static void prv_touch_handler(const TouchEvent *event, void *context) {
 static void prv_select_click(MenuLayer *menu_layer, MenuIndex *cell_index,
                              void *context) {
   (void)menu_layer;
-  SavedLocationsView *view = (SavedLocationsView *)context;
-  if (!view || !cell_index) return;
+  SavedLocationsView *view = context;
   prv_activate_saved_row(view, cell_index->row);
 }
 
@@ -436,7 +437,7 @@ static void prv_window_unload(Window *window) {
     view->menu_layer = NULL;
   }
   prv_glance_destroy_icons();
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
   touch_service_unsubscribe();
 #endif
   window_destroy(view->window);
@@ -444,7 +445,7 @@ static void prv_window_unload(Window *window) {
   free(view);
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
 // Subscribe on APPEAR (not before the push): the covered window's disappear handler fires
 // during the push transition and releases the single touch slot — a pre-push subscribe
 // would be clobbered by it. Appear runs after every disappear/unload in the transition.
@@ -496,7 +497,7 @@ void saved_locations_push(const SavedLocationsConfig *config) {
   window_set_user_data(view->window, view);
   window_set_background_color(view->window, GColorWhite);
   window_set_window_handlers(view->window, (WindowHandlers) {
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     .appear = prv_window_appear,
 #endif
     .unload = prv_window_unload,

@@ -1,10 +1,9 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
 #include "pebble_compat.h"
-#include "weather_platform.h"
 
 //! Locations are owned by the PHONE. The watch neither adds nor removes them —
 //! it only selects between the records the phone has synced into the weather

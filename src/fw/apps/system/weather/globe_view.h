@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
 /**
@@ -11,7 +11,6 @@
 
 #include "pebble_compat.h"
 #include "saved_locations.h"
-#include "weather_platform.h"
 
 //! `ds_index` identifies the phone's weather record directly — no matching.
 typedef void (*GlobeLocationSelectCallback)(int ds_index, bool force,
@@ -74,7 +73,7 @@ typedef struct {
     void *back_context;
     AppTimer *animation_timer;
     AppTimer *idle_timer;
-#if WEATHER_PLATFORM_TOUCH_COLOR
+#ifdef CONFIG_TOUCH
     AppTimer *coast_timer;
 #endif
     bool is_animating;
@@ -87,7 +86,9 @@ typedef struct {
     bool bw_idle;
     uint8_t bw_idle_slowdown_step;
     uint8_t intro_selection_ms;
-#if WEATHER_PLATFORM_TOUCH_COLOR
+    bool bw_sequence_scaled;    // small-rect: writable clones scaled once at load
+    bool cradle_pdc_scaled;
+#ifdef CONFIG_TOUCH
     int16_t touch_start_x;
     int16_t touch_start_y;
     int16_t touch_last_x;
