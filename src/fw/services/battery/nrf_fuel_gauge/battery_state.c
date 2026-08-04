@@ -70,8 +70,18 @@ static uint64_t prv_ref_time;
 static int32_t s_last_voltage_mv;
 static int32_t s_last_temp_mc;
 static uint32_t s_last_soc_cpct;
+static uint32_t s_soc_cpct_min = UINT32_MAX;
 static int32_t s_analytics_last_voltage_mv;
 static uint32_t s_analytics_last_cpct;
+
+//! Track the lowest SOC seen since the last heartbeat: hourly snapshots miss
+//! brief deep discharges, which matter when correlating battery behavior with
+//! brownout-cleared states.
+static void prv_track_soc_min(void) {
+  if (s_last_soc_cpct < s_soc_cpct_min) {
+    s_soc_cpct_min = s_last_soc_cpct;
+  }
+}
 static uint32_t s_last_tte;
 static uint32_t s_last_ttf;
 static RtcTicks s_last_log;
@@ -362,6 +372,7 @@ static void prv_update_state(void *force_update) {
 
   pct_int = (uint8_t)ceilf(pct);
   s_last_soc_cpct = (uint32_t)(pct * 100.0f);
+  prv_track_soc_min();
   if (pct_int != s_last_battery_charge_state.pct) {
     s_last_battery_charge_state.pct = pct_int;
     s_last_battery_charge_state.charge_percent = (uint32_t)(pct * RATIO32_MAX) / 100U;
@@ -510,6 +521,7 @@ void battery_state_init(void) {
   prv_ref_time = rtc_get_ticks();
 
   s_last_soc_cpct = (uint32_t)(pct * 100.0f);
+  prv_track_soc_min();
   s_last_battery_charge_state.pct = (uint8_t)ceilf(pct);
   s_last_battery_charge_state.charge_percent = (uint32_t)(pct * RATIO32_MAX) / 100U;
 
@@ -595,6 +607,10 @@ void pbl_analytics_external_collect_battery(void) {
   PBL_ANALYTICS_SET_UNSIGNED(battery_voltage, battery_mv);
   PBL_ANALYTICS_SET_SIGNED(battery_voltage_delta, d_mv);
   PBL_ANALYTICS_SET_SIGNED(battery_temp_c, s_last_temp_mc);
+  PBL_ANALYTICS_SET_UNSIGNED(battery_soc_pct_min,
+                             s_soc_cpct_min < battery_soc_cpct ? s_soc_cpct_min
+                                                               : battery_soc_cpct);
+  s_soc_cpct_min = battery_soc_cpct;
   s_analytics_last_voltage_mv = battery_mv;
 
   d_soc_cpct = MAX((int32_t)s_analytics_last_cpct - (int32_t)battery_soc_cpct, 0);

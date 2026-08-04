@@ -142,3 +142,6 @@ PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(i2c_transfer_error_count)
 PBL_ANALYTICS_METRIC_DEFINE_TIMER(ble_conn_itvl_other_time_ms)
 // Bitmask of driver init failures this boot, see pbl_analytics_drv_init_fail_flag.
 PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(drv_init_fail_flags)
+// Lowest SOC observed since the previous heartbeat; hourly snapshots miss
+// brief deep discharges (brownout-depth dips).
+PBL_ANALYTICS_METRIC_DEFINE_SCALED_UNSIGNED(battery_soc_pct_min, 100)
