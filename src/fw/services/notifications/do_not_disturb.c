@@ -52,6 +52,7 @@ static DoNotDisturbData s_data;
 static bool prv_is_smart_dnd_active(void);
 static bool prv_is_schedule_active(void);
 static bool prv_is_sleep_dnd_active(void);
+static bool prv_is_until_wake_active(void);
 static void prv_set_schedule_mode_timer();
 
 static void prv_update_active_time(bool is_active) {
@@ -255,6 +256,27 @@ static ActivitySleepState prv_get_sleep_state(void) {
   return ActivitySleepStateUnknown;
 }
 
+static bool prv_is_until_wake_active(void) {
+  const DndUntilWakeState state = alerts_preferences_dnd_get_until_wake_state();
+  return state == DndUntilWakeStateWaitingForSleep ||
+         state == DndUntilWakeStateWaitingForWake;
+}
+
+static void prv_update_until_wake_state(void) {
+  const DndUntilWakeState state = alerts_preferences_dnd_get_until_wake_state();
+  if (state == DndUntilWakeStateWaitingForSleep &&
+      prv_sleep_state_is_asleep(s_data.sleep_state)) {
+    alerts_preferences_dnd_set_until_wake_state(DndUntilWakeStateWaitingForWake);
+  } else if (state == DndUntilWakeStateWaitingForWake &&
+             s_data.sleep_state == ActivitySleepStateAwake) {
+    alerts_preferences_dnd_set_until_wake_state(DndUntilWakeStateDisabled);
+  } else if (state != DndUntilWakeStateDisabled &&
+             state != DndUntilWakeStateWaitingForSleep &&
+             state != DndUntilWakeStateWaitingForWake) {
+    alerts_preferences_dnd_set_until_wake_state(DndUntilWakeStateDisabled);
+  }
+}
+
 static void prv_set_sleep_state(ActivitySleepState sleep_state) {
   const bool was_asleep = prv_sleep_state_is_asleep(s_data.sleep_state);
   const bool is_asleep = prv_sleep_state_is_asleep(sleep_state);
@@ -262,6 +284,7 @@ static void prv_set_sleep_state(ActivitySleepState sleep_state) {
   if (was_asleep != is_asleep) {
     s_data.sleep_dnd_override = false;
   }
+  prv_update_until_wake_state();
   prv_do_update();
 }
 
@@ -277,7 +300,8 @@ bool do_not_disturb_is_active(void) {
   if (do_not_disturb_is_manually_enabled() ||
       prv_is_schedule_active() ||
       prv_is_smart_dnd_active() ||
-      prv_is_sleep_dnd_active()) {
+      prv_is_sleep_dnd_active() ||
+      prv_is_until_wake_active()) {
     return true;
   }
   return false;
@@ -345,6 +369,20 @@ void do_not_disturb_toggle_sleep_dnd(void) {
   prv_do_update();
 }
 
+bool do_not_disturb_is_until_wake_enabled(void) {
+  return prv_is_until_wake_active();
+}
+
+void do_not_disturb_set_until_wake_enabled(bool enable) {
+  DndUntilWakeState state = DndUntilWakeStateDisabled;
+  if (enable) {
+    state = prv_sleep_state_is_asleep(s_data.sleep_state) ?
+        DndUntilWakeStateWaitingForWake : DndUntilWakeStateWaitingForSleep;
+  }
+  alerts_preferences_dnd_set_until_wake_state(state);
+  prv_do_update();
+}
+
 void do_not_disturb_get_schedule(DoNotDisturbScheduleType type,
                                  DoNotDisturbSchedule *schedule_out) {
   alerts_preferences_dnd_get_schedule(type, schedule_out);
@@ -376,6 +414,7 @@ void do_not_disturb_init(void) {
     .sleep_state = prv_get_sleep_state(),
     .was_active = false,
   };
+  prv_update_until_wake_state();
   prv_try_update_schedule_mode((void*) true);
 }
 

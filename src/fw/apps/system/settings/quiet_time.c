@@ -45,6 +45,7 @@ typedef struct {
 
 enum QuietTimeItem {
   QuietTimeItemManual,
+  QuietTimeItemUntilWake,
   QuietTimeItemSchedule,
   QuietTimeItemInterruptions,
   QuietTimeItemNotifications,
@@ -452,6 +453,11 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       subtitle = do_not_disturb_is_manually_enabled() ?
                      i18n_get("On", data) : i18n_get("Off", data);
       break;
+    case QuietTimeItemUntilWake:
+      title = i18n_get("Until Wake", data);
+      subtitle = do_not_disturb_is_until_wake_enabled() ?
+                     i18n_get("On", data) : i18n_get("Off", data);
+      break;
     case QuietTimeItemSchedule:
       title = i18n_get("Schedule", data);
       break;
@@ -491,6 +497,14 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
   switch (row) {
     case QuietTimeItemManual:
       do_not_disturb_toggle_manually_enabled(ManualDNDFirstUseSourceSettingsMenu);
+      break;
+    case QuietTimeItemUntilWake:
+      if (!do_not_disturb_is_until_wake_enabled() &&
+          !activity_prefs_tracking_is_enabled()) {
+        health_tracking_ui_feature_show_disabled();
+        break;
+      }
+      do_not_disturb_set_until_wake_enabled(!do_not_disturb_is_until_wake_enabled());
       break;
     case QuietTimeItemSchedule:
       prv_schedule_submenu_push();

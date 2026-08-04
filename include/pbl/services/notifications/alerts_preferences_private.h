@@ -86,6 +86,16 @@ bool alerts_preferences_dnd_is_sleep_enabled(void);
 
 void alerts_preferences_dnd_set_sleep_enabled(bool enable);
 
+typedef enum {
+  DndUntilWakeStateDisabled = 0,
+  DndUntilWakeStateWaitingForSleep,
+  DndUntilWakeStateWaitingForWake,
+} DndUntilWakeState;
+
+DndUntilWakeState alerts_preferences_dnd_get_until_wake_state(void);
+
+void alerts_preferences_dnd_set_until_wake_state(DndUntilWakeState state);
+
 //! Lock the alerts preferences mutex. Must be paired with alerts_preferences_unlock().
 void alerts_preferences_lock(void);
 

@@ -82,6 +82,9 @@ static bool s_do_not_disturb_smart_dnd_enabled = false;
 #define PREF_KEY_DND_SLEEP_ENABLED "dndSleepEnabled"
 static bool s_do_not_disturb_sleep_dnd_enabled = false;
 
+#define PREF_KEY_DND_UNTIL_WAKE_STATE "dndUntilWakeState"
+static DndUntilWakeState s_do_not_disturb_until_wake_state = DndUntilWakeStateDisabled;
+
 #define PREF_KEY_FIRST_USE_COMPLETE "firstUseComplete"
 static uint32_t s_first_use_complete = 0;
 
@@ -326,6 +329,7 @@ void alerts_preferences_init(void) {
   RESTORE_PREF(PREF_KEY_DND_MANUALLY_ENABLED, s_do_not_disturb_manually_enabled);
   RESTORE_PREF(PREF_KEY_DND_SMART_ENABLED, s_do_not_disturb_smart_dnd_enabled);
   RESTORE_PREF(PREF_KEY_DND_SLEEP_ENABLED, s_do_not_disturb_sleep_dnd_enabled);
+  RESTORE_PREF(PREF_KEY_DND_UNTIL_WAKE_STATE, s_do_not_disturb_until_wake_state);
   RESTORE_PREF(PREF_KEY_DND_INTERRUPTIONS_MASK, s_dnd_interruptions_mask);
   RESTORE_PREF(PREF_KEY_DND_SHOW_NOTIFICATIONS, s_dnd_show_notifications);
   RESTORE_PREF(PREF_KEY_DND_MOTION_BACKLIGHT, s_dnd_motion_backlight);
@@ -653,6 +657,15 @@ bool alerts_preferences_dnd_is_sleep_enabled(void) {
 void alerts_preferences_dnd_set_sleep_enabled(bool enable) {
   s_do_not_disturb_sleep_dnd_enabled = enable;
   SET_PREF(PREF_KEY_DND_SLEEP_ENABLED, s_do_not_disturb_sleep_dnd_enabled);
+}
+
+DndUntilWakeState alerts_preferences_dnd_get_until_wake_state(void) {
+  return s_do_not_disturb_until_wake_state;
+}
+
+void alerts_preferences_dnd_set_until_wake_state(DndUntilWakeState state) {
+  s_do_not_disturb_until_wake_state = state;
+  SET_PREF(PREF_KEY_DND_UNTIL_WAKE_STATE, s_do_not_disturb_until_wake_state);
 }
 
 void alerts_preferences_lock(void) {

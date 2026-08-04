@@ -48,6 +48,7 @@
 
 #define PREF_KEY_DND_MANUALLY_ENABLED "dndManuallyEnabled"
 #define PREF_KEY_DND_SLEEP_ENABLED "dndSleepEnabled"
+#define PREF_KEY_DND_UNTIL_WAKE_STATE "dndUntilWakeState"
 
 static int s_num_dnd_events_put = 0;
 static bool s_last_dnd_event_active = false;
@@ -165,6 +166,7 @@ void test_do_not_disturb__initialize(void) {
   s_activity_sleep_state = ActivitySleepStateAwake;
   alerts_preferences_init();
   alerts_preferences_dnd_set_sleep_enabled(false);
+  alerts_preferences_dnd_set_until_wake_state(DndUntilWakeStateDisabled);
   do_not_disturb_init();
 
   do_not_disturb_set_manually_enabled(false);
@@ -189,6 +191,7 @@ void test_do_not_disturb__cleanup(void) {
   if (do_not_disturb_is_sleep_dnd_enabled()) {
     do_not_disturb_toggle_sleep_dnd();
   }
+  do_not_disturb_set_until_wake_enabled(false);
   set_dnd_timer_id(TIMER_INVALID_ID);
 }
 
@@ -325,6 +328,100 @@ void test_do_not_disturb__sleep_dnd_tracks_activity_service(void) {
   do_not_disturb_handle_activity_event(&event);
   cl_assert(do_not_disturb_is_active());
   cl_assert_equal_i(s_num_dnd_events_put, 3);
+}
+
+void test_do_not_disturb__until_wake(void) {
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
+
+  do_not_disturb_set_until_wake_enabled(true);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+  prv_assert_settings_value(PREF_KEY_DND_UNTIL_WAKE_STATE,
+                            strlen(PREF_KEY_DND_UNTIL_WAKE_STATE),
+                            &(DndUntilWakeState){DndUntilWakeStateWaitingForSleep},
+                            sizeof(DndUntilWakeState));
+
+  prv_send_sleep_state(ActivitySleepStateAwake);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  prv_send_sleep_state(ActivitySleepStateLightSleep);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  prv_assert_settings_value(PREF_KEY_DND_UNTIL_WAKE_STATE,
+                            strlen(PREF_KEY_DND_UNTIL_WAKE_STATE),
+                            &(DndUntilWakeState){DndUntilWakeStateWaitingForWake},
+                            sizeof(DndUntilWakeState));
+
+  prv_send_sleep_state(ActivitySleepStateRestfulSleep);
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+
+  prv_send_sleep_state(ActivitySleepStateAwake);
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__until_wake_enabled_while_asleep(void) {
+  prv_send_sleep_state(ActivitySleepStateLightSleep);
+  do_not_disturb_set_until_wake_enabled(true);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  prv_assert_settings_value(PREF_KEY_DND_UNTIL_WAKE_STATE,
+                            strlen(PREF_KEY_DND_UNTIL_WAKE_STATE),
+                            &(DndUntilWakeState){DndUntilWakeStateWaitingForWake},
+                            sizeof(DndUntilWakeState));
+
+  prv_send_sleep_state(ActivitySleepStateAwake);
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__until_wake_preserves_manual_dnd(void) {
+  do_not_disturb_set_manually_enabled(true);
+  do_not_disturb_set_until_wake_enabled(true);
+  prv_send_sleep_state(ActivitySleepStateLightSleep);
+  prv_send_sleep_state(ActivitySleepStateAwake);
+
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(do_not_disturb_is_manually_enabled());
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+
+  do_not_disturb_set_manually_enabled(false);
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__until_wake_tracks_activity_service(void) {
+  do_not_disturb_set_until_wake_enabled(true);
+
+  s_is_activity_tracking = false;
+  PebbleActivityEvent event = {
+    .type = PebbleActivityEvent_TrackingStopped,
+  };
+  do_not_disturb_handle_activity_event(&event);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  cl_assert(do_not_disturb_is_active());
+
+  s_is_activity_tracking = true;
+  s_activity_sleep_state = ActivitySleepStateLightSleep;
+  event.type = PebbleActivityEvent_TrackingStarted;
+  do_not_disturb_handle_activity_event(&event);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+
+  s_is_activity_tracking = false;
+  event.type = PebbleActivityEvent_TrackingStopped;
+  do_not_disturb_handle_activity_event(&event);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+
+  s_is_activity_tracking = true;
+  s_activity_sleep_state = ActivitySleepStateAwake;
+  event.type = PebbleActivityEvent_TrackingStarted;
+  do_not_disturb_handle_activity_event(&event);
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
 }
 
 void test_do_not_disturb__manually_enable_active(void) {

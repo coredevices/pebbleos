@@ -39,6 +39,8 @@ typedef enum ManualDNDFirstUseSource {
 //! and automatically puts the watch into an Active DND Mode
 //! Scheduled DND - Allows the user to specify a daily schedule for when the DND should be in active
 //! mode. Once coming out of a schedule, if the Manual DND is enabled, it disables that setting.
+//! Sleep Aware DND - Activates while activity tracking reports confirmed sleep.
+//! Until Wake DND - Activates immediately and ends after confirmed sleep followed by waking.
 
 //! @return True if DND is in effect, false if not.
 bool do_not_disturb_is_active(void);
@@ -65,6 +67,10 @@ void do_not_disturb_toggle_smart_dnd(void);
 bool do_not_disturb_is_sleep_dnd_enabled(void);
 
 void do_not_disturb_toggle_sleep_dnd(void);
+
+bool do_not_disturb_is_until_wake_enabled(void);
+
+void do_not_disturb_set_until_wake_enabled(bool enable);
 
 void do_not_disturb_get_schedule(DoNotDisturbScheduleType type, DoNotDisturbSchedule *schedule_out);
 
