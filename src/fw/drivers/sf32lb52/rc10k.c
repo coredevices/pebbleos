@@ -2,10 +2,13 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include <pbl/drivers/rtc.h>
+#include <pbl/logging/logging.h>
 #include "pbl/services/new_timer/new_timer.h"
 #include "system/passert.h"
 
 #include "bf0_hal.h"
+
+PBL_LOG_MODULE_DECLARE(driver_rtc_sf32lb, CONFIG_DRIVER_RTC_LOG_LEVEL);
 
 #define RC10K_DEFAULT_FREQ_HZ 10000UL
 #define RC10K_CAL_PERIOD_MS 15000U
@@ -16,7 +19,13 @@ static void prv_rc10k_cal_timer_cb(void *data) {
   uint8_t lp_cycle;
 
   lp_cycle = HAL_RC_CAL_GetLPCycle();
-  HAL_RC_CAL_update_reference_cycle_on_48M(lp_cycle);
+  // A dropped sample leaves the RTC running on a stale reference; the LCPU also
+  // drives RC calibration here, so losing the mailbox is expected but must not
+  // be silent - a run of these means the clock is drifting uncorrected.
+  const int rv = HAL_RC_CAL_update_reference_cycle_on_48M(lp_cycle);
+  if (rv != 0) {
+    PBL_LOG_WRN("RC10K calibration failed: %d", rv);
+  }
 }
 
 void rc10k_init(void) {
