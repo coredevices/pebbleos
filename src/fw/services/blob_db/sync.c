@@ -21,7 +21,25 @@ PBL_LOG_MODULE_DECLARE(service_blob_db, CONFIG_SERVICE_BLOB_DB_LOG_LEVEL);
 
 static BlobDBSyncSession *s_sync_sessions = NULL;
 
+//! Ids are handed out monotonically and never reused, so a stale id can never
+//! resolve to a different session that happens to reuse the same allocation.
+static uint32_t s_next_session_id = 1;
+
 static void prv_send_writeback(BlobDBSyncSession *session);
+
+static bool prv_session_uid_filter_callback(ListNode *node, void *data) {
+  BlobDBSyncSession *session = (BlobDBSyncSession *)node;
+  return session->session_id == (uint32_t)(uintptr_t)data;
+}
+
+//! The regular timers below hop to KernelBG before touching the session, and by
+//! then the sync may have finished or been cancelled and the session freed.
+//! Resolve the id against the live list instead of trusting a raw pointer.
+static BlobDBSyncSession *prv_find_live_session(void *session_id) {
+  return (BlobDBSyncSession *)list_find((ListNode *)s_sync_sessions,
+                                        prv_session_uid_filter_callback,
+                                        session_id);
+}
 
 static bool prv_session_id_filter_callback(ListNode *node, void *data) {
   BlobDBId db_id = (BlobDBId)data;
@@ -39,8 +57,12 @@ static bool prv_session_token_filter_callback(ListNode *node, void *data) {
 }
 
 static void prv_abandon_kernelbg_callback(void *data) {
+  BlobDBSyncSession *session = prv_find_live_session(data);
+  if (!session) {
+    // Sync finished or was cancelled between the timer firing and this callback
+    return;
+  }
   PBL_LOG_WRN("Blob DB Sync abandoned after extended timeout");
-  BlobDBSyncSession *session = data;
   blob_db_sync_cancel(session);
 }
 
@@ -49,7 +71,10 @@ static void prv_abandon_timer_callback(void *data) {
 }
 
 static void prv_timeout_kernelbg_callback(void *data) {
-  BlobDBSyncSession *session = data;
+  BlobDBSyncSession *session = prv_find_live_session(data);
+  if (!session) {
+    return;
+  }
 
   // Start the abandon timer if not already running
   if (!regular_timer_is_scheduled(&session->abandon_timer)) {
@@ -88,16 +113,22 @@ static void prv_send_writeback(BlobDBSyncSession *session) {
                                  dirty_item->key,
                                  dirty_item->key_len,
                                  item_buf, item_size);
-  if (PASSED(status)) {
-    regular_timer_add_multisecond_callback(&session->timeout_timer, SYNC_TIMEOUT_SECONDS);
-  } else if (status == E_DOES_NOT_EXIST) {
+  // Both blob_db_sync_next() and blob_db_sync_cancel() can free the session, so
+  // neither it nor dirty_item may be touched after calling them.
+  if (status == E_DOES_NOT_EXIST) {
     // item was removed
+    kernel_free(item_buf);
     blob_db_sync_next(session);
-  } else {
+    return;
+  } else if (!PASSED(status)) {
     // something went terribly wrong
     PBL_LOG_ERR("Failed to read blob DB during sync. Error code: 0x%"PRIx32, status);
+    kernel_free(item_buf);
     blob_db_sync_cancel(session);
+    return;
   }
+
+  regular_timer_add_multisecond_callback(&session->timeout_timer, SYNC_TIMEOUT_SECONDS);
 
   // only one writeback in flight at a time
   session->state = BlobDBSyncSessionStateWaitingForAck;
@@ -129,13 +160,18 @@ BlobDBSyncSession* prv_create_sync_session(BlobDBId db_id, BlobDBDirtyItem *dirt
   session->db_id = db_id;
   session->dirty_list = dirty_list;
   session->session_type = session_type;
+  session->session_id = s_next_session_id++;
+  if (s_next_session_id == 0) {
+    s_next_session_id = 1;  // 0 is reserved as "no session"
+  }
+  void *session_id_data = (void *)(uintptr_t)session->session_id;
   session->timeout_timer = (const RegularTimerInfo) {
     .cb = prv_timeout_timer_callback,
-    .cb_data = session,
+    .cb_data = session_id_data,
   };
   session->abandon_timer = (const RegularTimerInfo) {
     .cb = prv_abandon_timer_callback,
-    .cb_data = session,
+    .cb_data = session_id_data,
   };
   s_sync_sessions = (BlobDBSyncSession *)list_prepend((ListNode *)s_sync_sessions,
                                                       (ListNode *)session);

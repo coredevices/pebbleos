@@ -20,6 +20,9 @@ typedef enum {
 
 typedef struct {
   ListNode node;
+  //! Unique, never reused. Deferred timer callbacks carry this instead of a
+  //! session pointer so they can detect a session that has already been freed.
+  uint32_t session_id;
   BlobDBSyncSessionState state;
   BlobDBId db_id;
   BlobDBDirtyItem *dirty_list;
