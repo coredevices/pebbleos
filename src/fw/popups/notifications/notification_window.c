@@ -416,6 +416,10 @@ static void prv_show_peek_for_notification(NotificationWindowData *data, Uuid *i
   // get the current layout so we can get the color and icon
   LayoutLayer *layout = swap_layer_get_current_layout(&data->swap_layer);
   if (!layout) {
+    // The backing record couldn't be read, so there is nothing to peek at. The
+    // caller declines to push the window in this case; don't strand the layer.
+    peek_layer_destroy(data->peek_layer);
+    data->peek_layer = NULL;
     return;
   }
 
@@ -1086,6 +1090,13 @@ static void prv_window_appear(Window *window) {
     prv_pop_notification_window_after_delay(data, 0);
     return;
   }
+  if (!swap_layer_get_current_layout(&data->swap_layer)) {
+    // The entry is still listed but its record is gone, so there is nothing to
+    // draw. Self-pop rather than sit on an empty window.
+    PBL_LOG_WRN("Notification window has no layout; popping");
+    prv_pop_notification_window_after_delay(data, 0);
+    return;
+  }
   prv_setup_reminder_watchdog(data);
 
   prv_refresh_pop_timer(data);
@@ -1539,7 +1550,13 @@ static void prv_handle_notification_added_common(Uuid *id, NotificationType type
   if (is_new) {
     data->first_notif_loaded = false;
     prv_show_peek_for_notification(data, id, true /* is_first_notification */);
-    modal_window_push(&data->window, NOTIFICATION_PRIORITY, true /* animated */);
+    if (swap_layer_get_current_layout(&data->swap_layer)) {
+      modal_window_push(&data->window, NOTIFICATION_PRIORITY, true /* animated */);
+    } else {
+      // No layout means the backing record couldn't be read. Pushing anyway puts
+      // an empty window on screen (white, no vibe) that only Back can dismiss.
+      PBL_LOG_WRN("No layout for notification; not showing the window");
+    }
   } else if (in_view) {
     // Only focus the new notification if it becomes the new front of the list.
     // In DND mode notifications can get inserted into the middle of the list and we don't
