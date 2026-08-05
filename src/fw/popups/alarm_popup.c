@@ -317,6 +317,10 @@ static void prv_cleanup_alarm_popup(void *callback_context) {
 #ifdef CONFIG_SPEAKER
     prv_stop_sound();
 #endif
+    // The action bar owns a redraw timer armed on button press; it must be
+    // cancelled before the layer's memory goes away. actionable_dialog leaves
+    // custom action bars to their owner.
+    action_bar_layer_deinit(&s_alarm_popup_data->action_bar);
     gbitmap_destroy(s_alarm_popup_data->bitmap);
     gbitmap_destroy(s_alarm_popup_data->action_bar_snooze);
     gbitmap_destroy(s_alarm_popup_data->action_bar_dismiss);
