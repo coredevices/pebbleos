@@ -98,6 +98,13 @@ static SpeakerServiceState s_state;
 // Serializes public APIs against prv_refill_bg (system task).
 static PebbleMutex *s_lock;
 
+//! Why playback is currently silent, cached so a muted watch logs once per change
+//! rather than on every sound.
+#define SPEAKER_SILENT (1 << 0)
+#define SPEAKER_SILENT_BY_MUTE (1 << 1)
+#define SPEAKER_SILENT_BY_DND (1 << 2)
+static uint8_t s_silence_reasons;
+
 //! Analytics: time-weighted average volume, reset on heartbeat.
 static uint64_t s_volume_time_product_sum;     // Sum of (volume_pct × time_ms)
 static RtcTicks s_last_volume_sample_ticks;    // Timestamp of last sample
@@ -155,14 +162,45 @@ void speaker_service_init(void) {
   s_state.owner_task = PebbleTask_Unknown;
   s_state.initialized = true;
 
+  s_silence_reasons = 0;
   s_volume_time_product_sum = 0;
   s_last_volume_sample_ticks = 0;
   s_last_sampled_volume_pct = 0;
   s_total_speaker_on_time_ms = 0;
 }
 
+//! Silent playback looks identical to broken hardware from the outside, so record
+//! which setting silenced it. Logs only when the reason changes: this runs on every
+//! sound, and a muted watch would otherwise flood the log.
+static void prv_log_silence(uint8_t vol, uint8_t effective_vol) {
+  uint8_t reasons = 0;
+
+  if (effective_vol == 0) {
+    reasons = SPEAKER_SILENT;
+    if (alerts_preferences_get_speaker_muted()) {
+      reasons |= SPEAKER_SILENT_BY_MUTE;
+    }
+    if (alerts_preferences_dnd_get_mute_speaker() && do_not_disturb_is_active()) {
+      reasons |= SPEAKER_SILENT_BY_DND;
+    }
+  }
+
+  if (reasons == s_silence_reasons) {
+    return;
+  }
+  s_silence_reasons = reasons;
+
+  if (reasons != 0) {
+    PBL_LOG_INFO("Playing silently: vol=%"PRIu8" cap=%"PRIu8" mute=%d quiet_time_mute=%d", vol,
+                 alerts_preferences_get_speaker_volume(),
+                 (reasons & SPEAKER_SILENT_BY_MUTE) != 0, (reasons & SPEAKER_SILENT_BY_DND) != 0);
+  }
+}
+
 static void prv_start_audio(uint8_t vol) {
   const uint8_t effective_vol = prv_effective_volume(vol);
+
+  prv_log_silence(vol, effective_vol);
 
   PBL_ANALYTICS_TIMER_START(speaker_on_time_ms);
   PBL_ANALYTICS_ADD(speaker_play_count, 1);

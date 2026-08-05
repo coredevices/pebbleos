@@ -359,6 +359,11 @@ void alerts_preferences_init(void) {
   prv_migrate_legacy_first_use_settings(&file);
   prv_migrate_vibe_intensity_to_vibe_scores(&file);
   prv_ensure_valid_vibe_scores();
+  // RESTORE_PREF writes straight into the globals, bypassing the setter that
+  // clamps this, so an out-of-range stored value has to be caught here.
+  if (s_speaker_volume > 100) {
+    s_speaker_volume = 100;
+  }
   prv_save_changed_vibe_scores_to_file(&file, orig_vibe_score_notifications,
                                        orig_vibe_score_incoming_calls,
                                        orig_vibe_score_alarms,
