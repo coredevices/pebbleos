@@ -95,7 +95,7 @@ static uint8_t s_backlight_touch_wake = BacklightTouchWake_DoubleTap;
 static bool s_touch_enabled = true;
 
 #define PREF_KEY_TOUCH_NAVIGATION_MENU "touchNavMenuEnabled"
-static bool s_touch_navigation_menu_enabled = false;
+static bool s_touch_navigation_menu_enabled = true;
 
 #define PREF_KEY_MOTION_SENSITIVITY "motionSensitivity"
 static uint8_t s_motion_sensitivity = 55; // Default to Medium

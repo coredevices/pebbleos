@@ -117,9 +117,10 @@ void touch_set_globally_enabled(bool enable);
 // nothing system-side subscribes to touch. Only the wake-gesture pref, SDK
 // raw-touch apps, and third-party apps that explicitly opted in via
 // app_touch_navigation_enable() (they follow the master switch alone) still
-// consume the sensor. Defaults to off. Toggling either pref runs the
-// enable/disable transaction when the effective (ANDed) state changes and
-// re-evaluates the running app's twin otherwise.
+// consume the sensor. Defaults to on, gated by the interaction session
+// (touch_session_is_active). Toggling either pref runs the enable/disable
+// transaction when the effective (ANDed) state changes and re-evaluates the
+// running app's twin otherwise.
 bool touch_navigation_menu_is_enabled(void);
 void touch_set_navigation_menu_enabled(bool enable);
 
