@@ -470,6 +470,11 @@ clar(ctx,
     test_sources_ant_glob = "test_touch.c")
 
 clar(ctx,
+    sources_ant_glob = "src/fw/services/touch/touch_session.c" \
+        " tests/fakes/fake_rtc.c",
+    test_sources_ant_glob = "test_touch_session.c")
+
+clar(ctx,
     sources_ant_glob = \
         "src/fw/services/hrm/hrm_manager.c " \
         "lib/os/tick.c " \
