@@ -145,3 +145,6 @@ PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(drv_init_fail_flags)
 // Lowest SOC observed since the previous heartbeat; hourly snapshots miss
 // brief deep discharges (brownout-depth dips).
 PBL_ANALYTICS_METRIC_DEFINE_SCALED_UNSIGNED(battery_soc_pct_min, 100)
+// Touchdowns latched non-navigational by the interaction session gate
+// (unarmed contact on the idle watchface): the accidental-touch measure.
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(touch_gated_touchdown_count)

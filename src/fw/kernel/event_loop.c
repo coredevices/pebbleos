@@ -331,6 +331,9 @@ static NOINLINE void prv_minimal_event_handler(PebbleEvent* e) {
           light_touch_down();
         }
         gate = (TouchWakeGateResult){.latch = !armed};
+        if (!armed) {
+          PBL_ANALYTICS_ADD(touch_gated_touchdown_count, 1);
+        }
         touch_session_extend();
       } else if (e->touch.event.type == TouchEvent_Liftoff) {
         light_touch_up();
