@@ -297,15 +297,25 @@ static NOINLINE void prv_minimal_event_handler(PebbleEvent* e) {
 
 #ifdef CONFIG_TOUCH
     case PEBBLE_TOUCH_EVENT: {
-      // For touch-subscribed apps, tie the backlight to the touch: on while a
-      // finger is down, timed out after liftoff. Release on liftoff ungated
-      // so the refcount can't leak if the app unsubscribed or DnD turned on mid-touch.
+      // Raw touches only navigate (and hold the backlight) while the
+      // interaction session is active; unarmed contact on the idle watchface
+      // stays fully inert. Release on liftoff ungated so the refcount can't
+      // leak if the session expired or touch was disabled mid-touch.
       TouchWakeGateResult gate = {0};
+      const bool is_modal_focused =
+          (modal_manager_get_enabled() &&
+           !(modal_manager_get_properties() & ModalProperty_Unfocused));
       if (e->touch.event.type == TouchEvent_Touchdown) {
-        // Wake gate: sample the backlight around the touch-driven wake so a
-        // wake tap can be told apart from navigation. before must come first.
-        const bool before = light_is_on();
-        const bool backlight_driven = touch_has_app_subscribers();
+        const bool armed = touch_session_is_active();
+        // Light follows touch only where something consumes the touch: the
+        // modal twin, a live app nav twin (system app under the nav pref, or
+        // an explicit opt-in), a raw-subscribed app, or the armed watchface
+        // (so touch keeps the woken screen lit). A third-party app that never
+        // subscribed to touch gets no touchdown light.
+        const bool backlight_driven =
+            (touch_nav_enabled() &&
+             (is_modal_focused || app_manager_is_watchface_running())) ||
+            touch_app_nav_active() || touch_has_app_subscribers();
         bool dnd_suppresses_backlight = false;
 #ifndef CONFIG_RECOVERY_FW
         dnd_suppresses_backlight =
@@ -315,19 +325,17 @@ static NOINLINE void prv_minimal_event_handler(PebbleEvent* e) {
         // global-off toggle (different queues, no global FIFO) must not grab an
         // unreleasable backlight hold once touch is disabled. Both the toggle
         // and this handler run on KernelMain, so the switch is already settled.
-        if (backlight_driven && !dnd_suppresses_backlight &&
+        // DnD only suppresses the light; an armed touch still navigates.
+        if (armed && backlight_driven && !dnd_suppresses_backlight &&
             touch_service_is_globally_enabled()) {
           light_touch_down();
         }
-        const bool after = light_is_on();
-        gate =
-            touch_wake_gate_on_touchdown(backlight_driven, dnd_suppresses_backlight, before, after);
+        gate = (TouchWakeGateResult){.latch = !armed};
+        touch_session_extend();
       } else if (e->touch.event.type == TouchEvent_Liftoff) {
         light_touch_up();
+        touch_session_extend();
       }
-      const bool is_modal_focused =
-          (modal_manager_get_enabled() &&
-           !(modal_manager_get_properties() & ModalProperty_Unfocused));
       if (compositor_is_animating() || is_modal_focused) {
         // Mask the app task while the compositor animates or a modal is focused. Otherwise a
         // gesture over a focused modal reaches both the kernel (modal) twin and the app twin

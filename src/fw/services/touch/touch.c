@@ -109,13 +109,6 @@ void touch_set_app_nav_active(bool active) {
 }
 
 bool touch_has_app_subscribers(void) {
-  // Anything actively navigating by touch wants touch treated as active -- the
-  // screen wakes and stays lit on any touch: system nav (master pref AND the
-  // touch-navigation sub-pref) or an opted-in app driving nav under the master
-  // pref alone. Evaluated outside the lock (non-recursive mutex).
-  if (touch_nav_enabled() || touch_app_nav_active()) {
-    return true;
-  }
   mutex_lock(s_touch_mutex);
   // Only explicit raw-slot subscriptions (touch_service_subscribe) count as
   // app subscribers. The event-service count cannot be used: the nav twins'
@@ -326,36 +319,13 @@ void touch_release_active(void) {
   }
 }
 
-TouchWakeGateResult touch_wake_gate_on_touchdown(bool backlight_driven, bool dnd, bool before,
-                                                 bool after) {
-  if (!backlight_driven) {
-    // Nothing drives the backlight for this touch (gesture-wake mode): a touch
-    // that begins with the screen off can only be a wake attempt and must not
-    // act invisibly on the UI under the finger, so latch it non-navigational.
-    // With the screen on, it navigates.
-    return (TouchWakeGateResult){.latch = !before};
-  }
-  if (!before && after) {
-    // This Touchdown turned the screen on: block taps/swipes (the touch
-    // targeted the wake, not the UI) but let a follow-on drag pan, so
-    // wake-and-scroll works as one gesture.
-    return (TouchWakeGateResult){.wake = true};
-  }
-  // DnD suppressed the wake while the screen was off: still dark, fully
-  // non-navigational.
-  return (TouchWakeGateResult){.latch = (!before && dnd)};
-}
-
 static bool s_wake_gate_latch;
-static bool s_wake_gate_wake_latch;
 
 void touch_wake_gate_stamp(TouchEvent *event, TouchWakeGateResult gate) {
   if (event->type == TouchEvent_Touchdown) {
     s_wake_gate_latch = gate.latch;
-    s_wake_gate_wake_latch = gate.wake;
   }
   event->non_navigational = s_wake_gate_latch;
-  event->wake_touch = s_wake_gate_wake_latch;
 }
 
 void touch_set_rotated(bool rotated) {

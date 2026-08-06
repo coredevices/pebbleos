@@ -48,7 +48,10 @@ bool touch_app_nav_active(void);
 //! Mark whether the app twin's nav dispatcher is installed.
 void touch_set_app_nav_active(bool active);
 
-//! @return true if at least one subscriber is currently registered for touch events.
+//! @return true if at least one task holds an explicit raw touch subscription
+//! (touch_service_subscribe). Nav twins, the backlight subscription, and the
+//! system hold do not count; the event loop composes those separately when
+//! deciding whether the backlight follows a touch.
 bool touch_has_app_subscribers(void);
 
 //! Globally enable or disable touch. When disabled:
@@ -84,27 +87,13 @@ void touch_reset(void);
 //! finger is currently down. Reused by the master-pref-off transaction.
 void touch_release_active(void);
 
-//! Outcome of the wake-gate decision made on a Touchdown.
+//! Outcome of the session-gate decision made on a Touchdown.
 typedef struct TouchWakeGateResult {
-  //! true when the touch must not drive navigation at all: the screen is (and
-  //! stays) dark — a DnD-suppressed touch, or a screen-off touch when nothing
-  //! drives the backlight (gesture-wake mode).
+  //! true when the touch must not drive navigation: the interaction session
+  //! (touch_session_is_active) was inactive at Touchdown — unarmed contact on
+  //! the idle watchface.
   bool latch;
-  //! true when this Touchdown turned the screen on: the gesture must not tap
-  //! or swipe (it targeted the wake, not the UI), but a follow-on drag is
-  //! deliberate, now-visible input and may pan.
-  bool wake;
 } TouchWakeGateResult;
-
-//! Pure wake-gate decision, factored out so it is unit-testable independently
-//! of the kernel event loop. Given the backlight state sampled around the
-//! touch-driven wake, decide whether this Touchdown is non-navigational.
-//! @param backlight_driven whether a subscriber ties the backlight to touch
-//! @param dnd whether DnD suppresses the touch backlight for this touch
-//! @param before light_is_on() sampled before the touch-driven wake
-//! @param after light_is_on() sampled after the touch-driven wake
-TouchWakeGateResult touch_wake_gate_on_touchdown(bool backlight_driven, bool dnd, bool before,
-                                                 bool after);
 
 //! Stamp non_navigational onto a touch event, latching the Touchdown decision
 //! across the whole gesture. @p gate is only consulted on a Touchdown event;

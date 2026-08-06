@@ -1016,52 +1016,6 @@ static void prv_register_fake_widget(TouchNavWidgetNode *node) {
   s_active_layer = &s_child_layer;
 }
 
-// A Touchdown that woke the screen (wake_touch stamped): the gesture must not tap or swipe, but a
-// follow-on drag is deliberate, now-visible input — the widget pan drives scrolling in the SAME
-// gesture instead of demanding a lift and re-touch.
-void test_touch_nav__wake_touchdown_pans_but_never_taps(void) {
-  static TouchNavWidgetNode node;
-  prv_register_fake_widget(&node);
-  s_widget.can_start_result = true;
-
-  const TouchEvent td = {.type = TouchEvent_Touchdown, .x = 50, .y = 150, .wake_touch = true};
-  touch_nav_dispatch(&td, &s_state);
-  cl_assert_equal_i(s_state.route, TouchNavRoute_Tier1);
-  // Taps and swipes are dead for this gesture, in both recognizer sets.
-  cl_assert_equal_i(prv_state(s_state.tap), RecognizerState_Failed);
-  cl_assert_equal_i(prv_state(s_state.swipe), RecognizerState_Failed);
-  cl_assert_equal_i(prv_state(s_state.widget_tap), RecognizerState_Failed);
-  cl_assert_equal_i(prv_state(s_state.widget_swipe), RecognizerState_Failed);
-  // The widget pan is alive and a drag drives the widget.
-  cl_assert(prv_state(s_state.widget_pan) != RecognizerState_Failed);
-  prv_advance_ms(20);
-  const TouchEvent pu = {.type = TouchEvent_PositionUpdate, .x = 50, .y = 100, .wake_touch = true};
-  touch_nav_dispatch(&pu, &s_state);
-  cl_assert_equal_i(s_widget.pan_started_calls, 1);
-  const TouchEvent lo = {.type = TouchEvent_Liftoff, .wake_touch = true};
-  touch_nav_dispatch(&lo, &s_state);
-  cl_assert_equal_i(s_widget.pan_snap_calls, 1);
-  cl_assert_equal_i(s_widget.tap_calls, 0);
-  cl_assert_equal_i(s_widget.swipe_calls, 0);
-  cl_assert_equal_i(s_fake.emit_count, 0);
-}
-
-// A stationary wake tap completes nothing anywhere: no widget tap, no bridge emulation.
-void test_touch_nav__wake_tap_is_inert(void) {
-  static TouchNavWidgetNode node;
-  prv_register_fake_widget(&node);
-  s_widget.can_start_result = true;
-
-  const TouchEvent td = {.type = TouchEvent_Touchdown, .x = 50, .y = 90, .wake_touch = true};
-  touch_nav_dispatch(&td, &s_state);
-  prv_advance_ms(30);
-  const TouchEvent lo = {.type = TouchEvent_Liftoff, .wake_touch = true};
-  touch_nav_dispatch(&lo, &s_state);
-  cl_assert_equal_i(s_widget.tap_calls, 0);
-  cl_assert_equal_i(s_fake.emit_count, 0);
-  cl_assert_equal_i(s_fake.pop_count, 0);
-}
-
 // can_start returning false declines the WHOLE gesture: no pan_started/get_base_offset, the unified
 // pan is NOT set_failed/cancelled, later events drive nothing and never re-latch, and `declined`
 // resets on the next Touchdown so a following can_start=true gesture drives the widget normally.

@@ -467,7 +467,7 @@ void touch_nav_dispatch(const TouchEvent *touch_event, void *context) {
     // (event-time), not cached from the last focus-change event. The dispatcher runs per touch
     // event, so a delayed/missed PEBBLE_APP_DID_CHANGE_FOCUS_EVENT cannot stale this decision.
     if (touch_event->non_navigational) {
-      // Gated (wake tap / DnD): skip routing and set_failed, keep the set Possible, and unwind any
+      // Session-gated: skip routing and set_failed, keep the set Possible, and unwind any
       // mid-gesture so a stuck recognizer does not linger. The next navigational Touchdown starts
       // fresh from its first event.
       state->counters.gated++;
@@ -523,18 +523,6 @@ void touch_nav_dispatch(const TouchEvent *touch_event, void *context) {
       prv_fail(state, state->widget_swipe);
     }
 
-    if (touch_event->wake_touch) {
-      // This Touchdown turned the screen on. The gesture must not tap or swipe (it targeted the
-      // wake, not the UI), but a drag that follows is deliberate, now-visible input: leave the
-      // pans alive so wake-and-scroll works as one gesture instead of demanding a second touch.
-      // On a Tier-2 route the bridge pan is already failed by the tier exclusion, so a wake
-      // gesture stays fully inert on button-emulation surfaces.
-      prv_fail(state, state->tap);
-      prv_fail(state, state->swipe);
-      prv_fail(state, state->widget_tap);
-      prv_fail(state, state->widget_swipe);
-      prv_log_push(state, TouchNavLog_Gated, 1 /* wake: pans allowed */);
-    }
   } else {
     recognizer_manager_handle_touch_event(touch_event, manager);
   }

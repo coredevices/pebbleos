@@ -425,11 +425,7 @@ static void prv_backlight_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
 #ifdef CONFIG_TOUCH
     case SettingsBacklightTouchWake:
       title = i18n_noop("Wake on touch");
-      // Full touch navigation (master Touch + Touch Navigation) wakes on every touch, so this
-      // setting is superseded while both are on.
-      subtitle = (touch_is_globally_enabled() && touch_navigation_menu_is_enabled())
-                     ? i18n_noop("On (nav)")
-                     : s_touch_wake_labels[backlight_get_touch_wake()];
+      subtitle = s_touch_wake_labels[backlight_get_touch_wake()];
       break;
 #endif
     case SettingsBacklightAmbientSensor:
