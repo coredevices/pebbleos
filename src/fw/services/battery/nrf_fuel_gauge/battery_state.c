@@ -410,6 +410,13 @@ static void prv_update_state(void *force_update) {
           constants.v_mv, constants.i_ua, constants.t_mc, (uint32_t)delta,
           s_last_battery_charge_state.pct, s_last_tte, s_last_ttf);
 
+  // Enable battery charging after the first fuel gauge update, before the state change
+  // event so a handler that disables charging is not overridden.
+  if (!s_charger_enabled) {
+    s_charger_enabled = true;
+    pmic_set_charger_state(true);
+  }
+
   if (update || (((now - s_last_log) / RTC_TICKS_HZ > LOG_MIN_SEC) &&
                  (s_last_battery_charge_state.is_charging || (pct < ALWAYS_UPDATE_PCT)))) {
     PBL_LOG_INFO("Percent: %" PRIu8 ", V: %" PRId32 " mV, I: %" PRId32 " uA, "
@@ -419,12 +426,6 @@ static void prv_update_state(void *force_update) {
             s_last_battery_charge_state.is_plugged ? "yes" : "no");
     prv_battery_state_put_change_event(s_last_battery_charge_state);
     s_last_log = now;
-  }
-
-  // Enable battery charging after fuel gauge state has been updated for the first time
-  if (!s_charger_enabled) {
-    s_charger_enabled = true;
-    pmic_set_charger_state(true);
   }
 }
 
