@@ -116,6 +116,10 @@ bool shell_prefs_get_stationary_enabled(void) {
   return false;
 }
 
+uint8_t shell_prefs_get_charge_limit_pct(void) {
+  return 0;
+}
+
 bool shell_prefs_get_language_english(void) {
   return true;
 }

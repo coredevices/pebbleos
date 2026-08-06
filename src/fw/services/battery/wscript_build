@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 use = ['fw_includes', 'services_analytics']
-sources = ['battery_monitor.c']
+sources = ['battery_charge_limit.c', 'battery_monitor.c']
 
 if bld.env.CONFIG_NRF_FUEL_GAUGE:
     use.append('nrf_fuel_gauge')

@@ -163,6 +163,10 @@ void app_storage_get_file_name(char *name, size_t buf_length, AppInstallId app_i
   *name = 0;
 }
 
+uint8_t shell_prefs_get_charge_limit_pct(void) {
+  return 0;
+}
+
 bool shell_prefs_get_clock_24h_style(void) {
   return true;
 }
