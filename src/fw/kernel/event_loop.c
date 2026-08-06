@@ -61,6 +61,7 @@
 #include "pbl/services/system_task.h"
 #ifdef CONFIG_TOUCH
 #include "pbl/services/touch/touch.h"
+#include "pbl/services/touch/touch_session.h"
 #endif
 #include "pbl/services/vibe_pattern.h"
 #include "pbl/services/alarms/alarm.h"
@@ -212,6 +213,10 @@ static void launcher_handle_button_event(PebbleEvent* e) {
     }
 #endif // !defined(CONFIG_SHELL_SDK)
 
+#ifdef CONFIG_TOUCH
+    // Deliberate interaction: open the touch session so touch may navigate.
+    touch_session_arm(TouchSessionArmSource_Button);
+#endif
     light_button_pressed();
   } else if (e->type == PEBBLE_BUTTON_UP_EVENT) {
     if (button_id == BUTTON_ID_BACK) {
@@ -338,14 +343,6 @@ static NOINLINE void prv_minimal_event_handler(PebbleEvent* e) {
 #endif
 
     case PEBBLE_GESTURE_EVENT: {
-#ifdef CONFIG_TOUCH
-      // While an app is subscribed the touch event handler drives the
-      // backlight, so skip gesture-based wake to avoid a redundant trigger
-      // (and to keep double-tap from waking when only single-tap is wanted).
-      if (touch_has_app_subscribers()) {
-        return;
-      }
-#endif
       bool wake_on_gesture = false;
       switch (backlight_get_touch_wake()) {
         case BacklightTouchWake_Tap:
@@ -360,6 +357,11 @@ static NOINLINE void prv_minimal_event_handler(PebbleEvent* e) {
           break;
       }
       if (wake_on_gesture) {
+#ifdef CONFIG_TOUCH
+        // The wake gesture is the deliberate act that opens the touch session;
+        // arm even when DnD keeps the light off, so touch still works.
+        touch_session_arm(TouchSessionArmSource_WakeGesture);
+#endif
 #ifndef CONFIG_RECOVERY_FW
         const bool dnd_suppresses_backlight = do_not_disturb_is_active() &&
                                              !alerts_preferences_dnd_get_touch_backlight();
