@@ -91,9 +91,9 @@ static RtcTicks s_last_log;
 static bool s_charger_enabled;
 
 #if FUEL_GAUGE_STATEFUL
-#define FUEL_GAUGE_SAVE_INTERVAL_S 300
+#define FUEL_GAUGE_SAVE_INTERVAL_S (300 * 60)
 
-static uint32_t s_save_counter;
+static RtcTicks s_last_save_ticks;
 
 #ifdef CONFIG_MFG
 // In manufacturing firmware, use dedicated MFG_BATTERY_STATE flash region
@@ -404,8 +404,8 @@ static void prv_update_state(void *force_update) {
   }
 
 #if FUEL_GAUGE_STATEFUL
-  if (update || (++s_save_counter >= FUEL_GAUGE_SAVE_INTERVAL_S)) {
-    s_save_counter = 0;
+  if (update || ((now - s_last_save_ticks) / RTC_TICKS_HZ >= FUEL_GAUGE_SAVE_INTERVAL_S)) {
+    s_last_save_ticks = now;
     prv_save_state();
   }
 #endif
