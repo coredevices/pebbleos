@@ -41,6 +41,9 @@ PBL_LOG_MODULE_DECLARE(service_battery, CONFIG_SERVICE_BATTERY_LOG_LEVEL);
 // TODO: Adjust sample rate based on activity periods once we have good
 // power consumption profiles
 #define BATTERY_SAMPLE_RATE_MIN 1
+// While plugged in the system runs from USB power, so frequent sampling is
+// free and keeps charge state consumers (charge limit, UI) close to reality.
+#define BATTERY_PLUGGED_SAMPLE_RATE_MS (5 * 1000)
 
 #define LOG_MIN_SEC 30
 
@@ -303,11 +306,12 @@ static void prv_battery_state_put_change_event(PreciseBatteryChargeState state) 
 static void prv_update_state(void *force_update) {
   BatteryChargeStatus chg_status;
   BatteryConstants constants;
-  RtcTicks now, delta;
+  RtcTicks now;
   uint8_t pct_int;
   bool is_plugged;
   bool is_charging;
   bool update;
+  float delta_s;
   float pct;
   int ret;
 
@@ -364,11 +368,11 @@ static void prv_update_state(void *force_update) {
   s_last_temp_mc = constants.t_mc;
 
   now = rtc_get_ticks();
-  delta = (now - prv_ref_time) / RTC_TICKS_HZ;
+  delta_s = (float)(now - prv_ref_time) / RTC_TICKS_HZ;
   prv_ref_time = now;
 
   pct = nrf_fuel_gauge_process((float)constants.v_mv / 1000.0f, (float)constants.i_ua / 1000000.0f,
-                               (float)constants.t_mc / 1000.0f, (float)delta, NULL);
+                               (float)constants.t_mc / 1000.0f, delta_s, NULL);
 
   pct_int = (uint8_t)ceilf(pct);
   s_last_soc_cpct = (uint32_t)(pct * 100.0f);
@@ -407,7 +411,7 @@ static void prv_update_state(void *force_update) {
 #endif
 
   PBL_LOG_VERBOSE("Battery state: v_mv: %ld, i_ua: %ld, t_mc: %ld, td: %lu, soc: %u, tte: %lu, ttf: %lu",
-          constants.v_mv, constants.i_ua, constants.t_mc, (uint32_t)delta,
+          constants.v_mv, constants.i_ua, constants.t_mc, (uint32_t)delta_s,
           s_last_battery_charge_state.pct, s_last_tte, s_last_ttf);
 
   // Enable battery charging after the first fuel gauge update, before the state change
@@ -426,6 +430,10 @@ static void prv_update_state(void *force_update) {
             s_last_battery_charge_state.is_plugged ? "yes" : "no");
     prv_battery_state_put_change_event(s_last_battery_charge_state);
     s_last_log = now;
+  }
+
+  if (is_plugged) {
+    prv_schedule_update(BATTERY_PLUGGED_SAMPLE_RATE_MS, false);
   }
 }
 
