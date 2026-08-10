@@ -392,7 +392,10 @@ void audec_start(AudioDevice* audio_device, AudioTransCB cb) {
 
     HAL_AUDCODEC_Config_DACPath(haudcodec, 1);
     HAL_AUDCODEC_Config_Analog_DACPath(haudcodec->Init.dac_cfg.dac_clk);
-    HAL_AUDCODEC_Config_DACPath(haudcodec, 0);
+    // Volume 0 muted the path in prv_apply_volume(); don't reopen it.
+    if (state->volume != 0) {
+        HAL_AUDCODEC_Config_DACPath(haudcodec, 0);
+    }
 
     hwp_audcodec->DAC_CH0_CFG_EXT &= ~AUDCODEC_DAC_CH0_CFG_EXT_RAMP_EN_Msk;
     hwp_audcodec->DAC_CH1_CFG_EXT &= ~AUDCODEC_DAC_CH1_CFG_EXT_RAMP_EN_Msk;
