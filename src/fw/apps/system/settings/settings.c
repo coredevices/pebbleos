@@ -11,6 +11,7 @@
 #include "kernel/pbl_malloc.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
+#include "shell/normal/app_idle_timeout.h"
 #include "system/passert.h"
 #include "shell/prefs.h"
 #include "pbl/util/size.h"
@@ -192,7 +193,9 @@ static void handle_deinit(void) {
 
 static void s_main(void) {
   handle_init();
+  app_idle_timeout_start();
   app_event_loop();
+  app_idle_timeout_stop();
   handle_deinit();
 }
 

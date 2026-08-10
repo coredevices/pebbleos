@@ -28,6 +28,7 @@
 #include "pbl/services/blob_db/pin_db.h"
 #include "pbl/services/notifications/notification_storage.h"
 #include "pbl/services/timeline/notification_layout.h"
+#include "shell/normal/app_idle_timeout.h"
 #include "shell/prefs.h"
 #include "shell/system_theme.h"
 #include "system/passert.h"
@@ -802,7 +803,9 @@ static void prv_handle_deinit(void) {
 static void prv_s_main(void) {
   prv_handle_init();
 
+  app_idle_timeout_start();
   app_event_loop();
+  app_idle_timeout_stop();
 
   prv_handle_deinit();
 }

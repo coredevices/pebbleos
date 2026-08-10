@@ -19,6 +19,7 @@
 #include "pbl/services/timeline/timeline.h"
 #include "pbl/services/weather/weather_service.h"
 #include "pbl/services/weather/weather_types.h"
+#include "shell/normal/app_idle_timeout.h"
 #include "util/array.h"
 #include "pbl/util/attributes.h"
 #include "pbl/util/list.h"
@@ -199,7 +200,9 @@ static void prv_deinit(void) {
 
 static void prv_main(void) {
   prv_init();
+  app_idle_timeout_start();
   app_event_loop();
+  app_idle_timeout_stop();
   prv_deinit();
 }
 
