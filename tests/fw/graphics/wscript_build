@@ -509,6 +509,28 @@ clar(ctx,
 
 clar(ctx,
     sources_ant_glob =
+      " src/fw/applib/vendor/uPNG/upng.c"
+      " src/fw/applib/vendor/tinflate/tinflate.c"
+      " src/fw/applib/graphics/gbitmap.c"
+      " src/fw/applib/graphics/gbitmap_png.c"
+      " src/fw/applib/graphics/gcolor_definitions.c"
+      " src/fw/applib/graphics/8_bit/framebuffer.c"
+      " src/fw/applib/graphics/framebuffer.c"
+      " src/fw/applib/graphics/graphics.c"
+      " src/fw/applib/graphics/8_bit/bitblt_private.c"
+      " src/fw/applib/graphics/bitblt.c"
+      " src/fw/applib/graphics/graphics_private.c"
+      " src/fw/applib/graphics/graphics_private_raw.c"
+      " src/fw/applib/graphics/graphics_circle.c"
+      " src/fw/applib/graphics/graphics_line.c"
+      " src/fw/applib/graphics/gtypes.c"
+      " src/fw/board/displays/display_getafix.c",
+    test_sources_ant_glob="test_framebuffer_legacy.c",
+    defines=ctx.env.test_image_defines,
+    platforms=['gabbro'])
+
+clar(ctx,
+    sources_ant_glob =
         " src/fw/applib/graphics/gtypes.c"
         " src/fw/applib/graphics/gbitmap.c"
         " tests/fakes/fake_gbitmap_png.c"
