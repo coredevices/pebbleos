@@ -5,9 +5,6 @@ on:
     tags:
       - v*
 
-env:
-  MEMFAULT_CLI_VERSION: "1.6.0"
-
 jobs:
   build-prf:
     runs-on: ubuntu-24.04
@@ -209,18 +206,6 @@ jobs:
           name: artifacts-${{ steps.artifact_board.outputs.NAME }}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}
           path: artifacts
 
-      - name: Upload symbols to Memfault
-        if: ${{ github.repository == 'coredevices/PebbleOS' }}
-        run: |
-          pip install memfault-cli==${MEMFAULT_CLI_VERSION}
-
-          memfault \
-            --org-token ${{ secrets.MEMFAULT_ORG_TOKEN }} \
-            --org ${{ secrets.MEMFAULT_ORG }} \
-            --project ${{ secrets.MEMFAULT_PROJECT }} \
-            upload-mcu-symbols \
-            artifacts/firmware_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}.elf
-
   release:
     runs-on: ubuntu-24.04
 
@@ -256,38 +241,6 @@ jobs:
         uses: softprops/action-gh-release@v3.0.0
         with:
           files: artifacts-*/*
-
-      - name: Deploy Memfault release
-        if: ${{ github.repository == 'coredevices/PebbleOS' }}
-        run: |
-          pip install memfault-cli==${MEMFAULT_CLI_VERSION}
-
-          for file in artifacts-*/normal*.pbz; do
-            # Skip slot-specific pbzs
-            if echo $file | grep -q "_slot"; then
-              continue
-            fi
-
-            BOARD=$(echo $file | sed -n -e 's/^.*normal_\([a-zA-Z0-9_]*\)_v.*\.pbz$/\1/p')
-
-            memfault \
-              --org-token ${{ secrets.MEMFAULT_ORG_TOKEN }} \
-              --org ${{ secrets.MEMFAULT_ORG }} \
-              --project ${{ secrets.MEMFAULT_PROJECT }} \
-              upload-ota-payload \
-              --hardware-version $BOARD \
-              --software-type pebbleos \
-              --software-version ${{ github.ref_name }} \
-              $file
-          done
-
-          memfault \
-            --org-token ${{ secrets.MEMFAULT_ORG_TOKEN }} \
-            --org ${{ secrets.MEMFAULT_ORG }} \
-            --project ${{ secrets.MEMFAULT_PROJECT }} \
-            deploy-release \
-            --release-version ${{ github.ref_name }} \
-            --cohort internal
 
       - name: Upload OTA artifacts to R2
         if: ${{ github.repository == 'coredevices/PebbleOS' }}
