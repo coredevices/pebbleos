@@ -383,6 +383,10 @@ void audec_start(AudioDevice* audio_device, AudioTransCB cb) {
     HAL_NVIC_EnableIRQ(audio_device->audec_dma_irq);
     state->tx_instanc = HAL_AUDCODEC_DAC_CH0;
 
+    // Digital gain must be programmed before the DAC path opens, otherwise
+    // startup transients escape at the codec's default 0 dB gain.
+    prv_apply_volume(audio_device);
+
     /* enable AUDCODEC at last*/
     __HAL_AUDCODEC_DAC_ENABLE(haudcodec);
 
@@ -392,8 +396,6 @@ void audec_start(AudioDevice* audio_device, AudioTransCB cb) {
 
     hwp_audcodec->DAC_CH0_CFG_EXT &= ~AUDCODEC_DAC_CH0_CFG_EXT_RAMP_EN_Msk;
     hwp_audcodec->DAC_CH1_CFG_EXT &= ~AUDCODEC_DAC_CH1_CFG_EXT_RAMP_EN_Msk;
-
-    prv_apply_volume(audio_device);
 }
 
 uint32_t audec_write(AudioDevice* audio_device, void *writeBuf, uint32_t size) {
