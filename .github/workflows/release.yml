@@ -206,12 +206,74 @@ jobs:
           name: artifacts-${{ steps.artifact_board.outputs.NAME }}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}
           path: artifacts
 
+  build-qemu:
+    runs-on: ubuntu-24.04
+
+    container:
+      image: ghcr.io/coredevices/pebbleos-docker:v6
+
+    strategy:
+      matrix:
+        board:
+          - qemu_flint
+          - qemu_emery
+          - qemu_gabbro
+
+    steps:
+      - name: Mark Github workspace as safe
+        run: git config --system --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Fetch tags
+        run: |
+          git fetch --tags --force
+
+      - name: Install Python dependencies
+        run: |
+          pip install -U pip
+          pip install -r requirements.txt
+
+      - name: Configure
+        run: ./waf configure --board '${{ matrix.board }}'
+
+      - name: Build QEMU images
+        run: ./waf build qemu_image_micro qemu_image_spi
+
+      - name: Copy QEMU artifacts
+        run: |
+          mkdir -p artifacts
+          cp build/qemu_micro_flash.bin artifacts/${{ matrix.board }}_${{ github.ref_name }}_micro_flash.bin
+          cp build/qemu_spi_flash.bin artifacts/${{ matrix.board }}_${{ github.ref_name }}_spi_flash.bin
+
+      - name: Configure SDK shell
+        run: ./waf configure --board '${{ matrix.board }}' -DCONFIG_SHELL_SDK=y
+
+      - name: Build SDK shell QEMU images
+        run: ./waf build qemu_image_micro qemu_image_spi
+
+      - name: Copy SDK shell QEMU artifacts
+        run: |
+          cp build/qemu_micro_flash.bin artifacts/sdkshell_${{ matrix.board }}_${{ github.ref_name }}_micro_flash.bin
+          cp build/qemu_spi_flash.bin artifacts/sdkshell_${{ matrix.board }}_${{ github.ref_name }}_spi_flash.bin
+
+      - name: Store
+        uses: actions/upload-artifact@v6
+        with:
+          name: artifacts-${{ matrix.board }}
+          path: artifacts
+
   release:
     runs-on: ubuntu-24.04
 
     needs:
       - build-prf
       - build-firmware
+      - build-qemu
     permissions:
       contents: write
 
