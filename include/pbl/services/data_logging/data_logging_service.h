@@ -34,6 +34,9 @@ typedef enum {
   // Accepted PPI/RR intervals from the Time 2 HRV algorithm while a built-in Workout is active.
   // These are raw algorithm outputs, not precomputed HRV metrics.
   DlsSystemTagWorkoutPpi = 89,
+  // High-resolution sleep-capture records. One compact, versioned stream carries accepted PPI,
+  // BPM/quality, 30-second motion summaries, and session completion diagnostics.
+  DlsSystemTagSleepCapture = 90,
 } DlsSystemTag;
 
 //! Init the data logging service. Called by the system at boot time.
