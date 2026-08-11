@@ -5,6 +5,7 @@
 
 #include "applib/graphics/gtypes.h"
 #include "kernel/pbl_malloc.h"
+#include "pbl/os/mutex.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
@@ -20,8 +21,21 @@ static const uint16_t IMAGING_ENDPOINT = 0x35;
 #define IMAGING_PALETTE_ENTRIES (16)
 
 static ImagingReceivedHandler s_handlers[ImagingImageTypeAlbumArt + 1];
+
+//! Guards the request/latch state below: requests come in on the requesting task (e.g. the Music
+//! app) while responses are handled on KernelMain. The reassembly state (s_rx) is deliberately
+//! not covered — it is only ever touched on KernelMain (endpoint receiver and comm-session
+//! events).
+static PebbleMutex *s_lock;
+
 // The response only carries the token, so remember which type the in-flight request was for.
 static ImagingImageType s_pending_type;
+
+// Image types the phone told us it can't serve (ImagingResponseFlagUnsupported), so we stop asking.
+// Latched per session: the connected phone doesn't change what it supports mid-connection, and a
+// reconnect (possibly to a different phone) clears it via prv_session_types.
+static uint32_t s_unsupported_types;
+static CommSession *s_latched_session;
 
 static struct {
   bool active;
@@ -43,14 +57,21 @@ static void prv_rx_reset(void) {
 }
 
 void imaging_register_handler(ImagingImageType image_type, ImagingReceivedHandler handler) {
+  if (!s_lock) {
+    // Handlers are registered from service init at boot, before any requester can run, so lazily
+    // creating the lock here is race-free.
+    s_lock = mutex_create();
+  }
   if (image_type < ARRAY_LENGTH(s_handlers)) {
     s_handlers[image_type] = handler;
   }
 }
 
 static void prv_deliver(uint8_t token, GBitmap *bitmap) {
-  ImagingReceivedHandler handler =
-      (s_pending_type < ARRAY_LENGTH(s_handlers)) ? s_handlers[s_pending_type] : NULL;
+  mutex_lock(s_lock);
+  const ImagingImageType type = s_pending_type;
+  mutex_unlock(s_lock);
+  ImagingReceivedHandler handler = (type < ARRAY_LENGTH(s_handlers)) ? s_handlers[type] : NULL;
   if (handler) {
     handler(token, bitmap);
   } else if (bitmap) {
@@ -60,17 +81,35 @@ static void prv_deliver(uint8_t token, GBitmap *bitmap) {
   }
 }
 
-bool imaging_is_supported(void) {
+// Clear the unsupported-type latch when the system session changes (reconnect / different phone).
+// The latch is also cleared explicitly when the session closes (imaging_handle_comm_session_event)
+// so a recycled session pointer can't be mistaken for the old one. s_lock held by the caller.
+static bool prv_type_latched_unsupported(CommSession *session, ImagingImageType image_type) {
+  if (session != s_latched_session) {
+    s_latched_session = session;
+    s_unsupported_types = 0;
+  }
+  return (s_unsupported_types & (1u << image_type)) != 0;
+}
+
+bool imaging_is_type_supported(ImagingImageType image_type) {
   CommSession *session = comm_session_get_system_session();
-  return session && comm_session_has_capability(session, CommSessionImagingSupport);
+  if (!s_lock || !session ||
+      !comm_session_has_capability(session, CommSessionImagingSupport)) {
+    return false;
+  }
+  mutex_lock(s_lock);
+  const bool latched = prv_type_latched_unsupported(session, image_type);
+  mutex_unlock(s_lock);
+  return !latched;
 }
 
 bool imaging_request_album_art(uint8_t token, ImagingFormat format, uint16_t width, uint16_t height,
                                const char *title, const char *artist) {
-  CommSession *session = comm_session_get_system_session();
-  if (!session || !comm_session_has_capability(session, CommSessionImagingSupport)) {
+  if (!imaging_is_type_supported(ImagingImageTypeAlbumArt)) {
     return false;
   }
+  CommSession *session = comm_session_get_system_session();
   const size_t title_len = title ? MIN(strlen(title), 255) : 0;
   const size_t artist_len = artist ? MIN(strlen(artist), 255) : 0;
   uint8_t payload[sizeof(ImagingRequestHeader) + 2 + 255 + 255];
@@ -89,7 +128,9 @@ bool imaging_request_album_art(uint8_t token, ImagingFormat format, uint16_t wid
   memcpy(cursor, artist, artist_len);
   cursor += artist_len;
 
+  mutex_lock(s_lock);
   s_pending_type = ImagingImageTypeAlbumArt;
+  mutex_unlock(s_lock);
   comm_session_send_data(session, IMAGING_ENDPOINT, payload, cursor - payload,
                          COMM_SESSION_DEFAULT_TIMEOUT);
   return true;
@@ -120,6 +161,17 @@ void imaging_protocol_msg_callback(CommSession *session, const uint8_t *msg, siz
   }
   const uint8_t *cursor = msg + sizeof(*hdr);
   const uint8_t *msg_end = msg + length;
+
+  if (hdr->flags & ImagingResponseFlagUnsupported) {
+    // Phone can't serve this type: latch it off so we don't ask again this connection, and deliver
+    // NULL so the current request resolves (the app treats it like "no image").
+    mutex_lock(s_lock);
+    s_unsupported_types |= (1u << s_pending_type);
+    mutex_unlock(s_lock);
+    prv_rx_reset();
+    prv_deliver(hdr->token, NULL);
+    return;
+  }
 
   if (hdr->flags & ImagingResponseFlagNoImage) {
     prv_rx_reset();
@@ -214,5 +266,23 @@ void imaging_protocol_msg_callback(CommSession *session, const uint8_t *msg, siz
     s_rx.palette = NULL;
     prv_rx_reset();
     prv_deliver(token, bmp);
+  }
+}
+
+void imaging_handle_comm_session_event(const PebbleCommSessionEvent *event) {
+  if (!event->is_system || event->is_open) {
+    return;
+  }
+  // The system session closed: free any partially received image so an aborted transfer doesn't
+  // hold its pixel buffer until the next one starts. This runs on KernelMain, the same task as
+  // the endpoint receiver, so touching s_rx is safe. Also clear the unsupported-type latch here
+  // rather than relying solely on the pointer comparison in prv_type_latched_unsupported: a
+  // future session could be allocated at the address of the freed one.
+  prv_rx_reset();
+  if (s_lock) {
+    mutex_lock(s_lock);
+    s_latched_session = NULL;
+    s_unsupported_types = 0;
+    mutex_unlock(s_lock);
   }
 }

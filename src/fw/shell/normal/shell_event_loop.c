@@ -26,6 +26,7 @@
 #include "pbl/services/activity/workout_service.h"
 #include "pbl/services/app_inbox_service.h"
 #include "pbl/services/app_outbox_service.h"
+#include "pbl/services/imaging.h"
 #include "pbl/services/music.h"
 #include "pbl/services/music_endpoint.h"
 #include "pbl/services/notifications/do_not_disturb.h"
@@ -147,6 +148,7 @@ void shell_event_loop_handle_event(PebbleEvent *e) {
 
     case PEBBLE_COMM_SESSION_EVENT:
       music_endpoint_handle_mobile_app_event(&e->bluetooth.comm_session_event);
+      imaging_handle_comm_session_event(&e->bluetooth.comm_session_event);
       return;
 
     // Sent by the comm layer once we get a response from the mobile app to a phone version request

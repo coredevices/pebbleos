@@ -8,7 +8,7 @@
 
 void WEAK imaging_register_handler(ImagingImageType image_type, ImagingReceivedHandler handler) {}
 
-bool WEAK imaging_is_supported(void) {
+bool WEAK imaging_is_type_supported(ImagingImageType image_type) {
   return false;
 }
 

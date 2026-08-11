@@ -1021,7 +1021,8 @@ static void prv_album_art_update_proc(Layer *layer, GContext *ctx) {
 //! already have art for this track (keyed off the now-playing generation, not "is any art present",
 //! so a track change re-fetches).
 static void prv_maybe_request_album_art(void) {
-  if (!shell_prefs_get_music_show_album_art() || !imaging_is_supported() ||
+  if (!shell_prefs_get_music_show_album_art() ||
+      !imaging_is_type_supported(ImagingImageTypeAlbumArt) ||
       !music_has_now_playing() || music_album_art_is_current()) {
     return;
   }

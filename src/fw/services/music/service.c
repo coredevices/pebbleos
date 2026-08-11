@@ -65,7 +65,10 @@ struct MusicServiceContext {
   //! The current playback state
   MusicPlayState playback_state;
 
-  //! Album art for the current track, or NULL if none. Owned by the service; freed with kernel_free.
+  //! Album art for the current track, or NULL if none. Owned by the service; freed with
+  //! kernel_free. Deliberately kept (up to ~34 KB of kernel heap on the largest displays) even
+  //! while the Music app is closed, so reopening it shows the cover instantly; a track change,
+  //! NoArt reply or server disconnect replaces or frees it.
   GBitmap *album_art;
 
   //! The now_playing_generation the current album art response was for. A track change bumps
@@ -90,8 +93,22 @@ void music_init(void) {
   imaging_register_handler(ImagingImageTypeAlbumArt, prv_imaging_album_art_received);
 }
 
+//! Length to keep from (src, src_length) so the copy fits the buffer without splitting a UTF-8
+//! sequence. Backing off mid-sequence keeps the stored string valid UTF-8, which lets the phone
+//! prefix-match the title it gets back in an album-art request exactly (see the imaging service).
+static size_t prv_utf8_crop_length(const char *src, size_t src_length) {
+  size_t cropped = MIN(MUSIC_BUFFER_LENGTH - 1, src ? src_length : 0);
+  if (src && cropped < src_length) {
+    // We cut: if it landed inside a multi-byte sequence, drop the partial trailing bytes.
+    while (cropped > 0 && ((uint8_t)src[cropped] & 0xC0) == 0x80) {
+      cropped--;
+    }
+  }
+  return cropped;
+}
+
 static void copy_and_truncate(char *dest, const char *src, size_t src_length) {
-  size_t cropped_length = MIN(MUSIC_BUFFER_LENGTH - 1, src_length);
+  size_t cropped_length = prv_utf8_crop_length(src, src_length);
   if (src) {
     memcpy(dest, src, cropped_length);
   }
@@ -100,7 +117,7 @@ static void copy_and_truncate(char *dest, const char *src, size_t src_length) {
 
 //! @return true if the truncated form of (src, src_length) differs from the null-terminated dest.
 static bool prv_str_differs(const char *dest, const char *src, size_t src_length) {
-  size_t cropped_length = MIN(MUSIC_BUFFER_LENGTH - 1, src ? src_length : 0);
+  size_t cropped_length = prv_utf8_crop_length(src, src_length);
   return (strlen(dest) != cropped_length) || (memcmp(dest, src, cropped_length) != 0);
 }
 

@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "kernel/events.h"
 #include "pbl/services/imaging_endpoint_types.h"
 
 struct GBitmap;
@@ -23,8 +24,9 @@ typedef void (*ImagingReceivedHandler)(uint8_t token, struct GBitmap *bitmap);
 //! Register the handler for an image type. One handler per type; overwrites any previous.
 void imaging_register_handler(ImagingImageType image_type, ImagingReceivedHandler handler);
 
-//! True if the connected phone advertises image-fetch support.
-bool imaging_is_supported(void);
+//! True if the connected phone advertises image-fetch support and hasn't told us it can't serve
+//! this image type (see ImagingResponseFlagUnsupported). Latched state resets on reconnect.
+bool imaging_is_type_supported(ImagingImageType image_type);
 
 //! Ask the phone for an album-art image for the named track, at the given size/format. No-op (and
 //! returns false) if unsupported. The matching handler is invoked when the transfer completes.
@@ -33,3 +35,7 @@ bool imaging_request_album_art(uint8_t token, ImagingFormat format, uint16_t wid
 
 //! Endpoint receive callback (registered in protocol_endpoints_table.json).
 void imaging_protocol_msg_callback(CommSession *session, const uint8_t *msg, size_t length);
+
+//! Comm-session event hook (called from the shell event loop): frees a partially received image
+//! and clears the unsupported-type latch when the system session closes.
+void imaging_handle_comm_session_event(const PebbleCommSessionEvent *event);

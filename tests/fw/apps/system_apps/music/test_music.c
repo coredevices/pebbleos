@@ -121,7 +121,7 @@ bool music_album_art_is_current(void) {
 }
 
 // Album art is fetched via the generic imaging service; these tests never show art.
-bool imaging_is_supported(void) {
+bool imaging_is_type_supported(ImagingImageType image_type) {
   return false;
 }
 
