@@ -3,6 +3,7 @@
 
 #include "sleep_capture.h"
 
+#include <pbl/drivers/rng.h>
 #include "pbl/services/data_logging/data_logging_service.h"
 #include "pbl/services/activity/activity_private.h"
 #include "util/time/time.h"
@@ -79,6 +80,14 @@ static bool prv_is_capture_window(time_t utc_sec) {
 
 static uint16_t prv_clamp_u16(uint32_t value) {
   return (value > UINT16_MAX) ? UINT16_MAX : (uint16_t)value;
+}
+
+static uint32_t prv_new_session_id(time_t now_utc) {
+  uint32_t session_id;
+  if (!rng_rand(&session_id) || session_id == 0) {
+    session_id = (uint32_t)now_utc;
+  }
+  return (session_id == 0) ? 1 : session_id;
 }
 
 static bool prv_log_record(SleepCaptureRecordType type, time_t timestamp_utc, uint16_t value,
@@ -174,7 +183,7 @@ static void prv_start_capture(time_t now_utc) {
 
   s_sleep_capture = (SleepCaptureState) {
     .active = true,
-    .session_id = (uint32_t)now_utc,
+    .session_id = prv_new_session_id(now_utc),
     .dls_session = session,
   };
   prv_reset_motion_epoch(now_utc - (now_utc % SLEEP_CAPTURE_EPOCH_SECONDS));
@@ -256,7 +265,8 @@ void sleep_capture_handle_accel(const AccelRawData *data, uint32_t num_samples) 
       const int32_t dy = (int32_t)data[i].y - s_sleep_capture.previous_accel.y;
       const int32_t dz = (int32_t)data[i].z - s_sleep_capture.previous_accel.z;
       // Store a compact, gravity-independent motion feature.
-      s_sleep_capture.motion_energy += (abs(dx) + abs(dy) + abs(dz)) >> 3;
+      const uint32_t energy = (abs(dx) + abs(dy) + abs(dz)) >> 3;
+      s_sleep_capture.motion_energy = MIN(UINT16_MAX, s_sleep_capture.motion_energy + energy);
     }
     s_sleep_capture.previous_accel = data[i];
     s_sleep_capture.has_previous_accel = true;
