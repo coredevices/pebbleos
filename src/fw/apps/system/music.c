@@ -33,6 +33,14 @@
 #include <stdio.h>
 #include <string.h>
 
+// Album art needs a colour display with enough RAM for a full-screen 4-bpp cover; only emery and
+// gabbro qualify. Flint and lower never request it, so their layout stays text-only.
+#if defined(CONFIG_PLATFORM_EMERY) || defined(CONFIG_PLATFORM_GABBRO)
+#define MUSIC_ALBUM_ART_SUPPORTED 1
+#else
+#define MUSIC_ALBUM_ART_SUPPORTED 0
+#endif
+
 enum ActionBarState {
   ActionBarStateSkip,
   ActionBarStateVolume,
@@ -1021,6 +1029,7 @@ static void prv_album_art_update_proc(Layer *layer, GContext *ctx) {
 //! already have art for this track (keyed off the now-playing generation, not "is any art present",
 //! so a track change re-fetches).
 static void prv_maybe_request_album_art(void) {
+#if MUSIC_ALBUM_ART_SUPPORTED
   if (!shell_prefs_get_music_show_album_art() ||
       !imaging_is_type_supported(ImagingImageTypeAlbumArt) ||
       !music_has_now_playing() || music_album_art_is_current()) {
@@ -1034,6 +1043,7 @@ static void prv_maybe_request_album_art(void) {
   music_get_now_playing(title, artist, NULL);
   imaging_request_album_art(music_get_now_playing_generation(), ImagingFormat4BitPalette,
                             side, side, title, artist);
+#endif
 }
 
 #define TITLE_MARQUEE_INTERVAL_MS 33  // slow, smooth
