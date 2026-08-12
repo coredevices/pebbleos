@@ -210,3 +210,26 @@ void test_weather_service__get_default_location_forecast_from_watch_app_prefs_db
   prv_assert_forecast_equal(forecast, &s_forecasts[0]);
   weather_service_destroy_default_forecast(forecast);
 }
+
+void test_weather_service__skips_entry_with_empty_strings_blob(void) {
+  // Overwrite location 0's record with one whose strings blob is valid but
+  // EMPTY (data_size == 0): structurally legal, yet it resolves to zero
+  // pstrings — the service must skip the record instead of dereferencing NULL.
+  const WeatherDBKey *key = weather_shared_data_get_key(0);
+  const WeatherDBEntry *base = weather_shared_data_get_entry(0);
+  const size_t fixed = weather_db_entry_strings_offset(WEATHER_DB_CURRENT_VERSION,
+                                                       WEATHER_DB_CURRENT_MINOR_VERSION);
+  const size_t size = fixed + sizeof(SerializedArray);
+  uint8_t *record = task_zalloc_check(size);
+  memcpy(record, base, size);   // fixed fields from the valid fixture
+  ((SerializedArray *)(record + fixed))->data_size = 0;
+  cl_assert_equal_i(S_SUCCESS, weather_db_delete((uint8_t *)key, sizeof(WeatherDBKey)));
+  cl_assert_equal_i(S_SUCCESS, weather_db_insert((uint8_t *)key, sizeof(WeatherDBKey),
+                                                 record, size));
+  task_free(record);
+
+  size_t count_out = 0;
+  WeatherDataListNode *head = weather_service_locations_list_create(&count_out);
+  cl_assert_equal_i(count_out, 3);   // location 0 skipped, the other three intact
+  weather_service_locations_list_destroy(head);
+}

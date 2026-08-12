@@ -48,6 +48,15 @@ static bool prv_fill_forecast_from_entry(WeatherDBEntry *entry,
   PascalString16 *phrase_pstring =
       pstring_get_pstring16_from_list(&pstring16_list, WeatherDbStringIndex_ShortPhrase);
 
+  // A record whose strings blob resolves to fewer entries than expected
+  // (empty, truncated, or absent) yields NULL pstrings — skip it like every
+  // other invalid entry rather than dereferencing.
+  if (!location_pstring || !phrase_pstring) {
+    PBL_LOG_ERR("Weather entry has malformed trailing strings (count: %" PRIu16 ")",
+                pstring16_list.count);
+    return false;
+  }
+
   const bool is_valid_entry_update_time =
       (entry->last_update_time_utc != WEATHER_SERVICE_INVALID_DATA_LAST_UPDATE_TIME);
   const uint16_t location_pstring_length = location_pstring->str_length;
