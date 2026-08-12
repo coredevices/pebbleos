@@ -200,7 +200,9 @@ static void schedule_frame_timer(GlobeView *view);
 static void start_globe_idle_timer(GlobeView *view);
 static GRect clip_rect_to_bounds(GRect rect, GRect bounds);
 static void update_city_label_layer(GlobeView *view);
+#if WEATHER_PLATFORM_TOUCH_COLOR
 static void set_free_roam_enabled(GlobeView *view, bool enabled);
+#endif
 static void show_intro_canvas(GlobeView *view);
 static void show_revealed_space_layers(GlobeView *view);
 static void mark_dynamic_globe_dirty(GlobeView *view);
@@ -254,9 +256,12 @@ static void sync_bw_elapsed_to_current_frame(GlobeView *view) {
 
 // positive_modulo is provided by util/math.h (same semantics) — using that.
 
+#if WEATHER_PLATFORM_TOUCH_COLOR
+// Touch-only: coast-velocity magnitudes.
 static int32_t abs_i32(int32_t value) {
     return value < 0 ? -value : value;
 }
+#endif
 
 static int rounded_divide(int value, int divisor) {
     if (divisor == 0) return 0;
@@ -364,7 +369,8 @@ static bool selected_city_is_valid(GlobeView *view, int city_index) {
            (e->is_current_location && view && view->has_current_location);
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
+// Shared with the pin renderer, which draws on every platform — these three
+// accessors must stay outside the touch gate below.
 static bool saved_entry_has_globe_coordinates(GlobeView *view,
                                               SavedLocationEntry *entry) {
     if (!entry) return false;
@@ -391,6 +397,7 @@ static int16_t saved_entry_longitude_e2(GlobeView *view,
     return entry ? entry->longitude_e2 : 0;
 }
 
+#if WEATHER_PLATFORM_TOUCH_COLOR
 // Merged has-coordinates + coordinate fetch: one call per entry instead of
 // three, false when the entry has no usable globe position.
 static bool saved_entry_globe_coords(GlobeView *view, SavedLocationEntry *entry,
@@ -1278,12 +1285,18 @@ static void framebuffer_draw_starfield(GBitmap *fb, GlobeView *view,
     size_t available = (view->starfield_size - 2) / 3;
     if (count > available) count = (uint16_t)available;
 
+#if WEATHER_PLATFORM_TOUCH_COLOR
     int offset_x = positive_modulo(
         (int)(view->starfield_offset_x_q8 / GLOBE_Q8_ONE),
         GLOBE_STARFIELD_WIDTH);
     int offset_y = positive_modulo(
         (int)(view->starfield_offset_y_q8 / GLOBE_Q8_ONE),
         GLOBE_STARFIELD_HEIGHT);
+#else
+    // No free-roam drag without touch, so the parallax offset is always 0.
+    int offset_x = 0;
+    int offset_y = 0;
+#endif
     int clip_left = clip_rect.origin.x;
     int clip_top = clip_rect.origin.y;
     int clip_right = clip_rect.origin.x + clip_rect.size.w - 1;
@@ -1471,6 +1484,9 @@ static bool project_lat_lon_to_globe_point_with_depth(GlobeView *view,
     return true;
 }
 
+#if WEATHER_PLATFORM_TOUCH_COLOR
+// Touch-only callers (city label + hover); the pin renderer uses the
+// _with_depth variant directly.
 __attribute__((noinline)) static bool project_lat_lon_to_globe_point(GlobeView *view,
                                            int32_t latitude_e2,
                                            int32_t longitude_e2,
@@ -1482,6 +1498,7 @@ __attribute__((noinline)) static bool project_lat_lon_to_globe_point(GlobeView *
                                                     GLOBE_ROT_SCALE / 10,
                                                     point_out, NULL);
 }
+#endif
 
 #if WEATHER_PLATFORM_TOUCH_COLOR
 static int nearest_centered_city_index(GlobeView *view, int radius_px) {
@@ -1928,6 +1945,7 @@ static int32_t ease_out_quad(AnimationProgress progress) {
 // overshoots ~5px, 5px capture ~0.5px). Endpoints exact; defensively clamped.
 // MUST only be used where a closed-loop correction follows (the hover branch)
 // — never for open-loop lat/lon interpolation (10% of a long arc is huge).
+#if WEATHER_PLATFORM_TOUCH_COLOR
 static int32_t ease_out_back(AnimationProgress progress) {
     int32_t inv = ANIMATION_NORMALIZED_MAX - (int32_t)progress;
     if (inv <= 0) return ANIMATION_NORMALIZED_MAX;
@@ -1937,6 +1955,7 @@ static int32_t ease_out_back(AnimationProgress progress) {
     int32_t cap = ANIMATION_NORMALIZED_MAX + ANIMATION_NORMALIZED_MAX / 8;
     return eased > cap ? cap : eased;
 }
+#endif
 
 static AnimationProgress color_transition_grow_progress(int amount) {
     const int grow_start =
@@ -2146,6 +2165,8 @@ static void set_text_layer_hidden(TextLayer *text_layer, bool hidden) {
     }
 }
 
+#if WEATHER_PLATFORM_TOUCH_COLOR
+// Touch-only: free roam is entered by dragging the globe.
 static void set_free_roam_enabled(GlobeView *view, bool enabled) {
     if (!view) return;
 
@@ -2167,6 +2188,7 @@ static void set_free_roam_enabled(GlobeView *view, bool enabled) {
         mark_dynamic_globe_dirty(view);
     }
 }
+#endif
 
 static void show_intro_canvas(GlobeView *view) {
     if (!view) return;
@@ -2202,8 +2224,12 @@ static void show_revealed_space_layers(GlobeView *view) {
         layer_set_hidden(view->globe_layer, false);
         layer_mark_dirty(view->globe_layer);
     }
+    bool hover_lock = false;
+#if WEATHER_PLATFORM_TOUCH_COLOR
+    hover_lock = view->hover_lock_active;
+#endif
     set_text_layer_hidden(view->city_label_layer,
-                          view->is_free_roam && !view->hover_lock_active);
+                          view->is_free_roam && !hover_lock);
 }
 
 static void city_anim_update(Animation *anim, AnimationProgress progress) {

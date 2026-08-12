@@ -58,8 +58,8 @@ static GBitmap *prv_glance_icon(uint8_t type) {
   return s_glance_icons[type];
 }
 
-static void prv_activate_saved_row(SavedLocationsView *view, int row);
 #if WEATHER_PLATFORM_TOUCH_COLOR
+static void prv_activate_saved_row(SavedLocationsView *view, int row);
 static void prv_touch_handler(const TouchEvent *event, void *context);
 #endif
 
@@ -242,10 +242,13 @@ static void prv_draw_row(GContext *ctx, const Layer *cell_layer,
   prv_draw_glance_row(ctx, cell_layer, &s_entries[row]);
 }
 
+#if WEATHER_PLATFORM_TOUCH_COLOR
 static void saved_locations_dismiss(bool animated);   // defined below
 
-// Selecting a row switches the app to that location and closes the screen.
-// Locations are added/removed in the phone app — the watch only picks.
+// Tapping a row switches the app to that location and closes the screen
+// (touch-only: without touch the list is a read-only glance and city
+// switching happens on the globe). Locations are added/removed in the
+// phone app — the watch only picks.
 static void prv_activate_saved_row(SavedLocationsView *view, int row) {
   if (!view || row < 0 || row >= s_entry_count) return;
   if (view->select_callback) {
@@ -254,7 +257,6 @@ static void prv_activate_saved_row(SavedLocationsView *view, int row) {
   saved_locations_dismiss(true);
 }
 
-#if WEATHER_PLATFORM_TOUCH_COLOR
 static uint32_t prv_now_ms(void) {
   time_t s = 0;
   uint16_t ms = 0;
@@ -455,10 +457,14 @@ static void prv_window_appear(Window *window) {
 }
 #endif
 
+#if WEATHER_PLATFORM_TOUCH_COLOR
+// Touch-only: BACK pops the window through the stack; only the tap path
+// dismisses programmatically.
 static void saved_locations_dismiss(bool animated) {
   if (!s_view || !s_view->window) return;
   window_stack_remove(s_view->window, animated);
 }
+#endif
 
 void saved_locations_push(const SavedLocationsConfig *config) {
   if (s_view) {

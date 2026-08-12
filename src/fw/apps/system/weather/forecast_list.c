@@ -206,13 +206,15 @@ typedef struct {
 
 static ForecastListData *s_list;
 
+#if WEATHER_ANIM_5DAY
 // One 4x4 ordered-dither (bayer) table for every stipple on this screen
 // (icon crossfade).
 static const uint8_t s_bayer4[4][4] = {
   {  0,  8,  2, 10 }, { 12,  4, 14,  6 }, {  3, 11,  1,  9 }, { 15,  7, 13,  5 },
 };
+#endif
 
-#if !PBL_ROUND
+#if WEATHER_ANIM_5DAY && !PBL_ROUND
 static void prv_clock_loc_city(char *dst, size_t dst_size, const char *src);  // defined below
 #endif
 
@@ -284,7 +286,9 @@ static uint32_t prv_official_weather_pdc_res_small(WeatherType t) {
 #endif
 
 
+#if WEATHER_ANIM_5DAY
 static WeatherType prv_header_type(void);
+#endif
 static void prv_load_icons(void) {
 #if WEATHER_ANIM_5DAY
   s_list->today_header_dirty = true;   // today's date/condition changed → recompute layout
@@ -355,6 +359,7 @@ static void prv_draw_gabbro_pdc_icon(GContext *ctx, WeatherType weather_type,
 }
 #endif
 
+#if WEATHER_ANIM_5DAY
 // BOTH SHAPES : the mainscreen header
 // shows the CURRENT-HOUR conditions — type/temp/phrase derived from the hourly arrays at
 // the location's local hour, falling back to the synced current when the record has no
@@ -362,6 +367,7 @@ static void prv_draw_gabbro_pdc_icon(GContext *ctx, WeatherType weather_type,
 static WeatherType prv_header_type(void) {
   return s_list->days[0].current_type_now;
 }
+#endif
 
 // Pre-format condition strings so the draw proc does zero formatting work.
 static void prv_format_conditions(void) {
@@ -580,6 +586,40 @@ static void prv_canvas_draw_gabbro(Layer *layer, GContext *ctx) {
 }
 #endif
 
+// Shared animation boilerplate: create + duration + curve + impl + optional stopped
+// handler + schedule. Every moook here runs a manual curve in its update proc, so
+// the wrapper just parameterizes the pieces that differ. Used by the animated
+// 5-day block below AND the always-compiled transitions further down, so it must
+// stay outside the WEATHER_ANIM_5DAY gate.
+static Animation *prv_start_anim(uint32_t dur_ms, AnimationCurve curve,
+                                 const AnimationImplementation *impl,
+                                 AnimationStoppedHandler stopped) {
+  Animation *a = animation_create();
+  animation_set_duration(a, dur_ms);
+  animation_set_curve(a, curve);
+  animation_set_implementation(a, impl);
+  if (stopped) {
+    animation_set_handlers(a, (AnimationHandlers){ .stopped = stopped }, NULL);
+  }
+  animation_schedule(a);
+  return a;
+}
+
+// SELECT-exit contract state — shared with the round/OOM fallback slide, so these
+// three live OUTSIDE the WEATHER_ANIM_5DAY gate (the fallback compiles everywhere).
+static Animation *s_select_exit_anim;
+static void (*s_select_exit_done)(void *ctx);
+static void *s_select_exit_ctx;
+
+// Report-BACK entrance (round): the mainscreen slides in from the LEFT while the report page
+// slides out to the right — the same WEATHER_HSLIDE_MS / moook_soft1 pair the card<->globe
+// glide uses. Armed by weather_report.c just before it pops (the arm API is public, so the
+// pair lives OUTSIDE the WEATHER_ANIM_5DAY gate; only the animated consumer is gated).
+static bool s_pending_hslide_in;
+#if WEATHER_ANIM_5DAY
+static Animation *s_hslide_anim;
+#endif
+
 #if WEATHER_ANIM_5DAY
 // ---- Single-view animated 5-day forecast --------------------------------------
 // All five days fit on one screen (no scrolling): a today header (large animated
@@ -743,24 +783,6 @@ static int64_t prv_moook_hasted(int32_t n, int64_t from, int64_t to) {
   return interpolate_moook_soft(cut, from, to, 3);
 }
 
-// Shared animation boilerplate: create + duration + curve + impl + optional stopped
-// handler + schedule. Every moook here runs a manual curve in its update proc, so
-// the wrapper just parameterizes the pieces that differ. (Shared region: used by
-// both the rect-only squash block below and the round+rect transitions further down.)
-static Animation *prv_start_anim(uint32_t dur_ms, AnimationCurve curve,
-                                 const AnimationImplementation *impl,
-                                 AnimationStoppedHandler stopped) {
-  Animation *a = animation_create();
-  animation_set_duration(a, dur_ms);
-  animation_set_curve(a, curve);
-  animation_set_implementation(a, impl);
-  if (stopped) {
-    animation_set_handlers(a, (AnimationHandlers){ .stopped = stopped }, NULL);
-  }
-  animation_schedule(a);
-  return a;
-}
-
 // Shared: round's report stage 3 reuses the same fly slot for the paper clone.
 static void prv_clear_fly(void) {
   if (!s_list) return;
@@ -808,11 +830,6 @@ static void prv_render_squash_in(GContext *ctx) {
 // Entry squash armed by weather.c (0 = none) just before the covering window dismisses; consumed
 // by prv_window_appear so the very first revealed frame is already off-screen (no rest flash).
 static int s_pending_squash_mode;
-// Report-BACK entrance (round): the mainscreen slides in from the LEFT while the report page
-// slides out to the right — the same WEATHER_HSLIDE_MS / moook_soft1 pair the card<->globe
-// glide uses. Armed by weather_report.c just before it pops.
-static bool s_pending_hslide_in;
-static Animation *s_hslide_anim;
 // Reverse hero: armed with the RISE_IN when the expanded card dismisses back to the forecast —
 // the card's big icon squash-stretch zooms back down into the today-header spot (the exact
 // forward fly played backwards), landing as the rising screen settles.
@@ -1142,12 +1159,6 @@ static void prv_start_clock_stage1(void) {
 // Timeline day-separator unfold (stage 3) with "WEATHER REPORT" rising beneath, and the
 // report window hard-cuts in on the final frame.
 // ===================================================================================
-
-// SELECT-exit contract state — shared with the round/OOM fallback slide below, so these
-// three live OUTSIDE the rect gate.
-static Animation *s_select_exit_anim;
-static void (*s_select_exit_done)(void *ctx);
-static void *s_select_exit_ctx;
 
 #if WEATHER_ANIM_5DAY
 static Animation *s_report_anim;               // stages 2-4 (stage 2 overlaps stage 1's tail)
@@ -2996,6 +3007,7 @@ static void prv_note_icon_interaction(void) {
 
 #if !PBL_ROUND
 // ---- First-entry clock-slot intro: location -> time (the sunset card's swap) ----
+#if WEATHER_ANIM_5DAY
 // City-only copy (split at the comma, like the round location bar).
 static void prv_clock_loc_city(char *dst, size_t dst_size, const char *src) {
   size_t i = 0;
@@ -3003,6 +3015,7 @@ static void prv_clock_loc_city(char *dst, size_t dst_size, const char *src) {
   while (i > 0 && dst[i - 1] == ' ') i--;
   dst[i] = '\0';
 }
+#endif
 
 static void prv_clock_swap_update(Animation *anim, AnimationProgress progress) {
   (void)anim;
@@ -3541,6 +3554,7 @@ static void prv_window_load(Window *window) {
 #endif
 }
 
+#if WEATHER_ANIM_5DAY
 static void prv_hslide_in_stopped(Animation *anim, bool finished, void *context) {
   (void)anim; (void)finished; (void)context;
   s_hslide_anim = NULL;   // property animation auto-destroys after a normal stop
@@ -3550,6 +3564,7 @@ static void prv_hslide_in_stopped(Animation *anim, bool finished, void *context)
     layer_set_frame(s_list->canvas, home);
   }
 }
+#endif
 
 void forecast_list_arm_hslide_in(void) {
   s_pending_hslide_in = true;
@@ -3661,12 +3676,14 @@ static void prv_window_unload(Window *window) {
     animation_unschedule(old);
     animation_destroy(old);
   }
+#if WEATHER_ANIM_5DAY
   if (s_list->clock_anim) {
     Animation *old = s_list->clock_anim;
     s_list->clock_anim = NULL;
     animation_unschedule(old);
     animation_destroy(old);
   }
+#endif
   // The select-exit slide is module-level, not per-instance: clear the done callback FIRST
   // (unschedule fires .stopped, which would otherwise invoke it mid-teardown), then cancel.
   s_select_exit_done = NULL;
@@ -3863,10 +3880,12 @@ void forecast_list_update_data(const WeatherLocationForecast *days, size_t num_d
     }
 #endif
     prv_load_icons();
+#if WEATHER_ANIM_5DAY
     // The icons were just destroyed + re-created (possibly with different point counts): any
     // jelly lookups cached mid-transition were built from the OLD geometry and would be
     // indexed out of bounds by the next scale_segmented frame — drop them so they rebuild.
     prv_free_jelly_lookups();
+#endif
     prv_format_conditions();
     layer_mark_dirty(s_list->canvas);
   }
@@ -3875,9 +3894,14 @@ void forecast_list_update_data(const WeatherLocationForecast *days, size_t num_d
 void forecast_list_set_glance(const char *sunset, const char *temp, int uv, int precip,
                               int wind) {
   if (!s_list) return;
+#if WEATHER_ANIM_5DAY
   snprintf(s_list->fly_sunset, sizeof(s_list->fly_sunset), "%s", sunset ? sunset : "");
   snprintf(s_list->fly_temp,   sizeof(s_list->fly_temp),   "%s", temp   ? temp   : "");
   s_list->fly_uv     = uv;
   s_list->fly_precip = precip;
   s_list->fly_wind   = wind;
+#else
+  // The glance card only exists in the animated 5-day view.
+  (void)sunset; (void)temp; (void)uv; (void)precip; (void)wind;
+#endif
 }
