@@ -29,6 +29,8 @@ mag_use = ['fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_MAG_MMC5603NJ:
     mag_sources.append('mmc5603nj/mmc5603nj.c')
+elif bld.env.CONFIG_QEMU:
+    mag_sources.append('../qemu/qemu_mag.c')
 
 if mag_sources:
     bld.objects(
