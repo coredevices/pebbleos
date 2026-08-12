@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 //! Compatibility shim for porting the Weather app from a sandboxed SDK app
 //! (which includes <pebble.h>) into the firmware-linked system app, which uses

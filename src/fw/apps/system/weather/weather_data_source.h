@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 //! Data-source adapter: the ONE place that touches the firmware weather types
 //! (WeatherType / WeatherLocationForecast / WeatherDBEntry). It exposes a

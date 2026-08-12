@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 //! Weather app resource-id aliases. FIRMWARE builds alias the generated symbolic ids
 //! (resource_ids.auto.h, included via pebble_compat.h) so the numbers can never drift

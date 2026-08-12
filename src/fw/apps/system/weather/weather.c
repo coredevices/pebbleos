@@ -1,4 +1,5 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
 //! Weather system app — the rich ported UI, fed by the weather BlobDB.

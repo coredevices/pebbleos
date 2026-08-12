@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 Google LLC
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 """Pixel-identical PNG shrink pass for pack resources.
 
