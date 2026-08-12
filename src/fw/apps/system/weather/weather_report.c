@@ -349,7 +349,9 @@ void weather_report_update_data(const WeatherLocationForecast *days, size_t num_
   if (s_report->current_day_index >= (int)num_days) {
     s_report->current_day_index = (int)num_days - 1;
   }
-  prv_seed_day(s_report->current_day_index);   // re-seed: the content may be a different city now
+  if (s_report->layout.root_layer) {   // update_data-before-load guard (mirrors the rect arm)
+    prv_seed_day(s_report->current_day_index);   // re-seed: may be a different city now
+  }
 }
 
 #else  // !PBL_ROUND
