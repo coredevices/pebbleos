@@ -6,7 +6,6 @@
 #include "applib/app_timer.h"
 #include "applib/fonts/fonts.h"
 #include "applib/ui/action_bar_layer.h"
-#include "applib/ui/action_bar_layer_private.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/window_stack_private.h"
 #include "applib/ui/ui.h"

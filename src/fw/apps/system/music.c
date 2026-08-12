@@ -11,7 +11,7 @@
 #include "applib/preferred_content_size.h"
 #include "applib/tick_timer_service.h"
 #include "applib/ui/app_window_stack.h"
-#include "applib/ui/action_bar_layer_private.h"
+#include "applib/ui/action_bar_layer.h"
 #include "applib/ui/property_animation.h"
 #include "applib/ui/ui.h"
 #include "kernel/pbl_malloc.h"

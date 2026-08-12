@@ -8,7 +8,7 @@
 
 #include "applib/app.h"
 #include "board/display.h"
-#include "applib/ui/action_bar_layer_private.h"
+#include "applib/ui/action_bar_layer.h"
 #include "applib/ui/action_menu_hierarchy.h"
 #include "applib/ui/action_menu_window.h"
 #include "applib/ui/kino/kino_layer.h"

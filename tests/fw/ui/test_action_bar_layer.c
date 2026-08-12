@@ -2,7 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "applib/ui/action_bar_layer.h"
-#include "applib/ui/action_bar_layer_private.h"
 #include "applib/ui/animation.h"
 #include "applib/ui/animation_timing.h"
 #include "applib/ui/window.h"
@@ -34,7 +33,7 @@ static PebbleTask s_task = PebbleTask_App;
 static ProcessAppSDKType s_sdk_type = ProcessAppSDKType_System;
 static const PebbleProcessMd s_md;
 
-bool display_orientation_is_left(void) {
+bool sys_display_orientation_is_left(void) {
   return s_left_handed;
 }
 
@@ -181,6 +180,7 @@ static void prv_reset(void) {
   s_left_handed = false;
   s_task = PebbleTask_App;
   s_sdk_type = ProcessAppSDKType_System;
+  action_bar_layer_set_follows_display_orientation(false);
 }
 
 void test_action_bar_layer__initialize(void) {
@@ -236,4 +236,55 @@ void test_action_bar_layer__inset_bounds_shifts_origin_when_on_left(void) {
   const GRect inset = action_bar_layer_inset_bounds(GRect(0, 0, DISP_COLS, DISP_ROWS));
   cl_assert_equal_i(inset.origin.x, ACTION_BAR_WIDTH);
   cl_assert_equal_i(inset.size.w, DISP_COLS - ACTION_BAR_WIDTH);
+}
+
+void test_action_bar_layer__inset_bounds_keeps_origin_when_on_right(void) {
+  const GRect inset = action_bar_layer_inset_bounds(GRect(0, 0, DISP_COLS, DISP_ROWS));
+  cl_assert_equal_i(inset.origin.x, 0);
+  cl_assert_equal_i(inset.size.w, DISP_COLS - ACTION_BAR_WIDTH);
+}
+
+void test_action_bar_layer__content_insets_put_bar_margin_on_right(void) {
+  const int16_t other_margin = 4;
+  const GEdgeInsets insets = action_bar_layer_content_insets(other_margin);
+  cl_assert_equal_i(insets.top, 0);
+  cl_assert_equal_i(insets.right, ACTION_BAR_WIDTH + other_margin);
+  cl_assert_equal_i(insets.bottom, 0);
+  cl_assert_equal_i(insets.left, other_margin);
+}
+
+void test_action_bar_layer__content_insets_put_bar_margin_on_left(void) {
+  s_left_handed = true;
+  const int16_t other_margin = 4;
+  const GEdgeInsets insets = action_bar_layer_content_insets(other_margin);
+  cl_assert_equal_i(insets.top, 0);
+  cl_assert_equal_i(insets.right, other_margin);
+  cl_assert_equal_i(insets.bottom, 0);
+  cl_assert_equal_i(insets.left, ACTION_BAR_WIDTH + other_margin);
+}
+
+void test_action_bar_layer__third_party_app_moves_left_when_opted_in(void) {
+  s_left_handed = true;
+  s_sdk_type = ProcessAppSDKType_4x;
+  action_bar_layer_set_follows_display_orientation(true);
+  cl_assert(!action_bar_layer_is_on_right());
+  cl_assert_equal_i(prv_add_and_get_x(), 0);
+  cl_assert_equal_i(action_bar_layer_get_content_origin_x(), ACTION_BAR_WIDTH);
+}
+
+void test_action_bar_layer__third_party_opt_in_stays_right_when_not_left_handed(void) {
+  s_sdk_type = ProcessAppSDKType_4x;
+  action_bar_layer_set_follows_display_orientation(true);
+  cl_assert(action_bar_layer_is_on_right());
+  cl_assert_equal_i(prv_add_and_get_x(), DISP_COLS - ACTION_BAR_WIDTH);
+}
+
+void test_action_bar_layer__third_party_opt_out_returns_to_right(void) {
+  s_left_handed = true;
+  s_sdk_type = ProcessAppSDKType_4x;
+  action_bar_layer_set_follows_display_orientation(true);
+  cl_assert(!action_bar_layer_is_on_right());
+  action_bar_layer_set_follows_display_orientation(false);
+  cl_assert(action_bar_layer_is_on_right());
+  cl_assert_equal_i(prv_add_and_get_x(), DISP_COLS - ACTION_BAR_WIDTH);
 }

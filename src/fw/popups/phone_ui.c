@@ -8,7 +8,6 @@
 #include "pbl/util/math.h"
 #include "pbl/util/trig.h"
 #include "applib/ui/action_bar_layer.h"
-#include "applib/ui/action_bar_layer_private.h"
 #include "applib/ui/kino/kino_layer.h"
 #include "applib/ui/kino/kino_reel_pdci.h"
 #include "applib/ui/kino/kino_reel/morph_square.h"

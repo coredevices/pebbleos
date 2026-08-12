@@ -2,7 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "action_bar_layer.h"
-#include "action_bar_layer_private.h"
 
 #include "animation.h"
 #include "animation_timing.h"
@@ -13,11 +12,12 @@
 #include "kernel/pebble_tasks.h"
 #include "process_management/pebble_process_md.h"
 #include "process_management/process_manager.h"
+#include "process_state/app_state/app_state.h"
 #include "system/passert.h"
 #include "pbl/util/trig.h"
 
 #ifdef CONFIG_ORIENTATION_MANAGER
-#include "shell/prefs.h"
+#include "shell/prefs_syscalls.h"
 #include "syscall/syscall.h"
 #endif
 
@@ -46,13 +46,23 @@ static bool prv_current_ui_follows_orientation(void) {
     return true;
   }
   const PebbleProcessMd *md = sys_process_manager_get_current_process_md();
-  return md && process_metadata_get_app_sdk_type(md) == ProcessAppSDKType_System;
+  if (md && process_metadata_get_app_sdk_type(md) == ProcessAppSDKType_System) {
+    return true;
+  }
+  return task == PebbleTask_App && app_state_get_action_bar_follows_display_orientation();
 }
 #endif
 
+void action_bar_layer_set_follows_display_orientation(bool follow) {
+  if (pebble_task_get_current() != PebbleTask_App) {
+    return;
+  }
+  app_state_set_action_bar_follows_display_orientation(follow);
+}
+
 bool action_bar_layer_is_on_right(void) {
 #ifdef CONFIG_ORIENTATION_MANAGER
-  if (display_orientation_is_left() && prv_current_ui_follows_orientation()) {
+  if (sys_display_orientation_is_left() && prv_current_ui_follows_orientation()) {
     return false;
   }
 #endif

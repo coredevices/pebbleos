@@ -9,7 +9,7 @@
 
 #include "applib/fonts/fonts.h"
 #include "applib/ui/ui.h"
-#include "applib/ui/action_bar_layer_private.h"
+#include "applib/ui/action_bar_layer.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
 #include "kernel/ui/system_icons.h"

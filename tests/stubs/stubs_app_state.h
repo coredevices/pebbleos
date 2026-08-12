@@ -160,3 +160,13 @@ FrameBuffer *s_app_state_framebuffer;
 FrameBuffer * WEAK app_state_get_framebuffer(void) {
   return s_app_state_framebuffer;
 }
+
+static bool s_action_bar_follows_display_orientation;
+
+bool WEAK app_state_get_action_bar_follows_display_orientation(void) {
+  return s_action_bar_follows_display_orientation;
+}
+
+void WEAK app_state_set_action_bar_follows_display_orientation(bool follow) {
+  s_action_bar_follows_display_orientation = follow;
+}

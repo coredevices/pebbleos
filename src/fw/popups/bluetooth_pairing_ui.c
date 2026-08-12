@@ -7,7 +7,7 @@
 #include "applib/ui/kino/kino_layer.h"
 #include "applib/ui/kino/kino_reel.h"
 #include "applib/ui/ui.h"
-#include "applib/ui/action_bar_layer_private.h"
+#include "applib/ui/action_bar_layer.h"
 #include "applib/ui/window_private.h"
 #include "applib/ui/window_stack.h"
 #include "comm/bt_lock.h"

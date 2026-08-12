@@ -6,7 +6,7 @@
 #include "applib/fonts/fonts.h"
 #include "applib/graphics/graphics.h"
 #include "applib/applib_malloc.auto.h"
-#include "applib/ui/action_bar_layer_private.h"
+#include "applib/ui/action_bar_layer.h"
 #include "kernel/ui/kernel_ui.h"
 #include "kernel/ui/system_icons.h"
 #include "pbl/util/size.h"

@@ -4,7 +4,7 @@
               "You should also make sure you are obeying our API design guidelines:",
               "https://pebbletechnology.atlassian.net/wiki/display/DEV/SDK+API+Design+Guidelines"
             ],
-  "revision" : "109",
+  "revision" : "110",
   "version" : "2.0",
   "files": [
     "include/pbl/drivers/ambient_light.h",
@@ -4267,6 +4267,26 @@
                   "type": "function",
                   "name": "action_bar_layer_set_icon_press_animation",
                   "addedRevision": "46"
+                }, {
+                  "type": "function",
+                  "name": "action_bar_layer_set_follows_display_orientation",
+                  "addedRevision": "110"
+                }, {
+                  "type": "function",
+                  "name": "action_bar_layer_is_on_right",
+                  "addedRevision": "110"
+                }, {
+                  "type": "function",
+                  "name": "action_bar_layer_get_content_origin_x",
+                  "addedRevision": "110"
+                }, {
+                  "type": "function",
+                  "name": "action_bar_layer_inset_bounds",
+                  "addedRevision": "110"
+                }, {
+                  "type": "function",
+                  "name": "action_bar_layer_content_insets",
+                  "addedRevision": "110"
                 }
               ]
             }, {

@@ -5,7 +5,7 @@
 
 #include "applib/applib_malloc.auto.h"
 #include "applib/fonts/fonts.h"
-#include "applib/ui/action_bar_layer_private.h"
+#include "applib/ui/action_bar_layer.h"
 #include "applib/ui/bitmap_layer.h"
 #include "applib/ui/dialogs/dialog.h"
 #include "applib/ui/dialogs/dialog_private.h"

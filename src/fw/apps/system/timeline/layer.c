@@ -11,7 +11,6 @@
 #include "applib/graphics/graphics.h"
 #include "applib/preferred_content_size.h"
 #include "applib/ui/action_bar_layer.h"
-#include "applib/ui/action_bar_layer_private.h"
 #include "applib/ui/kino/kino_layer.h"
 #include "applib/ui/kino/kino_reel/scale_segmented.h"
 #include "applib/ui/property_animation.h"

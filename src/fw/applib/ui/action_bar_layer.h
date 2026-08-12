@@ -12,14 +12,20 @@
 //!   @addtogroup Layer Layers
 //!   @{
 //!     @addtogroup ActionBarLayer
-//! \brief Vertical, bar-shaped control widget on the right edge of the window
+//! \brief Vertical, bar-shaped control widget on the button side of the window
 //!
 //! ![](action_bar_layer.png)
-//! ActionBarLayer is a Layer that displays a bar on the right edge of the
+//! ActionBarLayer is a Layer that displays a bar on the button side of the
 //! window. The bar can contain up to 3 icons, each corresponding with one of
-//! the buttons on the right side of the watch. The purpose of each icon is
+//! the buttons on that side of the watch. The purpose of each icon is
 //! to provide a hint (feed-forward) to what action a click on the respective
 //! button will cause.
+//!
+//! Third-party apps keep the bar on the right by default so existing layouts
+//! keep working. Call \ref action_bar_layer_set_follows_display_orientation()
+//! before adding the bar to a window to place it on the left in Left-Handed
+//! Mode, and use \ref action_bar_layer_inset_bounds() (or the related helpers)
+//! so content stays clear of the bar.
 //!
 //! The action bar is useful when there are a few (up to 3) main actions that
 //! are desirable to be able to take quickly, literally with one press of a
@@ -46,6 +52,8 @@
 //! <h3>Geometry</h3>
 //! * The action bar's width varies per platform. 30px on most displays, 34px on Emery and
 //! Gabbro, and 40px on Chalk. Use the \ref ACTION_BAR_WIDTH define.
+//! * Query the side with \ref action_bar_layer_is_on_right() and inset content with
+//! \ref action_bar_layer_inset_bounds() or \ref action_bar_layer_content_insets().
 //! * Icons should not be wider than 28 pixels, or taller than 18 pixels.
 //! It is recommended to use a size of around 15 x 15 pixels for the "visual core" of the icon,
 //! and extending or contracting where needed.
@@ -273,6 +281,30 @@ void action_bar_layer_remove_from_window(ActionBarLayer *action_bar);
 //! @param action_bar The action bar of which to set the background color
 //! @param background_color The new background color
 void action_bar_layer_set_background_color(ActionBarLayer *action_bar, GColor background_color);
+
+//! Opt this app's action bars into following left-hand display orientation.
+//! Third-party apps default to the right edge. System and kernel UI always follow
+//! orientation. Call this before \ref action_bar_layer_add_to_window().
+//! @param follow true to place action bars on the button side in Left-Handed Mode
+void action_bar_layer_set_follows_display_orientation(bool follow);
+
+//! Whether the action bar sits on the right edge of the window.
+//! @return true if the bar is (or will be) on the right, false if on the left
+bool action_bar_layer_is_on_right(void);
+
+//! X origin of the content area beside the action bar (0 when the bar is on the right).
+//! @return The x origin in pixels of the area not covered by the action bar
+int16_t action_bar_layer_get_content_origin_x(void);
+
+//! Copy of \a bounds with the action-bar strip removed from the button side.
+//! @param bounds The window or layer bounds to inset
+//! @return \a bounds with \ref ACTION_BAR_WIDTH removed from the bar's edge
+GRect action_bar_layer_inset_bounds(GRect bounds);
+
+//! Horizontal insets that leave \a other_margin on the content side and room for the bar.
+//! @param other_margin Extra margin on the side opposite the action bar, in pixels
+//! @return Insets to pass to \ref grect_inset()
+GEdgeInsets action_bar_layer_content_insets(int16_t other_margin);
 
 //!     @} // end addtogroup ActionBarLayer
 //!   @} // end addtogroup Layer
