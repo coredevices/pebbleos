@@ -55,6 +55,7 @@ static char *s_entry_phrases[] = {
 static const WeatherDBEntry s_entry_bases[] = {
   {
     .version = WEATHER_DB_CURRENT_VERSION,
+    .minor_version = WEATHER_DB_CURRENT_MINOR_VERSION,
     .is_current_location = true,
     .current_temp = 68,
     .current_weather_type = WeatherType_Sun,
@@ -66,6 +67,7 @@ static const WeatherDBEntry s_entry_bases[] = {
   },
   {
     .version = WEATHER_DB_CURRENT_VERSION,
+    .minor_version = WEATHER_DB_CURRENT_MINOR_VERSION,
     .is_current_location = false,
     .current_temp = -10,
     .current_weather_type = WeatherType_PartlyCloudy,
@@ -77,7 +79,8 @@ static const WeatherDBEntry s_entry_bases[] = {
   },
   {
     .version = WEATHER_DB_CURRENT_VERSION,
-      .is_current_location = false,
+    .minor_version = WEATHER_DB_CURRENT_MINOR_VERSION,
+    .is_current_location = false,
     .current_temp = -99,
     .current_weather_type = WeatherType_HeavySnow,
     .today_high_temp = -98,
@@ -88,6 +91,7 @@ static const WeatherDBEntry s_entry_bases[] = {
   },
   {
     .version = WEATHER_DB_CURRENT_VERSION,
+    .minor_version = WEATHER_DB_CURRENT_MINOR_VERSION,
     .is_current_location = true,
     .current_temp = 60,
     .current_weather_type = WeatherType_HeavyRain,
@@ -99,6 +103,7 @@ static const WeatherDBEntry s_entry_bases[] = {
   },
   {
     .version = WEATHER_DB_CURRENT_VERSION,
+    .minor_version = WEATHER_DB_CURRENT_MINOR_VERSION,
     .is_current_location = true,
     .current_temp = 60,
     .current_weather_type = WeatherType_PartlyCloudy,
@@ -266,7 +271,8 @@ status_t weather_db_insert_stale(const uint8_t *key, int key_len, const uint8_t 
 
 size_t weather_shared_data_insert_stale_entry(WeatherDBKey *key) {
   const WeatherDBEntry stale_entry = {
-    .version = WEATHER_DB_CURRENT_VERSION - 1,
+    // v3 is a supported LEGACY version now — "stale" must be older than that.
+    .version = WEATHER_DB_LEGACY_VERSION - 1,
     .is_current_location = true,
     .current_temp = 68,
     .current_weather_type = WeatherType_Sun,

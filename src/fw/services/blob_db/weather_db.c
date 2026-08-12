@@ -13,6 +13,8 @@
 #include "system/passert.h"
 #include "util/units.h"
 
+#include <string.h>
+
 PBL_LOG_MODULE_DECLARE(service_blob_db, CONFIG_SERVICE_BLOB_DB_LOG_LEVEL);
 
 #define SETTINGS_FILE_NAME "weatherdb"
@@ -50,6 +52,62 @@ static void prv_close_file_and_unlock_mutex(void) {
   mutex_unlock(s_weather_db.mutex);
 }
 
+// A weather record's trailing strings are self-described (SerializedArray header
+// + PascalString16s) and every length in them is phone-controlled. Validate the
+// whole record against its real byte length before anything parses it: insert
+// calls this at the phone trust boundary, and the read paths call it again so
+// records stored before this gate existed can never reach the parsers.
+static bool prv_entry_is_well_formed(const uint8_t *val, int val_len) {
+  if (val_len < (int)MIN_ENTRY_SIZE || val_len > (int)MAX_ENTRY_SIZE) {
+    return false;
+  }
+  const WeatherDBEntry *entry = (const WeatherDBEntry *)val;
+  if (!weather_db_version_is_supported(entry->version)) {
+    return false;
+  }
+  uint8_t minor = 0;
+  if (entry->version == WEATHER_DB_CURRENT_VERSION) {
+    // A minor this firmware never shipped could place the trailing strings
+    // anywhere — refuse it rather than mis-locate them (same policy as the
+    // major-version gate; a phone only writes v4 minors the watch advertises).
+    // Older minors must keep working (weather_db_entry_strings_offset handles
+    // every shipped rung).
+    if (entry->minor_version > WEATHER_DB_CURRENT_MINOR_VERSION) {
+      return false;
+    }
+    minor = entry->minor_version;
+  }
+  // The fixed fields for ITS minor plus the strings header must be present
+  // (the bare strings offset admits a record truncated exactly at the header,
+  // which sends the resolver reading out of bounds)...
+  const size_t strings_off = weather_db_entry_strings_offset(entry->version, minor);
+  if ((size_t)val_len < strings_off + sizeof(SerializedArray)) {
+    return false;
+  }
+  // ...the self-described block must fit inside the record...
+  const SerializedArray *sa = (const SerializedArray *)(val + strings_off);
+  if ((size_t)val_len < strings_off + sizeof(SerializedArray) + sa->data_size) {
+    return false;
+  }
+  // ...and every pstring must land inside the block (empty ones serialize as
+  // just their 2-byte length; the last must end exactly at the block's end).
+  const uint8_t *p = sa->data;
+  size_t remaining = sa->data_size;
+  while (remaining > 0) {
+    if (remaining < sizeof(uint16_t)) {
+      return false;
+    }
+    uint16_t str_length;
+    memcpy(&str_length, p, sizeof(str_length));
+    if (remaining < sizeof(uint16_t) + (size_t)str_length) {
+      return false;
+    }
+    p += sizeof(uint16_t) + str_length;
+    remaining -= sizeof(uint16_t) + (size_t)str_length;
+  }
+  return true;
+}
+
 static bool prv_weather_db_for_each_cb(SettingsFile *file, SettingsRecordInfo *info,
                                        void *context) {
   if ((info->val_len == 0) || (info->key_len != sizeof(WeatherDBKey))) {
@@ -61,8 +119,11 @@ static bool prv_weather_db_for_each_cb(SettingsFile *file, SettingsRecordInfo *i
 
   WeatherDBEntry *entry = task_zalloc_check(info->val_len);
   info->get_val(file, entry, info->val_len);
-  if (!weather_db_version_is_supported(entry->version)) {
-    PBL_LOG_WRN("Unsupported weather entry version: %" PRIu8, entry->version);
+  // Same structural validation as insert: a record stored before the insert
+  // gate existed (or corrupted at rest) must not reach the string parsers.
+  if (!prv_entry_is_well_formed((const uint8_t *)entry, info->val_len)) {
+    PBL_LOG_WRN("Skipping malformed weather entry (version %" PRIu8 ", len %d)",
+                entry->version, info->val_len);
     goto cleanup;
   }
 
@@ -141,18 +202,13 @@ status_t weather_db_insert(const uint8_t *key, int key_len, const uint8_t *val, 
     PBL_LOG_WRN("Unsupported weather entry version on insert: %" PRIu8, entry->version);
     return E_INVALID_ARGUMENT;
   }
-  // A v4 record must be large enough to hold the fixed fields for ITS minor: a
-  // minor-0 record ends its fixed part at WEATHER_DB_V4_0_FIXED_SIZE (older phone
-  // apps keep working); a minor-1+ record must also carry the appended fields.
-  if (entry->version == WEATHER_DB_CURRENT_VERSION) {
-    // Per-MINOR, never "the newest": hardcoding the current minor's size here rejects every
-    // record from a phone that has not shipped the latest block yet.
-    const int fixed = (int)weather_db_entry_strings_offset(entry->version, entry->minor_version);
-    if (val_len < fixed) {
-      PBL_LOG_WRN("v4.%" PRIu8 " weather record too short: %d < %d",
-                  entry->minor_version, val_len, fixed);
-      return E_INVALID_ARGUMENT;
-    }
+  // Full structural validation: per-minor fixed size (per-MINOR, never "the
+  // newest" — older phone apps keep working), unknown-future minors, and the
+  // phone-controlled string-block lengths, all bounded against val_len.
+  if (!prv_entry_is_well_formed(val, val_len)) {
+    PBL_LOG_WRN("Malformed v%" PRIu8 " weather record rejected on insert (len %d)",
+                entry->version, val_len);
+    return E_INVALID_ARGUMENT;
   }
 
   status_t rv = prv_lock_mutex_and_open_file();
@@ -189,7 +245,10 @@ status_t weather_db_read(const uint8_t *key, int key_len, uint8_t *val_out, int 
   PBL_ASSERTN(key_len == sizeof(WeatherDBKey));
 
   rv = settings_file_get(&s_weather_db.settings_file, key, key_len, val_out, val_out_len);
-  if (!weather_db_version_is_supported(((WeatherDBEntry*)val_out)->version)) {
+  // Only inspect the buffer after a successful fetch — on failure settings_file
+  // leaves it zeroed, and treating that as "unsupported entry" used to delete a
+  // possibly-valid record (e.g. on E_RANGE) while masking the real status.
+  if (rv == S_SUCCESS && !prv_entry_is_well_formed(val_out, val_out_len)) {
     // We might as well clear out the unparseable entry
     PBL_LOG_WRN("Read an unsupported weather DB entry");
     settings_file_delete(&s_weather_db.settings_file, key, key_len);

@@ -121,7 +121,8 @@ static void prv_check_invalid_version_code_not_inserted(uint8_t version) {
 }
 
 void test_weather_db__lower_version_not_inserted(void) {
-  for (size_t version = 0; version < WEATHER_DB_CURRENT_VERSION; version++) {
+  // v3 is the supported LEGACY version — only versions below it are invalid.
+  for (size_t version = 0; version < WEATHER_DB_LEGACY_VERSION; version++) {
     prv_check_invalid_version_code_not_inserted(version);
   }
 }
@@ -158,4 +159,113 @@ void test_weather_db__read_stale_entries(void) {
                                                       sizeof(WeatherDBKey),
                                                       buf,
                                                       entry_size));
+}
+
+// Structural validation of the phone-controlled record layout
+////////////////////////////////////////////////////////////////
+
+// Build a fully valid v4 (current-minor) record with a proper trailing strings
+// block, returning its total size. Caller owns the buffer.
+static WeatherDBEntry *prv_create_valid_v4_entry(size_t *size_out) {
+  const WeatherDBEntry *base = weather_shared_data_get_entry(0);
+  const size_t entry_size = weather_shared_data_get_entry_size(0);
+  WeatherDBEntry *entry = task_zalloc_check(entry_size);
+  memcpy(entry, base, entry_size);
+  *size_out = entry_size;
+  return entry;
+}
+
+static const WeatherDBKey s_probe_key = {
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
+};
+
+// A record truncated exactly at the strings offset (no SerializedArray header
+// at all) used to be accepted, sending the strings resolver out of bounds.
+void test_weather_db__truncated_at_strings_offset_not_inserted(void) {
+  size_t size;
+  WeatherDBEntry *entry = prv_create_valid_v4_entry(&size);
+
+  const size_t truncated_size =
+      weather_db_entry_strings_offset(WEATHER_DB_CURRENT_VERSION,
+                                      WEATHER_DB_CURRENT_MINOR_VERSION);
+  cl_assert_equal_i(E_INVALID_ARGUMENT,
+                    weather_db_insert((uint8_t *)&s_probe_key, sizeof(WeatherDBKey),
+                                      (uint8_t *)entry, truncated_size));
+  task_free(entry);
+}
+
+// SerializedArray.data_size is phone-controlled: it must never claim more
+// bytes than the record actually holds.
+void test_weather_db__inflated_data_size_not_inserted(void) {
+  size_t size;
+  WeatherDBEntry *entry = prv_create_valid_v4_entry(&size);
+
+  SerializedArray *sa = weather_db_entry_get_strings(entry);
+  sa->data_size = 0xFFFF;
+  cl_assert_equal_i(E_INVALID_ARGUMENT,
+                    weather_db_insert((uint8_t *)&s_probe_key, sizeof(WeatherDBKey),
+                                      (uint8_t *)entry, size));
+  task_free(entry);
+}
+
+// Each PascalString16.str_length is phone-controlled too: a string may not run
+// past the end of the strings block.
+void test_weather_db__oversized_pstring_not_inserted(void) {
+  size_t size;
+  WeatherDBEntry *entry = prv_create_valid_v4_entry(&size);
+
+  SerializedArray *sa = weather_db_entry_get_strings(entry);
+  uint16_t huge = 0xFFF0;
+  memcpy(sa->data, &huge, sizeof(huge));   // first pstring's length
+  cl_assert_equal_i(E_INVALID_ARGUMENT,
+                    weather_db_insert((uint8_t *)&s_probe_key, sizeof(WeatherDBKey),
+                                      (uint8_t *)entry, size));
+  task_free(entry);
+}
+
+// A minor this firmware never shipped places its trailing strings at an
+// unknown offset — it must be refused, not clamped to the newest known one.
+void test_weather_db__higher_minor_not_inserted(void) {
+  size_t size;
+  WeatherDBEntry *entry = prv_create_valid_v4_entry(&size);
+
+  entry->minor_version = WEATHER_DB_CURRENT_MINOR_VERSION + 1;
+  cl_assert_equal_i(E_INVALID_ARGUMENT,
+                    weather_db_insert((uint8_t *)&s_probe_key, sizeof(WeatherDBKey),
+                                      (uint8_t *)entry, size));
+  task_free(entry);
+}
+
+// Back-compat: an older-minor record (fixed fields end earlier, strings block
+// directly after) must still be accepted — phones that have not shipped the
+// newest appended block keep working.
+void test_weather_db__older_minor_still_inserted(void) {
+  size_t size;
+  WeatherDBEntry *entry = prv_create_valid_v4_entry(&size);
+
+  const size_t fixed = weather_db_entry_strings_offset(WEATHER_DB_CURRENT_VERSION, 0);
+  // Two empty pstrings: header + 2x a bare 2-byte length.
+  const uint16_t data_size = 2 * sizeof(uint16_t);
+  const size_t v40_size = fixed + sizeof(SerializedArray) + data_size;
+  uint8_t *v40 = task_zalloc_check(v40_size);
+  memcpy(v40, entry, fixed);
+  ((WeatherDBEntry *)v40)->minor_version = 0;
+  memcpy(v40 + fixed, &data_size, sizeof(uint16_t));   // SerializedArray.data_size
+
+  cl_assert_equal_i(S_SUCCESS,
+                    weather_db_insert((uint8_t *)&s_probe_key, sizeof(WeatherDBKey),
+                                      v40, v40_size));
+  cl_assert_equal_i(S_SUCCESS,
+                    weather_db_delete((uint8_t *)&s_probe_key, sizeof(WeatherDBKey)));
+  task_free(v40);
+  task_free(entry);
+}
+
+// A read that fails underneath (missing key) must surface the real status and
+// must NOT trip the unsupported-entry self-clean on the zeroed buffer.
+void test_weather_db__read_missing_key_returns_real_error(void) {
+  uint8_t buf[MIN_ENTRY_SIZE];
+  cl_assert_equal_i(E_DOES_NOT_EXIST,
+                    weather_db_read((uint8_t *)&s_probe_key, sizeof(WeatherDBKey),
+                                    buf, sizeof(buf)));
 }

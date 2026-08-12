@@ -81,11 +81,17 @@ uint16_t pstring_get_number_of_pstring16s_in_list(PascalString16List *pstring16_
   uint16_t count = 0;
   uint16_t empty_count = 0;
 
+  // An empty (or short) blob holds no pstrings — the traversal below reads a
+  // length up front, so it must never be entered without one present.
+  if ((pstring16_list->pstrings)->data_size < size) {
+    return 0;
+  }
+
   // Traverse list
   uint8_t *data_ptr = (pstring16_list->pstrings)->data;
   uint16_t pstring_length;
   do {
-    pstring_length = (uint16_t) *data_ptr;
+    memcpy(&pstring_length, data_ptr, size);   // lengths are 2 bytes, not 1
     if (pstring_length == 0) {
       empty_count++;
     } else {
@@ -112,6 +118,12 @@ void pstring_project_list_on_serialized_array(PascalString16List *pstring16_list
 bool pstring_add_pstring16_to_list(PascalString16List *pstring16_list, PascalString16* pstring) {
   size_t size = sizeof(uint16_t);
 
+  // The traversal below reads a length up front — never enter it on a blob
+  // too short to hold one.
+  if ((pstring16_list->pstrings)->data_size < size) {
+    return false;
+  }
+
   // Traverse list
   uint8_t *data_ptr = (pstring16_list->pstrings)->data;
   uint8_t idx = 0;
@@ -126,7 +138,7 @@ bool pstring_add_pstring16_to_list(PascalString16List *pstring16_list, PascalStr
       return true;
     }
     // Advance pointer and index
-    pstring_length = (uint16_t) *data_ptr;
+    memcpy(&pstring_length, data_ptr, size);   // lengths are 2 bytes, not 1
     data_ptr += pstring_length + size;
     idx++;
   } while ((&((pstring16_list->pstrings)->data[(pstring16_list->pstrings)->data_size]) - data_ptr) >
@@ -144,6 +156,8 @@ PascalString16 *pstring_get_pstring16_from_list(PascalString16List *pstring16_li
   if (index >= pstring16_list->count) {
     return NULL;
   }
+  // count >= 1 implies at least one 2-byte length is present (see the guard in
+  // pstring_get_number_of_pstring16s_in_list), so the first read is in bounds.
 
   // Traverse list
   uint8_t *data_ptr = (pstring16_list->pstrings)->data;
@@ -154,7 +168,7 @@ PascalString16 *pstring_get_pstring16_from_list(PascalString16List *pstring16_li
       pstring = (PascalString16*) data_ptr;
       break;
     }
-    pstring_length = (uint16_t) *data_ptr;
+    memcpy(&pstring_length, data_ptr, size);   // lengths are 2 bytes, not 1
     data_ptr += pstring_length + size;
     idx++;
   } while ((&((pstring16_list->pstrings)->data[(pstring16_list->pstrings)->data_size]) - data_ptr) >
