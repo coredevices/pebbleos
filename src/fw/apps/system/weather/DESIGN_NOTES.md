@@ -17,16 +17,7 @@ small rectangular-screen UX, typography, colour, temp-graph data-viz, layout gri
   body text; centre only symmetric column/hero elements.
 - **One animated element** (the today icon). Everything else still.
 
-## Critique of the current emery screen
-- Header is two corner-pinned objects, not a balanced pair — the descender-less LECO temp parks low
-  vs the icon's visual mass (hence the repeated hand-nudging). Fix by optical CAP-HEIGHT centering.
-- Flat header hierarchy: today date + condition are Gothic 14 — same as the tiny fan labels.
-- Inconsistent insets (icon ~18px vs hairline 8px) — edges don't line up.
-- Hi/lo graph is two CO-EQUAL lines + 10 black numerals crammed in a ~36px band — reads "plotted"/busy.
-- Low series in VividCerulean/PictonBlue fails the 3:1 non-text contrast floor on white (washed out).
-- Five fully-saturated discs = a rainbow that steals the colour budget; pale discs dissolve into white.
-
-## Redesign spec (target)
+## Layout spec (as built)
 **Grid:** 8px margin every side (usable x=8..192). 5 shared column centres `x = 8 + (i+0.5)*36.8` →
 **26, 63, 100, 136, 173**, reused by the disc row AND the graph dots (vertical line connects a day's
 icon to its temps). Bands: HEADER (icon+temp) → 1px hairline → DAY ROW (weekday+disc) → HI/LO GRAPH,
@@ -57,19 +48,6 @@ GOTHIC_18 (bold date / regular condition). DETAIL = GOTHIC_14 (bold weekday + hi
 LightGray; condition discs keep `weather_types.c` map; graph high = Orange dots / WindsorTan line;
 graph low = CadetBlue (NOT VividCerulean/PictonBlue); today accent = Orange on leftmost weekday only.
 
-## Prioritised changes (impact-ranked)
-1. **[HIGH]** Optically pair the header (icon left@8 + temp right@192, shared centreline, CAP-height rise).
-2. **[HIGH]** (Optional) split degree off the LECO string (LECO digits + Gothic 24 °) — only if the
-   combined `"%d°"` ever mis-renders; currently it renders fine, so keep unless it breaks.
-3. **[HIGH]** Rebuild the graph: hero highs (Orange hollow r4 + 2px WindsorTan) / supporting lows
-   (CadetBlue 1px + solid r2); drop degree glyphs; high numerals bold-black above, low regular-blue below.
-4. **[HIGH]** One shared temp scale with a ≥16px min-spread clamp (kills flat-line ambiguity).
-5. **[HIGH]** Unify to an 8px MARGIN; 5 shared column centres reused by row + graph.
-6. **[MED]** Type ramp: date→Gothic 18 bold, condition→Gothic 18 regular.
-7. **[MED]** Disc outlines + single Orange accent on today's weekday label.
-8. **[MED]** Low series → CadetBlue everywhere (contrast); recolour raindrop metric glyph to black.
-9. **[LOW]** No area fill between lines; optional 1px LightGray hi→lo stem.
-
 ## Keep authentic (don't over-design)
 - One family + LECO hero number; flat fills / 1px hairlines / hollow rings only.
 - Keep the `weather_types.c` condition→colour map (only add outlines).
@@ -79,40 +57,3 @@ graph low = CadetBlue (NOT VividCerulean/PictonBlue); today accent = Orange on l
 
 _Note: the synthesis assumed a VividCerulean top "location strip" status bar — the forecast screen
 does **not** have one (neither does gabbro). We reserve a modest top margin instead of adding a strip._
-
-## v4.2 schema — warning readings (FOR STEVE, )
-
-The weather report screen's alert line is now a proper warnings ladder. It needs four new
-raw readings per location, appended to the WeatherDBEntry as **v4 minor 2** (see
-`include/pbl/services/blob_db/weather_db.h` — fields sit after `daily_metrics[]`, before the
-trailing pstrings; stamp `minor_version = 2`). All are TODAY-only. Open-Meteo mapping:
-
-| Field | Type | Open-Meteo source | Notes |
-|---|---|---|---|
-| `today_wmo_code` | u8 | daily `weather_code` | raw WMO 4677 code; 0xFF unknown |
-| `today_humidity_pct` | u8 | hourly `relative_humidity_2m` → daily MEAN | 0..100; 0xFF unknown |
-| `today_visibility_m` | u16 | hourly `visibility` → daily MINIMUM, meters | clamp 65534; 0xFFFF unknown |
-| `today_precip_sum_mm` | u16 | daily `precipitation_sum`, whole mm | clamp 65534; 0xFFFF unknown |
-| `daily_feels_like[7]` | i16 x7 | daily `apparent_temperature_max`, per day (index 0 = today) | same unit as the other temps; 32767 (UNKNOWN_TEMP) per unknown slot |
-
-Watch-side thresholds (weather_report.c `prv_build_alert`, most severe first): Hail (wmo 96/99),
-Chance of storms (95-99), Heavy snow (type or wmo 75/86), Heavy rain, Wintry mix, Flood risk
-(precip_sum ≥ 30mm), Strong winds (≥ 25mph), Below freezing (high ≤ 0), Hard frost (low ≤ −4),
-Feels below freezing (feels ≤ 0 < actual), Heatwave (high ≥ 30), Very high UV (≥ 8), High UV (≥ 6),
-Poor visibility (wmo 45/48 or vis ≤ 1000m), High humidity (≥ 85% and high ≥ 20), Snow/Rain likely
-(prob ≥ 60), Chance of snow/rain/sleet (prob > 0), Windy (≥ 20mph); calm sign-offs otherwise
-(Clear skies / Light winds / Calm breeze / Fair conditions / Mild conditions / All clear).
-Old-minor records simply never fire the new rungs — nothing breaks if v4.2 ships later.
-
-## FOR STEVE — schema v4.3 addition 
-
-One more appended block after the v4.2 fields (same append-only pattern; minor
-version bumps 2 → 3; older records parse unchanged):
-
-| field | type | source (Open-Meteo) | unknown |
-|---|---|---|---|
-| `today_wind_dir_deg` | i16 | `winddirection_10m_dominant` for today (or dominant of today's hourly `winddirection_10m`) | -1 |
-| `daily_wind_dir_deg[7]` | i16[7] | daily `winddirection_10m_dominant` | -1 |
-
-Degrees 0..359, meteorological (0 = N, clockwise). Used by the day screen's
-forecast description ("Winds SW at 12mph") — 8-point compass rendering on-watch.

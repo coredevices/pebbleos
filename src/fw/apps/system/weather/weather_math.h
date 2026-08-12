@@ -65,7 +65,7 @@ void weather_draw_lava_ring(GContext *ctx, GPoint center, int outer_r,
 // jelly-stretches IN from the RIGHT (left edge leads into place, right trails).
 void weather_render_squash(GContext *ctx, uint8_t *scratch, AnimationProgress m, int mode);
 // Capture-once fast path: re-blit from a snapshot a prior weather_render_squash call
-// filled, skipping the per-frame framebuffer copy. Round-only callers (gabbro
-// smoothness step 2); rect keeps calling weather_render_squash unchanged.
+// filled, skipping the per-frame framebuffer copy. Round-only callers use this;
+// rect keeps calling weather_render_squash unchanged.
 void weather_render_squash_cached(GContext *ctx, const uint8_t *scratch,
                                   AnimationProgress m, int mode);

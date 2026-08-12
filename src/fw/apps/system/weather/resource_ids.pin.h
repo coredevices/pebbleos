@@ -1,11 +1,9 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
-//! Weather app resource-id aliases. FIRMWARE builds alias the generated symbolic ids
-//! (resource_ids.auto.h, included via pebble_compat.h) so the numbers can never drift
-//! when the system pack reorders — the raw-number pinning this header used on the v4.18
-//! stored-app build silently broke on v4.32 (the WX_* block shifted 492->493 and every
-//! bitmap drew its neighbour). If the stored-app variant is ever revived, regenerate its
-//! numeric pins from that build's resource_ids.auto.h.
+//! Weather app resource-id aliases, mapped onto the generated symbolic ids
+//! (resource_ids.auto.h, included via pebble_compat.h) rather than raw pack
+//! numbers: numeric ids drift silently when the system pack reorders, and a
+//! one-slot shift makes every bitmap draw its neighbour.
 #pragma once
 
 // ---- TINY (25x25 PNG / WX_*_TINY) ----
@@ -50,9 +48,9 @@
 #define RESOURCE_ID_IMAGE_SUNNY_DAY_LARGE       RESOURCE_ID_WX_SUNNY_LARGE
 
 // ---- CLOCK icons: gabbro-only (compiled out on emery). Mapped to the TINY
-//      (25x25) ids so the source matches CLOCK_ICON_SIZE (25) — previously
-//      aliased to the 50x50 SMALL ids, which made the round clock draw a
-//      cropped/off-centre top-left 25-of-50 icon. ----
+//      (25x25) ids: the source art must match CLOCK_ICON_SIZE (25) — the clock
+//      blits without scaling, so a larger source draws cropped to its top-left
+//      25px. ----
 #define RESOURCE_ID_IMAGE_SUNNY_DAY_CLOCK       RESOURCE_ID_WX_SUNNY_TINY
 #define RESOURCE_ID_IMAGE_PARTLY_CLOUDY_CLOCK   RESOURCE_ID_WX_PARTLY_TINY
 #define RESOURCE_ID_IMAGE_CLOUDY_DAY_CLOCK      RESOURCE_ID_WX_CLOUDY_TINY
@@ -67,11 +65,9 @@
 // real pack entry on this family (resource_ids.auto.h, via pebble_compat.h) and
 // the saved-locations "Location Deleted" screen plays it.
 
-// ---- PDC sequences (round/gabbro only). The main weather-icons sequence is now
-//      shipped in the pack as WX_WEATHER_ICONS_PDC; alias the app's name to the
+// ---- PDC sequences (round/gabbro only). The main weather-icons sequence ships
+//      in the pack as WX_WEATHER_ICONS_PDC; alias the app's name to the
 //      real auto id (the auto header is included via pebble_compat before this).
 //      WEATHER_CLOCK_ICONS_PDC has no asset yet (forecast_list null-checks it). ----
 #define RESOURCE_ID_WEATHER_ICONS_PDC           RESOURCE_ID_WX_WEATHER_ICONS_PDC
 #define RESOURCE_ID_WEATHER_CLOCK_ICONS_PDC     0
-
-// ---- Globe resources (type raw): pinned to the real ids from the built pack. ----

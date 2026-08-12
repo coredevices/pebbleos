@@ -53,7 +53,7 @@
 #include "kernel/pbl_malloc.h"
 #include "kernel/events.h"
 
-// --- Resources (real generated ids; replaces the stored-app pinned header) ---
+// --- Resources (generated symbolic ids) ---
 #include "resource/resource_ids.auto.h"
 #include "applib/applib_resource.h"  // app-facing ResHandle resource API
 

@@ -110,11 +110,9 @@ int saved_locations_get_entries(SavedLocationEntry *entries, int max_entries) {
   return count;
 }
 
-// ---- Row model: row i IS s_entries[i] ---- (count/persist desync). It must
-// never occupy a row, or it draws as a blank "ghost" cell (observed after a
-// voice-add). prv_compact_customs() heals the persisted store on load; these two
-// helpers make the row model count/map only real slots, so even a phantom created
-// mid-session (before the next compaction) can't render.
+// ---- Row model: row i IS s_entries[i]. A slot with an empty label must never
+// occupy a row, or it draws as a blank "ghost" cell — the snapshot helper
+// counts and maps only real slots.
 static void prv_refresh_entries(void) {
   s_entry_count = saved_locations_get_entries(s_entries, SAVED_LOCATIONS_MAX_ENTRIES);
 }
@@ -155,10 +153,8 @@ static int16_t prv_get_cell_height(MenuLayer *menu_layer, MenuIndex *cell_index,
 }
 
 // Dense "at a glance" row: [condition icon] City name          21°
-// Falls back to the classic two-line menu cell when the city has no synced
-// weather snapshot.
-// [icon] City name                    21°
-// Falls back to the plain menu cell when the record carries no temperature.
+// Falls back to the classic two-line menu cell when the record carries no
+// temperature.
 static void prv_draw_glance_row(GContext *ctx, const Layer *cell_layer,
                                 const SavedLocationEntry *glance) {
   const char *title = glance->label[0] ? glance->label : "Location";
@@ -191,8 +187,8 @@ static void prv_draw_glance_row(GContext *ctx, const Layer *cell_layer,
     // DIVERGENCE from the launcher, and it matters: the launcher's menu frame is inset so its
     // rows never approach the glass edge, but THIS menu is full-screen — a row scrolled near
     // the top/bottom gets a chord inset wider than the row itself, and the un-clamped result
-    // fed graphics_draw_text a negative-width rect, which reset the watch the moment the
-    // screen opened. Clamp so at least 60px of content width always survives.
+    // feeds graphics_draw_text a negative-width rect, which resets the watch. Clamp so at
+    // least 60px of content width always survives.
     const int16_t max_inset = (int16_t)((bounds.size.w - 60) / 2);
     if (horizontal_inset > max_inset) horizontal_inset = max_inset;
     bounds = grect_inset_internal(bounds, horizontal_inset, 0);
@@ -433,8 +429,8 @@ static void prv_touch_handler(const TouchEvent *event, void *context) {
 
 static void prv_select_click(MenuLayer *menu_layer, MenuIndex *cell_index,
                              void *context) {
-  // BOTH shapes (city-select redesign): SELECT on a saved-locations row is a no-op — the
-  // list is a read-only glance; city switching happens on the globe.
+  // BOTH shapes: SELECT on a saved-locations row is a no-op — the list is a
+  // read-only glance; city switching happens on the globe.
   (void)menu_layer;
   (void)cell_index;
   (void)context;

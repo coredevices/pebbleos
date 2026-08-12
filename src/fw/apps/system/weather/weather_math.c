@@ -41,10 +41,10 @@ static int prv_jelly_edge(AnimationProgress m, int delay_num, int from, int to) 
 // rows.
 //
 // BOTH shapes. Rows are addressed ABSOLUTELY (ri.data[x], x in screen coords) and every
-// write is clamped to that row's [min_x, max_x]. On rect the mask is the full width, so
-// this is identical to the old code; on round the mask is the circle's chord — writing
-// outside it (as `ri.data + ri.min_x` with a full-width length did) both shifts the image
-// and runs off the end of the row.
+// write is clamped to that row's [min_x, max_x]. On rect the mask is the full width; on
+// round the mask is the circle's chord — writing outside it (e.g. treating
+// `ri.data + ri.min_x` as a full-width row) both shifts the image and runs off the end
+// of the row.
 //
 // The resample body lives in prv_squash_resample so capture-once callers
 // (weather_render_squash_cached) can re-blit from an existing snapshot without paying the
@@ -56,8 +56,7 @@ static void prv_squash_resample(GBitmap *fb, const uint8_t *scratch,
   const int W = b.size.w, H = b.size.h;
   const uint8_t white = GColorWhite.argb;
   if (mode == WEATHER_SQUASH_LEFT_EXIT) {
-    // Horizontal jelly (the vertical grammar rotated 90°). RIGHT_IN (mode 7) was
-    // trimmed with its last caller (the report's old squash-in entrance).
+    // Horizontal jelly (the vertical grammar rotated 90°).
     int left_edge, right_edge;
     {
       // Left edge leads 0 -> -W (delay 0); right trails the HALF-lag (average of leading
@@ -157,9 +156,9 @@ void weather_render_squash(GContext *ctx, uint8_t *scratch, AnimationProgress m,
   graphics_release_frame_buffer(ctx, fb);
 }
 
-// Capture-once fast path (gabbro smoothness step 2): re-blit from a snapshot some earlier
-// weather_render_squash call already filled — no scene render needed beneath it and no
-// per-frame framebuffer copy. The caller owns knowing the snapshot is valid.
+// Capture-once fast path: re-blit from a snapshot some earlier weather_render_squash
+// call already filled — no scene render needed beneath it and no per-frame framebuffer
+// copy. The caller owns knowing the snapshot is valid.
 void weather_render_squash_cached(GContext *ctx, const uint8_t *scratch,
                                   AnimationProgress m, int mode) {
   GBitmap *fb = graphics_capture_frame_buffer(ctx);
@@ -316,8 +315,6 @@ void weather_draw_lava_ring(GContext *ctx, GPoint center, int outer_r,
     span += (int32_t)close * (half / WEATHER_GLOW_WRAP_CLOSE_TICKS);
   }
 
-  // (The faded Celeste outer halo ring was removed by design —
-  // the temp keeps just the solid condition-colored ring + sparks/beads.)
   GRect ring_rect = { GPoint(center.x - outer_r, center.y - outer_r),
                       GSize(outer_r * 2, outer_r * 2) };
   graphics_context_set_fill_color(ctx, glow_color);

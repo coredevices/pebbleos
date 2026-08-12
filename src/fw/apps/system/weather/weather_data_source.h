@@ -5,10 +5,11 @@
 //! neutral snapshot struct so weather.c and the views can keep the app's own
 //! WeatherType / WeatherLocationForecast without a name collision.
 //!
-//! Milestone-1 reads the v3 fields via weather_service (temp/high/low/type/
-//! phrase/location). Milestone-2 will read the active record's v4 WeatherDBEntry
-//! directly for UV/precip/wind/daily[7]/hourly/lat-lon (fields already present
-//! in weather_db.h but absent from weather_service's v3 WeatherLocationForecast).
+//! The basic fields (temp/high/low/type/phrase/location) come from
+//! weather_service's v3 forecast; the v4 extras (UV/precip/wind/daily[7]/
+//! hourly/lat-lon) are overlaid by reading the active record's WeatherDBEntry
+//! directly — they exist in weather_db.h but are absent from weather_service's
+//! v3 WeatherLocationForecast.
 #pragma once
 
 #include <stdbool.h>

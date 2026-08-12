@@ -187,7 +187,7 @@ static void prv_overlay_v4(WxDsForecast *out, int location_id) {
 // QEMU-ONLY. It fabricates placeholder COORDINATES (San Francisco) for records
 // that carry none, which on real hardware would pin a coordinate-less phone
 // location to the wrong place on the globe — and hide the fact that the phone
-// never sent coordinates for it. Locations are phone-owned now, so the watch
+// never sent coordinates for it. Locations are phone-owned, so the watch
 // must show exactly what the phone sent and nothing it invented.
 // ===========================================================================
 #if defined(CONFIG_SOC_QEMU)
@@ -212,7 +212,7 @@ static void prv_seed_v4_test(WxDsForecast *out) {
   if (out->today_uv < 0)     out->today_uv = 5;
   if (out->today_precip < 0) out->today_precip = 20;
   if (out->today_wind < 0)     out->today_wind = 12;
-  if (out->today_wind_dir < 0) out->today_wind_dir = 225;   // SW, per the design mock
+  if (out->today_wind_dir < 0) out->today_wind_dir = 225;   // SW
   // v4.2 warning readings — quiet values (no warning fires; the report's alert
   // stays on the precip path, "Chance of snow" for the seed's LightSnow today).
   if (out->today_wmo < 0)            out->today_wmo = 71;      // WMO light snow
@@ -268,7 +268,7 @@ static void prv_seed_v4_test(WxDsForecast *out) {
     out->daily[1].low    = out->tomorrow_low;
     out->daily[1].type   = (out->tomorrow_weather_type <= WeatherType_RainAndSnow)
                            ? out->tomorrow_weather_type : t0;
-    out->daily[1].precip = kPrecip[1];  // keep the seeded chance for the demo (v3 has no real one)
+    out->daily[1].precip = kPrecip[1];  // keep the seeded chance (v3 carries no real one)
   }
 
   // Shared diurnal hourly curve. Declared here rather than via weather_math.h:
@@ -287,12 +287,11 @@ static void prv_seed_v4_test(WxDsForecast *out) {
 // QEMU has no phone → no weather_db records, so the weather app would be empty.
 // Synthesize locations (current conditions + the v4 test seed) so the whole UI
 // incl. the round 5-day screen is reachable for visual testing in the emulator.
-// Index 0 is the "current location"; the next five match the default saved-city
-// presets so the at-a-glance saved-locations list lights up with weather. The
-// last ("Kingston, Jamaica") is deliberately NOT a preset — it stands in for a
-// record the phone synced for a voice-added custom location (pairs with the
-// QEMU-seeded "Jamaica" custom in saved_locations.c to exercise coordinate
-// backfill + globe placement). Auto-disabled on real hardware.
+// Index 0 is the "current location"; the next five give the at-a-glance
+// saved-locations list a spread of cities and conditions. The last ("Kingston,
+// Jamaica") stands in for a record the phone synced for a voice-added location:
+// its country appears only as a name substring, exercising weather_ds_name_matches
+// and globe placement. Auto-disabled on real hardware.
 typedef struct {
   const char *name;
   const char *phrase;

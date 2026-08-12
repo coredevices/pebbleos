@@ -152,8 +152,7 @@
 #define GLOBE_LOCK_PULSE_R_GROW_PX 9
 #define GLOBE_LOCK_PULSE_THICKNESS_PX 2
 // Pin depth classes (post-cull depth_q8 range is 51..255): pins shrink toward
-// the limb so cities read as sitting ON a sphere. Class 2 (front) is
-// bit-identical to the original single-size pin.
+// the limb so cities read as sitting ON a sphere.
 #define GLOBE_PIN_DEPTH_MID_Q8   112
 #define GLOBE_PIN_DEPTH_FRONT_Q8 192
 
@@ -165,7 +164,7 @@ static const uint8_t GLOBE_SPACE_FADE_DITHER[GLOBE_SPACE_FADE_DITHER_SIZE]
     { 15, 7, 13,  5 },
 };
 
-// Cubemap palette by lighting band: [0] daylight (the original colors),
+// Cubemap palette by lighting band: [0] daylight (the cubemap's base colors),
 // [1] terminator, [2] night side. Column order matches the packed cubemap's
 // palette indices: DukeBlue, BlueMoon, VividCerulean, PictonBlue, Celeste,
 // White, MayGreen, DarkGreen, JaegerGreen, SpringBud, ScreaminGreen, Mint.
@@ -183,16 +182,16 @@ static const uint8_t GLOBE_SHADE_PALETTE[4][GLOBE_CUBEMAP_PALETTE_SIZE] = {
 };
 
 // Haze wash keyed by lighting band: the sunlit limb atmosphere catches the sun
-// (Celeste bloom decaying inward — the Wii limb); terminator/night keep the
-// original PictonBlue wash.
+// (Celeste bloom decaying inward — the Wii limb); terminator/night keep a
+// plain PictonBlue wash.
 static const uint8_t GLOBE_HAZE_WASH_BY_BAND[3] = {
     GColorCelesteARGB8, GColorPictonBlueARGB8, GColorPictonBlueARGB8,
 };
 // Haze reach keyed by band: the brightening wash is withheld sooner on the
 // night side, so the atmosphere reads thick on the sun side and thin in
 // shadow — a pure differential-BRIGHTENING depth cue (nothing drops below its
-// base palette value). 220 == the full BLEND-RIM span; set [2] back to 220 to
-// restore a symmetric night limb with one byte.
+// base palette value). 220 == the full BLEND-RIM span; setting [2] to 220
+// gives a symmetric night limb.
 static const uint8_t GLOBE_HAZE_SPAN_BY_BAND[3] = { 220, 220, 128 };
 
 static void animation_timer_handler(void *context);
@@ -253,8 +252,6 @@ static void sync_bw_elapsed_to_current_frame(GlobeView *view) {
     uint32_t frame = (uint32_t)bw_frame_index_for_view(view, view->current_frame);
     view->bw_elapsed_ms = (frame * GLOBE_FRAME_INTERVAL_MS) % duration;
 }
-
-// positive_modulo is provided by util/math.h (same semantics) — using that.
 
 #if WEATHER_PLATFORM_TOUCH_COLOR
 // Touch-only: coast-velocity magnitudes.
@@ -398,8 +395,8 @@ static int16_t saved_entry_longitude_e2(GlobeView *view,
 }
 
 #if WEATHER_PLATFORM_TOUCH_COLOR
-// Merged has-coordinates + coordinate fetch: one call per entry instead of
-// three, false when the entry has no usable globe position.
+// Has-coordinates check + coordinate fetch in one call per entry; false when
+// the entry has no usable globe position.
 static bool saved_entry_globe_coords(GlobeView *view, SavedLocationEntry *entry,
                                      int32_t *latitude_e2_out,
                                      int32_t *longitude_e2_out) {
@@ -516,8 +513,6 @@ static GPoint crumple_point(GPoint point, GPoint center, AnimationProgress amoun
         center.y + (int16_t)((int32_t)(point.y - center.y) * scale / ANIMATION_NORMALIZED_MAX)
     );
 }
-
-// (bw_crumple_sequence machinery deleted — the field was only ever NULL)
 
 typedef struct {
     GContext *ctx;
@@ -678,8 +673,9 @@ static bool restore_bw_command(GDrawCommand *command, uint32_t index,
 static void draw_intro_world_frame(GContext *ctx, GlobeView *view,
                                    GPoint origin, GSize frame_size) {
     // Highlight IN PLACE: recolor the single frame being drawn, draw, restore —
-    // this replaced an 18.7 KB full-sequence clone (size pass). The
-    // sequence lives on the heap (prv_load_inflated), never in mmap'd flash.
+    // cloning the full sequence instead would cost 18.7 KB of heap. In-place
+    // writes are safe because the sequence lives on the heap
+    // (prv_load_inflated), never in mmap'd flash.
     if (view && view->intro_world_selected && view->bw_sequence) {
         uint32_t duration = bw_sequence_duration_for_view(view);
         uint32_t elapsed = duration > 0 ? view->bw_elapsed_ms % duration : 0;
@@ -759,8 +755,6 @@ static int32_t trig_cos_q10(int angle) {
     return (int32_t)(cos_lookup(positive_modulo(angle, TRIG_MAX_ANGLE)) *
                      GLOBE_ROT_SCALE / TRIG_MAX_RATIO);
 }
-
-// (globe_isqrt was token-identical to weather_isqrt — merged, size pass)
 
 // floor(sqrt(value)) via integer Newton iteration from a seed known to be
 // >= the true root (the previous pixel's depth in a row scan). From such a
@@ -935,7 +929,7 @@ static void set_color_orientation(GlobeView *view,
     matrix_from_lat_lon(view->globe_rotation, latitude_e2, longitude_e2);
 #if WEATHER_PLATFORM_TOUCH_COLOR
     // 64-bit product: pm(lon) * width * 256 overflows int32 for most
-    // western longitudes (pm >= 20972), which used to scatter the starfield.
+    // western longitudes (pm >= 20972), which would scatter the starfield.
     view->starfield_offset_x_q8 =
         (int32_t)(((int64_t)positive_modulo(longitude_e2, 36000) *
                    GLOBE_STARFIELD_WIDTH * GLOBE_Q8_ONE) / 36000);
@@ -1104,7 +1098,7 @@ static inline uint8_t cubemap_sample(const uint8_t *cubemap_data,
 
     // C division truncates toward zero, so folding the sign into the
     // numerator gives the same result as negating the quotient — one shared
-    // division pair replaces the per-face copies.
+    // division pair serves every face.
     if (ax >= ay && ax >= az) {
         major = ax;
         face = x >= 0 ? 0 : 1;
@@ -1139,7 +1133,7 @@ static inline uint8_t cubemap_sample(const uint8_t *cubemap_data,
     uint8_t packed = cubemap_data[pixel_index >> 1];
     uint8_t palette_index = (pixel_index & 1) ? (packed & 0x0F) : (packed >> 4);
     if (palette_index >= GLOBE_CUBEMAP_PALETTE_SIZE) {
-        return 1;  // BlueMoon slot — same fallback color as before
+        return 1;  // fallback: the BlueMoon slot
     }
     return palette_index;
 }
@@ -1370,8 +1364,8 @@ static void draw_space_background(GContext *ctx, GRect bounds, GlobeView *view) 
 }
 
 // A filled circle IS a ring with inner radius 0 (d2 >= 0 is always true) —
-// one rasterizer serves both (size pass). NOINLINE on the ring keeps
-// the sharing real; inlined, it would clone into every caller.
+// one rasterizer serves both. NOINLINE on the ring keeps the sharing real;
+// inlined, it would clone into every caller.
 static void framebuffer_draw_ring(GBitmap *fb, GPoint center, int outer_r,
                                   int inner_r, uint8_t color, GRect clip_rect);
 
@@ -1416,12 +1410,12 @@ static NOINLINE void framebuffer_draw_ring(GBitmap *fb, GPoint center, int outer
 
 // Depth-posterized pin styles (3 classes echoing the 3-band lit shading):
 // pins shrink toward the limb and their raise flattens, so the cities read
-// as floating on a sphere. Class 2 (front) is the original pin geometry.
+// as floating on a sphere.
 typedef struct { uint8_t outline_r, head_r, base_r, raise; } GlobePinStyle;
 static const GlobePinStyle GLOBE_PIN_STYLES[3] = {
     { 3, 2, 1, 2 },   // limb  (depth 51..111)
     { 4, 2, 2, 3 },   // mid   (112..191)
-    { 5, 3, 2, 4 },   // front (192..255) — original geometry
+    { 5, 3, 2, 4 },   // front (192..255)
 };
 
 static void framebuffer_draw_raised_pin(GBitmap *fb, GPoint globe_center,
@@ -1635,7 +1629,7 @@ static void draw_saved_location_pins(GBitmap *fb, GlobeView *view,
     // Two passes: project + cull into a list, depth-sort (back pins paint
     // first so near cities overlap far ones — the 3D read), then draw. The
     // sort is stable and Current is appended last, so at equal depth the
-    // current-location pin still paints on top (old semantics).
+    // current-location pin still paints on top.
     typedef struct { GPoint pt; uint8_t depth; bool emphasized; } PinDrawEntry;
     PinDrawEntry pins[SAVED_LOCATIONS_MAX_ENTRIES + 1];
     int n = 0;
@@ -2419,10 +2413,9 @@ static void start_lock_pulse(GlobeView *view) {
                                                  AnimationCurveLinear,
                                                  &s_lock_pulse_anim_impl,
                                                  lock_pulse_anim_stopped);
-    // The haptic nudge, landing with the ring. Emery keeps the original whisper tick
-    // (25ms @ 25%). Round runs FIRMER (45ms @ 70%): the softer pulse was imperceptible on
-    // the round hardware — a pulse this short at low amplitude can sit under the vibe
-    // motor's start-up threshold, so it must be long/strong enough to actually spin up.
+    // The haptic nudge, landing with the ring. Emery: a whisper tick (25ms @ 25%). Round
+    // runs FIRMER (45ms @ 70%): a pulse this short at low amplitude can sit under the round
+    // vibe motor's start-up threshold, so it must be long/strong enough to actually spin up.
     // Still a tick, nowhere near a notification buzz (those are 100s of ms at 100%).
     static const uint32_t nudge_ms[]  = { PBL_IF_ROUND_ELSE(45, 25) };
     static const uint32_t nudge_amp[] = { PBL_IF_ROUND_ELSE(70, 25) };
@@ -2435,8 +2428,8 @@ static void start_lock_pulse(GlobeView *view) {
 
 // Shared boilerplate for the view's stopped-handler animations: create,
 // configure, schedule. Returns the animation (NULL if creation failed) so
-// callers can store it in their slot; behavior matches the previous inline
-// sequences (applib animation_* functions tolerate NULL).
+// callers can store it in their slot (applib animation_* functions tolerate
+// NULL).
 static Animation *start_view_animation(GlobeView *view, uint32_t duration_ms,
                                        AnimationCurve curve,
                                        const AnimationImplementation *impl,
@@ -2557,8 +2550,8 @@ static bool try_start_magnetic_city_lock_v(GlobeView *view, int radius_px,
     view->city_anim_longitude_delta_e2 = start_dx;
     view->city_anim_progress = 0;
 
-    // Swoop duration proportional to the capture distance: a 5px capture no
-    // longer crawls and a 49px capture no longer whips.
+    // Swoop duration proportional to the capture distance: a 5px capture
+    // doesn't crawl and a 49px capture doesn't whip.
     int dist_px = weather_isqrt(start_dx * start_dx + start_dy * start_dy);
     uint32_t swoop_ms = GLOBE_LOCK_SWOOP_BASE_MS +
                         (uint32_t)dist_px * GLOBE_LOCK_SWOOP_MS_PER_PX;
@@ -3122,9 +3115,9 @@ static void draw_intro_title(GContext *ctx, GRect bounds, int globe_y,
                        GTextOverflowModeTrailingEllipsis,
                        GTextAlignmentCenter,
                        NULL);
-    // Divider under the title (round port of the rect city-select redesign): the same
-    // 2px black rule, FULL WIDTH — the round framebuffer clips each row to the glass,
-    // so drawing edge to edge lands it bezel-to-bezel. Rides title_y like the title.
+    // Divider under the title (parity with the rect branch's 2px black rule), FULL
+    // WIDTH — the round framebuffer clips each row to the glass, so drawing edge to
+    // edge lands it bezel-to-bezel. Rides title_y like the title.
     {
       const int rule_y = title_y + GLOBE_INTRO_TITLE_HEIGHT - 2;
       graphics_context_set_fill_color(ctx, GColorBlack);
@@ -3133,7 +3126,7 @@ static void draw_intro_title(GContext *ctx, GRect bounds, int globe_y,
 #endif
 }
 
-// Map-pin artwork lifted from the world cup app's location_pin.pdc (18x22 viewbox,
+// Map-pin artwork from the world cup app's location_pin.pdc (18x22 viewbox,
 // resources/svg/location/location_pin.svg): outer teardrop filled in `color`, inner
 // octagonal window in `bg_color`. Embedded as GPaths so both label states (black-on-
 // white / white-on-cerulean) recolor for free.
@@ -3205,7 +3198,7 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
                        GTextAlignmentCenter,
                        NULL);
 #else
-    // Uppercase to match the rect city-select redesign's footer treatment.
+    // Uppercase to match the rect branch's footer treatment.
     const char *label = "SAVED LOCATIONS";
     GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
     // Constant string + constant font: measure once, not per intro frame (28.6fps while the
@@ -3221,7 +3214,7 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
         );
     }
     // The TEXT centres on the screen; the pin hangs off its left (so the label reads
-    // centred rather than the pin+text group being centred, which right-shifted the text).
+    // centred; centring the pin+text group would right-shift the text).
     int text_x = (bounds.size.w - text_size.w) / 2;
     // +4: pulled right off the chin's curve so the pin reads fully inside the glass.
     int pin_x = text_x - GLOBE_SAVED_LABEL_GAP - GLOBE_SAVED_COG_SIZE + 4;
@@ -3236,8 +3229,8 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
         graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, fill_h),
                            0, GCornerNone);
     }
-    // Divider above the row, ALWAYS drawn (rect redesign parity): 2px black rule replacing
-    // the old selection-only 1px grey line, FULL WIDTH (the glass mask clips it edge to edge).
+    // Divider above the row, ALWAYS drawn even unselected (rect-branch parity): 2px black
+    // rule, FULL WIDTH (the glass mask clips it edge to edge).
     graphics_context_set_fill_color(ctx, GColorBlack);
     graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, 2), 0, GCornerNone);
 
@@ -3376,8 +3369,8 @@ static void window_click_handler(ClickRecognizerRef recognizer, void *context) {
             if (view->intro_world_selected) {
                 set_intro_world_selected(view, false);   // world -> saved-locations cursor (in-screen)
             }
-            // DOWN on the saved-locations cursor no longer exits to the sunset card (removed); the
-            // way back to the card is the BACK button (globe_view_slide_out_right).
+            // DOWN on the saved-locations cursor is intentionally a no-op; the way back
+            // to the card is the BACK button (globe_view_slide_out_right).
         }
     }
 }
@@ -3749,8 +3742,6 @@ void globe_view_set_saved_locations_callback(GlobeView *view,
     view->saved_locations_context = context;
 }
 
-// (main_callback chain deleted — registered but never invoked; size pass)
-
 void globe_view_set_back_callback(GlobeView *view,
                                   GlobeMainCallback callback,
                                   void *context) {
@@ -3886,8 +3877,8 @@ void globe_view_start_animation(GlobeView *view) {
  */
 void globe_view_stop_animation(GlobeView *view) {
     if (!view) return;
-    // BOTH shapes: round drives the card<->globe hslide pair now, so a mid-slide dismissal
-    // must cancel this before the layer is torn down, exactly like rect's drop-in.
+    // Both shapes drive the card<->globe hslide pair, so a mid-slide dismissal must
+    // cancel this before the layer is torn down.
     if (view->entry_drop_anim) {
         Animation *a = view->entry_drop_anim;
         view->entry_drop_anim = NULL;
@@ -3924,7 +3915,6 @@ void globe_view_stop_animation(GlobeView *view) {
 
 // Slide duration + interpolation are shared with expanded_view via weather_math.h
 // (WEATHER_HSLIDE_MS / weather_interpolate_moook_soft1) so the pair can't drift.
-// BOTH shapes since — round used to stub these into hard cuts.
 
 static void prv_drop_stopped(Animation *anim, bool finished, void *context) {
     (void)finished;

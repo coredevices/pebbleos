@@ -15,8 +15,8 @@
 // + the day swoop. Emery (PBL_ROUND==0) keeps the raster BitmapLayer path.
 // IMPORTANT: a system app's PDC resource is mmap'd READ-ONLY into flash, so the
 // sequence must be CLONED into RAM before any write (gdraw_command_sequence_set_
-// bounds_size writes sequence->size and faulted on launch). See the clone in
-// weather_app_layout_init.
+// bounds_size writes sequence->size, which faults on the read-only mapping).
+// See the clone in weather_app_layout_init.
 // Round uses the LARGE (80x80) PDC art so the icon fills its quadrant; rect
 // keeps the 50px raster. The 14/10 disc ratio is too fat at that size, so round
 // also takes a tighter ratio -- see WEATHER_APP_LAYOUT_DISC_RATIO_NUM.

@@ -160,8 +160,6 @@ static void prv_build_time(char *out, size_t n) {
   prv_fmt_hhmm(out, n, h, mm, "");
 }
 
-// Round's status bar is a chord, not a full-width strip, so the rect wording overruns it
-// and clips. "Updated, 8:23 PM" says the same thing inside the space there actually is.
 #define EV_STATUS_Y    0
 #define EV_STATUS_FONT FONT_KEY_GOTHIC_18_BOLD
 
@@ -216,17 +214,16 @@ static void prv_set_from_forecast(const WeatherLocationForecast *f,
   }
   s_ev->high   = f->today_high;
   s_ev->low    = f->today_low;
-  // BOTH SHAPES : the sunset card's
-  // UV readout shows the CURRENT hour's UV (today_uv_now) — the live reading once the phone
-  // sends the minor-4 hourly block, falling back to the day's figure until then.
+  // BOTH SHAPES: the sunset card's UV readout shows the CURRENT hour's UV (today_uv_now) —
+  // the live reading once the phone sends the minor-4 hourly block, falling back to the
+  // day's figure until then.
   s_ev->uv     = f->today_uv_now;
   s_ev->precip = f->today_precip_mm;
   s_ev->wind   = f->today_wind_mph;
-  // BOTH SHAPES : the card's icon is typed by the CURRENT HOUR
-  // (current_type_now) — the same field the mainscreen header and the hero fly use — so the
-  // flown icon and the card icon can never disagree when the phone's synced 'current' and
-  // its hourly slot diverge (seen on the round watch as a rain->overcast repaint at the
-  // landing instant; rect's header reads the same field now, so it needs the same seam fix).
+  // BOTH SHAPES: the card's icon is typed by the CURRENT HOUR (current_type_now) — the same
+  // field the mainscreen header and the hero fly use — so the flown icon and the card icon
+  // can never disagree when the phone's synced 'current' and its hourly slot diverge (a
+  // mismatch repaints the icon at the instant the flown icon lands).
   GDrawCommandImage *raw = gdraw_command_image_create_with_resource(
       weather_type_icon_large_resource(f->current_type_now));
   if (raw) {
@@ -236,47 +233,25 @@ static void prv_set_from_forecast(const WeatherLocationForecast *f,
   }
 }
 
-// ---- UV / precipitation gauge (ported from detail_face.c) ------------------
-// ---- ROUND (gabbro) sunset-card grid ------------------------------------------------------
+// ---- UV / precipitation gauge ----------------------------------------------
+// ---- ROUND sunset-card grid ---------------------------------------------------------------
 // The weather icon + "Sunset H:MM" + "high/low°" are ONE GROUP, centred on the screen's
-// vertical midline. Measured ink after the shift: icon 73..125, sunset 140..153, temp
-// 163..187 -> group 73..187, centre exactly 130.
-//
-// That needed 38px of downward room, which only exists once the dials shrink AND pull
-// inward+down. At the old r=25 the arithmetic is impossible: a dial's footprint is 57px
-// (16px label + ring, whose lowest ink is cy+16 — the arc is open at the bottom), so
-// clearing a group that ends at 187 forces cy>=233, and at that depth the glass only admits
-// dial centres within ±36px of the centre column, where the two 50px rings overlap.
-// At r=20 the footprint drops to ~50px and cy=228 with centres at x=87/173 fits with a 4px
-// margin to the glass and a clear gap between the two labels.
-// Everything here is round-only — emery's grid is frozen.
-// the dials were replaced by the report's UV bar. The group KEEPS the exact
-// centring it had with the dials (ink 73..187, centre 130) — the bar is made COMPACT to fit
-// beneath it rather than the group moving to make room.
-#define EV_ROUND_GROUP_DY 11                          // sunset+temp ink 113..160: centred in the
-                                                      // icon-bottom(103) .. pill-top(170) band,
-                                                      // 9 rows clear each side (measured)                          // icon/sunset/temp shift (EV_ICON_Y carries
-                                                      // the icon's share, see expanded_view.h)
+// vertical midline. Measured ink: icon 73..125, sunset 140..153, temp 163..187 -> group
+// 73..187, centre exactly 130. The compact UV bar is sized to fit BENEATH the group — the
+// group never moves to make room for it. Everything here is round-only; emery's grid is
+// independent.
+#define EV_ROUND_GROUP_DY 11                          // icon/sunset/temp downward shift
+                                                      // (EV_ICON_Y carries the icon's share,
+                                                      // see expanded_view.h); sunset+temp ink
+                                                      // 113..160: centred in the icon-bottom
+                                                      // (103) .. pill-top(170) band, 9 rows
+                                                      // clear each side (measured)
 #define EV_UV_BAR_Y       194                         // bar top row, just under the group
 #define EV_SUNSET_Y    PBL_IF_ROUND_ELSE(92 + EV_ROUND_GROUP_DY, 92)
 #define EV_TEMP_Y      PBL_IF_ROUND_ELSE(114 + EV_ROUND_GROUP_DY, 114)
 #define EV_GAUGE_R     PBL_IF_ROUND_ELSE(20, 25)      // ring radius
 #define EV_GAUGE_CY    PBL_IF_ROUND_ELSE(228, 200)    // dial centre row
 #define EV_GAUGE_INSET PBL_IF_ROUND_ELSE(22, 0)       // pull both dials toward the centre column
-// Round's flanking dials. cy 174 puts the gauge's visual block (label top cy-36 .. ring's lowest
-// ink ~cy+13) centred on the sunset/hi-lo text block (ink 140..187, centre 163.5) and leaves the
-// ring clear of the UV bar at 194. The x values keep each 72px-wide label BOX overlapping the
-// text only where the label's centred ink does not reach.
-// The flanking ARCH dials : an open arch, no bottom. The outer leg IS the
-// glass-concentric arc (RIM_R about the screen centre — same radius band as the compact UV
-// bar's frame ends, so bar end and dial leg read as one continuous curve up the side of the
-// glass). The inner leg is that arc REFLECTED about the dial's axis x=CX_L, which also gives
-// both feet their natural inward hook (the reflection of the rim curving in). A semicircular
-// cap centred on the axis at CAP_Y joins the legs over the top; its radius is derived
-// (CX_L - outer_leg_x(CAP_Y)), so cap and legs always meet where they stand.
-// Stat discs: the mainscreen 5-day rows' disc-and-icon at their own scale (their discs are
-// ~34px with the TINY icon set; ours are 36px with the same 1x icons). Disc row 152 centres
-// the disc on the sunset+temp block; the value ink lands ~176..186, clear of the bar at 194.
 #define EV_PRECIP_PILL_Y  170  // pill rows 170..187; 5px below the temp ink, 6 above the bar
 #define EV_PRECIP_PILL_H   18  // same as the mainscreen pill (R5_STAT_PILL_H)
 #define EV_ROUND_RAIN_CX    44
@@ -293,7 +268,7 @@ static void prv_set_from_forecast(const WeatherLocationForecast *f,
 #define prv_uv_severity_color weather_uv_severity_color
 
 #if !PBL_ROUND
-// Rect only: round replaced its dials with the rain/wind glyphs below (and the shared UV bar).
+// Rect only: round draws the precipitation pill and the shared UV bar instead of dials.
 static void prv_draw_gauge(GContext *ctx, int cx, int cy, int r, const char *label,
                            int value, int max_val, const char *unit, bool unknown,
                            GColor fill) {
@@ -330,20 +305,13 @@ static void prv_draw_gauge(GContext *ctx, int cx, int cy, int r, const char *lab
 // the card (static, or its own slide) and the forecast's hero icon-fly (synced to the icon), so the
 // two are pixel-identical and time/sunset/temp/meters all animate in together.
 
-// (Round's rain + wind icons and their prv_draw_metric helper were removed for now.
-// The originals are in commit 4db271f3 (weather_app_layout.c prv_draw_raindrop_icon /
-// prv_draw_wind_icon); the 2x solid-black redraw is in this file's history. `wind` is still
-// plumbed all the way through to here and to the hero-fly's copy, so bringing them back is just
-// the two draw calls plus the icon helpers.)
-
 #if PBL_ROUND
 // ---- Precipitation pill ----------------------------------------------------------------
 // The scrolled mainscreen's own PRECIPITATION banner (forecast_list.c prv_draw_stat_pill),
 // replicated to the pixel: Pebble Health's pill geometry (inset 18 + (W-144)/2/5, height 18,
 // corner radius 3), GColorPictonBlue, black GOTHIC_18_BOLD label centred with the same -3px
-// optical lift (measured from the live screen — the pill comment says 14_BOLD but round's
-// day_font resolves to 18_BOLD; the label caps measure 11px). One difference: this one
-// carries the value inline — "PRECIPITATION: 20%".
+// optical lift (round's day_font resolves to GOTHIC_18_BOLD, not 14_BOLD; the label caps
+// measure 11px). One difference: this one carries the value inline — "PRECIPITATION: 20%".
 static void prv_draw_precip_pill(GContext *ctx, int W, int tdx, int precip) {
   char label[28];
   if (precip < 0) snprintf(label, sizeof(label), "PRECIPITATION: --");
@@ -393,8 +361,7 @@ void expanded_view_draw_glance_content(GContext *ctx, int W, int tdx, const char
     GSize bsz = graphics_text_layout_get_content_size(
         body, tf, GRect(0, 0, W, 46), GTextOverflowModeFill, GTextAlignmentLeft);
     // BOTH shapes: optical centring, degree sign excluded from the measure (it reads as an
-    // appendage; true centring of the full string looks left-shifted). Round briefly used
-    // true centring while dials flanked this row — the dials are gone, so the override is too.
+    // appendage; true centring of the full string looks left-shifted).
     graphics_draw_text(ctx, temp, tf,
                        GRect(tdx + (W - bsz.w) / 2, EV_TEMP_Y, W, 46),
                        GTextOverflowModeFill, GTextAlignmentLeft, NULL);
@@ -402,24 +369,14 @@ void expanded_view_draw_glance_content(GContext *ctx, int W, int tdx, const char
   // UV + precipitation meters at the bottom. The UV dial takes the WHO
   // severity color for its value; rain stays water-blue.
 #if PBL_ROUND
-  // ROUND: the two dials are replaced by the weather report's UV bar — the SAME component,
-  // drawn by weather_app_layout_draw_uv_bar (see that header). The card's canvas is
-  // full-screen, so the glass centre is simply the screen centre; `tdx` carries the
-  // glance-text slide so the bar rides in with the rest of the body.
-  // NOTE: this drops precipitation from the card entirely. The report page keeps it in its
-  // prose sentence ("... Precipitation 20%."), but this screen has no such line.
-  // Flanking dials: RAIN to the LEFT of the sunset/hi-lo text, WIND to the RIGHT. They ride
-  // `tdx` with the rest of the body so they slide in with it. Sized and placed so the LABEL ink
-  // clears the text block horizontally (the labels share rows with the "Sunset H:MM" line) and
-  // the ring's lowest ink stays clear of the UV bar below.
-  // Wind on the LEFT, rain on the RIGHT (matching the design). Fill level = how windy / how
-  // rainy; the icon rides on top so it stays legible over the fill.
+  // ROUND: the weather report's UV bar — the SAME component, drawn by
+  // weather_app_layout_draw_uv_bar (see that header). The card's canvas is full-screen, so
+  // the glass centre is simply the screen centre; `tdx` carries the glance-text slide so
+  // the bar rides in with the rest of the body.
   {
-    (void)wind;   // wind was dropped from this screen by design;
-                  // the plumbing stays for whatever wants it next.
+    (void)wind;   // wind is deliberately not shown on this card; the plumbing
+                  // (through to the hero-fly's copy) stays for whatever wants it next.
     prv_draw_precip_pill(ctx, W, tdx, precip);
-    // tall from origin.y+1, so -12 left it measurably 1px low (audit finding).
-
   }
   if (uv >= 0) {
     char uvbuf[12];
@@ -489,8 +446,8 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   // DOWN nav arrow — the system Health app's card-view indicator, same applib component and
   // geometry as the forecast mainscreen's (health/card_view.c: 18px full-width band on round,
   // GAlignCenter). DOWN on this card returns to the forecast. Deliberately NOT offset by tdx:
-  // the arrow is chrome, so it holds still while the glance text slides in behind it. No UP
-  // arrow here — not asked for.
+  // the arrow is chrome, so it holds still while the glance text slides in behind it. There
+  // is deliberately no UP arrow.
   {
     const int arrow_band = 18;
     const GRect down_frame = GRect(0, b.size.h - arrow_band, W, arrow_band);
@@ -507,8 +464,6 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
 
 // Slide duration + interpolation are shared with globe_view via weather_math.h
 // (WEATHER_HSLIDE_MS / weather_interpolate_moook_soft1) so the pair can't drift.
-
-// BOTH shapes since — round used to stub the pair into hard cuts.
 static void prv_slide_out_stopped(Animation *anim, bool finished, void *context) {
   if (!s_ev) return;
   s_ev->slide_anim = NULL;   // property animation auto-destroys after a normal stop
@@ -749,9 +704,9 @@ void expanded_view_push(const WeatherLocationForecast *today,
   s_ev->on_down = on_down;     s_ev->on_down_ctx = on_down_ctx;
   s_ev->on_select = on_select; s_ev->on_select_ctx = on_select_ctx;
   s_ev->entrance = entrance;
-  // Round's status band is a narrow chord — no room for "Last updated H:MM" at this size,
-  // and shrinking or moving it was rejected. It rests on the TIME from the outset, so the
-  // 2s hold + swap never arm (they would only slide the time out and back in).
+  // Round's status band is a narrow chord — no room for "Last updated H:MM" at this size.
+  // It rests on the TIME from the outset, so the 2s hold + swap never arm (they would only
+  // slide the time out and back in).
   s_ev->show_updated = PBL_IF_ROUND_ELSE(false, true);
   prv_set_from_forecast(today, lat_e2, lon_e2, utc_off_min);
 

@@ -13,13 +13,13 @@
 
 // "The Weather Report" — the SELECT screen.
 //
-// RECT (emery/obelix): the classic condensed day view, revived — the original
-// weather app's layout engine hosts the page (day label, hero temp, hi/lo,
-// condition phrase, rain/wind, right-railed icon discs, dotted rule, next-day
-// block, chevron, arc day-flip, fin). Same host shape as the round arm.
+// RECT (emery/obelix): the classic condensed day view — weather_app_layout hosts
+// the page (day label, hero temp, hi/lo, condition phrase, rain/wind, right-railed
+// icon discs, dotted rule, next-day block, chevron, arc day-flip, fin). Same host
+// shape as the round arm.
 //
-// ROUND (gabbro/getafix): the classic condensed layout host, verbatim — hold UP/DOWN
-// scrolls the week through weather_app_layout. Unchanged behavior, renamed API.
+// ROUND (gabbro/getafix): the classic condensed layout host — hold UP/DOWN
+// scrolls the week through weather_app_layout.
 
 // Hard-cut latch: the unfold transition scene already delivered the entrance, so the
 // next push renders the full page on frame one (only the rect arm ever arms this).
@@ -151,9 +151,9 @@ static void prv_touch_handler(const TouchEvent *event, void *context) {
 #endif
 
 // ---- Hold-to-scroll with acceleration (raw click subscriber + AppTimer) ----
-// Ported verbatim from the original main screen (the original condensed build's weather.c): a single tap steps one
-// day; holding UP/DOWN kicks off a timer that steps repeatedly, shrinking the interval by 50ms each
-// step (from 300ms down to a 90ms floor) so the scroll speeds up the longer it is held.
+// A single tap steps one day; holding UP/DOWN kicks off a timer that steps repeatedly,
+// shrinking the interval by 50ms each step (from 300ms down to a 90ms floor) so the
+// scroll speeds up the longer it is held.
 #define HOLD_INITIAL_MS  300
 #define HOLD_MIN_MS       90
 
@@ -232,9 +232,7 @@ static void prv_window_load(Window *window) {
 // A rigid translate, deliberately NOT a jelly squash: Timeline's text intro doesn't deform,
 // and the squash grammar has already had its say in the four stages that precede this
 // (mainscreen squash-left -> ball -> newspaper unfold -> the paper's squash-left bow).
-// Restored: this machinery was once deleted as "unreachable",
-// which was true only while arm_static_in was rect-only. weather.c now arms it on BOTH
-// shapes, so round was landing on a hard cut. Mirrors the rect arm line for line.
+// weather.c arms this on BOTH shapes (rect and round). Mirrors the rect arm line for line.
 
 static void prv_slide_in_update(Animation *anim, AnimationProgress progress) {
   (void)anim;
@@ -369,14 +367,12 @@ void weather_report_update_data(const WeatherLocationForecast *days, size_t num_
 
 #else  // !PBL_ROUND
 // ============================================================================
-// RECT — "The Weather Report": the classic condensed day view, revived
-// . The original weather app's layout engine
-// (weather_app_layout — original condensed version, styled to the original Pebble
-// weather app) draws the page: day label + hero temp + "hi° / lo°" + condition
-// phrase + rain/wind row down the left rail, the day's icon on its colored
-// disc to the right, fine dotted rule, next-day block below, bottom chevron,
-// the arc day-flip, and the fin at the week's end. This host mirrors the
-// round arm, plus the SELECT-scene squash-in entrance.
+// RECT — "The Weather Report": the classic condensed day view.
+// weather_app_layout draws the page: day label + hero temp + "hi° / lo°" +
+// condition phrase + rain/wind row down the left rail, the day's icon on its
+// colored disc to the right, fine dotted rule, next-day block below, bottom
+// chevron, the arc day-flip, and the fin at the week's end. This host mirrors
+// the round arm, plus the SELECT-scene squash-in entrance.
 // ============================================================================
 
 #include "weather_app_layout.h"
@@ -471,8 +467,8 @@ static void prv_touch_handler(const TouchEvent *event, void *context) {
 #endif
 
 // ---- Hold-to-scroll with acceleration (raw click subscriber + AppTimer) ----
-// The original condensed build's contract, verbatim timing: a single tap steps one day; holding UP/DOWN kicks
-// off a timer that steps repeatedly, shrinking the interval by 50ms each step (300ms -> 90ms).
+// A single tap steps one day; holding UP/DOWN kicks off a timer that steps
+// repeatedly, shrinking the interval by 50ms each step (300ms -> 90ms).
 #define HOLD_INITIAL_MS  300
 #define HOLD_MIN_MS       90
 

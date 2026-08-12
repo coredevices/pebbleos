@@ -80,8 +80,8 @@ static void prv_sync_glance_strings(WeatherAppData *data);
 // ---- Data: fill days[] from the active location's BlobDB record ----
 
 // Derive a short condition phrase from the weather type. v4 records don't store
-// per-day phrases (the phone used to send them via AppMessage), so future days
-// get a derived phrase; day 0 keeps the record's real short_phrase.
+// per-day phrases, so future days get a derived phrase; day 0 keeps the record's
+// real short_phrase.
 static const char *prv_phrase_for_type(uint8_t type) {
   switch ((WeatherType)type) {
     case WeatherType_Sun:          return "Sunny";
@@ -194,8 +194,8 @@ static void prv_fill_days_from_ds(WeatherAppData *data, const WxDsForecast *ds) 
   {
     // WATCH-local hour, deliberately NOT prv_location_local_hour: the header's spec is "what
     // the clock screen shows", and the clock indexes the hourly arrays by the watch's own
-    // hour — using the location-shifted hour here made header and clock disagree by the tz
-    // delta on the same city. Consistency with the clock outranks the saved-city refinement
+    // hour — the location-shifted hour would make header and clock disagree by the tz delta
+    // on the same city. Consistency with the clock outranks the saved-city refinement
     // (which the clock doesn't have either).
     time_t now_t = rtc_get_time();
     struct tm *lt_h = localtime(&now_t);
@@ -345,8 +345,8 @@ static void prv_refresh(WeatherAppData *data) {
 
 // Page identities. The animated forecast (PAGE_LIST) is the persistent base window; at most one of
 // {clock, globe, expanded card} sits on top of it, reached via buttons. s_page is a simple tag the
-// button handlers keep updated (the swipe carousel that once read it has been removed). PAGE_MAIN,
-// the old scrub screen, is gone; its enum value is retained only to keep the numbering stable.
+// button handlers keep updated. PAGE_MAIN is unused; its enum value is retained only to keep the
+// numbering stable.
 typedef enum { PAGE_MAIN = 0, PAGE_LIST, PAGE_CLOCK, PAGE_GLOBE, PAGE_EXPANDED, PAGE_COUNT }
     WeatherCarouselPage;
 static WeatherCarouselPage s_page = PAGE_LIST;
@@ -475,8 +475,7 @@ static void prv_on_report_requested(void *ctx) {
   if (!data || weather_report_is_showing()) return;
 #if PBL_ROUND
   // Round has no hero icon-fly, but it DOES play the ball -> unfold -> paper scene, so it
-  // must not be gated on the icon rect (which is rect-only and always false here — that
-  // is why round used to hard-cut with no transition at all).
+  // must not be gated on the icon rect (which is rect-only and always false here).
   forecast_list_start_select_exit(prv_report_after_exit, data);
 #else
   GRect from;
@@ -524,8 +523,6 @@ static void prv_push_globe(WeatherAppData *data, bool animated) {
 static void prv_on_city_select_requested(void *ctx) {
   prv_push_globe((WeatherAppData *)ctx, true);
 }
-
-// (globe DOWN-to-expanded path deleted with the dead main_callback chain)
 
 static void prv_globe_back_to_expanded(void *ctx) {
   WeatherAppData *data = (WeatherAppData *)ctx;
@@ -600,10 +597,6 @@ static void prv_on_clock_wrap_to_main(void *ctx) {
   s_page = PAGE_LIST;
 }
 
-// The swipe-driven carousel ring (weather_carousel_navigate + prv_carousel_show + s_ring) was
-// removed: screens are now reached only via buttons. s_page remains as a simple page-identity tag
-// the button handlers keep updated (ready for gesture nav to be re-added against the new layout).
-
 static void prv_handle_weather(PebbleEvent *event, void *context) {
   prv_refresh(s_data);
 }
@@ -625,10 +618,9 @@ static NOINLINE void prv_init(void) {
   // v4.32 runs a SYSTEM touch-navigation twin inside every system app by default: a system
   // subscription slot sees each touch first and holds gestures while it classifies swipes
   // into synthetic button events. This app carries its own complete touch navigation (every
-  // screen maps swipes itself, the globe pans on the raw stream), so the twin both delays
-  // and swallows our gestures — on-watch this read as "swipes are laggy or dead everywhere
-  // but the globe". Opt out so our raw touch_service subscriptions see the stream exactly
-  // as they did on the v4.18 base.
+  // screen maps swipes itself, the globe pans on the raw stream), so the twin would both
+  // delay and swallow our gestures. Opt out so our raw touch_service subscriptions see the
+  // unfiltered stream.
   app_touch_navigation_enable(false);
 #endif
   // The animated forecast is the carousel base window; start the ring there.
@@ -656,8 +648,7 @@ static NOINLINE void prv_init(void) {
   clock_face_set_wrap_callback(prv_on_clock_wrap_to_main, data);
 
   // App-global weather event subscription: re-read the BlobDB whenever the phone
-  // writes a new weather record. (Moved here from the old main window's appear
-  // handler now that there is no persistent main window.)
+  // writes a new weather record.
   data->weather_event_info = (EventServiceInfo) {
     .type = PEBBLE_WEATHER_EVENT,
     .handler = prv_handle_weather,

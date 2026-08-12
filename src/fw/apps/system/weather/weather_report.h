@@ -9,9 +9,9 @@
 // "The Weather Report" — the screen SELECT opens from the forecast list.
 // On rect (emery/obelix): a static newspaper front page for today — masthead, dateline,
 // weekday headline, condition deck, framed press-photo icon, temperature column and a
-// boxed UV-index tally on cream newsprint. (7-day paging comes later.)
+// boxed UV-index tally on cream newsprint.
 // On round (gabbro/getafix): the classic condensed layout host (weather_app_layout),
-// hold UP/DOWN to scroll days — unchanged.
+// hold UP/DOWN to scroll days.
 // `days` is BORROWED (not copied) — the caller (weather.c) owns it for the app's lifetime.
 void weather_report_push(const WeatherLocationForecast *days, size_t num_days, int start_day_index);
 

@@ -36,13 +36,13 @@
 #endif
 
 #define ICON_SIZE         25   // Emery/native tiny weather bitmap size
-// Round clock icons draw 1:1 from the 25x25 TINY PNGs (CLOCK ids now map to TINY),
-// so the slot must be 25 to avoid the previous 50->30 crop. Emery uses ICON_SIZE.
+// Round clock icons draw 1:1 from the 25x25 TINY PNGs (the CLOCK resource ids map to
+// TINY), so the slot must be 25 — any other size crops or scales. Emery uses ICON_SIZE.
 #define CLOCK_ICON_SIZE   PBL_IF_ROUND_ELSE(25, ICON_SIZE)
 #define SWIPE_THRESHOLD   20
 #define CLOCK_INTRO_DURATION_MS 520
-// Rect: 50ms. ROUND (gabbro smoothness step 4): 66ms = exactly 2 animation-service ticks,
-// so every glow step lands ON a display frame instead of beating against the 33ms interval.
+// Rect: 50ms. ROUND: 66ms = exactly 2 animation-service ticks, so every glow step
+// lands ON a display frame instead of beating against the 33ms interval.
 // CLOCK_GLOW_IDLE_TICKS derives from this (round: 75 ticks ≈ 4.95s — the 5s intent holds);
 // the active sweep's per-tick advance is scaled to keep degrees-per-ms (see prv_glow_step).
 // The idle wrap-out flourish keeps its tick counts (runs ~30% longer on round — accepted;
@@ -104,7 +104,7 @@ typedef struct {
   Animation        *fwd_exit_anim;
   bool              fwd_exit_active;
   bool              fwd_captured;   // ROUND capture-once: snapshot filled — later frames skip
-                                    // the clock render + fb copy and only resample (step 2)
+                                    // the clock render + fb copy and only resample
   AppTimer         *fwd_push_timer; // 0ms timer → hand off to the forecast once fully off-top
   uint8_t          *fwd_scratch;    // full-screen snapshot we re-sample while overwriting the fb
 } ClockFaceData;
@@ -138,7 +138,7 @@ static void prv_load_bitmaps(void) {
   // series), not all nine — the type set is fixed for the window's life (day
   // flips re-push). Every consumer clamps out-of-range bytes to Generic, so
   // the used-set applies the same clamp, and Generic is ALWAYS loaded (it is
-  // also the NULL-slot fallback at draw time). A few KB of session heap back.
+  // also the NULL-slot fallback at draw time). Saves a few KB of app heap.
   bool used[NUM_TYPE_SLOTS] = { false };
   used[WeatherType_Generic] = true;
   for (size_t i = 0; i < s_cf->num_days; i++) {
@@ -168,8 +168,8 @@ static bool prv_glow_step(void) {
   bool transition_busy = s_cf->anim_progress < ANIMATION_NORMALIZED_MAX;
   if (!transition_busy) {
     if (s_cf->glow_idle_ticks < CLOCK_GLOW_IDLE_TICKS) {
-      // Sweep rate is degrees-per-MS, not per-tick: rect /80 at 50ms ticks; round /61 at
-      // 66ms ticks is the same angular speed within 1% (step 4's clean-rate change).
+      // Sweep rate is degrees-per-MS, not per-tick: rect /80 at 50ms ticks and round /61
+      // at 66ms ticks are the same angular speed within 1%.
       s_cf->glow_phase =
           (s_cf->glow_phase + (uint32_t)(TRIG_MAX_ANGLE / PBL_IF_ROUND_ELSE(61, 80))) %
           (uint32_t)TRIG_MAX_ANGLE;
@@ -200,10 +200,10 @@ static void prv_start_clock_glow(void) {
                                         prv_clock_glow_timer_callback, NULL);
 }
 #else
-// Frame-coalesced glow (gabbro): same INFINITE-animation pattern as the forecast icon driver —
+// Frame-coalesced glow (round): same INFINITE-animation pattern as the forecast icon driver —
 // glow stepping rides the animation service's tick, so at most one render per interval even
-// while the intro/reveal animations run. (Free-running 50ms beat against the 33ms service and
-// the ~20-25ms display period read as judder; see the display research.)
+// while the intro/reveal animations run. (A free-running 50ms timer beats against the 33ms
+// service tick and the ~20-25ms display period and reads as judder.)
 static uint32_t prv_glow_now_ms(void) {
   time_t s = 0; uint16_t ms = 0;
   time_ms(&s, &ms);
@@ -283,13 +283,13 @@ static int prv_abs_hour_for_pos(int pos_1_to_12) {
   }
   int cur_h = prv_cur_hour();
   int target_mod = pos_1_to_12 % 12;  // pos 12→0, pos 1→1, ..., pos 11→11
-  // i starts at 0 so the CURRENT hour lands on its own position (and is the
-  // one highlighted) — starting at 1 put the current hour off the dial and
-  // highlighted the NEXT hour, reading an hour ahead.
+  // i starts at 0 so the CURRENT hour lands on its own position and is the one
+  // highlighted (starting at 1 would highlight the NEXT hour, reading an hour
+  // ahead).
   // NO mod-24 fold: after ~13:00 the dial's tail crosses midnight, and folding
-  // aliased those positions onto THIS morning's records, presenting stale data
-  // as tonight's forecast. Post-midnight positions return 24..34 — the hourly
-  // consumers treat >= 24 as "no hourly data" and fall back honestly.
+  // would alias those positions onto THIS morning's records, presenting stale
+  // data as tonight's forecast. Post-midnight positions return 24..34 — the
+  // hourly consumers treat >= 24 as "no hourly data" and fall back honestly.
   for (int i = 0; i <= 11; i++) {
     int h = cur_h + i;
     if (h % 12 == target_mod) return h;
@@ -351,11 +351,6 @@ static void prv_intro_update(Animation *anim, AnimationProgress progress) {
   }
 }
 static const AnimationImplementation s_intro_impl = { .update = prv_intro_update };
-
-// ---- (Removed) clock -> detail_face exit/return animation ----
-// The full-screen weather detail view (temperature + UV/rain + location + last-updated) was made
-// redundant by the expanded weather card, so the clock's drill-in was removed. The exit_/return_
-// struct fields remain (never set now) so the draw proc's dead branches keep compiling harmlessly.
 
 // ---- Temperature reveal animation (tap) ----
 static void prv_reveal_update(Animation *anim, AnimationProgress progress) {
@@ -437,8 +432,8 @@ static int32_t prv_clock_center_scale_progress(AnimationProgress progress) {
   const int32_t max = ANIMATION_NORMALIZED_MAX;
   if ((int32_t)progress >= max) return max;
   const int32_t min_scale = max / 40;   // start from a point — blooms straight out of the dot
-  // Clean ease-out from the point to full size. No overshoot/settle phase (that tail wobble was
-  // dropping the centre temperature for a frame).
+  // Clean ease-out from the point to full size. No overshoot/settle phase (an overshoot
+  // tail drops the centre temperature for a frame).
   const int32_t q = max - (int32_t)progress;
   const int32_t ease_out = max - (int32_t)((int64_t)q * q / max);
   return min_scale + weather_scale_i32(ease_out, max - min_scale, max);
@@ -457,8 +452,8 @@ static void prv_render_fwd_squash(GContext *ctx) {
   weather_render_squash(ctx, s_cf->fwd_scratch, s_cf->fwd_exit_p,
                         WEATHER_SQUASH_CLOCK_EXIT);
 #if PBL_ROUND
-  // Capture-once (gabbro smoothness step 2): the snapshot now holds the fully-drawn
-  // clock — from the next frame prv_canvas_draw short-circuits to resample-only.
+  // Capture-once: the snapshot now holds the fully-drawn clock — from the next frame
+  // prv_canvas_draw short-circuits to resample-only.
   s_cf->fwd_captured = true;
 #endif
 }
@@ -506,7 +501,7 @@ static void prv_start_fwd_exit_animation(void) {
 
 static void prv_canvas_draw(Layer *layer, GContext *ctx) {
 #if PBL_ROUND
-  // Transparent window bg on round (step 3) — the degenerate no-state frame must paint
+  // Transparent window bg on round — the degenerate no-state frame must paint
   // the white itself, since this proc is what guarantees full coverage.
   if (!s_cf) {
     graphics_context_set_fill_color(ctx, GColorWhite);
@@ -517,10 +512,10 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   if (!s_cf) return;
 #endif
 #if PBL_ROUND
-  // Capture-once (gabbro smoothness step 2): during the UP-to-forecast squash the clock
-  // scene is frozen in fwd_scratch after the first frame — skip the whole clock render
-  // and only resample. Nothing draws after the squash in this proc (it is the last call),
-  // so a full short-circuit is safe; the resample overwrites every pixel.
+  // Capture-once: during the UP-to-forecast squash the clock scene is frozen in
+  // fwd_scratch after the first frame — skip the whole clock render and only resample.
+  // Nothing draws after the squash in this proc (it is the last call), so a full
+  // short-circuit is safe; the resample overwrites every pixel.
   if (s_cf->fwd_exit_active && s_cf->fwd_captured && s_cf->fwd_scratch) {
     weather_render_squash_cached(ctx, s_cf->fwd_scratch, s_cf->fwd_exit_p,
                                  WEATHER_SQUASH_CLOCK_EXIT);
@@ -694,9 +689,8 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
       char stg_buf[8];
       GFont centre_font;
       if (centre_is_temp) {
-        // BOTH shapes : the CURRENT-HOUR temp — the
-        // same source as the mainscreen header, so the two screens can never disagree
-        // (the synced current_temp once said "23" here while the header said "18").
+        // BOTH shapes: the CURRENT-HOUR temp (current_temp_now) — the same source as
+        // the mainscreen header, so the two screens can never disagree.
         snprintf(stg_buf, sizeof(stg_buf), "%d", s_cf->days[0].current_temp_now);
         centre_font = s_cf->temp_font;
       } else {
@@ -1003,8 +997,8 @@ static void prv_click_select(ClickRecognizerRef r, void *ctx) {
   prv_toggle_temp_reveal();
 }
 static void prv_click_down(ClickRecognizerRef r, void *ctx) {
-  // The clock is the bottom of the vertical stack now that the detail drill-in is gone, so DOWN
-  // has nothing below it — just keep the clock awake.
+  // The clock is the bottom of the vertical stack, so DOWN has nothing below it — just keep
+  // the clock awake.
   prv_note_clock_interaction();
 }
 static void prv_click_up(ClickRecognizerRef r, void *ctx) {
@@ -1026,10 +1020,10 @@ static void prv_click_provider(void *ctx) {
 
 // ---- Window lifecycle ----
 static void prv_window_load(Window *window) {
-  // ROUND (gabbro smoothness step 3): transparent — the root-layer proc fills the whole
-  // window with the bg colour every frame unless transparent, and prv_canvas_draw always
-  // paints every pixel (its own white fill / the squash resample). See forecast_list's
-  // matching change. The !s_cf early-return keeps a white guard.
+  // ROUND: transparent — the root-layer proc fills the whole window with the bg colour
+  // every frame unless transparent, and prv_canvas_draw always paints every pixel (its
+  // own white fill / the squash resample). forecast_list uses the same setting. The
+  // !s_cf early-return keeps a white guard.
   window_set_background_color(window, PBL_IF_ROUND_ELSE(GColorClear, GColorWhite));
   GRect bounds = layer_get_bounds(window_get_root_layer(window));
   s_cf->canvas = layer_create(bounds);

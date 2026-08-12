@@ -32,7 +32,7 @@
 #define MESSAGE_KEY_WEATHER_REQUEST_ID 14
 #define MESSAGE_KEY_CURRENT_LATITUDE   15
 #define MESSAGE_KEY_CURRENT_LONGITUDE  16
-// (key 17 retired with the watch-side dictation add flow — locations are phone-owned)
+// (key 17 retired — locations are phone-owned, so there is no watch-side add-location flow)
 #define MESSAGE_KEY_CURRENT_LOCATION_REQUEST 18
 #define MESSAGE_KEY_DAY_WIND           19
 
@@ -60,8 +60,8 @@ typedef struct WeatherLocationForecast {
   int today_uv_now;    // UV index for the CURRENT hour, -1 unknown. Needs the v4 minor-4
                        // hourly UV block; falls back to today_uv until the phone sends it.
   int today_precip_mm; // rain chance percent, or -1 if unknown
-  int today_wind_mph;
-  int today_wind_dir_deg;   // dominant direction 0..359, -1 unknown (v4.3)  // max wind speed in mph, or -1 if unknown
+  int today_wind_mph;  // max wind speed in mph, or -1 if unknown
+  int today_wind_dir_deg;   // dominant direction 0..359, -1 unknown (v4.3)
   int today_feels;     // feels-like temp, UNKNOWN_TEMP if unknown (today only)
   int today_wmo;       // WMO weather code, -1 if unknown (v4.2, today only)
   int today_humidity;  // relative humidity %, -1 if unknown (v4.2, today only)
