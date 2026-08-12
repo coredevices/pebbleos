@@ -285,6 +285,8 @@ NOINLINE void app_state_init(void) {
   s_app_state_ptr->touch_nav_opted_in = false;
 #endif
 
+  s_app_state_ptr->action_bar_follows_display_orientation = false;
+
   animation_private_state_init(&s_app_state_ptr->animation_state);
 
   app_message_init();

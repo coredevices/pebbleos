@@ -288,3 +288,49 @@ void test_action_bar_layer__third_party_opt_out_returns_to_right(void) {
   cl_assert(action_bar_layer_is_on_right());
   cl_assert_equal_i(prv_add_and_get_x(), DISP_COLS - ACTION_BAR_WIDTH);
 }
+
+void test_action_bar_layer__third_party_not_opted_in_keeps_right_insets(void) {
+  s_left_handed = true;
+  s_sdk_type = ProcessAppSDKType_4x;
+  cl_assert(action_bar_layer_is_on_right());
+
+  const GRect inset = action_bar_layer_inset_bounds(GRect(0, 0, DISP_COLS, DISP_ROWS));
+  cl_assert_equal_i(inset.origin.x, 0);
+  cl_assert_equal_i(inset.size.w, DISP_COLS - ACTION_BAR_WIDTH);
+
+  const int16_t other_margin = 4;
+  const GEdgeInsets insets = action_bar_layer_content_insets(other_margin);
+  cl_assert_equal_i(insets.right, ACTION_BAR_WIDTH + other_margin);
+  cl_assert_equal_i(insets.left, other_margin);
+}
+
+void test_action_bar_layer__kernel_setter_is_no_op(void) {
+  s_left_handed = true;
+  s_task = PebbleTask_KernelMain;
+  s_sdk_type = ProcessAppSDKType_4x;
+  action_bar_layer_set_follows_display_orientation(true);
+
+  s_task = PebbleTask_App;
+  cl_assert(action_bar_layer_is_on_right());
+  cl_assert_equal_i(prv_add_and_get_x(), DISP_COLS - ACTION_BAR_WIDTH);
+}
+
+void test_action_bar_layer__late_opt_in_does_not_move_attached_bar(void) {
+  s_left_handed = true;
+  s_sdk_type = ProcessAppSDKType_4x;
+
+  Window window = {};
+  layer_init(&window.layer, &GRect(0, 0, DISP_COLS, DISP_ROWS));
+  ActionBarLayer bar;
+  action_bar_layer_init(&bar);
+  action_bar_layer_add_to_window(&bar, &window);
+  const int16_t x_before = bar.layer.frame.origin.x;
+  cl_assert_equal_i(x_before, DISP_COLS - ACTION_BAR_WIDTH);
+
+  action_bar_layer_set_follows_display_orientation(true);
+  cl_assert_equal_i(bar.layer.frame.origin.x, x_before);
+  cl_assert(!action_bar_layer_is_on_right());
+
+  action_bar_layer_deinit(&bar);
+  layer_deinit(&window.layer);
+}

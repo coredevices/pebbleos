@@ -79,6 +79,8 @@
 //!   ...
 //!   // Initialize the action bar:
 //!   action_bar = action_bar_layer_create();
+//!   // Optional: follow Left-Handed Mode (call before add_to_window):
+//!   action_bar_layer_set_follows_display_orientation(true);
 //!   // Associate the action bar with the window:
 //!   action_bar_layer_add_to_window(action_bar, window);
 //!   // Set the click config provider:
@@ -89,6 +91,9 @@
 //!   // The loading of the icons is omitted for brevity... See gbitmap_create_with_resource()
 //!   action_bar_layer_set_icon_animated(action_bar, BUTTON_ID_UP, my_icon_previous, true);
 //!   action_bar_layer_set_icon_animated(action_bar, BUTTON_ID_DOWN, my_icon_next, true);
+//!
+//!   // Inset window content so it stays clear of the action bar:
+//!   GRect content_bounds = action_bar_layer_inset_bounds(window->layer.bounds);
 //! }
 //! \endcode
 //!     @{
@@ -283,8 +288,10 @@ void action_bar_layer_remove_from_window(ActionBarLayer *action_bar);
 void action_bar_layer_set_background_color(ActionBarLayer *action_bar, GColor background_color);
 
 //! Opt this app's action bars into following left-hand display orientation.
-//! Third-party apps default to the right edge. System and kernel UI always follow
-//! orientation. Call this before \ref action_bar_layer_add_to_window().
+//! Process-wide: affects every action bar in this app. Third-party apps default
+//! to the right edge; system and kernel UI always follow orientation. Call before
+//! \ref action_bar_layer_add_to_window(); it does not move a bar already
+//! attached to a window.
 //! @param follow true to place action bars on the button side in Left-Handed Mode
 void action_bar_layer_set_follows_display_orientation(bool follow);
 
