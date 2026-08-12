@@ -947,9 +947,11 @@ static void set_color_orientation(GlobeView *view,
 // The globe blobs are stored raw-deflate compressed in the pack ([u32 LE
 // inflated_size][raw DEFLATE stream], tools/deflate_resource.py) and inflated
 // here via the firmware's tinflate (the same raw-deflate decoder uPNG uses).
-// Buffers come from applib_malloc — the same app-task heap as malloc_try/free,
-// and the allocator gdraw_command_sequence_destroy's munmap-or-free path pairs
-// with, so the inflated BW sequence can be handed to the normal destroy path.
+// Buffers come from malloc_try — the same app-task heap applib_free and the
+// gdraw_command_sequence_destroy munmap-or-free path pair with, so the
+// inflated BW sequence can be handed to the normal destroy path. It must be
+// the TRY variant: in a privileged system app applib_malloc croaks on OOM
+// before any NULL-check can run, and every caller here degrades gracefully.
 // Returns NULL on any failure; *out_size gets the inflated size.
 static void *prv_load_inflated(uint32_t res_id, uint32_t *out_size) {
     ResHandle handle = resource_get_handle(res_id);
@@ -961,7 +963,7 @@ static void *prv_load_inflated(uint32_t res_id, uint32_t *out_size) {
     uint32_t inflated_size = 0;
     if (resource_load(handle, cbuf, csize) == csize) {
         memcpy(&inflated_size, cbuf, sizeof(inflated_size));   // LE prefix
-        out = applib_malloc(inflated_size);
+        out = malloc_try(inflated_size);
         if (out) {
             unsigned int dlen = inflated_size;
             if (tinflate_uncompress(out, &dlen, cbuf + sizeof(uint32_t),
@@ -1037,7 +1039,7 @@ static void ensure_visual_resources(GlobeView *view) {
     if (!view) return;
 
     if (!view->bw_sequence) {
-        // Stored payload-deflated: inflate into an applib_malloc buffer and
+        // Stored payload-deflated: inflate into a malloc_try buffer and
         // validate with the exact gate create_with_resource uses. Ownership
         // passes to the sequence — gdraw_command_sequence_destroy applib_free()s
         // heap pointers (applib_resource_munmap_or_free address-range check).
