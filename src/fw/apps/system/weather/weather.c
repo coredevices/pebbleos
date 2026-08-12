@@ -200,7 +200,7 @@ static void prv_fill_days_from_ds(WeatherAppData *data, const WxDsForecast *ds) 
     struct tm *lt_h = localtime(&now_t);
     const int hour = lt_h ? lt_h->tm_hour : -1;
     if (ds->hourly_count == WX_DS_HOURLY && hour >= 0 && hour < WX_DS_HOURLY &&
-        ds->hourly_type[hour] <= WeatherType_Generic) {
+        ds->hourly_type[hour] <= WeatherType_RainAndSnow) {
       data->days[0].current_type_now   = (WeatherType)ds->hourly_type[hour];
       data->days[0].current_temp_now   = ds->hourly_temp[hour];
       // The hourly block has no phrase; derive one from the type. Static string — safe.
