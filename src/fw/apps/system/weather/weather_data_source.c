@@ -24,11 +24,13 @@ static void prv_copy_str(char *dst, size_t dst_size, const char *src) {
   dst[dst_size - 1] = '\0';
 }
 
-static void prv_fill_from_fw(WxDsForecast *out, const WeatherLocationForecast *f, int index) {
+static void prv_fill_from_fw(WxDsForecast *out, const WeatherLocationForecast *f) {
   memset(out, 0, sizeof(*out));
   prv_copy_str(out->location_name, sizeof(out->location_name), f->location_name);
   prv_copy_str(out->short_phrase, sizeof(out->short_phrase), f->current_weather_phrase);
-  out->is_current_location = (index == 0);
+  // The record's own flag, propagated from the BlobDB entry by the service —
+  // list position is NOT authoritative (the flagged record need not be first).
+  out->is_current_location = f->is_current_location;
   out->current_temp = f->current_temp;
   out->today_high = f->today_high;
   out->today_low = f->today_low;
@@ -414,7 +416,7 @@ bool weather_ds_read_index(int index, WxDsForecast *out) {
     WeatherDataListNode *node =
         weather_service_locations_list_get_location_at_index(head, (unsigned int)index);
     if (node) {
-      prv_fill_from_fw(out, &node->forecast, index);
+      prv_fill_from_fw(out, &node->forecast);
       prv_overlay_v4(out, (int)node->id);  // v4 extras; no-op for v3 records
 #if WEATHER_V4_TEST_SEED
       prv_seed_v4_test(out);  // Placeholder 7-day + hourly data until real v4 records arrive.
