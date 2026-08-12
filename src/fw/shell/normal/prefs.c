@@ -1435,6 +1435,11 @@ void backlight_set_preset(BacklightPreset preset) {
   if (preset == BacklightPreset_Advanced) {
     return;
   }
+  // A concrete preset must re-enable the backlight: the only off toggle lives
+  // in the Advanced-only submenu, which these presets hide.
+  if (!backlight_is_enabled()) {
+    backlight_set_enabled(true);
+  }
   const BacklightPresetSettings *settings = &s_backlight_preset_settings[preset];
   backlight_set_ambient_sensor_enabled(settings->ambient_sensor_enabled);
 #ifdef CONFIG_DYNAMIC_BACKLIGHT
