@@ -3563,7 +3563,8 @@ static void prv_window_load(Window *window) {
 
 #if WEATHER_ANIM_5DAY
 static void prv_hslide_in_stopped(Animation *anim, bool finished, void *context) {
-  (void)anim; (void)finished; (void)context;
+  (void)finished; (void)context;
+  if (s_hslide_anim != anim) return;   // ownership check: unload may have re-homed
   s_hslide_anim = NULL;   // property animation auto-destroys after a normal stop
   if (s_list && s_list->canvas) {
     GRect home = layer_get_frame(s_list->canvas);
@@ -3603,7 +3604,8 @@ static void prv_window_appear(Window *window) {
 #if WEATHER_ANIM_5DAY
   // Returning from the clock via UP: jelly-rise the forecast back in. Armed before the clock
   // dismissed, so this fires on the first revealed frame — no flash of the rested screen.
-  if (s_list && s_pending_hslide_in && s_list->canvas) {
+  // !s_hslide_anim: never stack a second slide on a still-scheduled one.
+  if (s_list && s_pending_hslide_in && s_list->canvas && !s_hslide_anim) {
     s_pending_hslide_in = false;
     GRect to = layer_get_frame(s_list->canvas);
     GRect from = to;
@@ -3711,6 +3713,16 @@ static void prv_window_unload(Window *window) {
     animation_unschedule(a);
     animation_destroy(a);
   }
+  // The report-BACK entrance slide was the one animation unload never
+  // cancelled: popping the window mid-slide left a scheduled
+  // PropertyAnimation whose subject is the destroyed canvas (double-BACK
+  // use-after-free). Null-first: .stopped only re-homes the canvas, and the
+  // property animation auto-destroys.
+  if (s_hslide_anim) {
+    Animation *a = s_hslide_anim;
+    s_hslide_anim = NULL;
+    animation_unschedule(a);
+  }
   s_list->report_fx = 0;
   if (s_list->squash_in_anim) {
     animation_unschedule(s_list->squash_in_anim);
@@ -3722,6 +3734,7 @@ static void prv_window_unload(Window *window) {
     s_list->squash_scratch = NULL;
   }
 #endif
+  s_pending_hslide_in = false;   // an armed-but-unconsumed slide must not leak into a relaunch
 
 #if defined(PBL_PLATFORM_GABBRO)
   if (s_list->icon_sequence) {
