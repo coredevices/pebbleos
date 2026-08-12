@@ -1790,14 +1790,6 @@ static const AnimationImplementation s_icon_anim_impl = {
 
 #define LIST_ROWS_VISIBLE     4
 #define LIST_ICON_X           8
-#if defined(PBL_PLATFORM_GABBRO)
-#define LIST_GABBRO_ROW_PITCH   45
-#define LIST_GABBRO_CENTER_Y_SHIFT 0
-#define LIST_GABBRO_ICON_BASE_X 10
-#define LIST_GABBRO_TOP_FOCUS_GAP 21
-#define LIST_GABBRO_BOTTOM_FOCUS_MARGIN 48
-#define LIST_GABBRO_CURVE_BOOST_DIVISOR 800
-#endif
 
 
 

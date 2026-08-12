@@ -78,12 +78,3 @@ uint32_t weather_type_icon_large_resource(WeatherType weather_type) {
   return s_resources[weather_type_slot_index(weather_type)];
 }
 
-#if defined(PBL_PLATFORM_GABBRO)
-uint32_t weather_type_icon_clock_resource(WeatherType weather_type) {
-  // The CLOCK id set is numerically identical to TINY, slot for slot — pinned:
-  _Static_assert(RESOURCE_ID_IMAGE_PARTLY_CLOUDY_CLOCK == RESOURCE_ID_IMAGE_PARTLY_CLOUDY_TINY, "clock==tiny");
-  _Static_assert(RESOURCE_ID_IMAGE_SUNNY_DAY_CLOCK == RESOURCE_ID_IMAGE_SUNNY_DAY_TINY, "clock==tiny");
-  _Static_assert(RESOURCE_ID_IMAGE_RAIN_AND_SNOW_CLOCK == RESOURCE_ID_IMAGE_RAIN_AND_SNOW_TINY, "clock==tiny");
-  return weather_type_icon_tiny_resource(weather_type);
-}
-#endif

@@ -122,11 +122,7 @@ static void *s_wrap_context;
 // ---- Helpers ----
 
 #define prv_bg_color_for_type weather_type_bg_color
-#if defined(PBL_PLATFORM_GABBRO)
-  #define prv_icon_res weather_type_icon_clock_resource
-#else
   #define prv_icon_res weather_type_icon_tiny_resource
-#endif
 
 
 // Load the tiny bitmap set once; the clock reuses these during animations.
@@ -891,23 +887,6 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     int pill_center_x = lx;
     int pill_center_y = ly + 1;
 
-#if defined(PBL_PLATFORM_GABBRO)
-    if (pos == 3 || pos == 9) {
-      const int side_slot_w = 30;
-      const int side_slot_inner_half = 14;
-      if (pos == 3) {
-        label_rect = GRect(lx - side_slot_inner_half, ly - 12,
-                           side_slot_w, 18);
-        label_align = GTextAlignmentLeft;
-      } else {
-        label_rect = GRect(lx + side_slot_inner_half - side_slot_w, ly - 12,
-                           side_slot_w, 18);
-        label_align = GTextAlignmentRight;
-      }
-      pill_len = side_slot_w + 12;
-      pill_center_x = label_rect.origin.x + label_rect.size.w / 2;
-    }
-#endif
 
     // The blue indicator fades in (scales up from a small dot) a few frames before
     // it settles, then stretches into the oval once the bitmaps have landed.

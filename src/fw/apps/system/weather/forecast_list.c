@@ -47,34 +47,9 @@
 #define ROUND_SIDE_INSET PBL_IF_ROUND_ELSE(28, 0)
 #define ROUND_BAR_INSET  PBL_IF_ROUND_ELSE(44, 0)
 
-#if defined(PBL_PLATFORM_GABBRO)
-#define GABBRO_LIST_ROW_PITCH      45
-#define GABBRO_LIST_FOCUSED_HEIGHT 55
-#define GABBRO_LIST_ICON_SIZE      30
-#define GABBRO_LIST_ICON_RADIUS    17
-#define GABBRO_LIST_FOCUS_RADIUS   19
-#define GABBRO_LIST_CENTER_Y_SHIFT 0
-#define GABBRO_LIST_ICON_BASE_X    10
-#define GABBRO_LIST_TEXT_GAP       11
-#define GABBRO_LIST_EDGE_PAD       8
-#define GABBRO_LIST_TOP_FOCUS_GAP  21
-#define GABBRO_LIST_BOTTOM_FOCUS_MARGIN 48
-#define GABBRO_LIST_CURVE_BOOST_DIVISOR 800
-#define GABBRO_LIST_TOP_REST_VISIBLE_ROWS 4
-#define GABBRO_CAP_DEPTH           58
-#define GABBRO_CAP_RADIUS          207
-#define GABBRO_CAP_Y_ADJUST        -13
-#define GABBRO_CAP_TEXT_INSET      50
-#define GABBRO_CAP_TIME_Y          2
-#define GABBRO_CAP_LOCATION_Y      21
-#endif
 
 #define prv_weather_bg_color weather_type_bg_color
-#if defined(PBL_PLATFORM_GABBRO)
-#define prv_icon_res weather_type_icon_clock_resource
-#else
 #define prv_icon_res weather_type_icon_tiny_resource
-#endif
 
 // ---- State ----
 
@@ -93,9 +68,6 @@ typedef struct {
   GFont    loc_font;
   char     condition_str[MAX_ROWS][24];  // pre-formatted condition strings
   int      row_height;  // computed at load: (screen_h - LOCATION_BAR_H) / ROWS_VISIBLE
-#if defined(PBL_PLATFORM_GABBRO)
-  GDrawCommandSequence *icon_sequence;
-#endif
 #if WEATHER_ANIM_5DAY
   GDrawCommandImage *pdc_icons[MAX_ROWS];  // official PebbleOS weather PDC icons (round 5-day)
   GDrawCommandImage *today_pdc;            // larger today icon for the summary header
@@ -224,9 +196,6 @@ static void prv_clock_loc_city(char *dst, size_t dst_size, const char *src);  //
 static int prv_max_scroll(void) {
 #if WEATHER_ANIM_5DAY
   return 0;  // round 5-day view is a single static screen — no scrolling
-#elif defined(PBL_PLATFORM_GABBRO)
-  int extra = (int)s_list->num_days - 1;
-  return extra > 0 ? extra * s_list->row_height : 0;
 #else
   int extra = (int)s_list->num_days - ROWS_VISIBLE;
   return extra > 0 ? extra * s_list->row_height : 0;
@@ -237,19 +206,7 @@ static void prv_fill_weekday_label(int day_index, const char *fallback,
                                    char *buffer, size_t buffer_size) {
   if (!buffer || buffer_size == 0) return;
 
-#if defined(PBL_PLATFORM_GABBRO)
-  if (fallback && fallback[0]) {
-    snprintf(buffer, buffer_size, "%s", fallback);
-    for (char *c = buffer; *c; c++) {
-      if (*c >= 'a' && *c <= 'z') *c = (char)(*c - 'a' + 'A');
-    }
-  } else {
-    snprintf(buffer, buffer_size, "---");
-  }
-  return;
-#else
   weather_fill_weekday_abbrev(day_index, fallback, buffer, buffer_size);
-#endif
 }
 
 #if WEATHER_ANIM_5DAY
@@ -294,9 +251,7 @@ static void prv_load_icons(void) {
 #if WEATHER_ANIM_5DAY
   s_list->today_header_dirty = true;   // today's date/condition changed → recompute layout
 #endif
-#if defined(PBL_PLATFORM_GABBRO)
-  return;
-#elif WEATHER_ANIM_5DAY
+#if WEATHER_ANIM_5DAY
   // Round 5-day uses the official PebbleOS weather PDC icons, cloned into RAM
   // (a system-app resource is mmap'd READ-ONLY, so draw of the raw would fault).
   for (int i = 0; i < (int)s_list->num_days; i++) {
@@ -337,28 +292,6 @@ static void prv_load_icons(void) {
 #endif
 }
 
-#if defined(PBL_PLATFORM_GABBRO)
-static void prv_draw_gabbro_pdc_icon(GContext *ctx, WeatherType weather_type,
-                                     GPoint origin) {
-  if (!s_list) return;
-  if (!s_list->icon_sequence) {
-    s_list->icon_sequence =
-        gdraw_command_sequence_create_with_resource(RESOURCE_ID_WEATHER_CLOCK_ICONS_PDC);
-    if (!s_list->icon_sequence) return;
-  }
-
-  int frame_index = (int)weather_type;
-  if (frame_index > (int)WeatherType_RainAndSnow) {
-    frame_index = WeatherType_Generic;
-  }
-
-  GDrawCommandFrame *frame =
-      gdraw_command_sequence_get_frame_by_index(s_list->icon_sequence, frame_index);
-  if (frame) {
-    gdraw_command_frame_draw(ctx, s_list->icon_sequence, frame, origin);
-  }
-}
-#endif
 
 #if WEATHER_ANIM_5DAY
 // BOTH SHAPES : the mainscreen header
@@ -426,166 +359,9 @@ static void prv_scroll_to(int target) {
   prv_scroll_to_ms(target, ANIM_MS, false);
 }
 
-#if defined(PBL_PLATFORM_GABBRO)
-static void prv_scroll_to_menu_repeat(int target) {
-  if (!s_list) return;
-  if (target < 0) target = 0;
-  if (target > prv_max_scroll()) target = prv_max_scroll();
-
-  if (s_list->anim) {
-    animation_unschedule(s_list->anim);
-    animation_destroy(s_list->anim);
-    s_list->anim = NULL;
-    s_list->scroll_offset_px = s_list->scroll_to;
-  }
-
-  prv_scroll_to_ms(target, 96, false);
-}
-#endif
 
 // ---- Drawing ----
 
-#if defined(PBL_PLATFORM_GABBRO)
-static int prv_round_content_inset(int screen_y, int screen_h) {
-  int radius = screen_h / 2;
-  int y_offset = screen_y - radius;
-  int32_t radius_sq = (int32_t)radius * radius;
-  int32_t y_sq = (int32_t)y_offset * y_offset;
-  int32_t sqrt_arg = radius_sq - y_sq;
-  if (sqrt_arg < 0) sqrt_arg = 0;
-  return GABBRO_LIST_ICON_BASE_X + radius - (int)weather_isqrt(sqrt_arg) +
-      (int)(y_sq / GABBRO_LIST_CURVE_BOOST_DIVISOR);
-}
-
-static int prv_gabbro_focus_y_for_scroll(int scroll_offset, int screen_h) {
-  int max_scroll = prv_max_scroll();
-  int top_y = GABBRO_CAP_DEPTH + GABBRO_LIST_TOP_FOCUS_GAP;
-  int bottom_y = screen_h - GABBRO_LIST_BOTTOM_FOCUS_MARGIN;
-  if (bottom_y < top_y) bottom_y = top_y;
-  if (max_scroll <= 0) return top_y;
-  if (scroll_offset < 0) scroll_offset = 0;
-  if (scroll_offset > max_scroll) scroll_offset = max_scroll;
-  return top_y + weather_scale_i32(bottom_y - top_y, scroll_offset, max_scroll);
-}
-
-static void prv_draw_gabbro_cap(GContext *ctx, int w) {
-  int hide_px = 0;
-  int hide_distance = s_list->row_height * 2;
-  if (hide_distance > 0) {
-    hide_px = (int)((int32_t)s_list->scroll_offset_px * GABBRO_CAP_DEPTH /
-                    hide_distance);
-    if (hide_px > GABBRO_CAP_DEPTH) hide_px = GABBRO_CAP_DEPTH;
-  }
-
-  int center_y = GABBRO_CAP_DEPTH - GABBRO_CAP_RADIUS +
-                 GABBRO_CAP_Y_ADJUST - hide_px;
-  if (center_y + GABBRO_CAP_RADIUS <= 0) return;
-
-  graphics_context_set_fill_color(ctx, GColorVividCerulean);
-  graphics_fill_circle(ctx, GPoint(w / 2, center_y), GABBRO_CAP_RADIUS);
-
-  graphics_context_set_text_color(ctx, GColorWhite);
-  GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
-  int safe = GABBRO_CAP_TEXT_INSET;
-
-  char time_str[8];
-  time_t now = time(NULL);
-  struct tm *lt = localtime(&now);
-  if (clock_is_24h_style()) {
-    strftime(time_str, sizeof(time_str), "%H:%M", lt);
-  } else {
-    strftime(time_str, sizeof(time_str), "%I:%M", lt);
-    if (time_str[0] == '0') memmove(time_str, time_str + 1, sizeof(time_str) - 1);
-  }
-
-  graphics_draw_text(ctx, time_str, font,
-      GRect(safe, GABBRO_CAP_TIME_Y - hide_px, w - safe * 2, 18),
-      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-
-  const char *loc = (s_list->num_days > 0 && s_list->days[0].location_name[0])
-                      ? s_list->days[0].location_name : "";
-  char city_name[48];
-  size_t city_len = 0;
-  while (loc[city_len] && loc[city_len] != ',' &&
-         city_len < sizeof(city_name) - 1) {
-    city_name[city_len] = loc[city_len];
-    city_len++;
-  }
-  while (city_len > 0 && city_name[city_len - 1] == ' ') city_len--;
-  city_name[city_len] = '\0';
-  graphics_draw_text(ctx, city_name, font,
-      GRect(safe, GABBRO_CAP_LOCATION_Y - hide_px, w - safe * 2, 19),
-      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-}
-
-static void prv_canvas_draw_gabbro(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_bounds(layer);
-  int W = bounds.size.w;
-  int H = bounds.size.h;
-  int off = s_list->scroll_offset_px;
-  int focus_y = prv_gabbro_focus_y_for_scroll(off, H) + GABBRO_LIST_CENTER_Y_SHIFT;
-  int rh = s_list->row_height;
-
-  graphics_context_set_fill_color(ctx, GColorWhite);
-  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-  graphics_context_set_compositing_mode(ctx, GCompOpSet);
-
-  for (int i = 0; i < (int)s_list->num_days; i++) {
-    if (off <= 0 && i >= GABBRO_LIST_TOP_REST_VISIBLE_ROWS) {
-      continue;
-    }
-
-    int row_center_y = focus_y + i * rh - off;
-    if (row_center_y < -GABBRO_LIST_FOCUSED_HEIGHT ||
-        row_center_y > H + GABBRO_LIST_FOCUSED_HEIGHT) {
-      continue;
-    }
-
-    int delta = row_center_y - focus_y;
-    int abs_delta = delta < 0 ? -delta : delta;
-    bool focused = abs_delta <= rh / 2;
-    const WeatherLocationForecast *f = &s_list->days[i];
-
-    int inset = prv_round_content_inset(row_center_y, H);
-    int icon_x = inset;
-    int draw_icon_size = GABBRO_LIST_ICON_SIZE;
-    int icon_y = row_center_y - draw_icon_size / 2;
-    int icon_cx = icon_x + draw_icon_size / 2;
-    int icon_r = focused ? GABBRO_LIST_FOCUS_RADIUS : GABBRO_LIST_ICON_RADIUS;
-
-    GColor bg = prv_weather_bg_color(f->current_weather_type);
-    if (!gcolor_equal(bg, GColorClear)) {
-      graphics_context_set_fill_color(ctx, bg);
-      graphics_fill_circle(ctx, GPoint(icon_cx, row_center_y), (uint16_t)icon_r);
-    }
-
-    prv_draw_gabbro_pdc_icon(ctx, f->current_weather_type, GPoint(icon_x, icon_y));
-
-    char weekday_label[16];
-    prv_fill_weekday_label(i, f->label, weekday_label, sizeof(weekday_label));
-
-    int text_x = icon_x + draw_icon_size + GABBRO_LIST_TEXT_GAP;
-    int text_w = W - text_x - inset - GABBRO_LIST_EDGE_PAD;
-    if (text_w < 28) text_w = 28;
-    graphics_context_set_text_color(ctx, focused ? GColorBlack : GColorDarkGray);
-
-    if (focused) {
-      graphics_draw_text(ctx, weekday_label, s_list->day_font,
-          GRect(text_x, row_center_y - 29, text_w, 28),
-          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-      graphics_draw_text(ctx, s_list->condition_str[i], s_list->condition_font,
-          GRect(text_x, row_center_y - 2, text_w, 22),
-          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    } else {
-      graphics_draw_text(ctx, weekday_label, s_list->loc_font,
-          GRect(text_x, row_center_y - 11, text_w, 22),
-          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    }
-  }
-
-  prv_draw_gabbro_cap(ctx, W);
-}
-#endif
 
 // Shared animation boilerplate: create + duration + curve + impl + optional stopped
 // handler + schedule. Every moook here runs a manual curve in its update proc, so
@@ -2747,10 +2523,6 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
 #else
   if (!s_list) return;
 #endif
-#if defined(PBL_PLATFORM_GABBRO)
-  prv_canvas_draw_gabbro(layer, ctx);
-  return;
-#endif
 #if WEATHER_ANIM_5DAY
   if (s_list->report_fx == 4) {
     // Stage 4 — the paper's bow: white card, the paper squash-stretching off the left
@@ -3131,22 +2903,11 @@ static void prv_click_up_down(ClickRecognizerRef recognizer, void *context) {
   return;
 #endif
   if (down && s_list->scroll_to >= prv_max_scroll()) {
-#if defined(PBL_PLATFORM_GABBRO)
-    return;
-#else
     if (s_list->on_city_select_cb) {
       s_list->on_city_select_cb(s_list->on_city_select_ctx);
     }
     return;
-#endif
   }
-#if defined(PBL_PLATFORM_GABBRO)
-  if (click_recognizer_is_repeating(recognizer)) {
-    prv_scroll_to_menu_repeat(s_list->scroll_to +
-                              (down ? s_list->row_height : -s_list->row_height));
-    return;
-  }
-#endif
   prv_scroll_to(s_list->scroll_to + (down ? s_list->row_height : -s_list->row_height));
 }
 
@@ -3318,7 +3079,7 @@ static void prv_touch_handler(const TouchEvent *event, void *context) {
 #endif
 
 // ---- Hold-to-scroll ----
-#if !defined(PBL_PLATFORM_GABBRO) && !WEATHER_ANIM_5DAY
+#if !WEATHER_ANIM_5DAY
 // Rectangular builds keep the previous physics-style continuous scrolling.
 // A 16ms ticker nudges scroll_offset_px by a velocity that ramps up each tick.
 // Velocity stored in 1/16 px units to allow smooth sub-pixel accumulation.
@@ -3384,16 +3145,11 @@ static void prv_list_raw_down_rel(ClickRecognizerRef r, void *ctx)   { prv_list_
 #endif
 
 static void prv_click_provider(void *context) {
-#if defined(PBL_PLATFORM_GABBRO)
-  window_single_repeating_click_subscribe(BUTTON_ID_UP, 100, prv_click_up_down);
-  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 100, prv_click_up_down);
-#else
   window_single_click_subscribe(BUTTON_ID_UP,     prv_click_up_down);
   window_single_click_subscribe(BUTTON_ID_DOWN,   prv_click_up_down);
-#endif
   window_single_click_subscribe(BUTTON_ID_BACK,   prv_click_back);
   window_single_click_subscribe(BUTTON_ID_SELECT, prv_click_select);
-#if !defined(PBL_PLATFORM_GABBRO) && !WEATHER_ANIM_5DAY
+#if !WEATHER_ANIM_5DAY
   // The legacy continuous hold-to-scroll spins prv_list_tick_cb against scroll_offset_px,
   // which is meaningless for the single-screen 5-day view (max scroll 0) and would consume
   // a held DOWN press alongside the header transition. Disabled for WEATHER_ANIM_5DAY.
@@ -3508,12 +3264,8 @@ static void prv_icon_driver_start(void) {
 
 static void prv_window_load(Window *window) {
   GRect bounds = layer_get_bounds(window_get_root_layer(window));
-#if defined(PBL_PLATFORM_GABBRO)
-  s_list->row_height = GABBRO_LIST_ROW_PITCH;
-#else
   // Divide available height evenly so exactly ROWS_VISIBLE rows fill the screen.
   s_list->row_height = (bounds.size.h - LIST_TOP_Y) / ROWS_VISIBLE;
-#endif
   // Apply initial scroll so the focused day is at the top.
   {
     int initial = s_list->start_day_index * s_list->row_height;
@@ -3528,15 +3280,9 @@ static void prv_window_load(Window *window) {
   layer_set_update_proc(s_list->canvas, prv_canvas_draw);
   layer_add_child(window_get_root_layer(window), s_list->canvas);
 
-#if defined(PBL_PLATFORM_GABBRO)
-  s_list->day_font       = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  s_list->condition_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  s_list->loc_font       = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-#else
   s_list->day_font       = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   s_list->condition_font = s_list->day_font;
   s_list->loc_font       = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
-#endif
 
   prv_load_icons();
   prv_format_conditions();
@@ -3736,12 +3482,6 @@ static void prv_window_unload(Window *window) {
 #endif
   s_pending_hslide_in = false;   // an armed-but-unconsumed slide must not leak into a relaunch
 
-#if defined(PBL_PLATFORM_GABBRO)
-  if (s_list->icon_sequence) {
-    gdraw_command_sequence_destroy(s_list->icon_sequence);
-    s_list->icon_sequence = NULL;
-  }
-#endif
 #if WEATHER_ANIM_5DAY
   if (s_list->sun_timer) {
     app_timer_cancel(s_list->sun_timer);
@@ -3943,7 +3683,7 @@ void forecast_list_reset(void) {
   s_pending_squash_mode = 0;
   s_pending_return_fly = false;
 #endif
-#if !defined(PBL_PLATFORM_GABBRO) && !WEATHER_ANIM_5DAY
+#if !WEATHER_ANIM_5DAY
   s_list_hold_timer = NULL;
 #endif
 }
