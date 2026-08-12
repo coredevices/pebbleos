@@ -110,6 +110,12 @@ typedef struct {
 } ClockFaceData;
 
 static ClockFaceData *s_cf;
+
+// Crash-relaunch hygiene (see forecast_list_reset): builtin-app statics
+// survive an ungraceful kill. Assign only — the old app heap is gone.
+void clock_face_reset(void) {
+  s_cf = NULL;
+}
 static ClockFaceWrapCallback s_wrap_callback;
 static void *s_wrap_context;
 

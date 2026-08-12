@@ -32,3 +32,7 @@ void clock_face_dismiss(bool animated);
 // Update hourly temperatures for a given day (24 signed values).
 // The update is applied only if the clock is currently showing that day.
 void clock_face_update_hourly_temps_for_day(int day_index, const int8_t *temps, size_t count);
+
+// Drop stale module statics at app launch (crash-relaunch hygiene) —
+// assign-only, called from prv_init before anything else touches the module.
+void clock_face_reset(void);

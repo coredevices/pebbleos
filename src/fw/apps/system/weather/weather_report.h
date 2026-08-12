@@ -24,3 +24,7 @@ bool weather_report_is_showing(void);
 
 // Re-point the borrowed days array after a data refresh. No-op when the view isn't showing.
 void weather_report_update_data(const WeatherLocationForecast *days, size_t num_days);
+
+// Drop stale module statics at app launch (crash-relaunch hygiene) —
+// assign-only, called from prv_init before anything else touches the module.
+void weather_report_reset(void);

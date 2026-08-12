@@ -161,6 +161,19 @@ static AppTimer *s_hold_timer   = NULL;
 static bool      s_hold_is_down = false;
 static int       s_hold_repeat  = 0;
 
+// Crash-relaunch hygiene (see forecast_list_reset): builtin-app statics
+// survive an ungraceful kill. Assign only — the old app heap is gone.
+void weather_report_reset(void) {
+  s_report = NULL;
+  s_slide_in_anim = NULL;
+  s_back_slide_anim = NULL;
+  s_hold_timer = NULL;
+  s_hold_is_down = false;
+  s_hold_repeat = 0;
+  s_pending_static_in = false;
+}
+
+
 static void prv_hold_timer_cb(void *ctx) {
   s_hold_timer = NULL;
   if (!s_report) return;
@@ -466,6 +479,18 @@ static void prv_touch_handler(const TouchEvent *event, void *context) {
 static AppTimer *s_hold_timer   = NULL;
 static bool      s_hold_is_down = false;
 static int       s_hold_repeat  = 0;
+
+// Crash-relaunch hygiene (see forecast_list_reset): builtin-app statics
+// survive an ungraceful kill. Assign only — the old app heap is gone.
+void weather_report_reset(void) {
+  s_report = NULL;
+  s_slide_in_anim = NULL;
+  s_hold_timer = NULL;
+  s_hold_is_down = false;
+  s_hold_repeat = 0;
+  s_pending_static_in = false;
+}
+
 
 static void prv_hold_timer_cb(void *ctx) {
   s_hold_timer = NULL;

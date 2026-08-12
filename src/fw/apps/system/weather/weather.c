@@ -611,6 +611,15 @@ static NOINLINE void prv_init(void) {
   WeatherAppData *data = app_zalloc_check(sizeof(WeatherAppData));
   app_state_set_user_data(data);
   s_data = data;
+  // Builtin-app statics live in firmware .bss and survive a crashed previous
+  // run (an ungraceful kill skips every unload handler) — drop stale module
+  // state before anything below can write through dangling pointers, same as
+  // the s_page/s_data re-inits here. The old app heap is gone: assign only.
+  forecast_list_reset();
+  weather_report_reset();
+  clock_face_reset();
+  expanded_view_reset();
+  saved_locations_reset();
 #if WEATHER_PLATFORM_TOUCH_COLOR
   // v4.32 runs a SYSTEM touch-navigation twin inside every system app by default: a system
   // subscription slot sees each touch first and holds gestures while it classifies swipes

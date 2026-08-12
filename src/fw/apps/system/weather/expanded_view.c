@@ -69,6 +69,12 @@ typedef struct {
 
 static ExpandedViewData *s_ev;
 
+// Crash-relaunch hygiene (see forecast_list_reset): builtin-app statics
+// survive an ungraceful kill. Assign only — the old app heap is gone.
+void expanded_view_reset(void) {
+  s_ev = NULL;
+}
+
 // ---- Sunset computation (fixed-point) -------------------------------------
 // There is no sunset field in the synced weather data and no firmware sunset API,
 // so compute it from lat/lon + date with the standard sunrise/sunset algorithm,

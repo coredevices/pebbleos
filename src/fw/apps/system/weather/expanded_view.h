@@ -78,3 +78,7 @@ bool expanded_view_is_showing(void);
 // No-op if the card is not currently showing.
 void expanded_view_update_data(const WeatherLocationForecast *today,
                                int16_t lat_e2, int16_t lon_e2, int16_t utc_off_min);
+
+// Drop stale module statics at app launch (crash-relaunch hygiene) —
+// assign-only, called from prv_init before anything else touches the module.
+void expanded_view_reset(void);

@@ -58,3 +58,7 @@ void forecast_list_update_data(const WeatherLocationForecast *days, size_t num_d
 // the icon-fly landing.
 void forecast_list_set_glance(const char *sunset, const char *temp, int uv, int precip,
                               int wind);
+
+// Drop stale module statics at app launch (crash-relaunch hygiene) —
+// assign-only, called from prv_init before anything else touches the module.
+void forecast_list_reset(void);

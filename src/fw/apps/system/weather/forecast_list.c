@@ -3925,3 +3925,25 @@ void forecast_list_set_glance(const char *sunset, const char *temp, int uv, int 
   (void)sunset; (void)temp; (void)uv; (void)precip; (void)wind;
 #endif
 }
+
+// Builtin-app statics live in firmware .bss and survive a crashed run (an
+// ungraceful kill skips every unload handler). Called from prv_init before
+// anything else touches this module: drop stale state so the new launch can
+// never write through dangling pointers. Assign only — the old app heap is
+// gone, so freeing or cancelling stale handles would itself be use-after-free.
+void forecast_list_reset(void) {
+  s_list = NULL;
+  s_pending_hslide_in = false;
+  s_select_exit_anim = NULL;
+  s_select_exit_done = NULL;
+  s_select_exit_ctx = NULL;
+#if WEATHER_ANIM_5DAY
+  s_hslide_anim = NULL;
+  s_report_anim = NULL;
+  s_pending_squash_mode = 0;
+  s_pending_return_fly = false;
+#endif
+#if !defined(PBL_PLATFORM_GABBRO) && !WEATHER_ANIM_5DAY
+  s_list_hold_timer = NULL;
+#endif
+}

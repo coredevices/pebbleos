@@ -40,6 +40,16 @@ static int s_entry_count;
 #define GLANCE_WEATHER_TYPES 9  // WeatherType_PartlyCloudy(0) .. WeatherType_RainAndSnow(8)
 static GBitmap *s_glance_icons[GLANCE_WEATHER_TYPES];
 
+// Crash-relaunch hygiene (see forecast_list_reset): builtin-app statics
+// survive an ungraceful kill. Assign only — the old app heap is gone.
+void saved_locations_reset(void) {
+  s_view = NULL;
+  s_entry_count = 0;
+  for (int i = 0; i < GLANCE_WEATHER_TYPES; i++) {
+    s_glance_icons[i] = NULL;
+  }
+}
+
 static void prv_glance_destroy_icons(void) {
   for (int i = 0; i < GLANCE_WEATHER_TYPES; i++) {
     if (s_glance_icons[i]) {
