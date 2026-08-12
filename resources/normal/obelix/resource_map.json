@@ -371,10 +371,10 @@
     {
       "type": "raw",
       "name": "WX_WEATHER_ICONS_PDC",
-      "file": "normal/base/raw/wx_icons_stub.bin",
+      "file": "normal/base/raw/empty_stub.raw",
       "_comment": ["Round-only asset (weather_app_layout.c loads it under PBL_ROUND only):",
                    "override with a 0-byte stub on this rect board. Entry merged BY NAME so",
-                   "resource ids (incl. the weather app's pinned 492-514) are unchanged."]
+                   "resource ids are unchanged (the app aliases ids symbolically)."]
     }
   ]
 }

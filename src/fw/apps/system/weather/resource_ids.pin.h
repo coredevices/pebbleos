@@ -30,21 +30,24 @@
 #define RESOURCE_ID_IMAGE_RAIN_AND_SNOW_SMALL   RESOURCE_ID_WX_RAINSNOW_SMALL
 #define RESOURCE_ID_IMAGE_GENERIC_WEATHER_SMALL RESOURCE_ID_WX_GENERIC_SMALL
 
-// ---- LARGE (80x80 PDC) weather icons — the SYSTEM pack's own big weather icons
-//      (rasterised from Pebble_80x80_*.svg). These are the exact icons the Timeline
-//      weather pin card renders, so the expanded card matches it. Aliased to the
-//      generated RESOURCE_ID_*_LARGE names (resource_ids.auto.h, included via
-//      pebble_compat.h) — the numeric ids are PER-PLATFORM, so raw numbers would
-//      silently drift on gabbro. Drawn via gdraw_command_image_* (PDC vectors). ----
-#define RESOURCE_ID_IMAGE_PARTLY_CLOUDY_LARGE   RESOURCE_ID_PARTLY_CLOUDY_LARGE
-#define RESOURCE_ID_IMAGE_CLOUDY_DAY_LARGE      RESOURCE_ID_CLOUDY_DAY_LARGE
+// ---- LARGE (80x80 PDC) weather icons. Aliased to the generated
+//      RESOURCE_ID_* names (resource_ids.auto.h, included via pebble_compat.h)
+//      — the numeric ids are PER-PLATFORM, so raw numbers would silently drift
+//      on gabbro. Drawn via gdraw_command_image_* (PDC vectors).
+//      Four of these (sunny/cloudy/partly/generic) point at weather-scoped
+//      WX_*_LARGE copies: the shared Pebble_80x80_* art is rendered by the
+//      Timeline pin cards and peeks too, so this app's restyled versions live
+//      as separate resources instead of restyling art other UIs depend on. The
+//      remaining five were never restyled and stay on the shared ids. ----
+#define RESOURCE_ID_IMAGE_PARTLY_CLOUDY_LARGE   RESOURCE_ID_WX_PARTLY_LARGE
+#define RESOURCE_ID_IMAGE_CLOUDY_DAY_LARGE      RESOURCE_ID_WX_CLOUDY_LARGE
 #define RESOURCE_ID_IMAGE_LIGHT_SNOW_LARGE      RESOURCE_ID_LIGHT_SNOW_LARGE
 #define RESOURCE_ID_IMAGE_LIGHT_RAIN_LARGE      RESOURCE_ID_LIGHT_RAIN_LARGE
 #define RESOURCE_ID_IMAGE_HEAVY_RAIN_LARGE      RESOURCE_ID_HEAVY_RAIN_LARGE
 #define RESOURCE_ID_IMAGE_HEAVY_SNOW_LARGE      RESOURCE_ID_HEAVY_SNOW_LARGE
 #define RESOURCE_ID_IMAGE_RAIN_AND_SNOW_LARGE   RESOURCE_ID_RAINING_AND_SNOWING_LARGE
-#define RESOURCE_ID_IMAGE_GENERIC_WEATHER_LARGE RESOURCE_ID_GENERIC_WEATHER_LARGE
-#define RESOURCE_ID_IMAGE_SUNNY_DAY_LARGE       RESOURCE_ID_SUNNY_DAY_LARGE
+#define RESOURCE_ID_IMAGE_GENERIC_WEATHER_LARGE RESOURCE_ID_WX_GENERIC_LARGE
+#define RESOURCE_ID_IMAGE_SUNNY_DAY_LARGE       RESOURCE_ID_WX_SUNNY_LARGE
 
 // ---- CLOCK icons: gabbro-only (compiled out on emery). Mapped to the TINY
 //      (25x25) ids so the source matches CLOCK_ICON_SIZE (25) — previously

@@ -2,11 +2,6 @@
   "comments": "This file contains resource definitions for Normal FW and 'common' overrides",
   "media": [
     {
-      "type": "png",
-      "name": "IMAGE_SUNNY_DAY_SMALL",
-      "file": "normal/base/images/weather_sunny_50x50.png"
-    },
-    {
       "name": "FONT_FALLBACK_INTERNAL",
       "characterRegex": "[0-9a-fx]"
     },
@@ -356,55 +351,55 @@
       "type": "font",
       "name": "LECO_20_BOLD_NUMBERS",
       "file": "normal/base/pbf/LECO_20_BOLD_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,\u00b0APMHBLTIN-]"
+      "characterRegex": "[ 0-9:/.,°APMHBLTIN-]"
     },
     {
       "type": "font",
       "name": "LECO_26_BOLD_NUMBERS_AM_PM",
       "file": "normal/base/pbf/LECO_26_BOLD_NUMBERS_AM_PM.pbf",
-      "characterRegex": "[ 0-9:/.,\u00b0ABPMHIK\\+\\-\\%]"
+      "characterRegex": "[ 0-9:/.,°ABPMHIK\\+\\-\\%]"
     },
     {
       "type": "font",
       "name": "LECO_32_BOLD_NUMBERS",
       "file": "normal/base/pbf/LECO_32_BOLD_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,\u00b0-%]"
+      "characterRegex": "[ 0-9:/.,°-%]"
     },
     {
       "type": "font",
       "name": "LECO_36_BOLD_NUMBERS",
       "file": "normal/base/pbf/LECO_36_BOLD_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,\u00b0-%+HM]"
+      "characterRegex": "[ 0-9:/.,°-%+HM]"
     },
     {
       "type": "font",
       "name": "LECO_38_BOLD_NUMBERS",
       "file": "normal/base/pbf/LECO_38_BOLD_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,\u00b0?-]"
+      "characterRegex": "[ 0-9:/.,°?-]"
     },
     {
       "type": "font",
       "name": "LECO_42_NUMBERS",
       "file": "normal/base/pbf/LECO_42_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,\u00b0-]"
+      "characterRegex": "[ 0-9:/.,°-]"
     },
     {
       "type": "font",
       "name": "LECO_28_LIGHT_NUMBERS",
       "file": "normal/base/pbf/LECO_28_LIGHT_NUMBERS.pbf",
-      "characterRegex": "[ 0-9:/.,\u00b0-]"
+      "characterRegex": "[ 0-9:/.,°-]"
     },
     {
       "type": "font",
       "name": "LECO_60_NUMBERS_AM_PM",
       "file": "normal/base/pbf/LECO_60_NUMBERS_AM_PM.pbf",
-      "characterRegex": "[ 0-9:/.,\u00b0ABPMHIK\\+\\-\\%]"
+      "characterRegex": "[ 0-9:/.,°ABPMHIK\\+\\-\\%]"
     },
     {
       "type": "font",
       "name": "LECO_60_BOLD_NUMBERS_AM_PM",
       "file": "normal/base/pbf/LECO_60_BOLD_NUMBERS_AM_PM.pbf",
-      "characterRegex": "[ 0-9:/.,\u00b0ABPMHIK\\+\\-\\%]"
+      "characterRegex": "[ 0-9:/.,°ABPMHIK\\+\\-\\%]"
     },
     {
       "type": "pbi8",
@@ -2696,6 +2691,26 @@
       "type": "pdc",
       "name": "WEATHER_REPORT_PAPER",
       "file": "normal/base/images/Pebble_80x80_Weather_report.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "WX_SUNNY_LARGE",
+      "file": "normal/base/images/wx_sunny_day_80x80.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "WX_CLOUDY_LARGE",
+      "file": "normal/base/images/wx_cloudy_day_80x80.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "WX_PARTLY_LARGE",
+      "file": "normal/base/images/wx_partly_cloudy_80x80.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "WX_GENERIC_LARGE",
+      "file": "normal/base/images/wx_generic_weather_80x80.svg"
     }
   ],
   "timeline": [
