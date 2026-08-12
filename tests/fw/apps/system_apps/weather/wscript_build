@@ -3,7 +3,7 @@ from tools.waf.pebble_test import clar
 rendering_sources = \
     " src/fw/applib/fonts/codepoint.c" \
     " src/fw/applib/graphics/${BITDEPTH}_bit/framebuffer.c" \
-    " src/fw/applib/graphics/8_bit/bitblt_private.c" \
+    " src/fw/applib/graphics/${BITDEPTH}_bit/bitblt_private.c" \
     " src/fw/applib/graphics/bitblt.c" \
     " src/fw/applib/graphics/framebuffer.c" \
     " src/fw/applib/graphics/gbitmap.c" \
@@ -91,6 +91,6 @@ clar(ctx,
      defines=ctx.env.test_image_defines + ["USE_DISPLAY_PERIMETER_ON_FONT_LAYOUT=1"],
      runtime_deps=ctx.env.test_pngs + ctx.env.test_pbis + ctx.env.test_pfos,
      override_includes=['dummy_board'],
-     platforms=['obelix', 'gabbro'])
+     platforms=['obelix', 'gabbro', 'asterix'])
 
 # vim:filetype=python
