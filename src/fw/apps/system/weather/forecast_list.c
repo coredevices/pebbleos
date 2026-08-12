@@ -392,17 +392,7 @@ static void *s_select_exit_ctx;
 // discs, and a two-line hi/lo dot graph beneath (high temp above each warm dot, low
 // below each cool dot). Renders on round (gabbro/getafix, 260x260) AND emery/obelix
 // (200x228); the geometry below branches round-circle vs emery-rectangle.
-// TODAY-IN-FAN (boss request, 2nd application — the first was demoed and reverted;
-// re-applied onto the scroll-interpolated spread): today leads the fan as a 6th, LEFTMOST
-// column so the current day anchors the week. All steps are the 5-col steps x4/5, holding
-// both the rest span AND the scrolled (precipitation view) span exactly. REVERT: flip the
-// round arm to 0 — every original value lives in an #else.
-#define R5_TODAY_IN_FAN PBL_IF_ROUND_ELSE(0, 0)   // OFF — tried and reverted
-#if R5_TODAY_IN_FAN
-#define R5_MAX_COLS     6
-#else
 #define R5_MAX_COLS     5
-#endif
 // Column tiers. Round fans them inward as they descend to inscribe the circle; emery
 // is a rectangle, so its three tiers share one uniform step (dots sit straight under
 // the icons) and pack tighter to fit the 200px width.
@@ -418,28 +408,16 @@ static void *s_select_exit_ctx;
 // originals, and the column build interpolates between them on the section scroll so the
 // precipitation view's icon row lands PIXEL-IDENTICAL to its pre-spread layout (the spread applies to the
 // mainscreen only). On rect both pairs are equal -> the lerp is a no-op.
-#if R5_TODAY_IN_FAN
-#define R5_COL_STEP_ICON 38                         // 48*4/5 — 6 cols, rest span held
-#define R5_COL_STEP_HIGH 40                         // 50*4/5
-#define R5_COL_STEP_ICON_SCROLLED 34                // 42*4/5 — scrolled span held too
-#define R5_COL_STEP_HIGH_SCROLLED 36                // 45*4/5
-#define R5_COL_STEP_LOW  34                         // 42*4/5
-#else
 #define R5_COL_STEP_ICON PBL_IF_ROUND_ELSE(48, 38)  // icon / day-name row at REST (was 42)
 #define R5_COL_STEP_HIGH PBL_IF_ROUND_ELSE(50, 38)  // high temps at REST (was 45)
 #define R5_COL_STEP_ICON_SCROLLED PBL_IF_ROUND_ELSE(42, 38)  // precip view: original pitch
 #define R5_COL_STEP_HIGH_SCROLLED PBL_IF_ROUND_ELSE(45, 38)
 #define R5_COL_STEP_LOW  PBL_IF_ROUND_ELSE(42, 38)  // low temps — chord-bound, unchanged
-#endif
 #define R5_HEADER_Y     14    // header pinned at top; everything below is centred
 #define R5_DAYNAME_Y    PBL_IF_ROUND_ELSE(94, 84)
 #define R5_ICON_CY      PBL_IF_ROUND_ELSE(130, 120) // icon row centre-y
 #define R5_ICON_SIZE    25
-#if R5_TODAY_IN_FAN
-#define R5_DISC_R       14   // r17 discs would touch at the 6-col pitch; r14 keeps clear gaps
-#else
 #define R5_DISC_R       (R5_ICON_SIZE * 7 / 10)  // 17 — same disc as old list + mainscreen
-#endif
 #define R5_PRECIP_Y     150
 #define R5_GRAPH_TOP    PBL_IF_ROUND_ELSE(172, 166) // y of the warmest dot
 #define R5_GRAPH_BOT    PBL_IF_ROUND_ELSE(202, 202) // y of the coolest dot
@@ -2032,21 +2010,14 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
     }
   }
 #endif
-#if R5_TODAY_IN_FAN
-  int n = total;                      // today LEADS the fan (6 columns)
-  if (n > R5_MAX_COLS) n = R5_MAX_COLS;
-  const WeatherLocationForecast *fan = &s_list->days[0];  // fan = today onward
-#else
   // the strip STARTS AT TODAY — the header above shows conditions RIGHT NOW
   // (current-hour), and the strip's first column is today's daily forecast, then the next
-  // four days Same five
-  // columns, same geometry — only the day window shifts.
+  // four days. Same five columns, same geometry — only the day window shifts.
   const int fan_start = 0;
   int n = total - fan_start;
   if (n > R5_MAX_COLS) n = R5_MAX_COLS;
   if (n < 0) n = 0;
   const WeatherLocationForecast *fan = &s_list->days[fan_start];
-#endif
 
   // Three column tiers, each horizontally centred, fanning inward as they descend.
   int col_icon[R5_MAX_COLS], col_high[R5_MAX_COLS], col_low[R5_MAX_COLS];
