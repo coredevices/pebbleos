@@ -1,6 +1,11 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+// The rich weather app builds ONLY for the emery/gabbro display platforms
+// (obelix, getafix and their QEMU twins) — every other board keeps the stock
+// upstream weather app in legacy/.
+#include "weather_platform.h"
+#if WEATHER_PLATFORM_TOUCH_COLOR
 #include "weather_report.h"
 #include "weather_math.h"
 #include "forecast_list.h"   // arm_hslide_in — the report-BACK glide pair
@@ -663,3 +668,4 @@ void weather_report_update_data(const WeatherLocationForecast *days, size_t num_
 }
 
 #endif  // PBL_ROUND
+#endif  // platform gate

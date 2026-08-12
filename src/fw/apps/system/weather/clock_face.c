@@ -1,6 +1,11 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+// The rich weather app builds ONLY for the emery/gabbro display platforms
+// (obelix, getafix and their QEMU twins) — every other board keeps the stock
+// upstream weather app in legacy/.
+#include "weather_platform.h"
+#if WEATHER_PLATFORM_TOUCH_COLOR
 #include "clock_face.h"
 #include "weather.h"
 #include "applib/ui/app_window_stack.h"
@@ -1225,3 +1230,4 @@ void clock_face_set_tomorrow_hourly(const uint8_t *types, const int8_t *temps, s
   s_cf->tomorrow_hourly_valid = true;
   if (s_cf->canvas) layer_mark_dirty(s_cf->canvas);
 }
+#endif  // platform gate

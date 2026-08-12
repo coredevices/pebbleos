@@ -1,6 +1,11 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+// The rich weather app builds ONLY for the emery/gabbro display platforms
+// (obelix, getafix and their QEMU twins) — every other board keeps the stock
+// upstream weather app in legacy/.
+#include "weather_platform.h"
+#if WEATHER_PLATFORM_TOUCH_COLOR
 #include "expanded_view.h"
 #include "weather_types.h"
 #include "weather_math.h"
@@ -742,3 +747,4 @@ void expanded_view_update_data(const WeatherLocationForecast *today,
   prv_set_from_forecast(today, lat_e2, lon_e2, utc_off_min);
   if (s_ev->canvas) layer_mark_dirty(s_ev->canvas);
 }
+#endif  // platform gate

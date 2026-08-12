@@ -1,6 +1,11 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+// The rich weather app builds ONLY for the emery/gabbro display platforms
+// (obelix, getafix and their QEMU twins) — every other board keeps the stock
+// upstream weather app in legacy/.
+#include "weather_platform.h"
+#if WEATHER_PLATFORM_TOUCH_COLOR
 #include "saved_locations.h"
 
 #include "weather_data_source.h"
@@ -557,3 +562,4 @@ void saved_locations_push(const SavedLocationsConfig *config) {
 
   window_stack_push(view->window, true);
 }
+#endif  // platform gate

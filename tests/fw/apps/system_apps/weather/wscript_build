@@ -89,7 +89,13 @@ clar(ctx,
                         " src/fw/util/buffer.c" \
                         " tests/fixtures/resources/timeline_resource_table.auto.c",
      test_sources_ant_glob = "test_weather_app_layout.c",
-     defines=ctx.env.test_image_defines + ["USE_DISPLAY_PERIMETER_ON_FONT_LAYOUT=1"],
+     # Both test platforms (obelix/emery, gabbro) take the RICH weather app; its
+     # TUs are platform-gated (weather_platform.h). Use the SDK platform macros
+     # to satisfy the gate — CONFIG_TOUCH would leak into shared applib sources
+     # (window.c pulls the system touch-nav registry, unstubbed here).
+     defines=ctx.env.test_image_defines + ["USE_DISPLAY_PERIMETER_ON_FONT_LAYOUT=1",
+                                           "PBL_PLATFORM_EMERY=1",
+                                           "PBL_PLATFORM_GABBRO=1"],
      runtime_deps=ctx.env.test_pngs + ctx.env.test_pbis + ctx.env.test_pfos,
      override_includes=['dummy_board'],
      platforms=['obelix', 'gabbro'])

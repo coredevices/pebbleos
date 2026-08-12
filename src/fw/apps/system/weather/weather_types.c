@@ -1,6 +1,11 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+// The rich weather app builds ONLY for the emery/gabbro display platforms
+// (obelix, getafix and their QEMU twins) — every other board keeps the stock
+// upstream weather app in legacy/.
+#include "weather_platform.h"
+#if WEATHER_PLATFORM_TOUCH_COLOR
 #include "weather_types.h"
 #include "resource_ids.pin.h"
 
@@ -76,3 +81,4 @@ uint32_t weather_type_icon_large_resource(WeatherType weather_type) {
   return s_resources[weather_type_slot_index(weather_type)];
 }
 
+#endif  // platform gate

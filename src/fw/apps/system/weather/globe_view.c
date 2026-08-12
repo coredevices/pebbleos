@@ -1,6 +1,11 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+// The rich weather app builds ONLY for the emery/gabbro display platforms
+// (obelix, getafix and their QEMU twins) — every other board keeps the stock
+// upstream weather app in legacy/.
+#include "weather_platform.h"
+#if WEATHER_PLATFORM_TOUCH_COLOR
 /**
  * globe_view.c
  * Globe animation view implementation
@@ -4065,3 +4070,4 @@ void globe_view_dismiss(GlobeView *view, bool animated) {
     globe_view_stop_animation(view);
     window_stack_remove(view->window, animated);
 }
+#endif  // platform gate

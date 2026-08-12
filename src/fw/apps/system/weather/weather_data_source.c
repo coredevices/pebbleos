@@ -2,6 +2,12 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 //! Implementation of the weather data-source adapter. This translation unit is
 //! the only one that includes the firmware weather headers.
+
+// The rich weather app builds ONLY for the emery/gabbro display platforms
+// (obelix, getafix and their QEMU twins) — every other board keeps the stock
+// upstream weather app in legacy/.
+#include "weather_platform.h"
+#if WEATHER_PLATFORM_TOUCH_COLOR
 #include "weather_data_source.h"
 
 #include "pbl/services/weather/weather_service.h"
@@ -449,3 +455,4 @@ bool weather_ds_read_index(int index, WxDsForecast *out) {
 #endif
   return false;
 }
+#endif  // platform gate

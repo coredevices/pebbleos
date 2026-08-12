@@ -2,6 +2,11 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+// The rich weather app builds ONLY for the emery/gabbro display platforms
+// (obelix, getafix and their QEMU twins) — every other board keeps the stock
+// upstream weather app in legacy/.
+#include "weather_platform.h"
+#if WEATHER_PLATFORM_TOUCH_COLOR
 //! Weather system app — the rich ported UI, fed by the weather BlobDB.
 //!
 //! The animated forecast (PAGE_LIST) is the home/base window of the carousel
@@ -707,3 +712,4 @@ const PebbleProcessMd* weather_app_get_info(void) {
   };
   return weather_ds_supported() ? (const PebbleProcessMd *)&s_weather_app_info : NULL;
 }
+#endif  // platform gate

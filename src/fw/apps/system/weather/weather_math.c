@@ -1,6 +1,11 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+// The rich weather app builds ONLY for the emery/gabbro display platforms
+// (obelix, getafix and their QEMU twins) — every other board keeps the stock
+// upstream weather app in legacy/.
+#include "weather_platform.h"
+#if WEATHER_PLATFORM_TOUCH_COLOR
 #include "weather_math.h"
 #include "applib/ui/animation_interpolate.h"
 #include <string.h>
@@ -343,3 +348,4 @@ void weather_draw_lava_ring(GContext *ctx, GPoint center, int outer_r,
     graphics_fill_circle(ctx, GPoint(bx, by), 1);
   }
 }
+#endif  // platform gate
