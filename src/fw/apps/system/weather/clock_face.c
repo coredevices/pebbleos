@@ -290,8 +290,12 @@ static int prv_abs_hour_for_pos(int pos_1_to_12) {
   // i starts at 0 so the CURRENT hour lands on its own position (and is the
   // one highlighted) — starting at 1 put the current hour off the dial and
   // highlighted the NEXT hour, reading an hour ahead.
+  // NO mod-24 fold: after ~13:00 the dial's tail crosses midnight, and folding
+  // aliased those positions onto THIS morning's records, presenting stale data
+  // as tonight's forecast. Post-midnight positions return 24..34 — the hourly
+  // consumers treat >= 24 as "no hourly data" and fall back honestly.
   for (int i = 0; i <= 11; i++) {
-    int h = (cur_h + i) % 24;
+    int h = cur_h + i;
     if (h % 12 == target_mod) return h;
   }
   return pos_1_to_12 % 12; // unreachable
@@ -304,6 +308,12 @@ static WeatherType prv_type_for_pos(int pos_1_to_12) {
   int abs_hour = prv_abs_hour_for_pos(pos_1_to_12);
   if (s_cf->hourly_valid && abs_hour >= 0 && abs_hour < 24) {
     return (WeatherType)s_cf->hourly_types[abs_hour];
+  }
+  // Post-midnight positions (>= 24): no hourly data exists for them in the
+  // schema — show TOMORROW's daily forecast type instead (its icon is loaded,
+  // prv_load_bitmaps covers every day).
+  if (abs_hour >= 24 && s_cf->num_days >= 2) {
+    return (WeatherType)s_cf->days[1].current_weather_type;
   }
   // Fallback: daily
   if (s_cf->num_days == 0) return WeatherType_Unknown;
@@ -871,9 +881,10 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
       graphics_fill_circle(ctx, GPoint(ddx, ddy), 2);
     }
     char lbuf[4];
-    snprintf(lbuf, sizeof(lbuf), "%d", abs_h);
-    int lw   = (abs_h >= 10) ? 28 : 20;
-    int loff = (abs_h >= 10) ? -14 : -10;
+    const int label_h = abs_h % 24;   // post-midnight positions still read 0,1,...
+    snprintf(lbuf, sizeof(lbuf), "%d", label_h);
+    int lw   = (label_h >= 10) ? 28 : 20;
+    int loff = (label_h >= 10) ? -14 : -10;
     GRect label_rect = GRect(lx + loff, ly - 12, lw, 18);
     GTextAlignment label_align = GTextAlignmentCenter;
     int pill_len = lw + 12;
