@@ -32,6 +32,14 @@ extern void ppog_reversed_service_init(void);
 extern void nimble_discover_init(void);
 extern void nimble_gattc_op_queue_init(void);
 
+// NimBLE-internal pool-sizing counters (ble_hs_priv.h)
+// ble_gatts_count_cfg() only ever increments them, but the service *_init() calls above 
+// re-run on every bt_driver_start(), so without a reset each stack restart grows the
+// pools ble_gatts_start() allocates from the kernel heap
+extern uint16_t ble_hs_max_attrs;
+extern uint16_t ble_hs_max_services;
+extern uint16_t ble_hs_max_client_configs;
+
 #if NIMBLE_CFG_CONTROLLER
 static TaskHandle_t s_ll_task_handle;
 #endif
@@ -77,6 +85,17 @@ static void prv_host_task_main(void *unused) {
 }
 
 static void prv_ble_hs_stop_cb(int status, void *arg) { xSemaphoreGive(s_host_stopped); }
+
+static void prv_gatts_reset(void) {
+  int rc = ble_gatts_reset();
+  if (rc != 0) {
+    PBL_LOG_ERR("Failed to reset GATT server: 0x%04x", (uint16_t)rc);
+    return;
+  }
+  ble_hs_max_attrs = 0;
+  ble_hs_max_services = 0;
+  ble_hs_max_client_configs = 0;
+}
 
 // ----------------------------------------------------------------------------------------
 void bt_driver_init(void) {
@@ -186,7 +205,7 @@ err:
   PBL_ASSERT(f_rc == pdTRUE, "NimBLE host stop timed out after start failure");
 
   s_driver_state = DriverStateStopped;
-  (void)ble_gatts_reset();
+  prv_gatts_reset();
 
   return false;
 }
@@ -201,7 +220,7 @@ void bt_driver_stop(void) {
   PBL_ASSERT(f_rc == pdTRUE, "NimBLE host stop timed out");
   s_driver_state = DriverStateStopped;
 
-  ble_gatts_reset();
+  prv_gatts_reset();
 
   nimble_store_unload();
 }
