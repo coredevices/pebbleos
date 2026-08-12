@@ -780,6 +780,14 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
       int abs_y = cy - cy_scaled;
 
       GBitmap *fb = graphics_capture_frame_buffer(ctx);
+      // Byte-per-pixel blit from a snapshot weather_capture_framebuffer_rect
+      // filled — both are 8bpp-only, so skip the zoom entirely on 1-bit
+      // framebuffers (the snapshot was never captured there either).
+      if (fb && gbitmap_get_format(fb) != GBitmapFormat8Bit &&
+          gbitmap_get_format(fb) != GBitmapFormat8BitCircular) {
+        graphics_release_frame_buffer(ctx, fb);
+        fb = NULL;
+      }
       if (fb) {
         GRect fbb = gbitmap_get_bounds(fb);
         int fb_h = fbb.size.h;
@@ -804,7 +812,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
             uint8_t pixel = srow[sx];
             // Skip white pixels (background) — GColor8 white = 0xFF
             if (pixel == 0xFF) continue;
-            ri.data[ax] = pixel;
+            ri.data[ax] = pixel;   // 8bpp guaranteed by the format check above
           }
         }
         graphics_release_frame_buffer(ctx, fb);

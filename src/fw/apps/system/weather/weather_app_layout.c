@@ -5,6 +5,7 @@
 #include "weather_math.h"
 #include "applib/graphics/gdraw_command_transforms.h"
 #include "resource_ids.pin.h"
+#include "util/bitset.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -1925,7 +1926,15 @@ static void prv_draw_bitmap_scaled_to_root(GContext *ctx, GBitmap *src, GRect ro
       }
 
       // Top 2 bits are the alpha channel; 0b00 = transparent, skip it
-      if (pixel >> 6) row.data[ax] = pixel;
+      if (pixel >> 6) {
+#if PBL_BW
+        // 1-bit framebuffer rows are bit-packed: threshold the GColor8 to
+        // mono and set the bit (set = white), the set_pixel_raw_2bit idiom.
+        bitset8_update(row.data, ax, (pixel & 0x3F) != 0);
+#else
+        row.data[ax] = pixel;
+#endif
+      }
     }
   }
 

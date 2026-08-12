@@ -1150,6 +1150,22 @@ static uint8_t starfield_color_from_flags(uint8_t flags) {
     }
 }
 
+// Every raw renderer below (starfield, rings, globe face, pins) writes rows one
+// GColor8 byte per pixel — valid only for the 8bpp formats. Capture through this
+// helper so a 1-bit framebuffer skips the raw pass instead of corrupting rows
+// (callers already tolerate a NULL capture; portable fills and the city label
+// still draw). A real BW globe render is future work.
+static GBitmap *capture_8bpp_frame_buffer(GContext *ctx) {
+    GBitmap *fb = graphics_capture_frame_buffer(ctx);
+    if (!fb) return NULL;
+    GBitmapFormat fmt = gbitmap_get_format(fb);
+    if (fmt != GBitmapFormat8Bit && fmt != GBitmapFormat8BitCircular) {
+        graphics_release_frame_buffer(ctx, fb);
+        return NULL;
+    }
+    return fb;
+}
+
 static void draw_forward_space_fade(GContext *ctx, GRect bounds, int amount,
                                     GlobeView *view) {
     if (amount <= 0) return;
@@ -1163,7 +1179,7 @@ static void draw_forward_space_fade(GContext *ctx, GRect bounds, int amount,
         graphics_context_set_fill_color(ctx, GColorBlack);
         graphics_fill_rect(ctx, bounds, 0, GCornerNone);
         if (amount >= stars_at) {
-            GBitmap *fb = graphics_capture_frame_buffer(ctx);
+            GBitmap *fb = capture_8bpp_frame_buffer(ctx);
             if (fb) {
                 framebuffer_draw_starfield(fb, view, bounds,
                                            clip_rect_to_bounds(bounds, gbitmap_get_bounds(fb)));
@@ -1187,7 +1203,7 @@ static void draw_forward_space_fade(GContext *ctx, GRect bounds, int amount,
         return;
     }
 
-    GBitmap *fb = graphics_capture_frame_buffer(ctx);
+    GBitmap *fb = capture_8bpp_frame_buffer(ctx);
     if (!fb) return;
 
     GRect fbb = gbitmap_get_bounds(fb);
@@ -1344,7 +1360,7 @@ static void draw_space_background(GContext *ctx, GRect bounds, GlobeView *view) 
 
     if (!view || !view->starfield_data) return;
 
-    GBitmap *fb = graphics_capture_frame_buffer(ctx);
+    GBitmap *fb = capture_8bpp_frame_buffer(ctx);
     if (!fb) return;
     framebuffer_draw_starfield(fb, view, bounds,
                                clip_rect_to_bounds(bounds, gbitmap_get_bounds(fb)));
@@ -1746,7 +1762,7 @@ static void draw_cubemap_globe_at_center(GContext *ctx, GlobeView *view,
         outline_inner_radius_sq - 1,               // textured face (strict <)
     };
 
-    GBitmap *fb = graphics_capture_frame_buffer(ctx);
+    GBitmap *fb = capture_8bpp_frame_buffer(ctx);
     if (!fb) return;
 
     GRect fbb = gbitmap_get_bounds(fb);

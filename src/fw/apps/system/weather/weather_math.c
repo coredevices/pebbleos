@@ -139,6 +139,14 @@ static void prv_squash_resample(GBitmap *fb, const uint8_t *scratch,
 void weather_render_squash(GContext *ctx, uint8_t *scratch, AnimationProgress m, int mode) {
   GBitmap *fb = graphics_capture_frame_buffer(ctx);
   if (!fb) return;
+  // The resampler addresses rows one byte per pixel — only valid for the 8bpp
+  // formats. On a 1-bit framebuffer skip the effect (callers already tolerate
+  // the squash not running and fall back to a plain cut).
+  GBitmapFormat fmt = gbitmap_get_format(fb);
+  if (fmt != GBitmapFormat8Bit && fmt != GBitmapFormat8BitCircular) {
+    graphics_release_frame_buffer(ctx, fb);
+    return;
+  }
   GRect b = gbitmap_get_bounds(fb);
   const int W = b.size.w, H = b.size.h;
   for (int y = 0; y < H; y++) {
@@ -156,6 +164,11 @@ void weather_render_squash_cached(GContext *ctx, const uint8_t *scratch,
                                   AnimationProgress m, int mode) {
   GBitmap *fb = graphics_capture_frame_buffer(ctx);
   if (!fb) return;
+  GBitmapFormat fmt = gbitmap_get_format(fb);   // same 8bpp-only contract as above
+  if (fmt != GBitmapFormat8Bit && fmt != GBitmapFormat8BitCircular) {
+    graphics_release_frame_buffer(ctx, fb);
+    return;
+  }
   prv_squash_resample(fb, scratch, m, mode);
   graphics_release_frame_buffer(ctx, fb);
 }
@@ -243,6 +256,10 @@ int32_t weather_norm_bell(int32_t value) {
 
 void weather_capture_framebuffer_rect(GBitmap *fb, GBitmap *dst,
                                       GRect src_rect, int dst_x) {
+  // Byte-per-pixel row copies: 8bpp framebuffers only (same contract as the
+  // squash resampler above). On 1-bit boards leave both bitmaps untouched.
+  GBitmapFormat fmt = gbitmap_get_format(fb);
+  if (fmt != GBitmapFormat8Bit && fmt != GBitmapFormat8BitCircular) return;
   uint8_t *dst_data = gbitmap_get_data(dst);
   uint16_t dbpr = gbitmap_get_bytes_per_row(dst);
   int sx = src_rect.origin.x;

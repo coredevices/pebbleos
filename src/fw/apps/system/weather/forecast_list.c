@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "forecast_list.h"
+#include "util/bitset.h"
 #include "weather.h"
 #include "expanded_view.h"
 #include "applib/ui/app_window_stack.h"
@@ -2176,7 +2177,13 @@ static void prv_fade_erase(GContext *ctx, GRect r, int keep, GColor bg) {
     for (int x = r.origin.x; x < r.origin.x + r.size.w; x++) {
       if (x < (int)ri.min_x || x > (int)ri.max_x) continue;
       if (s_bayer4[y & 3][x & 3] >= thr) {
+#if PBL_BW
+        // 1-bit rows are bit-packed (set bit = white); the bayer threshold
+        // above already dithers, so the stepped fade survives on mono.
+        bitset8_update(ri.data, x, !gcolor_equal(bg, GColorBlack));
+#else
         ri.data[x] = bg.argb;
+#endif
       }
     }
   }
