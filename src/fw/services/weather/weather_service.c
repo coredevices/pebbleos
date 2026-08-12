@@ -304,10 +304,18 @@ void weather_service_locations_list_destroy(WeatherDataListNode *head) {
 }
 
 bool weather_service_supported_by_phone(void) {
+#if defined(CONFIG_SOC_QEMU)
+  // The emulator has no phone to advertise the capability, which would hide
+  // the weather app from the launcher and reject every record insert —
+  // leaving the whole weather stack untestable there. Treat weather as
+  // always supported in QEMU.
+  return true;
+#else
   PebbleProtocolCapabilities capabilities;
   bt_persistent_storage_get_cached_system_capabilities(&capabilities);
   if (!capabilities.weather_app_support) {
     PBL_LOG_WRN("No weather support on phone");
   }
   return capabilities.weather_app_support;
+#endif
 }

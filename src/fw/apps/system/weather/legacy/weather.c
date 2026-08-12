@@ -151,7 +151,105 @@ static void prv_main_window_unload(Window *window) {
   weather_app_layout_deinit(&data->layout);
 }
 
+#if defined(CONFIG_SOC_QEMU)
+// QEMU has no phone, which leaves this app both hidden from the launcher and
+// dataless — untestable in the emulator. Seed the REAL pipeline instead
+// (prefs ordering + weather records through the public, validating BlobDB
+// insert APIs) so the emulator exercises the same code path a phone sync
+// does. Emulator-only test affordance, compiled out on hardware — the same
+// spirit as the rich app's QEMU synth.
+#include "pbl/drivers/rtc.h"
+#include "pbl/services/blob_db/api.h"
+#include "pbl/services/blob_db/weather_db.h"
+#include "pbl/services/weather/weather_service_private.h"
+
+static void prv_qemu_seed_record(const Uuid *key, const char *location,
+                                 const char *phrase, bool is_current,
+                                 int temp, int high, int low, WeatherType type) {
+  const uint16_t loc_len = (uint16_t)strlen(location);
+  const uint16_t phr_len = (uint16_t)strlen(phrase);
+  const uint16_t data_size = (uint16_t)(2 * sizeof(uint16_t) + loc_len + phr_len);
+  const size_t total = sizeof(WeatherDBEntry) + data_size;
+
+  WeatherDBEntry *e = app_zalloc_check(total);
+  e->version = WEATHER_DB_CURRENT_VERSION;
+  e->minor_version = WEATHER_DB_CURRENT_MINOR_VERSION;
+  e->is_current_location = is_current;
+  e->current_temp = (int16_t)temp;
+  e->current_weather_type = type;
+  e->today_high_temp = (int16_t)high;
+  e->today_low_temp = (int16_t)low;
+  e->tomorrow_weather_type = type;
+  e->tomorrow_high_temp = (int16_t)(high - 2);
+  e->tomorrow_low_temp = (int16_t)(low - 2);
+  e->last_update_time_utc = rtc_get_time();
+  // v4 extras at their unknown sentinels — the stock app reads only the v3
+  // prefix, but the record should still be well-formed v4.
+  e->today_feels_like_temp = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP;
+  e->today_uv_index_x10 = -1;
+  e->today_precip_probability = -1;
+  e->today_wind_direction = 0xFFFF;
+  e->latitude_e2 = INT16_MIN;
+  e->longitude_e2 = INT16_MIN;
+  e->location_utc_offset_min = INT16_MIN;
+  e->today_wmo_code = 0xFF;
+  e->today_humidity_pct = 0xFF;
+  e->today_visibility_m = 0xFFFF;
+  e->today_precip_sum_mm = 0xFFFF;
+  e->today_wind_dir_deg = -1;
+  for (int i = 0; i < WEATHER_DB_MAX_FORECAST_DAYS; i++) {
+    e->daily_feels_like[i] = WEATHER_SERVICE_LOCATION_FORECAST_UNKNOWN_TEMP;
+    e->daily_wind_dir_deg[i] = -1;
+  }
+  memset(e->today_hourly_uv_x10, 0xFF, sizeof(e->today_hourly_uv_x10));
+
+  // Trailing strings: [SerializedArray data_size][u16 len|loc][u16 len|phrase]
+  e->pstring16s.data_size = data_size;
+  uint8_t *p = e->pstring16s.data;
+  memcpy(p, &loc_len, sizeof(loc_len));
+  memcpy(p + sizeof(loc_len), location, loc_len);
+  p += sizeof(loc_len) + loc_len;
+  memcpy(p, &phr_len, sizeof(phr_len));
+  memcpy(p + sizeof(phr_len), phrase, phr_len);
+
+  blob_db_insert(BlobDBIdWeather, (uint8_t *)key, sizeof(*key),
+                 (uint8_t *)e, (int)total);
+  app_free(e);
+}
+
+static void prv_qemu_seed(void) {
+  size_t count = 0;
+  WeatherDataListNode *head = weather_service_locations_list_create(&count);
+  weather_service_locations_list_destroy(head);
+  if (count > 0) {
+    return;   // already seeded (or a phone really synced something)
+  }
+
+  static const Uuid s_seed_keys[2] = {
+    {0x9e, 0x4a, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
+     0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0x00, 0x01},
+    {0x9e, 0x4a, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
+     0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0x00, 0x02},
+  };
+
+  // Ordering prefs first, so the service accepts both records' list positions.
+  uint8_t prefs[1 + sizeof(s_seed_keys)];
+  prefs[0] = 2;
+  memcpy(&prefs[1], s_seed_keys, sizeof(s_seed_keys));
+  blob_db_insert(BlobDBIdWatchAppPrefs, (uint8_t *)PREF_KEY_WEATHER_APP,
+                 (int)strlen(PREF_KEY_WEATHER_APP), prefs, (int)sizeof(prefs));
+
+  prv_qemu_seed_record(&s_seed_keys[0], "Mexico City", "Clear Sky",
+                       true /* current */, 23, 28, 18, WeatherType_Sun);
+  prv_qemu_seed_record(&s_seed_keys[1], "Reykjavik", "Light Snow",
+                       false, -2, 1, -6, WeatherType_LightSnow);
+}
+#endif  // CONFIG_SOC_QEMU
+
 static NOINLINE void prv_init(void) {
+#if defined(CONFIG_SOC_QEMU)
+  prv_qemu_seed();
+#endif
   WeatherAppData *data = app_zalloc_check(sizeof(WeatherAppData));
   app_state_set_user_data(data);
 
