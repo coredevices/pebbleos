@@ -142,12 +142,20 @@ static void prv_overlay_v4(WxDsForecast *out, int location_id) {
     }
     // v4.4 appended block (hourly UV) — the only source of a CURRENT UV reading;
     // today_uv_index_x10 is the day's figure, not a live one.
-    if (entry->minor_version >= 4 && len >= (int)WEATHER_DB_V4_FIXED_SIZE) {
+    if (entry->minor_version >= 4 && len >= (int)WEATHER_DB_V4_4_FIXED_SIZE) {
       for (int i = 0; i < WX_DS_HOURLY; i++) {
         const uint8_t v = entry->today_hourly_uv_x10[i];
         out->hourly_uv[i] = (v == 255) ? -1 : (int8_t)(v / 10);
       }
       out->has_hourly_uv = true;
+    }
+    // v4.5 appended block (TOMORROW's hourly series) — fills the clock dial's
+    // post-midnight positions with real data instead of blanks.
+    if (entry->minor_version >= 5 && len >= (int)WEATHER_DB_V4_FIXED_SIZE &&
+        entry->tomorrow_hourly_count == WEATHER_DB_HOURLY_COUNT) {
+      out->tomorrow_hourly_count = WX_DS_HOURLY;
+      memcpy(out->tomorrow_hourly_type, entry->tomorrow_hourly_weather_type, WX_DS_HOURLY);
+      memcpy(out->tomorrow_hourly_temp, entry->tomorrow_hourly_temp, WX_DS_HOURLY);
     }
     // v4.2 appended block (today's raw warning readings + per-day feels-like).
     if (entry->minor_version >= 2 && len >= (int)WEATHER_DB_V4_2_FIXED_SIZE) {
@@ -279,6 +287,14 @@ static void prv_seed_v4_test(WxDsForecast *out) {
   for (int h = 0; h < WX_DS_HOURLY; h++) {
     out->hourly_type[h] = t0;
     out->hourly_temp[h] = (int8_t)(lo + (span * weather_diurnal_curve[h]) / 100);
+  }
+  // Tomorrow's hourly (v4 minor 5): same curve shifted onto tomorrow's hi/lo
+  // seed so the clock dial's post-midnight positions light up in QEMU.
+  out->tomorrow_hourly_count = WX_DS_HOURLY;
+  const int tlo = out->daily[1].low, tspan = out->daily[1].high - tlo;
+  for (int h = 0; h < WX_DS_HOURLY; h++) {
+    out->tomorrow_hourly_type[h] = out->daily[1].type;
+    out->tomorrow_hourly_temp[h] = (int8_t)(tlo + (tspan * weather_diurnal_curve[h]) / 100);
   }
 }
 #endif  // WEATHER_V4_TEST_SEED

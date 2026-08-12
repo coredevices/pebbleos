@@ -125,3 +125,22 @@ Appended after the v4.2 fields (same append-only pattern; stamp minor 3):
 
 Degrees 0..359, meteorological (0 = N, clockwise). Used by the day screen's
 forecast description ("Winds SW at 12mph") — 8-point compass rendering on-watch.
+
+## v4 minor 5 — tomorrow's hourly series
+
+Appended after `today_hourly_uv_x10[24]`, immediately before the trailing
+pstrings; stamp `minor_version = 5`. Mirrors the today-hourly block for the
+NEXT calendar day (location-local): Open-Meteo hourly `weather_code` +
+`temperature_2m`, tomorrow's 24 slots.
+
+| offset | field | type | notes |
+|---|---|---|---|
+| 201 | `tomorrow_hourly_count` | u8 | `24` when populated, `0` when absent |
+| 202 | `tomorrow_hourly_weather_type[24]` | u8 × 24 | WeatherType per hour 0-23, `255` unknown |
+| 226 | `tomorrow_hourly_temp[24]` | i8 × 24 | same unit as the record's other temps |
+
+Fixed part ends at **250** (was 201 for minor 4); strings follow as before.
+
+⚠️ Firmware with this schema **rejects records stamped with a minor it does not
+know** (a strict-validation change — unknown minors used to be mis-parsed).
+Gate minor 5 on firmware support, or retry a bounced insert as minor 4.
