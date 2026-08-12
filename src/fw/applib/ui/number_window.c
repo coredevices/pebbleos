@@ -6,6 +6,7 @@
 #include "applib/fonts/fonts.h"
 #include "applib/graphics/graphics.h"
 #include "applib/applib_malloc.auto.h"
+#include "applib/ui/action_bar_layer_private.h"
 #include "kernel/ui/kernel_ui.h"
 #include "kernel/ui/system_icons.h"
 #include "pbl/util/size.h"
@@ -75,8 +76,7 @@ static GRect prv_get_text_frame(Layer *window_layer) {
   const int16_t x_margin = 5;
   const int16_t label_y_offset = PBL_IF_ROUND_ELSE(40, 16);
   const GEdgeInsets insets = PBL_IF_ROUND_ELSE(GEdgeInsets(ACTION_BAR_WIDTH + x_margin),
-                                               GEdgeInsets(0, ACTION_BAR_WIDTH + x_margin, 0,
-                                                           x_margin));
+                                               action_bar_layer_content_insets(x_margin));
   GRect frame = grect_inset(window_layer->bounds, insets);
   frame.origin.y = label_y_offset;
   return frame;

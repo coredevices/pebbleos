@@ -83,3 +83,15 @@ MenuScrollVibeBehavior WEAK shell_prefs_get_menu_scroll_vibe_behavior(void) {
 void WEAK shell_prefs_set_menu_scroll_vibe_behavior(MenuScrollVibeBehavior behavior) {
   s_menu_scroll_vibe_behavior = behavior;
 }
+
+#ifdef CONFIG_ORIENTATION_MANAGER
+static bool s_display_orientation_left = false;
+
+bool WEAK display_orientation_is_left(void) {
+  return s_display_orientation_left;
+}
+
+void WEAK display_orientation_set_left(bool left) {
+  s_display_orientation_left = left;
+}
+#endif
