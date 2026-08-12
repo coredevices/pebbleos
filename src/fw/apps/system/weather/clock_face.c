@@ -95,6 +95,11 @@ typedef struct {
   // ---- Temperature reveal (tap) ----
   int8_t   hourly_temps[24]; // temperature per hour 0-23
   bool     hourly_temps_valid;
+  // TOMORROW's hourly series (v4 minor 5) — feeds the dial's post-midnight
+  // positions on day 0 (abs hours 24-47).
+  uint8_t  tomorrow_types[24];
+  int8_t   tomorrow_temps[24];
+  bool     tomorrow_hourly_valid;
   bool     temps_shown;      // stable state: true once temps are fully revealed
   bool     reveal_to;        // animation target state (true=reveal, false=hide)
   bool     reveal_active;    // true while reveal/hide animation is in progress
@@ -261,6 +266,12 @@ static void prv_load_bitmaps(void) {
       used[wt <= WeatherType_RainAndSnow ? wt : (uint8_t)WeatherType_Generic] = true;
     }
   }
+  if (s_cf->tomorrow_hourly_valid) {  // day 0's post-midnight positions (v4 minor 5)
+    for (int h = 0; h < 24; h++) {
+      uint8_t wt = s_cf->tomorrow_types[h];
+      used[wt <= WeatherType_RainAndSnow ? wt : (uint8_t)WeatherType_Generic] = true;
+    }
+  }
   for (int i = WeatherType_PartlyCloudy; i <= WeatherType_RainAndSnow; i++) {
     if (used[i]) {
       s_cf->type_bitmaps[i] =
@@ -418,6 +429,12 @@ static WeatherType prv_type_for_pos(int pos_1_to_12) {
   if (s_cf->hourly_valid && abs_hour >= 0 && abs_hour < 24) {
     return (WeatherType)s_cf->hourly_types[abs_hour];
   }
+  // Post-midnight positions (24-47): tomorrow's hourly series when the record
+  // carries it (v4 minor 5); the daily-type fallback below covers its absence.
+  if (abs_hour >= 24 && abs_hour < 48 && s_cf->tomorrow_hourly_valid) {
+    const uint8_t wt = s_cf->tomorrow_types[abs_hour - 24];
+    if (wt <= WeatherType_RainAndSnow) return (WeatherType)wt;
+  }
   // Fallback: daily
   if (s_cf->num_days == 0) return WeatherType_Unknown;
   if (abs_hour >= 24 && s_cf->num_days > 1) {
@@ -431,9 +448,13 @@ static WeatherType prv_type_for_pos(int pos_1_to_12) {
 // Map a clock-face hour position (1-12) to the temperature for that hour.
 // Returns true and fills *out_temp if hourly temperature data is available.
 static bool prv_temp_for_pos(int pos_1_to_12, int *out_temp) {
-  if (!s_cf || !s_cf->hourly_temps_valid) return false;
+  if (!s_cf) return false;
   int abs_hour = prv_abs_hour_for_pos(pos_1_to_12);
-  if (abs_hour < 0 || abs_hour >= 24) return false;
+  if (abs_hour >= 24 && abs_hour < 48 && s_cf->tomorrow_hourly_valid) {
+    *out_temp = (int)s_cf->tomorrow_temps[abs_hour - 24];   // v4 minor 5
+    return true;
+  }
+  if (!s_cf->hourly_temps_valid || abs_hour < 0 || abs_hour >= 24) return false;
   *out_temp = (int)s_cf->hourly_temps[abs_hour];
   return true;
 }
@@ -1385,5 +1406,15 @@ void clock_face_update_hourly_temps_for_day(int day_index, const int8_t *temps, 
   size_t n = count < 24 ? count : 24;
   for (size_t i = 0; i < n; i++) s_cf->hourly_temps[i] = temps[i];
   s_cf->hourly_temps_valid = (n >= 24);
+  if (s_cf->canvas) layer_mark_dirty(s_cf->canvas);
+}
+
+void clock_face_set_tomorrow_hourly(const uint8_t *types, const int8_t *temps, size_t count) {
+  if (!s_cf || !types || !temps || count < 24) return;
+  for (size_t i = 0; i < 24; i++) {
+    s_cf->tomorrow_types[i] = types[i];
+    s_cf->tomorrow_temps[i] = temps[i];
+  }
+  s_cf->tomorrow_hourly_valid = true;
   if (s_cf->canvas) layer_mark_dirty(s_cf->canvas);
 }

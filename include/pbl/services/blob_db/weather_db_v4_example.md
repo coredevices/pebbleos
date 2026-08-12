@@ -94,3 +94,53 @@ D0 07 15 00 0D 00 07 12 00 0B 00 00 17 00 0B 00
 Encode the sample values above on the phone, write to the weather BlobDB, and the
 bytes must match the 142-byte block. The watch firmware reads both v3 and v4; send
 v4 only when it advertises the `weather_db_v4_support` capability bit.
+
+## Open-Meteo source mapping for the v4.2 warning readings
+
+All TODAY-only, appended as **minor 2** (fields sit after `daily_metrics[]`,
+before the trailing pstrings; stamp `minor_version = 2`):
+
+| Field | Type | Open-Meteo source | Notes |
+|---|---|---|---|
+| `today_wmo_code` | u8 | daily `weather_code` | raw WMO 4677 code; 0xFF unknown |
+| `today_humidity_pct` | u8 | hourly `relative_humidity_2m` → daily MEAN | 0..100; 0xFF unknown |
+| `today_visibility_m` | u16 | hourly `visibility` → daily MINIMUM, meters | clamp 65534; 0xFFFF unknown |
+| `today_precip_sum_mm` | u16 | daily `precipitation_sum`, whole mm | clamp 65534; 0xFFFF unknown |
+| `daily_feels_like[7]` | i16 x7 | daily `apparent_temperature_max`, per day (index 0 = today) | same unit as the other temps; 32767 (UNKNOWN_TEMP) per unknown slot |
+
+These feed the report page's warnings ladder (`prv_build_alert` in
+`src/fw/apps/system/weather/weather_app_layout.c`), most severe first: hail,
+storms, heavy snow/rain, wintry mix, flood risk, strong winds, freezing rungs,
+heatwave, UV, visibility, humidity, precipitation chances, wind — with calm
+sign-offs otherwise. Old-minor records simply never fire the new rungs.
+
+## Open-Meteo source mapping for the v4.3 wind direction
+
+Appended after the v4.2 fields (same append-only pattern; stamp minor 3):
+
+| field | type | source (Open-Meteo) | unknown |
+|---|---|---|---|
+| `today_wind_dir_deg` | i16 | `winddirection_10m_dominant` for today (or dominant of today's hourly `winddirection_10m`) | -1 |
+| `daily_wind_dir_deg[7]` | i16[7] | daily `winddirection_10m_dominant` | -1 |
+
+Degrees 0..359, meteorological (0 = N, clockwise). Used by the day screen's
+forecast description ("Winds SW at 12mph") — 8-point compass rendering on-watch.
+
+## v4 minor 5 — tomorrow's hourly series
+
+Appended after `today_hourly_uv_x10[24]`, immediately before the trailing
+pstrings; stamp `minor_version = 5`. Mirrors the today-hourly block for the
+NEXT calendar day (location-local): Open-Meteo hourly `weather_code` +
+`temperature_2m`, tomorrow's 24 slots.
+
+| offset | field | type | notes |
+|---|---|---|---|
+| 201 | `tomorrow_hourly_count` | u8 | `24` when populated, `0` when absent |
+| 202 | `tomorrow_hourly_weather_type[24]` | u8 × 24 | WeatherType per hour 0-23, `255` unknown |
+| 226 | `tomorrow_hourly_temp[24]` | i8 × 24 | same unit as the record's other temps |
+
+Fixed part ends at **250** (was 201 for minor 4); strings follow as before.
+
+⚠️ Firmware with this schema **rejects records stamped with a minor it does not
+know** (a strict-validation change — unknown minors used to be mis-parsed).
+Gate minor 5 on firmware support, or retry a bounced insert as minor 4.

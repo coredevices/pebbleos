@@ -61,6 +61,9 @@ typedef struct {
   int8_t  hourly_temp[WX_DS_HOURLY];  // temperature per hour 0-23
   int8_t  hourly_uv[WX_DS_HOURLY];    // UV index per hour 0-23, -1 unknown (v4 minor 4+)
   bool    has_hourly_uv;              // true when the phone sent the minor-4 hourly UV block
+  uint8_t tomorrow_hourly_count;      // 0 or WX_DS_HOURLY (v4 minor 5+)
+  uint8_t tomorrow_hourly_type[WX_DS_HOURLY];  // WeatherType per hour 0-23 of TOMORROW
+  int8_t  tomorrow_hourly_temp[WX_DS_HOURLY];  // temperature per hour 0-23 of TOMORROW
   int16_t latitude_e2;     // latitude * 100 (for the globe), INT16_MIN unknown
   int16_t longitude_e2;    // longitude * 100 (for the globe), INT16_MIN unknown
   int16_t utc_offset_min;  // location's tz, minutes east of UTC (v4.1), INT16_MIN unknown

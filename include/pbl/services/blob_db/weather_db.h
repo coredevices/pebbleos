@@ -34,12 +34,16 @@
 // Minor history: 0 = base v4. 1 = appends location_utc_offset_min + daily_metrics[]
 // after the hourly arrays (before the trailing pstrings). 2 = appends today's raw
 // warning readings (WMO code, humidity, min visibility, precipitation sum) after
-// daily_metrics — they feed the weather report's warning line. Older-minor records
-// remain fully parseable — readers gate the appended fields on minor_version +
-// record length, and the trailing-strings offset is resolved per minor
-// (see weather_db_entry_get_strings).
+// daily_metrics — they feed the weather report's warning line. 3 = appends dominant
+// wind direction (today + per-day). 4 = appends today's hourly UV. 5 = appends
+// TOMORROW's hourly type/temp series (the clock dial's post-midnight positions).
+// Older-minor records remain fully parseable — readers gate the appended fields on
+// minor_version + record length, and the trailing-strings offset is resolved per
+// minor (see weather_db_entry_get_strings). Unknown FUTURE minors are rejected at
+// insert (their strings offset is unknowable), so the phone must gate each new
+// minor on firmware support.
 #define WEATHER_DB_CURRENT_VERSION (4)
-#define WEATHER_DB_CURRENT_MINOR_VERSION (4)
+#define WEATHER_DB_CURRENT_MINOR_VERSION (5)
 #define WEATHER_DB_LEGACY_VERSION (3)
 
 // Days of daily forecast a v4 record carries (today + 6).
@@ -152,6 +156,15 @@ typedef struct PACKED {
   // Lets the watch show the CURRENT hour's UV; today_uv_index_x10 stays the day's figure.
   uint8_t today_hourly_uv_x10[WEATHER_DB_HOURLY_COUNT];
 
+  // --- v4.5 appended fields (TOMORROW's hourly series) ---
+  // Mirrors the today_hourly_* block for the next calendar day (location-local).
+  // The clock dial shows the next 12 hours, so from early afternoon it crosses
+  // midnight — these give its post-midnight positions real data. Open-Meteo:
+  // hourly weather_code + temperature_2m for tomorrow's 24 slots.
+  uint8_t tomorrow_hourly_count;    // 0 or WEATHER_DB_HOURLY_COUNT
+  uint8_t tomorrow_hourly_weather_type[WEATHER_DB_HOURLY_COUNT]; // WeatherType, 255 unknown
+  int8_t tomorrow_hourly_temp[WEATHER_DB_HOURLY_COUNT];          // temp per hour 0-23
+
   // --- variable-length trailing strings (MUST stay last) ---
   SerializedArray pstring16s;
 } WeatherDBEntry;
@@ -171,7 +184,9 @@ typedef enum WeatherDbStringIndex {
 #define WEATHER_DB_V4_2_FIXED_SIZE (offsetof(WeatherDBEntry, today_wind_dir_deg))
 // Fixed portion of a v4.3 record — where a minor-3 record's trailing strings start.
 #define WEATHER_DB_V4_3_FIXED_SIZE (offsetof(WeatherDBEntry, today_hourly_uv_x10))
-// Fixed portion of a current (v4.4) record, i.e. everything except the trailing
+// Fixed portion of a v4.4 record — where a minor-4 record's trailing strings start.
+#define WEATHER_DB_V4_4_FIXED_SIZE (offsetof(WeatherDBEntry, tomorrow_hourly_count))
+// Fixed portion of a current (v4.5) record, i.e. everything except the trailing
 // pstring16s SerializedArray header/payload.
 #define WEATHER_DB_V4_FIXED_SIZE (offsetof(WeatherDBEntry, pstring16s))
 
@@ -207,7 +222,8 @@ static inline size_t weather_db_entry_strings_offset(uint8_t version, uint8_t mi
   if (version < WEATHER_DB_CURRENT_VERSION) {
     return offsetof(WeatherDBEntryV3, pstring16s);
   }
-  if (minor_version >= 4) return offsetof(WeatherDBEntry, pstring16s);
+  if (minor_version >= 5) return offsetof(WeatherDBEntry, pstring16s);
+  if (minor_version >= 4) return WEATHER_DB_V4_4_FIXED_SIZE;
   if (minor_version >= 3) return WEATHER_DB_V4_3_FIXED_SIZE;
   if (minor_version >= 2) return WEATHER_DB_V4_2_FIXED_SIZE;
   if (minor_version >= 1) return WEATHER_DB_V4_1_FIXED_SIZE;
