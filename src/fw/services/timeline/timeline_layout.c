@@ -237,7 +237,8 @@ void timeline_layout_get_icon_frame(const GRect *bounds, TimelineScrollDirection
   PBL_UNUSED const int offset_y_round = use_large_style ? (is_future ? 76 : -2)
                                                         : (is_future ? 40 : 17);
   const GPoint origin = {
-    .x = bounds->size.w - size.w + 2,
+    .x = timeline_layer_sidebar_is_on_right() ? (bounds->size.w - size.w + 2)
+                                              : (2 - bounds->origin.x),
     .y = PBL_IF_RECT_ELSE(offset_y_rect, offset_y_round),
   };
   *frame = (GRect) { gpoint_add(bounds->origin, origin), size };
@@ -638,6 +639,9 @@ static void prv_get_pin_view_bounds(TimelineLayout *layout, GRect *box_out) {
     return;
   }
   box_out->size.w -= timeline_layer_get_ideal_sidebar_width();
+  if (!timeline_layer_sidebar_is_on_right()) {
+    box_out->origin.x += timeline_layer_get_ideal_sidebar_width();
+  }
   if (PBL_IF_ROUND_ELSE(layout->layout_layer.mode == LayoutLayerModePinnedThin, false)) {
     const int thin_height = 20;
     box_out->size.h = thin_height;

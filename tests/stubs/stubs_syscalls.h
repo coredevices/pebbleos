@@ -57,3 +57,7 @@ AppInstallId WEAK sys_process_manager_get_current_process_id(void) {
 }
 
 void WEAK sys_get_app_uuid(Uuid *uuid) {}
+
+bool WEAK action_bar_layer_is_on_right(void) {
+  return true;
+}

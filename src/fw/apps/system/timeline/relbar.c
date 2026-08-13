@@ -197,6 +197,13 @@ static Animation *prv_create_curr_rel_bar_animation(TimelineLayer *layer, uint32
 #define REL_BAR_LINE_WIDTH 2
 #define REL_BAR_LINE_HORIZ_OFFSET ((SIDEBAR_WIDTH / 2) + (REL_BAR_LINE_WIDTH / 2))
 #define REL_BAR_LINE_NOTCH_HORIZ_OFFSET ((REL_BAR_LINE_CHECK_LENGTH / 2) + (REL_BAR_LINE_WIDTH / 2))
+
+static int16_t prv_sidebar_line_x(const GRect *layer_bounds) {
+  if (timeline_layer_sidebar_is_on_right()) {
+    return layer_bounds->origin.x + layer_bounds->size.w - REL_BAR_LINE_HORIZ_OFFSET;
+  }
+  return layer_bounds->origin.x + REL_BAR_LINE_HORIZ_OFFSET - REL_BAR_LINE_WIDTH;
+}
 static void prv_draw_rel_bar_line(TimelineLayer *timeline_layer, GContext* ctx,
                                   bool current, int16_t anim_offset) {
   int16_t prev_offset = 0; // Used to animate the previous animation offset
@@ -231,7 +238,7 @@ static void prv_draw_rel_bar_line(TimelineLayer *timeline_layer, GContext* ctx,
   graphics_context_set_fill_color(ctx, GColorWhite);
   GRect layer_bounds = timeline_layer->layer.bounds;
   GRect line;
-  line.origin.x = layer_bounds.origin.x + layer_bounds.size.w - REL_BAR_LINE_HORIZ_OFFSET;
+  line.origin.x = prv_sidebar_line_x(&layer_bounds);
   // Account for the size of the icon when positioning vertically
   line.origin.y =
       grect_get_max_y(&first_icon_frame) + REL_BAR_VERT_MARGIN - curr_offset - prev_offset;
@@ -250,7 +257,7 @@ static void prv_draw_rel_bar_line(TimelineLayer *timeline_layer, GContext* ctx,
 
   // Bar 2
   // Filled rect used to draw line of REL_BAR_LINE_WIDTH stroke width
-  line.origin.x = layer_bounds.origin.x + layer_bounds.size.w - REL_BAR_LINE_HORIZ_OFFSET;
+  line.origin.x = prv_sidebar_line_x(&layer_bounds);
   line.origin.y = second_icon_frame.origin.y - (REL_BAR_VERT_MARGIN + line_length) - prev_offset;
   line.size.w = REL_BAR_LINE_WIDTH;
   line.size.h = line_length - curr_offset;
@@ -303,7 +310,7 @@ static void prv_draw_rel_bar_dotted(TimelineLayer *timeline_layer, GContext* ctx
   graphics_context_set_fill_color(ctx, GColorWhite);
   GRect layer_bounds = timeline_layer->layer.bounds;
   GRect line;
-  line.origin.x = layer_bounds.origin.x + layer_bounds.size.w - REL_BAR_LINE_HORIZ_OFFSET;
+  line.origin.x = prv_sidebar_line_x(&layer_bounds);
   // Account for the size of the icon when positioning vertically
   line.origin.y = grect_get_max_y(&first_icon_frame) +
                   REL_BAR_VERT_MARGIN - curr_offset - prev_offset;
@@ -333,7 +340,7 @@ static void prv_draw_rel_bar_dotted(TimelineLayer *timeline_layer, GContext* ctx
   // Bar 2
   // Filled rect used to draw line of REL_BAR_LINE_WIDTH stroke width
   layer_bounds = timeline_layer->layer.bounds;
-  line.origin.x = layer_bounds.origin.x + layer_bounds.size.w - REL_BAR_LINE_HORIZ_OFFSET;
+  line.origin.x = prv_sidebar_line_x(&layer_bounds);
   line.origin.y = dot.origin.y + dot_padding;
   line.size.w = REL_BAR_LINE_WIDTH;
   line.size.h = solid_line_length - curr_offset;
@@ -380,8 +387,8 @@ static void prv_draw_rel_bar_overlap(TimelineLayer *timeline_layer, GContext* ct
   GPoint line2_start;
 
   // Draw down
-  line1_start.x = layer_bounds.origin.x + layer_bounds.size.w - (SIDEBAR_WIDTH / 2) -
-                  REL_BAR_OVERLAP_NUDGE_X - REL_BAR_OVERLAP_SIDE_MARGIN;
+  line1_start.x = prv_sidebar_line_x(&layer_bounds) - REL_BAR_OVERLAP_NUDGE_X -
+                  REL_BAR_OVERLAP_SIDE_MARGIN;
   line1_start.y = grect_get_max_y(&first_icon_frame) + REL_BAR_VERT_MARGIN -
                   y_offset + REL_BAR_LINE_WIDTH;
 

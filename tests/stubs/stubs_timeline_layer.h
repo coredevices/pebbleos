@@ -9,3 +9,7 @@
 uint16_t WEAK timeline_layer_get_ideal_sidebar_width(void) {
   return 0;
 }
+
+bool WEAK timeline_layer_sidebar_is_on_right(void) {
+  return true;
+}
