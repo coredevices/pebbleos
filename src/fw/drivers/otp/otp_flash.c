@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2025 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <string.h>
+
 #include <pbl/drivers/otp.h>
 #include <pbl/drivers/flash.h>
 
@@ -102,6 +104,11 @@ OtpWriteResult otp_write_slot(const uint8_t index, const char *value) {
     if (ret != S_SUCCESS) {
       return OtpWriteFailCorrupt;
     }
+  }
+
+  existing_val = otp_get_slot(index);
+  if ((existing_val == NULL) || (memcmp(existing_val, value, len + 1) != 0)) {
+    return OtpWriteFailCorrupt;
   }
 
   return OtpWriteSuccess;
