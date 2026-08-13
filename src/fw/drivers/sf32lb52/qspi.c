@@ -363,6 +363,11 @@ status_t qspi_flash_write_security_register(QSPIFlash *dev, uint32_t addr, uint8
     return res;
   }
 
+  uintptr_t flush_addr = (uintptr_t)&val;
+  size_t flush_size = sizeof(val);
+  dcache_align(&flush_addr, &flush_size);
+  dcache_flush((const void *)flush_addr, flush_size);
+
   portENTER_CRITICAL();
   res = HAL_QSPI_WRITE_OTP(hflash, addr, &val, 1);
   portEXIT_CRITICAL();
