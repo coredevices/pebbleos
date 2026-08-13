@@ -291,12 +291,14 @@ void action_bar_layer_set_background_color(ActionBarLayer *action_bar, GColor ba
 //! Process-wide: affects every action bar in this app. Third-party apps default
 //! to the right edge; system and kernel UI always follow orientation. Call before
 //! \ref action_bar_layer_add_to_window(); it does not move a bar already
-//! attached to a window.
+//! attached to a window. Toggling Left-Handed Mode in Settings likewise leaves
+//! attached bars in place until the window is reopened or the bar is added again.
 //! @param follow true to place action bars on the button side in Left-Handed Mode
 void action_bar_layer_set_follows_display_orientation(bool follow);
 
-//! Whether the action bar sits on the right edge of the window.
-//! @return true if the bar is (or will be) on the right, false if on the left
+//! Desired side for new bars (and for the inset helpers), not the frame of an
+//! already-attached bar.
+//! @return true if a newly added bar will sit on the right, false if on the left
 bool action_bar_layer_is_on_right(void);
 
 //! X origin of the content area beside the action bar (0 when the bar is on the right).
