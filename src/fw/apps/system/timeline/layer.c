@@ -138,6 +138,18 @@ bool timeline_layer_sidebar_is_on_right(void) {
   return action_bar_layer_is_on_right();
 }
 
+int16_t timeline_layer_get_icon_outer_inset(void) {
+  return prv_get_style()->icon_right_margin;
+}
+
+int16_t timeline_layer_get_pin_text_origin_x(void) {
+  if (timeline_layer_sidebar_is_on_right()) {
+    return 0;
+  }
+  const TimelineLayerStyle *style = prv_get_style();
+  return (int16_t)(style->sidebar_width + style->right_margin - style->left_margin);
+}
+
 static void prv_inset_rect_for_sidebar(GRect *frame, int16_t sidebar_width) {
   frame->size.w -= sidebar_width;
   if (!timeline_layer_sidebar_is_on_right()) {
@@ -203,8 +215,10 @@ static void prv_get_icon_frame_exact(TimelineLayer *layer, int index, GRect *ico
   GRect frame;
   prv_get_frame(layer, index, &frame);
   frame.origin.y += style->icon_offset_y;
-  // Remove sidebar and apply icon margin
-  frame.size.w += style->right_margin - style->icon_right_margin;
+  // On the right, grow the pin frame so the icon sits icon_right_margin from the screen edge.
+  if (timeline_layer_sidebar_is_on_right()) {
+    frame.size.w += style->right_margin - style->icon_right_margin;
+  }
   timeline_layout_get_icon_frame(&frame, layer->scroll_direction, icon_frame);
 }
 
