@@ -113,6 +113,14 @@ static const TimelineLayoutStyle *prv_get_style(void) {
   return s_styles[PreferredContentSizeDefault];
 }
 
+// Pin text (time, title, subtitle) is left-aligned on the right-hand strip;
+// mirror it to right-aligned when the sidebar sits on the left.
+static GTextAlignment prv_get_pin_text_alignment(void) {
+  return PBL_IF_RECT_ELSE(
+      timeline_layer_sidebar_is_on_right() ? GTextAlignmentLeft : GTextAlignmentRight,
+      GTextAlignmentRight);
+}
+
 TimelineResourceId timeline_layout_get_icon_resource_id(
     LayoutLayerMode mode, const AttributeList *attributes, TimelineResourceSize card_icon_size,
     TimelineResourceId fallback_resource) {
@@ -396,6 +404,7 @@ static GTextNode *prv_create_all_day_text_node(const TimelineLayout *layout) {
   GTextNodeText *text_node =
       (GTextNodeText *)layout_create_text_node_from_config(
           &layout->layout_layer, &s_all_day_config.text.extent.node);
+  text_node->alignment = prv_get_pin_text_alignment();
   // TODO: PBL-30522 Enable timeline list view text flow
   // Remove when text flow is enabled
   if (PBL_IF_ROUND_ELSE(layout->layout_layer.mode == LayoutLayerModePinnedThin, false)) {
@@ -456,7 +465,7 @@ static GTextNode *prv_create_hour_text_node(const TimelineLayout *layout) {
   GTextNodeHorizontal *horizontal_node =
       (GTextNodeHorizontal *)layout_create_text_node_from_config(
           &layout->layout_layer, &s_horizontal_config.container.extent.node);
-  horizontal_node->horizontal_alignment = TIMELINE_LAYER_TEXT_ALIGNMENT;
+  horizontal_node->horizontal_alignment = prv_get_pin_text_alignment();
   return &horizontal_node->container.node;
 }
 
@@ -535,6 +544,9 @@ static GTextNode *prv_create_pin_view_node(TimelineLayout *layout) {
     primary_node->text =
         attribute_get_string(attributes, AttributeIdShortTitle, NULL) ?:
         attribute_get_string(attributes, layout->impl->attributes.primary_id, "");
+    if (!is_peek) {
+      primary_node->alignment = prv_get_pin_text_alignment();
+    }
     primary_node->line_spacing_delta = style->primary_line_spacing_delta;
     int num_primary_lines = is_fat ? 2 : 1;
     if (is_peek) {
@@ -575,6 +587,9 @@ static GTextNode *prv_create_pin_view_node(TimelineLayout *layout) {
       secondary_node->max_size.w = peek_text_width;
     } else {
       secondary_node->text = secondary_text;
+    }
+    if (!is_peek) {
+      secondary_node->alignment = prv_get_pin_text_alignment();
     }
     secondary_node->overflow = overflow;
     graphics_text_node_container_add_child(&vertical_node->container, &secondary_node->node);
