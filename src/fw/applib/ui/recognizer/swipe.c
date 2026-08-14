@@ -8,6 +8,7 @@
 
 #include "pbl/drivers/rtc.h"
 #include "pbl/util/math.h"
+#include "syscall/syscall.h"
 
 #include <string.h>
 
@@ -71,7 +72,7 @@ static uint32_t prv_ticks_to_ms(RtcTicks ticks) {
 }
 
 static uint32_t prv_touch_duration_ms(const SwipeRecognizerData *data) {
-  return prv_ticks_to_ms(rtc_get_ticks() - data->state.touch_down_ticks);
+  return prv_ticks_to_ms(sys_get_ticks() - data->state.touch_down_ticks);
 }
 
 static void prv_record_sample(SwipeRecognizerData *data, GPoint point, RtcTicks ticks) {
@@ -132,7 +133,7 @@ static void prv_handle_touch_event(Recognizer *recognizer, const TouchEvent *tou
   switch (touch_event->type) {
     case TouchEvent_Touchdown: {
       const GPoint point = GPoint(touch_event->x, touch_event->y);
-      const RtcTicks now = rtc_get_ticks();
+      const RtcTicks now = sys_get_ticks();
       data->state.touch_down_point = point;
       data->state.last_point = point;
       data->state.touch_down_ticks = now;
@@ -145,7 +146,7 @@ static void prv_handle_touch_event(Recognizer *recognizer, const TouchEvent *tou
 
     case TouchEvent_PositionUpdate: {
       const GPoint point = GPoint(touch_event->x, touch_event->y);
-      prv_record_sample(data, point, rtc_get_ticks());
+      prv_record_sample(data, point, sys_get_ticks());
       data->state.last_point = point;
 
       const GPoint total_delta = gpoint_sub(point, data->state.touch_down_point);
