@@ -37,6 +37,7 @@ typedef struct TimelineItemConfig {
   const char *title;
   const char *subtitle;
   TimelineResourceId icon;
+  bool all_day;
 } TimelineItemConfig;
 
 typedef struct ListViewConfig {
@@ -63,6 +64,7 @@ static void prv_add_timeline_item(const TimelineItemConfig *config, bool past) {
                                                 &list, NULL);
     attribute_list_destroy_list(&list);
     PBL_ASSERTN(item);
+    item->header.all_day = config->all_day;
   }
   if (item) {
     pin_db_insert_item(item);
@@ -252,3 +254,30 @@ void test_timeline_list_view__pin_and_fin_past(void) {
   FAKE_GRAPHICS_CONTEXT_CHECK_DEST_BITMAP_FILE();
 }
 
+
+void prv_create_and_render_all_day(bool past) {
+  prv_create_list_view_and_render(&(ListViewConfig) {
+    .pins = {
+      &(TimelineItemConfig) {
+        // Must sit further back than the duration, or the past view correctly excludes it
+        // for still being in progress.
+        .relative_timestamp = 2 * SECONDS_PER_DAY,
+        .title = "Independence Day",
+        .duration = MINUTES_PER_DAY,
+        .icon = TIMELINE_RESOURCE_TIMELINE_CALENDAR,
+        .all_day = true,
+      }
+    },
+    .past = past,
+  });
+}
+
+void test_timeline_list_view__all_day_future(void) {
+  prv_create_and_render_all_day(false /* past */);
+  FAKE_GRAPHICS_CONTEXT_CHECK_DEST_BITMAP_FILE();
+}
+
+void test_timeline_list_view__all_day_past(void) {
+  prv_create_and_render_all_day(true /* past */);
+  FAKE_GRAPHICS_CONTEXT_CHECK_DEST_BITMAP_FILE();
+}
