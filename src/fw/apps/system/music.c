@@ -28,6 +28,7 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/math.h"
+#include "pbl/util/trig.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -40,6 +41,36 @@
 #else
 #define MUSIC_ALBUM_ART_SUPPORTED 0
 #endif
+
+// On round platforms with album art the media layout is used all the time (with the cover as the
+// backdrop when art is available, the plain background otherwise); on rect it applies only while
+// art is showing, with the stock layout otherwise.
+#define MUSIC_ROUND_MEDIA_LAYOUT (PBL_ROUND && MUSIC_ALBUM_ART_SUPPORTED)
+
+#if PBL_ROUND
+// Unified round media layout: a full-screen backdrop, a progress arc along the bezel whose gap
+// hugs the action bar, a centred artist / title / times stack across the widest band of the
+// circle, and the state icon anchoring the bottom.
+#define ART_ROUND_ARTIST_Y (DISP_ROWS / 2 - 70)
+#define ART_ROUND_TITLE_Y (DISP_ROWS / 2 - 48)  // region symmetric about the display centre
+#define ART_ROUND_TITLE_H 96  // up to three Gothic 28 Bold lines, ellipsised beyond
+#define ART_ROUND_TIMES_Y (DISP_ROWS / 2 + 58)
+// Symmetric side margin for the text stack: centred on the true display centre, and wide lines
+// still clear the action bar's crescent on the right.
+#define ART_ROUND_TEXT_MARGIN 48
+#define ART_ROUND_ICON_CENTER_Y (DISP_ROWS - 26)
+#define ART_ROUND_RING_THICKNESS 7
+// Progress arc endpoints, degrees clockwise from 12 o'clock: it runs from the bottom edge of the
+// action bar around the bottom, left and top of the circle to the action bar's top edge. The
+// endpoints reach a few degrees INTO the action bar's crescent (which draws on top) so the tips
+// tuck flush underneath it with no background sliver.
+#define ART_ROUND_ARC_START_DEG 124
+#define ART_ROUND_ARC_END_DEG (360 + 56)
+#endif
+
+// The art-mode title font; the round media layout sizes it up for the wide centre band.
+#define TITLE_SCROLL_FONT_KEY \
+    PBL_IF_RECT_ELSE(FONT_KEY_GOTHIC_24_BOLD, FONT_KEY_GOTHIC_28_BOLD)
 
 enum ActionBarState {
   ActionBarStateSkip,
@@ -294,6 +325,17 @@ typedef struct {
   bool temporarily_show_progress;
   AppTimer *temporarily_show_progress_timer;
 } MusicAppData;
+
+//! True when the screen uses the media layout (backdrop + centred stack) rather than the stock
+//! layout. Always on for the unified round layout; on rect only while art is showing.
+static bool prv_use_media_layout(MusicAppData *data) {
+#if MUSIC_ROUND_MEDIA_LAYOUT
+  (void)data;
+  return true;
+#else
+  return data->has_album_art;
+#endif
+}
 
 static void prv_set_action_bar_state(MusicAppData *data, enum ActionBarState state);
 
@@ -730,6 +772,12 @@ static void prv_volume_click_config_provider(void *context) {
 static void prv_update_layout(MusicAppData *data) {
   const bool show_progress_bar = shell_prefs_get_music_show_progress_bar() || data->temporarily_show_progress;
   bool hide_layer = !show_progress_bar || !music_is_progress_reporting_supported();
+#if MUSIC_ROUND_MEDIA_LAYOUT
+  // The unified round layout draws its own bezel arc and times on the backdrop; the stock bar and
+  // time labels stay hidden permanently, and the backdrop repaints when visibility changes.
+  hide_layer = true;
+  layer_mark_dirty(&data->album_art_layer);
+#endif
   layer_set_hidden(&data->track_pos_bar.layer, hide_layer);
   layer_set_hidden(&data->position_text_layer.layer, hide_layer);
   layer_set_hidden(&data->length_text_layer.layer, hide_layer);
@@ -802,9 +850,7 @@ static void prv_pop_no_music_window(MusicAppData *data) {
 }
 
 static void prv_update_now_playing(MusicAppData *data) {
-  const bool show_progress_bar = shell_prefs_get_music_show_progress_bar() || data->temporarily_show_progress;
-  layer_set_hidden((Layer *)&data->track_pos_bar,
-                   !show_progress_bar || !music_is_progress_reporting_supported());
+  prv_update_layout(data);
 
   char artist_buffer[MUSIC_BUFFER_LENGTH];
   char title_buffer[MUSIC_BUFFER_LENGTH];
@@ -824,9 +870,10 @@ static void prv_update_now_playing(MusicAppData *data) {
   }
   if (title_changed || artist_changed) {
     // The slide animation bounces the artist/title layers back to their stock positions, which
-    // fights the album-art layout, so over art just swap the text. Also skip it when there's nothing
+    // fights the media layout, so there just swap the text. Also skip it when there's nothing
     // to animate from.
-    if (data->has_album_art || (data->artist_buffer[0] == 0 && data->title_buffer[0] == 0)) {
+    if (prv_use_media_layout(data) ||
+        (data->artist_buffer[0] == 0 && data->title_buffer[0] == 0)) {
       strncpy(data->artist_buffer, artist_buffer, MUSIC_BUFFER_LENGTH);
       strncpy(data->title_buffer, title_buffer, MUSIC_BUFFER_LENGTH);
       // It is sufficient to mark one layer as dirty.
@@ -880,6 +927,10 @@ static void prv_update_track_progress(MusicAppData *data) {
     prv_copy_time_period(data->length_buffer, sizeof(data->length_buffer),
                          data->track_length / 1000);
   }
+#if MUSIC_ROUND_MEDIA_LAYOUT
+  // The arc and times draw on the backdrop layer; refresh it with each progress update.
+  layer_mark_dirty(&data->album_art_layer);
+#endif
 }
 
 static void prv_update_pos(void) {
@@ -927,7 +978,9 @@ static int16_t prv_art_width(void) {
 }
 
 static GRect prv_album_art_rect(void) {
-  const int16_t art_h = prv_config()->time_field.origin_y - 2;
+  // Rect: a square band from the top down to just above the times row. Round: the cover fills the
+  // whole display (it is already fetched at the full width) and the circle masks it.
+  const int16_t art_h = PBL_IF_RECT_ELSE(prv_config()->time_field.origin_y - 2, DISP_ROWS);
   return GRect(0, 0, prv_art_width(), art_h);
 }
 
@@ -935,24 +988,43 @@ static GRect prv_album_art_rect(void) {
 // screens, to its left on round ones), where the artist normally never was — so it reads on the
 // plain background below the cover. Kept tight so as much of the title shows as possible.
 static GRect prv_art_title_rect(void) {
+#if PBL_RECT
+  const int16_t h = 28;
   const MusicAppSizeConfig *config = prv_config();
   const GRect tape = prv_cassette_rect();
   // Clear the tape frame plus a gap: the widest state icon (volume) fills the whole frame.
-  const int16_t x = PBL_IF_RECT_ELSE(tape.origin.x + tape.size.w + 2, 2);
-  const int16_t right = PBL_IF_RECT_ELSE(DISP_COLS - ACTION_BAR_WIDTH - 7, tape.origin.x - 4);
+  const int16_t x = tape.origin.x + tape.size.w + 2;
+  const int16_t right = DISP_COLS - ACTION_BAR_WIDTH - 7;
   // Single line, vertically centred in the band between the progress bar and the bottom of screen,
   // nudged up slightly since the glyph sits a touch low within the line box.
-  const int16_t h = 28;
   const int16_t bar_bottom = config->track_field.origin_y + config->track_field.size_h;
   const int16_t y = bar_bottom + (DISP_ROWS - bar_bottom - h) / 2 - 5;
+#else
+  // Round: the centrepiece block across the middle of the circle. Clamp to the visible chord at
+  // the block's lowest row so a full-height title never starts behind the bezel.
+  const int16_t h = ART_ROUND_TITLE_H;
+  const int16_t y = ART_ROUND_TITLE_Y;
+  const int16_t radius = DISP_COLS / 2;
+  const int32_t dy = (y + h - 2) - radius;
+  const int16_t half_chord =
+      integer_sqrt((int64_t)radius * radius - (int64_t)dy * dy);
+  const int16_t x = MAX(radius - half_chord + 4, ART_ROUND_TEXT_MARGIN);
+  const int16_t right = DISP_COLS - x;
+#endif
   return GRect(x, y, right - x, h);
 }
 
-// Artist name, centred over the bottom of the cover just above the track-info row.
+// Artist name, centred over the cover. Rect: just above the track-info row; round: the top of the
+// centred text stack in the lower half.
 static GRect prv_art_artist_rect(void) {
+#if PBL_RECT
   const int16_t content_w = DISP_COLS - ACTION_BAR_WIDTH;
   const int16_t art_bottom = prv_config()->time_field.origin_y - 2;
   return GRect(0, art_bottom - 26, content_w, 26);
+#else
+  return GRect(ART_ROUND_TEXT_MARGIN, ART_ROUND_ARTIST_Y,
+               DISP_COLS - 2 * ART_ROUND_TEXT_MARGIN, 24);
+#endif
 }
 
 // Draw text with a 1px black outline (8 offset copies) then white on top, so it pops over the art.
@@ -988,24 +1060,101 @@ static void prv_artist_update_proc(Layer *layer, GContext *ctx) {
   }
 }
 
-// Title layer: one-way scrolling ticker (two copies with a gap) over art; stock render otherwise.
+// Title layer: glance-style scrolling single line over art; stock render otherwise.
 static void prv_title_update_proc(Layer *layer, GContext *ctx) {
   MusicAppData *data = app_state_get_user_data();
   const TextLayer *tl = (const TextLayer *)layer;
+#if !MUSIC_ROUND_MEDIA_LAYOUT
   if (!data->has_album_art) {
     if (data->orig_text_update_proc) {
       data->orig_text_update_proc(layer, ctx);
     }
     return;
   }
+#endif
   if (!tl->text || !tl->text[0]) {
     return;
   }
-  graphics_context_set_text_color(ctx, tl->text_color);
+#if PBL_RECT
   GRect b = layer->bounds;
   b.origin.x = -data->title_marquee_offset;
+  graphics_context_set_text_color(ctx, tl->text_color);
   graphics_draw_text(ctx, tl->text, tl->font, b, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+#else
+  // Unified round layout: the title wraps to up to three centred lines (ellipsised beyond) and
+  // the block floats vertically centred in its region; outlined over art, plain otherwise.
+  GRect box = layer->bounds;
+  const GSize used = graphics_text_layout_get_max_used_size(
+      ctx, tl->text, tl->font, box, GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  // The -4 backs out the glyph box's dead space above the caps so the INK centres in the region
+  // (which is itself centred on the display), lining a one-line title up with the action bar's
+  // middle icon.
+  const int16_t off = MAX((box.size.h - used.h) / 2 - 4, 0);
+  box.origin.y += off;
+  box.size.h -= off;
+  if (data->has_album_art) {
+    prv_draw_outlined_text(ctx, tl->text, tl->font, box, GTextOverflowModeTrailingEllipsis,
+                           GTextAlignmentCenter);
+  } else {
+    graphics_context_set_text_color(ctx, tl->text_color);
+    graphics_draw_text(ctx, tl->text, tl->font, box, GTextOverflowModeTrailingEllipsis,
+                       GTextAlignmentCenter, NULL);
+  }
+#endif
 }
+
+#if MUSIC_ROUND_MEDIA_LAYOUT
+//! Fill part of the bezel arc band. Degrees run clockwise from 12 o'clock and the range may pass
+//! through 360 (the fill is split there).
+static void prv_fill_bezel_arc(GContext *ctx, const GRect *bounds, int32_t from_deg,
+                               int32_t to_deg) {
+  if (to_deg <= from_deg) {
+    return;
+  }
+  if (to_deg <= 360) {
+    graphics_fill_radial(ctx, *bounds, GOvalScaleModeFitCircle, ART_ROUND_RING_THICKNESS,
+                         DEG_TO_TRIGANGLE(from_deg), DEG_TO_TRIGANGLE(to_deg));
+  } else {
+    graphics_fill_radial(ctx, *bounds, GOvalScaleModeFitCircle, ART_ROUND_RING_THICKNESS,
+                         DEG_TO_TRIGANGLE(from_deg), TRIG_MAX_ANGLE);
+    graphics_fill_radial(ctx, *bounds, GOvalScaleModeFitCircle, ART_ROUND_RING_THICKNESS, 0,
+                         DEG_TO_TRIGANGLE(to_deg - 360));
+  }
+}
+
+// Progress arc along the bezel (its gap hugging the action bar) plus a small centred
+// elapsed/total line: the round replacements for the stock bar and time labels.
+static void prv_draw_round_progress(GContext *ctx, const GRect *bounds) {
+  MusicAppData *data = app_state_get_user_data();
+  if (!(data->temporarily_show_progress || shell_prefs_get_music_show_progress_bar()) ||
+      !music_is_progress_reporting_supported()) {
+    return;
+  }
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  prv_fill_bezel_arc(ctx, bounds, ART_ROUND_ARC_START_DEG, ART_ROUND_ARC_END_DEG);
+  if (data->track_length > 0) {
+    const int32_t sweep = ART_ROUND_ARC_END_DEG - ART_ROUND_ARC_START_DEG;
+    const int32_t end = ART_ROUND_ARC_START_DEG +
+        MIN((int32_t)(((int64_t)sweep * data->track_pos) / data->track_length), sweep);
+    graphics_context_set_fill_color(ctx, GColorRed);
+    prv_fill_bezel_arc(ctx, bounds, ART_ROUND_ARC_START_DEG, end);
+  }
+  if (data->position_buffer[0] && data->length_buffer[0]) {
+    char times[24];
+    snprintf(times, sizeof(times), "%s / %s", data->position_buffer, data->length_buffer);
+    const GRect box = GRect(ART_ROUND_TEXT_MARGIN, ART_ROUND_TIMES_Y,
+                            DISP_COLS - 2 * ART_ROUND_TEXT_MARGIN, 22);
+    GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+    if (data->has_album_art) {
+      prv_draw_outlined_text(ctx, times, font, box, GTextOverflowModeFill, GTextAlignmentCenter);
+    } else {
+      graphics_context_set_text_color(ctx, GColorBlack);
+      graphics_draw_text(ctx, times, font, box, GTextOverflowModeFill, GTextAlignmentCenter,
+                         NULL);
+    }
+  }
+}
+#endif
 
 static void prv_album_art_update_proc(Layer *layer, GContext *ctx) {
   // Hold the art locked for the whole draw so the service can't free it mid-blit.
@@ -1020,6 +1169,10 @@ static void prv_album_art_update_proc(Layer *layer, GContext *ctx) {
     graphics_draw_bitmap_in_rect(ctx, art, &dst);
   }
   music_album_art_unlock();
+#if MUSIC_ROUND_MEDIA_LAYOUT
+  // The layer doubles as the round backdrop: the arc and times draw with or without a cover.
+  prv_draw_round_progress(ctx, &layer->bounds);
+#endif
 }
 
 //! Request album art for the current track, but only when it would actually be shown and we don't
@@ -1060,8 +1213,10 @@ static void prv_title_marquee_stop(MusicAppData *data) {
   }
 }
 
+#if !MUSIC_ROUND_MEDIA_LAYOUT
 // Advance the pause / scroll / pause / rewind cycle. Redraws only when the offset changes, and
-// sleeps through the pauses in one go instead of ticking.
+// sleeps through the pauses in one go instead of ticking. (The unified round layout wraps the
+// title instead of scrolling it, so the cycle only exists on rect.)
 static void prv_title_marquee_cb(void *context) {
   MusicAppData *data = context;
   data->title_marquee_timer = NULL;
@@ -1103,16 +1258,25 @@ static void prv_title_marquee_cb(void *context) {
   data->title_marquee_elapsed_ms += sleep_ms;
   data->title_marquee_timer = app_timer_register(sleep_ms, prv_title_marquee_cb, data);
 }
+#endif
 
-// Lay the title out on one line beside the tape and, if it overflows, arm a couple of scroll passes.
+// Lay the title out on one line beside the tape and, if it overflows, arm the scroll cycle.
 static void prv_title_marquee_setup(MusicAppData *data) {
   prv_title_marquee_stop(data);
   const GRect vis = prv_art_title_rect();
   // Explicit system font (not the theme Subtitle) so measured width matches what's drawn.
-  text_layer_set_font(&data->title_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-  text_layer_set_text_alignment(&data->title_text_layer, GTextAlignmentLeft);
+  text_layer_set_font(&data->title_text_layer, fonts_get_system_font(TITLE_SCROLL_FONT_KEY));
   layer_set_frame(&data->title_text_layer.layer, &vis);
   layer_set_clips(&data->title_text_layer.layer, true);
+  data->title_marquee_offset = 0;
+  data->title_marquee_elapsed_ms = 0;
+#if MUSIC_ROUND_MEDIA_LAYOUT
+  // Round: no scrolling — the title wraps to up to three centred lines in its block.
+  text_layer_set_text_alignment(&data->title_text_layer, GTextAlignmentCenter);
+  layer_set_bounds(&data->title_text_layer.layer, &GRect(0, 0, vis.size.w, vis.size.h));
+  data->title_marquee_span = 0;
+#else
+  text_layer_set_text_alignment(&data->title_text_layer, GTextAlignmentLeft);
   // Wide, one-line bounds: measure here and keep it wide so the scroll proc never wraps a copy.
   layer_set_bounds(&data->title_text_layer.layer, &GRect(0, 0, DISP_COLS * 3, vis.size.h));
   const GSize text_size = app_text_layer_get_content_size(&data->title_text_layer);
@@ -1120,8 +1284,6 @@ static void prv_title_marquee_setup(MusicAppData *data) {
   // out (~2px per glyph) only for the overflow decision so a barely-fitting title doesn't scroll.
   // The scroll distance uses the full measured width so the end pause always reveals the tail.
   const int16_t ink_w = text_size.w - 2 * (int16_t)strlen(data->title_buffer);
-  data->title_marquee_offset = 0;
-  data->title_marquee_elapsed_ms = 0;
   if (ink_w > vis.size.w) {
     data->title_marquee_span = text_size.w - vis.size.w;
     data->title_marquee_timer =
@@ -1129,6 +1291,7 @@ static void prv_title_marquee_setup(MusicAppData *data) {
   } else {
     data->title_marquee_span = 0;
   }
+#endif
   layer_mark_dirty(&data->title_text_layer.layer);
 }
 
@@ -1179,9 +1342,9 @@ static void prv_apply_art_appearance(MusicAppData *data) {
   data->has_album_art = (art != NULL) && shell_prefs_get_music_show_album_art();
   music_album_art_unlock();
 
-  layer_set_hidden(&data->album_art_layer, !data->has_album_art);
-  if (data->has_album_art) {
-    // Rebuild the art-mode layout only on the transition in (or on a track change, which clears the
+  layer_set_hidden(&data->album_art_layer, !prv_use_media_layout(data));
+  if (prv_use_media_layout(data)) {
+    // Rebuild the media layout only on the transition in (or on a track change, which clears the
     // flag) — re-running every event would restart the scroll and spawn overlapping timers.
     if (!data->title_marquee_on) {
       // The stock track-change slide may be mid-flight (it runs when the previous track had no
@@ -1204,12 +1367,17 @@ static void prv_apply_art_appearance(MusicAppData *data) {
     prv_title_restore(data);
     data->title_marquee_on = false;
   }
-  // The state icons (tape / pause / volume) differ in size. Over art, with the title sitting right
-  // beside them, centre them in the tape frame so a state swap keeps the same visual centre and
-  // lines up with the title's text ink; the stock layout keeps its original corner pinning.
+  // The state icons (tape / pause / volume) differ in size. In the media layout, centre them in
+  // the tape frame so a state swap keeps the same visual centre; the stock layout keeps its
+  // original corner pinning.
   bitmap_layer_set_alignment(&data->cassette_layer,
-                             data->has_album_art ? GAlignCenter
-                                                 : PBL_IF_RECT_ELSE(GAlignTopLeft, GAlignTopRight));
+                             prv_use_media_layout(data)
+                                 ? GAlignCenter
+                                 : PBL_IF_RECT_ELSE(GAlignTopLeft, GAlignTopRight));
+#if MUSIC_ROUND_MEDIA_LAYOUT
+  // The bezel arc + drawn times replace the stock bar and time labels permanently on round.
+  prv_update_layout(data);
+#endif
   // Big clock in both modes; over art it's white with a black outline (matching the artist) so the
   // time reads over the cover, otherwise plain black on the light background.
   status_bar_layer_set_colors(&data->status_layer, GColorClear,
@@ -1286,6 +1454,22 @@ static void prv_init_ui(Window *window) {
   bitmap_layer_set_alignment(&data->cassette_layer, CASSETTE_LAYER_ALIGNMENT);
   bitmap_layer_set_compositing_mode(&data->cassette_layer, GCompOpSet);
   layer_add_child(&data->cassette_container, &data->cassette_layer.layer);
+
+#if MUSIC_ROUND_MEDIA_LAYOUT
+  // Unified round media layout: centred text stack across the widest band and the state icon
+  // anchoring the bottom of the circle, in both the art and plain-background states.
+  prv_artist_setup_art(data);
+  const GRect round_title_rect = prv_art_title_rect();
+  layer_set_frame(&data->title_text_layer.layer, &round_title_rect);
+  text_layer_set_font(&data->title_text_layer, fonts_get_system_font(TITLE_SCROLL_FONT_KEY));
+  text_layer_set_text_alignment(&data->title_text_layer, GTextAlignmentCenter);
+  GRect tape_frame = GRect(0, WINDOW_SIZE.h - horizontal_margin - 24,
+                           WINDOW_SIZE.w - ACTION_BAR_WIDTH, 24);
+  tape_frame.origin.x += DISP_COLS / 2 - (cassette_rect.origin.x + cassette_rect.size.w / 2);
+  tape_frame.origin.y = ART_ROUND_ICON_CENTER_Y - cassette_rect.origin.y - cassette_rect.size.h / 2;
+  layer_set_frame(&data->cassette_container, &tape_frame);
+  bitmap_layer_set_alignment(&data->cassette_layer, GAlignCenter);
+#endif
 
   progress_layer_init(&data->track_pos_bar, &track_rect);
   progress_layer_set_background_color(&data->track_pos_bar,
