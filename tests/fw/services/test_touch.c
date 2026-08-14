@@ -23,6 +23,13 @@
 
 void kernel_free(void *p) {}
 
+// A watchface subscription is passive: it never powers the sensor. Tests drive
+// this directly to cover both sides of that decision.
+static bool s_watchface_running;
+bool app_manager_is_watchface_running(void) {
+  return s_watchface_running;
+}
+
 // Declared in syscall/syscall.h; in the test build DEFINE_SYSCALL is a plain function.
 void sys_touch_set_raw_subscribed(bool subscribed);
 
@@ -73,6 +80,7 @@ void test_touch__initialize(void) {
   // The raw-slot mark is a module static; clear the App task's bit between tests.
   s_current_task = PebbleTask_App;
   sys_touch_set_raw_subscribed(false);
+  s_watchface_running = false;
 }
 
 void test_touch__cleanup(void) {
@@ -192,6 +200,62 @@ void test_touch__backlight_and_app_share_sensor(void) {
   s_remove_subscriber_cb(PebbleTask_App);
   cl_assert_equal_i(s_touch_sensor_disable_count, 1);
   cl_assert(!s_touch_sensor_enabled);
+}
+
+void test_touch__watchface_subscription_never_powers_sensor(void) {
+  s_watchface_running = true;
+
+  // Alone, a watchface subscription leaves the sensor off: it rides what a
+  // system holder already powers and powers nothing itself.
+  s_add_subscriber_cb(PebbleTask_App);
+  cl_assert_equal_i(s_touch_sensor_enable_count, 0);
+  cl_assert(!s_touch_sensor_enabled);
+
+  s_remove_subscriber_cb(PebbleTask_App);
+  cl_assert_equal_i(s_touch_sensor_disable_count, 0);
+
+  // Accounting unwound: a watchapp subscribing afterwards still powers it.
+  s_watchface_running = false;
+  s_add_subscriber_cb(PebbleTask_App);
+  cl_assert_equal_i(s_touch_sensor_enable_count, 1);
+  cl_assert(s_touch_sensor_enabled);
+}
+
+void test_touch__watchface_follows_system_holder(void) {
+  touch_set_backlight_enabled(true);
+  cl_assert_equal_i(s_touch_sensor_enable_count, 1);
+
+  s_watchface_running = true;
+  s_add_subscriber_cb(PebbleTask_App);
+  cl_assert_equal_i(s_touch_sensor_enable_count, 1);
+  cl_assert(s_touch_sensor_enabled);
+
+  // The holder leaving powers the sensor down even though the watchface is
+  // still subscribed: it cannot keep the sensor alive on its own.
+  touch_set_backlight_enabled(false);
+  cl_assert_equal_i(s_touch_sensor_disable_count, 1);
+  cl_assert(!s_touch_sensor_enabled);
+
+  s_remove_subscriber_cb(PebbleTask_App);
+  cl_assert_equal_i(s_touch_sensor_disable_count, 1);
+}
+
+void test_touch__global_reenable_ignores_passive_subscribers(void) {
+  s_watchface_running = true;
+  s_add_subscriber_cb(PebbleTask_App);
+  cl_assert(!s_touch_sensor_enabled);
+
+  // Cycling the master kill switch must not power the sensor for a watchface:
+  // this path re-derives the sensor state from the subscribers and has to use
+  // the powering count, not the total.
+  touch_service_set_globally_enabled(false);
+  touch_service_set_globally_enabled(true);
+  cl_assert(!s_touch_sensor_enabled);
+  cl_assert_equal_i(s_touch_sensor_enable_count, 0);
+
+  // The subscriber counts are module statics in touch.c and survive between
+  // tests, so balance the add.
+  s_remove_subscriber_cb(PebbleTask_App);
 }
 
 void test_touch__has_app_subscribers_app(void) {

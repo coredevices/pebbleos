@@ -14,16 +14,14 @@
 #include "system/passert.h"
 
 //! @return the per-task touch service state, or NULL if the current task is
-//! not permitted to use the touch service (e.g. background workers, or
-//! watchfaces). Callers must no-op when this returns NULL.
+//! not permitted to use the touch service (e.g. background workers). Callers
+//! must no-op when this returns NULL. Watchfaces reach the raw slot through
+//! here; the system slot is gated separately in
+//! touch_service_set_system_handler().
 static TouchServiceState *prv_get_state(void) {
   PebbleTask task = pebble_task_get_current();
   switch (task) {
     case PebbleTask_App:
-      // Touch is reserved for watchapps; watchfaces must not consume it.
-      if (sys_app_is_watchface()) {
-        return NULL;
-      }
       return app_state_get_touch_service_state();
     case PebbleTask_KernelMain:
       return kernel_applib_get_touch_service_state();
@@ -67,6 +65,11 @@ static void prv_update_subscription(TouchServiceState *state) {
 }
 
 void touch_service_set_system_handler(TouchServiceHandler handler, void *context) {
+  // The Tier-2 bridge is a watchapp feature: a watchface drives its own UI from
+  // raw touch.
+  if ((pebble_task_get_current() == PebbleTask_App) && sys_app_is_watchface()) {
+    return;
+  }
   TouchServiceState *state = prv_get_state();
   if (!state) {
     return;
