@@ -8,6 +8,7 @@
 
 #include "pbl/drivers/rtc.h"
 #include "pbl/util/math.h"
+#include "syscall/syscall.h"
 
 #include <string.h>
 
@@ -134,7 +135,7 @@ static void prv_handle_touch_event(Recognizer *recognizer, const TouchEvent *tou
   switch (touch_event->type) {
     case TouchEvent_Touchdown: {
       const GPoint point = GPoint(touch_event->x, touch_event->y);
-      const RtcTicks now = rtc_get_ticks();
+      const RtcTicks now = sys_get_ticks();
       data->state.touch_down_point = point;
       data->state.start_point = point;
       data->state.prev_point = point;
@@ -147,7 +148,7 @@ static void prv_handle_touch_event(Recognizer *recognizer, const TouchEvent *tou
 
     case TouchEvent_PositionUpdate: {
       const GPoint point = GPoint(touch_event->x, touch_event->y);
-      const RtcTicks now = rtc_get_ticks();
+      const RtcTicks now = sys_get_ticks();
       prv_record_sample(data, point, now);
       // prev_point lags one event behind last_point so delta_since_prev is the delta between the
       // two most-recent events.
