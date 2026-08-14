@@ -440,7 +440,7 @@ static void prv_window_load(Window *window) {
 #if PBL_DISPLAY_HEIGHT >= 200
     const int32_t device_name_width = width;
 #else
-    const int32_t device_name_width = width - x_offset;
+    const int32_t device_name_width = PBL_IF_RECT_ELSE(width, width - x_offset);
 #endif
     TextLayer *device_name_layer = &data->device_name_text_layer;
     text_layer_init_with_parameters(device_name_layer,

@@ -204,6 +204,16 @@ static int16_t prv_sidebar_line_x(const GRect *layer_bounds) {
   }
   return layer_bounds->origin.x + REL_BAR_LINE_HORIZ_OFFSET - REL_BAR_LINE_WIDTH;
 }
+
+// The overlap relationship bar uses a different horizontal baseline than the
+// plain/dotted bars (SIDEBAR_WIDTH / 2 rather than REL_BAR_LINE_HORIZ_OFFSET),
+// so it keeps its own mirror.
+static int16_t prv_overlap_line_x(const GRect *layer_bounds) {
+  if (timeline_layer_sidebar_is_on_right()) {
+    return layer_bounds->origin.x + layer_bounds->size.w - (SIDEBAR_WIDTH / 2);
+  }
+  return layer_bounds->origin.x + (SIDEBAR_WIDTH / 2) - REL_BAR_LINE_WIDTH;
+}
 static void prv_draw_rel_bar_line(TimelineLayer *timeline_layer, GContext* ctx,
                                   bool current, int16_t anim_offset) {
   int16_t prev_offset = 0; // Used to animate the previous animation offset
@@ -387,7 +397,7 @@ static void prv_draw_rel_bar_overlap(TimelineLayer *timeline_layer, GContext* ct
   GPoint line2_start;
 
   // Draw down
-  line1_start.x = prv_sidebar_line_x(&layer_bounds) - REL_BAR_OVERLAP_NUDGE_X -
+  line1_start.x = prv_overlap_line_x(&layer_bounds) - REL_BAR_OVERLAP_NUDGE_X -
                   REL_BAR_OVERLAP_SIDE_MARGIN;
   line1_start.y = grect_get_max_y(&first_icon_frame) + REL_BAR_VERT_MARGIN -
                   y_offset + REL_BAR_LINE_WIDTH;
@@ -402,7 +412,9 @@ static void prv_draw_rel_bar_overlap(TimelineLayer *timeline_layer, GContext* ct
   graphics_fill_rect(ctx, &notch);
 
   // Draw up
-  line2_start.x = line1_start.x + REL_BAR_OVERLAP_LINE2_HORIZ_OFFSET;
+  line2_start.x = line1_start.x + (timeline_layer_sidebar_is_on_right()
+                                       ? REL_BAR_OVERLAP_LINE2_HORIZ_OFFSET
+                                       : -REL_BAR_OVERLAP_LINE2_HORIZ_OFFSET);
   line2_start.y = second_icon_frame.origin.y - REL_BAR_VERT_MARGIN - y_offset -
                   REL_BAR_LINE_WIDTH;
   graphics_fill_rect(ctx, &GRect(line2_start.x, line2_start.y,

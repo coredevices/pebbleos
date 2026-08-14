@@ -670,7 +670,7 @@ static void prv_update_proc(struct Layer *layer, GContext* ctx) {
 
   graphics_fill_rect(ctx, &sidebar_rect);
   const bool sidebar_on_right = timeline_layer_sidebar_is_on_right();
-  int16_t arrow_base_x = sidebar_on_right ? (bounds->size.w - sidebar_width) : sidebar_width;
+  int16_t arrow_base_x = sidebar_on_right ? (bounds->size.w - sidebar_width) : (sidebar_width - 1);
 #if PBL_ROUND
   arrow_base_x += sidebar_on_right ? -1 : 1;
 #endif

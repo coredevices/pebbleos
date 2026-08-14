@@ -51,7 +51,8 @@ static void prv_actionable_dialog_load(Window *window) {
     dialog_add_status_bar_layer(dialog, &GRect(x, y, w, h));
   }
 
-  x = content_x_start + left_margin_px;
+  x = content_x_start + (action_bar_layer_is_on_right()
+                         ? left_margin_px : content_and_action_bar_horizontal_spacing);
   w = bounds->size.w - left_margin_px - right_margin_px;
 
   GTextAttributes *text_attributes = NULL;

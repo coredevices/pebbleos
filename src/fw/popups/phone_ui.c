@@ -1045,14 +1045,24 @@ static void prv_phone_ui_init(void) {
   kino_layer_set_alignment(&s_phone_ui_data->icon_layer, GAlignCenter);
   layer_add_child(&s_phone_ui_data->core_ui_container, &s_phone_ui_data->icon_layer.layer);
 
-  const int16_t content_x = action_bar_layer_get_content_origin_x();
+  const bool action_bar_on_right = action_bar_layer_is_on_right();
+  PBL_UNUSED const int16_t content_x = action_bar_layer_get_content_origin_x();
   const GTextAlignment phone_text_alignment = PBL_IF_RECT_ELSE(
       GTextAlignmentCenter,
-      action_bar_layer_is_on_right() ? GTextAlignmentRight : GTextAlignmentLeft);
+      action_bar_on_right ? GTextAlignmentRight : GTextAlignmentLeft);
+  // On rectangular displays the action bar shifts the text frame to the content side; on round
+  // displays the frame stays symmetric and the text bounds are inset on the bar side instead.
+  const int16_t text_frame_x = PBL_IF_RECT_ELSE(TEXT_MARGIN_WIDTH + content_x, TEXT_MARGIN_WIDTH);
+  const int16_t text_frame_w = PBL_IF_RECT_ELSE(width - content_x, width);
+  const int16_t text_bounds_x =
+      PBL_IF_ROUND_ELSE(action_bar_on_right ? 0 : TEXT_RIGHTSIDE_PADDING, 0);
+  const int16_t text_bounds_w =
+      PBL_IF_RECT_ELSE(width - content_x - (action_bar_on_right ? TEXT_RIGHTSIDE_PADDING : 0),
+                       width - TEXT_RIGHTSIDE_PADDING);
 
   // Caller ID text
-  const GRect caller_id_text_rect = GRect(TEXT_MARGIN_WIDTH + content_x, style->caller_id_pos_y,
-                                          width - content_x, style->caller_id_height);
+  const GRect caller_id_text_rect = GRect(text_frame_x, style->caller_id_pos_y,
+                                          text_frame_w, style->caller_id_height);
   text_layer_init_with_parameters(&s_phone_ui_data->caller_id_text_layer,
                                   &caller_id_text_rect, NULL, NULL,
                                   GColorBlack,
@@ -1062,12 +1072,12 @@ static void prv_phone_ui_init(void) {
   layer_add_child(&s_phone_ui_data->core_ui_container,
                   &s_phone_ui_data->caller_id_text_layer.layer);
   // Shrink the bounds but not the frame size to allow for centering when action bar removed
-  s_phone_ui_data->caller_id_text_layer.layer.bounds.size.w =
-      width - content_x - (action_bar_layer_is_on_right() ? TEXT_RIGHTSIDE_PADDING : 0);
+  s_phone_ui_data->caller_id_text_layer.layer.bounds.origin.x = text_bounds_x;
+  s_phone_ui_data->caller_id_text_layer.layer.bounds.size.w = text_bounds_w;
 
   // Status text
-  const GRect call_status_text_rect = GRect(TEXT_MARGIN_WIDTH + content_x, style->status_pos_y,
-                                            width - content_x, style->status_height);
+  const GRect call_status_text_rect = GRect(text_frame_x, style->status_pos_y,
+                                            text_frame_w, style->status_height);
   text_layer_init_with_parameters(&s_phone_ui_data->call_status_text_layer,
                                   &call_status_text_rect, NULL, s_phone_ui_data->status_font,
                                   GColorBlack,
@@ -1079,8 +1089,8 @@ static void prv_phone_ui_init(void) {
   layer_add_child(&s_phone_ui_data->core_ui_container,
                   &s_phone_ui_data->call_status_text_layer.layer);
   // Shrink the bounds but not the frame size to allow for centering when action bar removed
-  s_phone_ui_data->call_status_text_layer.layer.bounds.size.w =
-      width - content_x - (action_bar_layer_is_on_right() ? TEXT_RIGHTSIDE_PADDING : 0);
+  s_phone_ui_data->call_status_text_layer.layer.bounds.origin.x = text_bounds_x;
+  s_phone_ui_data->call_status_text_layer.layer.bounds.size.w = text_bounds_w;
 
   // Action bar
   action_bar_layer_init(&s_phone_ui_data->action_bar);
