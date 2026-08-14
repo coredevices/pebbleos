@@ -158,20 +158,43 @@ bool settings_blob_db_phone_supports_sync(void) {
   return capabilities.settings_sync_support;
 }
 
-//! Check if a key matches an entry in a given list
+//! Find a key's canonical whitelist entry, or NULL if it isn't in the list.
 //! Handles both key_len with null terminator (strlen+1) and without (strlen)
-static bool prv_is_key_in_list(const uint8_t *key, int key_len,
-                               const char **list, size_t list_len) {
+static const char *prv_find_in_list(const uint8_t *key, int key_len,
+                                    const char **list, size_t list_len) {
   for (size_t i = 0; i < list_len; i++) {
     const char *list_key = list[i];
     size_t list_key_strlen = strlen(list_key);
     // Accept key_len matching strlen (no null) or strlen+1 (with null)
     if ((key_len == (int)list_key_strlen || key_len == (int)(list_key_strlen + 1)) &&
         memcmp(key, list_key, list_key_strlen) == 0) {
-      return true;
+      return list_key;
     }
   }
-  return false;
+  return NULL;
+}
+
+//! Check if a key matches an entry in a given list
+static bool prv_is_key_in_list(const uint8_t *key, int key_len,
+                               const char **list, size_t list_len) {
+  return prv_find_in_list(key, key_len, list, list_len) != NULL;
+}
+
+//! Canonicalize a whitelisted shell-pref key to the form the backing store uses: shell-pref keys
+//! are stored WITH the trailing null (prefs_private_read_backing looks them up with strlen+1),
+//! while the phone may send the key either way. Settings-file records match on exact key_len, so
+//! without this a null-less phone write lands under a key the pref readers never find and the
+//! setting silently fails to apply. Points the caller at the whitelist's own string so the null
+//! byte is guaranteed to be present. Returns false if the key isn't a whitelisted shell pref.
+static bool prv_canonical_shell_key(const uint8_t **key, int *key_len) {
+  const char *canonical = prv_find_in_list(*key, *key_len, s_syncable_settings,
+                                           s_num_syncable_settings);
+  if (!canonical) {
+    return false;
+  }
+  *key = (const uint8_t *)canonical;
+  *key_len = (int)strlen(canonical) + 1;
+  return true;
 }
 
 //! Check if a setting key is in the shell/prefs sync whitelist
@@ -302,7 +325,7 @@ status_t settings_blob_db_insert(const uint8_t *key, int key_len,
     file_name = NOTIF_PREFS_FILE_NAME;
     file_len = NOTIF_PREFS_FILE_LEN;
     key_len = prv_canonical_notif_key_len(key, key_len);
-  } else if (prv_is_shell_pref(key, key_len)) {
+  } else if (prv_canonical_shell_key(&key, &key_len)) {
     file_name = SHELL_PREFS_FILE_NAME;
     file_len = SHELL_PREFS_FILE_LEN;
   } else {
@@ -374,6 +397,7 @@ int settings_blob_db_get_len(const uint8_t *key, int key_len) {
   } else {
     file_name = SHELL_PREFS_FILE_NAME;
     file_len = SHELL_PREFS_FILE_LEN;
+    prv_canonical_shell_key(&key, &key_len);
   }
 
   prv_lock_for_file(is_notif);
@@ -409,6 +433,7 @@ status_t settings_blob_db_read(const uint8_t *key, int key_len,
   } else {
     file_name = SHELL_PREFS_FILE_NAME;
     file_len = SHELL_PREFS_FILE_LEN;
+    prv_canonical_shell_key(&key, &key_len);
   }
 
   prv_lock_for_file(is_notif);
@@ -440,7 +465,7 @@ status_t settings_blob_db_delete(const uint8_t *key, int key_len) {
     file_name = NOTIF_PREFS_FILE_NAME;
     file_len = NOTIF_PREFS_FILE_LEN;
     key_len = prv_canonical_notif_key_len(key, key_len);
-  } else if (prv_is_shell_pref(key, key_len)) {
+  } else if (prv_canonical_shell_key(&key, &key_len)) {
     file_name = SHELL_PREFS_FILE_NAME;
     file_len = SHELL_PREFS_FILE_LEN;
   } else {
@@ -720,7 +745,7 @@ status_t settings_blob_db_insert_with_timestamp(const uint8_t *key, int key_len,
     file_name = NOTIF_PREFS_FILE_NAME;
     file_len = NOTIF_PREFS_FILE_LEN;
     key_len = prv_canonical_notif_key_len(key, key_len);
-  } else if (prv_is_shell_pref(key, key_len)) {
+  } else if (prv_canonical_shell_key(&key, &key_len)) {
     file_name = SHELL_PREFS_FILE_NAME;
     file_len = SHELL_PREFS_FILE_LEN;
   } else {
