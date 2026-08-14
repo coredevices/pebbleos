@@ -937,7 +937,8 @@ static GRect prv_album_art_rect(void) {
 static GRect prv_art_title_rect(void) {
   const MusicAppSizeConfig *config = prv_config();
   const GRect tape = prv_cassette_rect();
-  const int16_t x = PBL_IF_RECT_ELSE(tape.origin.x + tape.size.w - 1, 2);
+  // Clear the tape frame plus a gap: the widest state icon (volume) fills the whole frame.
+  const int16_t x = PBL_IF_RECT_ELSE(tape.origin.x + tape.size.w + 2, 2);
   const int16_t right = PBL_IF_RECT_ELSE(DISP_COLS - ACTION_BAR_WIDTH - 7, tape.origin.x - 4);
   // Single line, vertically centred in the band between the progress bar and the bottom of screen,
   // nudged up slightly since the glyph sits a touch low within the line box.
@@ -1172,6 +1173,12 @@ static void prv_apply_art_appearance(MusicAppData *data) {
     prv_title_restore(data);
     data->title_marquee_on = false;
   }
+  // The state icons (tape / pause / volume) differ in size. Over art, with the title sitting right
+  // beside them, centre them in the tape frame so a state swap keeps the same visual centre and
+  // lines up with the title's text ink; the stock layout keeps its original corner pinning.
+  bitmap_layer_set_alignment(&data->cassette_layer,
+                             data->has_album_art ? GAlignCenter
+                                                 : PBL_IF_RECT_ELSE(GAlignTopLeft, GAlignTopRight));
   // Big clock in both modes; over art it's white with a black outline (matching the artist) so the
   // time reads over the cover, otherwise plain black on the light background.
   status_bar_layer_set_colors(&data->status_layer, GColorClear,
