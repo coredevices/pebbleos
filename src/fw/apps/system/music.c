@@ -268,8 +268,8 @@ typedef struct {
   // of cycles after a track change then rests at the start; only scrolls when the title overflows.
   AppTimer *title_marquee_timer;
   int16_t title_marquee_offset;  // px scrolled left (0..span)
-  int16_t title_marquee_span;    // ink width + gap; 0 => fits, no scroll
-  uint8_t title_marquee_cycles;  // remaining scroll passes (0 => rest at start)
+  int16_t title_marquee_span;    // px of overflow to reveal; 0 => fits, no scroll
+  uint32_t title_marquee_elapsed_ms;  // position within the scroll cycle
   bool title_marquee_on;         // art-mode title/artist layout applied (transition guard)
   // Stock TextLayer render, used for the artist/title layers off album art; over art we draw them
   // ourselves (outlined artist, scrolling title).
@@ -1005,10 +1005,6 @@ static void prv_title_update_proc(Layer *layer, GContext *ctx) {
   GRect b = layer->bounds;
   b.origin.x = -data->title_marquee_offset;
   graphics_draw_text(ctx, tl->text, tl->font, b, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
-  if (data->title_marquee_span > 0) {
-    b.origin.x = data->title_marquee_span - data->title_marquee_offset;
-    graphics_draw_text(ctx, tl->text, tl->font, b, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
-  }
 }
 
 static void prv_album_art_update_proc(Layer *layer, GContext *ctx) {
@@ -1047,10 +1043,15 @@ static void prv_maybe_request_album_art(void) {
 #endif
 }
 
-#define TITLE_MARQUEE_INTERVAL_MS 33  // slow, smooth
-#define TITLE_MARQUEE_STEP 1          // 1px steps so it doesn't look jerky
-#define TITLE_MARQUEE_GAP 16          // extra blank before the title's repeat (measured width adds more)
-#define TITLE_MARQUEE_CYCLES 2        // scroll passes after a track change, then rest at the start
+// Launcher-glance-style title scroll (same motion as the app-glance subtitles, whose pacing was
+// design-tuned): pause at the start, scroll just far enough to reveal the end at a moderate pace,
+// pause there, rewind rapidly. Runs a few cycles per track, then rests showing the start.
+#define TITLE_SCROLL_TICK_MS 33            // frame interval while the text is moving
+#define TITLE_SCROLL_MS_PER_PX 20          // forward pace
+#define TITLE_SCROLL_REWIND_MS_PER_PX 2    // rewind pace
+#define TITLE_SCROLL_PAUSE_START_MS 600
+#define TITLE_SCROLL_PAUSE_END_MS 750
+#define TITLE_SCROLL_CYCLES 3
 
 static void prv_title_marquee_stop(MusicAppData *data) {
   if (data->title_marquee_timer) {
@@ -1059,28 +1060,48 @@ static void prv_title_marquee_stop(MusicAppData *data) {
   }
 }
 
-// Advance the one-way ticker by one step; wrap after each full pass and stop after a few passes so
-// the title comes to rest showing its start.
+// Advance the pause / scroll / pause / rewind cycle. Redraws only when the offset changes, and
+// sleeps through the pauses in one go instead of ticking.
 static void prv_title_marquee_cb(void *context) {
   MusicAppData *data = context;
   data->title_marquee_timer = NULL;
-  if (!data->has_album_art || data->title_marquee_span == 0 || data->title_marquee_cycles == 0) {
+  if (!data->has_album_art || data->title_marquee_span == 0) {
     data->title_marquee_offset = 0;
     layer_mark_dirty(&data->title_text_layer.layer);
     return;
   }
-  data->title_marquee_offset += TITLE_MARQUEE_STEP;
-  if (data->title_marquee_offset >= data->title_marquee_span) {
-    data->title_marquee_offset -= data->title_marquee_span;  // seamless wrap: one pass done
-    if (--data->title_marquee_cycles == 0) {
-      data->title_marquee_offset = 0;  // rest showing the start
-      layer_mark_dirty(&data->title_text_layer.layer);
-      return;
-    }
+  const uint32_t fwd_ms = (uint32_t)data->title_marquee_span * TITLE_SCROLL_MS_PER_PX;
+  const uint32_t rewind_ms = (uint32_t)data->title_marquee_span * TITLE_SCROLL_REWIND_MS_PER_PX;
+  const uint32_t cycle_ms =
+      TITLE_SCROLL_PAUSE_START_MS + fwd_ms + TITLE_SCROLL_PAUSE_END_MS + rewind_ms;
+  if (data->title_marquee_elapsed_ms / cycle_ms >= TITLE_SCROLL_CYCLES) {
+    data->title_marquee_offset = 0;  // done: rest showing the start
+    layer_mark_dirty(&data->title_text_layer.layer);
+    return;
   }
-  layer_mark_dirty(&data->title_text_layer.layer);
-  data->title_marquee_timer =
-      app_timer_register(TITLE_MARQUEE_INTERVAL_MS, prv_title_marquee_cb, data);
+  const uint32_t t = data->title_marquee_elapsed_ms % cycle_ms;
+
+  int16_t offset;
+  uint32_t sleep_ms;
+  if (t < TITLE_SCROLL_PAUSE_START_MS) {
+    offset = 0;
+    sleep_ms = TITLE_SCROLL_PAUSE_START_MS - t;
+  } else if (t < TITLE_SCROLL_PAUSE_START_MS + fwd_ms) {
+    offset = (t - TITLE_SCROLL_PAUSE_START_MS) / TITLE_SCROLL_MS_PER_PX;
+    sleep_ms = TITLE_SCROLL_TICK_MS;
+  } else if (t < TITLE_SCROLL_PAUSE_START_MS + fwd_ms + TITLE_SCROLL_PAUSE_END_MS) {
+    offset = data->title_marquee_span;
+    sleep_ms = TITLE_SCROLL_PAUSE_START_MS + fwd_ms + TITLE_SCROLL_PAUSE_END_MS - t;
+  } else {
+    offset = (cycle_ms - t) / TITLE_SCROLL_REWIND_MS_PER_PX;
+    sleep_ms = TITLE_SCROLL_TICK_MS;
+  }
+  if (offset != data->title_marquee_offset) {
+    data->title_marquee_offset = offset;
+    layer_mark_dirty(&data->title_text_layer.layer);
+  }
+  data->title_marquee_elapsed_ms += sleep_ms;
+  data->title_marquee_timer = app_timer_register(sleep_ms, prv_title_marquee_cb, data);
 }
 
 // Lay the title out on one line beside the tape and, if it overflows, arm a couple of scroll passes.
@@ -1095,19 +1116,18 @@ static void prv_title_marquee_setup(MusicAppData *data) {
   // Wide, one-line bounds: measure here and keep it wide so the scroll proc never wraps a copy.
   layer_set_bounds(&data->title_text_layer.layer, &GRect(0, 0, DISP_COLS * 3, vis.size.h));
   const GSize text_size = app_text_layer_get_content_size(&data->title_text_layer);
-  // The layout measurer reports a wider box than graphics_draw_text actually inks (~2px per glyph);
-  // back that out only to decide whether the title overflows. For the copy-to-copy span use the
-  // full measured width (>= what is drawn) so the second copy can never overlap the first.
+  // The layout measurer can report a slightly wider box than graphics_draw_text inks; back that
+  // out (~2px per glyph) only for the overflow decision so a barely-fitting title doesn't scroll.
+  // The scroll distance uses the full measured width so the end pause always reveals the tail.
   const int16_t ink_w = text_size.w - 2 * (int16_t)strlen(data->title_buffer);
   data->title_marquee_offset = 0;
+  data->title_marquee_elapsed_ms = 0;
   if (ink_w > vis.size.w) {
-    data->title_marquee_span = text_size.w + TITLE_MARQUEE_GAP;
-    data->title_marquee_cycles = TITLE_MARQUEE_CYCLES;
+    data->title_marquee_span = text_size.w - vis.size.w;
     data->title_marquee_timer =
-        app_timer_register(TITLE_MARQUEE_INTERVAL_MS, prv_title_marquee_cb, data);
+        app_timer_register(TITLE_SCROLL_TICK_MS, prv_title_marquee_cb, data);
   } else {
     data->title_marquee_span = 0;
-    data->title_marquee_cycles = 0;
   }
   layer_mark_dirty(&data->title_text_layer.layer);
 }
