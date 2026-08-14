@@ -1184,6 +1184,17 @@ static void prv_apply_art_appearance(MusicAppData *data) {
     // Rebuild the art-mode layout only on the transition in (or on a track change, which clears the
     // flag) — re-running every event would restart the scroll and spawn overlapping timers.
     if (!data->title_marquee_on) {
+      // The stock track-change slide may be mid-flight (it runs when the previous track had no
+      // art). It animates the text layers back to their stock frames and would clobber the art
+      // layout when the cover lands during the transition. Finish it instantly: unscheduling
+      // fires its handlers (text flip, pos-update resume), then park the time labels where its
+      // bounceback would have left them; the art setup below owns the title/artist frames.
+      if (animation_is_scheduled(data->transition)) {
+        animation_unschedule(data->transition);
+        const GRect time_rect = prv_time_rect();
+        layer_set_frame(&data->position_text_layer.layer, &time_rect);
+        layer_set_frame(&data->length_text_layer.layer, &time_rect);
+      }
       prv_artist_setup_art(data);
       prv_title_marquee_setup(data);
       data->title_marquee_on = true;
