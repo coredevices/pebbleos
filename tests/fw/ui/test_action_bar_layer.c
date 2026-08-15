@@ -45,8 +45,7 @@ const PebbleProcessMd *sys_process_manager_get_current_process_md(void) {
   return &s_md;
 }
 
-ProcessAppSDKType process_metadata_get_app_sdk_type(const PebbleProcessMd *md) {
-  (void)md;
+ProcessAppSDKType sys_process_manager_get_current_process_sdk_type(void) {
   return s_sdk_type;
 }
 

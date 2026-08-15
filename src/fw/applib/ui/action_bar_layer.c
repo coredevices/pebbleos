@@ -45,8 +45,7 @@ static bool prv_current_ui_follows_orientation(void) {
   if (task != PebbleTask_App && task != PebbleTask_Worker) {
     return true;
   }
-  const PebbleProcessMd *md = sys_process_manager_get_current_process_md();
-  if (md && process_metadata_get_app_sdk_type(md) == ProcessAppSDKType_System) {
+  if (sys_process_manager_get_current_process_sdk_type() == ProcessAppSDKType_System) {
     return true;
   }
   return task == PebbleTask_App && app_state_get_action_bar_follows_display_orientation();
