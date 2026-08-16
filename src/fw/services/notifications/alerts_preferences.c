@@ -52,6 +52,9 @@ static bool s_speaker_muted = false;
 #define PREF_KEY_SPEAKER_VOLUME "speakerVolume"
 static uint8_t s_speaker_volume = 100;
 
+#define PREF_KEY_NOTIFICATION_SOUND "notificationSound"
+static uint8_t s_notification_sound = NotificationSound_None;
+
 #define PREF_KEY_VIBE "vibe"
 static bool s_vibe_on_notification = true;
 
@@ -329,6 +332,7 @@ void alerts_preferences_init(void) {
   RESTORE_PREF(PREF_KEY_DND_MUTE_SPEAKER, s_dnd_mute_speaker);
   RESTORE_PREF(PREF_KEY_SPEAKER_MUTED, s_speaker_muted);
   RESTORE_PREF(PREF_KEY_SPEAKER_VOLUME, s_speaker_volume);
+  RESTORE_PREF(PREF_KEY_NOTIFICATION_SOUND, s_notification_sound);
   RESTORE_PREF(PREF_KEY_LEGACY_DND_SCHEDULE, s_legacy_dnd_schedule);
   RESTORE_PREF(PREF_KEY_LEGACY_DND_SCHEDULE_ENABLED, s_legacy_dnd_schedule_enabled);
   RESTORE_PREF(s_dnd_schedule_keys[WeekdaySchedule].schedule_pref_key,
@@ -467,6 +471,18 @@ void alerts_preferences_set_speaker_volume(uint8_t volume) {
   }
   s_speaker_volume = volume;
   SET_PREF(PREF_KEY_SPEAKER_VOLUME, s_speaker_volume);
+}
+
+NotificationSound alerts_preferences_get_notification_sound(void) {
+  if (s_notification_sound >= NotificationSound_Count) {
+    return NotificationSound_None;
+  }
+  return (NotificationSound)s_notification_sound;
+}
+
+void alerts_preferences_set_notification_sound(NotificationSound sound) {
+  s_notification_sound = sound;
+  SET_PREF(PREF_KEY_NOTIFICATION_SOUND, s_notification_sound);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

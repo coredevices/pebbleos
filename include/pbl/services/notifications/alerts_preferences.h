@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "alerts_private.h"
+#include "pbl/services/notifications/notification_sounds.h"
 
 typedef enum FirstUseSource {
   FirstUseSourceManualDNDActionMenu = 0,
@@ -78,6 +79,14 @@ void alerts_preferences_set_speaker_volume(uint8_t volume);
 
 //! @return The system-wide speaker volume cap (0-100). Defaults to 100.
 uint8_t alerts_preferences_get_speaker_volume(void);
+
+//! Set the sound played when a notification arrives.
+void alerts_preferences_set_notification_sound(NotificationSound sound);
+
+//! @return The sound played when a notification arrives. Defaults to
+//! NotificationSound_None (silent); out-of-range stored values also read
+//! back as None.
+NotificationSound alerts_preferences_get_notification_sound(void);
 
 //! Checks whether a given "first use" dialog has been shown and sets it as complete
 //! @param source The "first use" bit to check

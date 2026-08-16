@@ -27,6 +27,12 @@ bool alerts_should_enable_backlight_for_type(AlertType type);
 
 bool alerts_should_vibrate_for_type(AlertType type);
 
+//! Whether the notification sound should play for this alert. Master alert
+//! gating and DND follow the vibe rules, but the on-charger suppression does
+//! not apply: a docked watch can still usefully chirp. Speaker mute and
+//! volume are enforced downstream by the speaker service.
+bool alerts_should_play_sound_for_type(AlertType type);
+
 //! When vibrating for an incoming notification, call this function to prevent multiple vibes
 //! within a short period of time.
 void alerts_set_notification_vibe_timestamp();
