@@ -7,6 +7,7 @@
 
 #include "applib/ui/ui.h"
 #include "kernel/pbl_malloc.h"
+#include "pbl/services/notifications/notification_sounds.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/notifications/alerts_preferences.h"
 #include "pbl/services/notifications/alerts_preferences_private.h"
@@ -26,6 +27,7 @@ typedef enum VibeSettingsRow {
 #ifdef CONFIG_SPEAKER
   VibeSettingsRow_MuteSpeaker = 0,
   VibeSettingsRow_SpeakerVolume,
+  VibeSettingsRow_NotificationSound,
   VibeSettingsRow_Notifications,
 #else
   VibeSettingsRow_Notifications = 0,
@@ -37,6 +39,12 @@ typedef enum VibeSettingsRow {
   VibeSettingsRow_System,
   VibeSettingsRow_Count,
 } VibeSettingsRow;
+
+#ifdef CONFIG_SPEAKER
+//! Matches NOTIFICATION_SOUND_VOLUME in notification_window.c so the preview
+//! is heard at the volume the real notification will use.
+#define NOTIFICATION_SOUND_PREVIEW_VOLUME 50
+#endif
 
 typedef struct SettingsVibePatternsData {
   SettingsCallbacks callbacks;
@@ -75,6 +83,13 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
                alerts_preferences_get_speaker_volume());
       menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data),
                            data->volume_subtitle, NULL);
+      return;
+    }
+    case VibeSettingsRow_NotificationSound: {
+      title = i18n_noop("Notification Sound");
+      subtitle = notification_sounds_get_name(alerts_preferences_get_notification_sound());
+      menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data),
+                           i18n_get(subtitle, data), NULL);
       return;
     }
 #endif
@@ -133,8 +148,9 @@ static void prv_selection_changed_cb(SettingsCallbacks *context, uint16_t new_ro
   switch (new_row) {
 #ifdef CONFIG_SPEAKER
     case VibeSettingsRow_MuteSpeaker:
-    case VibeSettingsRow_SpeakerVolume: {
-      // No vibe preview — this row controls a non-vibe setting.
+    case VibeSettingsRow_SpeakerVolume:
+    case VibeSettingsRow_NotificationSound: {
+      // No vibe preview — these rows control non-vibe settings.
       return;
     }
 #endif
@@ -190,6 +206,21 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
     }
     case VibeSettingsRow_SpeakerVolume: {
       speaker_volume_window_push();
+      return;
+    }
+    case VibeSettingsRow_NotificationSound: {
+      const NotificationSound sound =
+          notification_sounds_cycle_next(alerts_preferences_get_notification_sound());
+      alerts_preferences_set_notification_sound(sound);
+      settings_menu_mark_dirty(SettingsMenuItemVibrations);
+      if (sound != NotificationSound_None) {
+        // Preview the newly selected sound
+        const SpeakerNote *notes;
+        uint32_t count;
+        notification_sounds_get(sound, &notes, &count);
+        speaker_service_play_note_seq(notes, count, SpeakerPriorityNotification,
+                                      NOTIFICATION_SOUND_PREVIEW_VOLUME);
+      }
       return;
     }
 #endif
