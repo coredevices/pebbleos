@@ -35,3 +35,7 @@ bool WEAK alerts_should_notify_for_type(AlertType type) {
 bool WEAK alerts_should_vibrate_for_type(AlertType type) {
   return false;
 }
+
+bool WEAK alerts_should_play_sound_for_type(AlertType type) {
+  return false;
+}
