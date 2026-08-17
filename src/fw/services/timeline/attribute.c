@@ -505,7 +505,9 @@ bool attribute_check_serialized_list(const uint8_t *cursor, const uint8_t *val_e
     cursor += attrib_hdr->length;
     if (cursor > val_end) {
       return false;
-    } else {
+    } else if (attrib_hdr->id < NumAttributeIds) {
+      // has_attribute is indexed by id, so a phone that knows an id this firmware doesn't must not
+      // reach the write.
       has_attribute[attrib_hdr->id] = true;
     }
   }

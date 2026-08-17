@@ -357,3 +357,20 @@ void test_attribute__too_long_app_glance_subtitle_in_attribute_list(void) {
       "This is a really really really really really really really really really really really "
       "really really really really really really really really long su");
 }
+
+void test_attribute__unknown_attribute_id_does_not_overflow(void) {
+  // has_attribute is indexed by attribute id, so an id this firmware doesn't know must not be
+  // written into it.
+  static const uint8_t serialized[] = {
+    NumAttributeIds + 3,
+    0x01, 0x00,
+    1,
+  };
+  bool has_attribute[NumAttributeIds] = {0};
+  cl_assert_equal_b(attribute_check_serialized_list(serialized, serialized + sizeof(serialized), 1,
+                                                    has_attribute),
+                    true);
+  for (int i = 0; i < NumAttributeIds; i++) {
+    cl_assert_equal_b(has_attribute[i], false);
+  }
+}
