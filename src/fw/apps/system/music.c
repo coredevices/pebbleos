@@ -357,6 +357,7 @@ static Animation *prv_create_bounceback_animation(MusicAppData *data) {
 }
 
 static void prv_update_track_progress(MusicAppData *data);
+static void prv_update_now_playing(MusicAppData *data);
 
 static void prv_flip_animated_text(Animation *animation, bool finished, void *context) {
   MusicAppData *data = context;
@@ -401,6 +402,17 @@ static Animation *prv_create_cassette_animation(MusicAppData *data) {
   return sequence;
 }
 
+static void prv_transition_stopped(Animation *animation, bool finished, void *context) {
+  MusicAppData *data = context;
+  data->transition = NULL;
+  if (!finished) {
+    return;
+  }
+  // Now-playing updates that arrive while the transition is scheduled are
+  // dropped; re-check so the latest track is not lost.
+  prv_update_now_playing(data);
+}
+
 static void prv_trigger_track_change_animation(MusicAppData *data) {
   // Animation structure:
   // - Master animation
@@ -426,6 +438,9 @@ static void prv_trigger_track_change_animation(MusicAppData *data) {
 
   Animation *complete;
   complete = animation_sequence_create(scroll_up, bounceback, NULL);
+  animation_set_handlers(complete, (AnimationHandlers) {
+      .stopped = prv_transition_stopped,
+  }, data);
   data->transition = complete;
   animation_schedule(complete);
 }
