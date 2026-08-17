@@ -9,6 +9,7 @@
 
 #include "kernel/events.h"
 #include "pbl/services/imaging_endpoint_types.h"
+#include "pbl/util/uuid.h"
 
 struct GBitmap;
 typedef struct CommSession CommSession;
@@ -32,6 +33,12 @@ bool imaging_is_type_supported(ImagingImageType image_type);
 //! returns false) if unsupported. The matching handler is invoked when the transfer completes.
 bool imaging_request_album_art(uint8_t token, ImagingFormat format, uint16_t width, uint16_t height,
                                const char *title, const char *artist);
+
+//! Ask the phone for the image it holds for timeline item `item_id`, at the given size/format.
+//! No-op (and returns false) if unsupported. The matching handler is invoked when the transfer
+//! completes.
+bool imaging_request_notification_image(uint8_t token, ImagingFormat format, uint16_t width,
+                                        uint16_t height, const Uuid *item_id);
 
 //! Endpoint receive callback (registered in protocol_endpoints_table.json).
 void imaging_protocol_msg_callback(CommSession *session, const uint8_t *msg, size_t length);

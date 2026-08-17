@@ -24,7 +24,9 @@ typedef enum {
 //! What the image is for. Determines the type-specific parameters in the request tail.
 typedef enum {
   ImagingImageTypeAlbumArt = 0x00,
-  // Future: ImagingImageTypeNotification = 0x01, ...
+  ImagingImageTypeNotification = 0x01,
+
+  ImagingImageTypeCount,
 } ImagingImageType;
 
 //! Pixel encoding the watch is asking for (and that the response is packed in).
@@ -46,6 +48,8 @@ typedef struct PACKED {
   //   uint8_t title_len;  char title[title_len];
   //   uint8_t artist_len; char artist[artist_len];
   // The phone returns art for the named track (so it can't race a track change), or NO_IMAGE.
+  // For ImagingImageTypeNotification:
+  //   uint8_t item_id[16];  // the timeline item's UUID, as the phone keyed its cache
 } ImagingRequestHeader;
 
 //! Flags byte in an ImageResponse chunk.
@@ -57,6 +61,11 @@ typedef enum {
                                              //!< follow. The watch latches the type off for the
                                              //!< rest of the connection and stops requesting it.
 } ImagingResponseFlags;
+
+//! Bits 4-7 of a response's `flags` carry the ImagingImageType it answers. Several consumers can
+//! have a request outstanding at once, and the token alone doesn't say which one a response is for.
+#define IMAGING_RESPONSE_FLAG_TYPE_MASK (0xf0)
+#define IMAGING_RESPONSE_FLAG_TYPE_SHIFT (4)
 
 //! Phone -> Watch, chunked. `chunk_len` pixel bytes follow this header (after the image header on
 //! the first chunk).

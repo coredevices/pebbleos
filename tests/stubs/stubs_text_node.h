@@ -20,3 +20,6 @@ bool graphics_text_node_container_add_child(GTextNodeContainer *parent, GTextNod
 GTextNodeText *graphics_text_node_create_text(size_t buffer_size) { return NULL; }
 
 GTextNodeHorizontal *graphics_text_node_create_horizontal(size_t max_nodes) { return NULL; }
+
+GTextNodeCustom *graphics_text_node_create_custom(GTextNodeDrawCallback callback,
+                                                  void *user_data) { return NULL; }

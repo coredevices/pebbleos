@@ -20,6 +20,7 @@
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/blob_db/pin_db.h"
 #include "pbl/services/notifications/alerts_preferences_private.h"
+#include "pbl/services/notifications/notification_image.h"
 #include "pbl/services/timeline/timeline_resources.h"
 #include "shell/system_theme.h"
 #include "system/hexdump.h"
@@ -211,6 +212,128 @@ static bool prv_should_enlarge_emoji(NotificationLayout *layout) {
           prv_get_emoji_icon(layout) != INVALID_RESOURCE);
 }
 
+#if NOTIFICATION_IMAGE_SUPPORTED
+//! Space above and below the image band. Its own constant because body_padding is 0 for rect at
+//! the default content size, which leaves the image touching the body text.
+#define NOTIFICATION_IMAGE_PADDING (8)
+#define NOTIFICATION_IMAGE_CORNER_RADIUS (4)
+
+#if PBL_ROUND
+//! Round cards page in fixed steps and the usable width narrows towards the top and bottom of the
+//! circle, so the image takes a page of its own and sits centred in it.
+#define NOTIFICATION_IMAGE_CIRCLE_INSET (8)
+#define NOTIFICATION_IMAGE_RADIUS (DISP_ROWS / 2 - NOTIFICATION_IMAGE_CIRCLE_INSET)
+//! Centre of the page the image gets, which sits between the status bar and the paging arrow and so
+//! is a couple of pixels below the circle's own centre.
+#define NOTIFICATION_IMAGE_PAGE_CENTRE_Y (STATUS_BAR_LAYER_HEIGHT + LAYOUT_HEIGHT / 2)
+
+//! Whether a `width`-wide image of this aspect, centred in its page, clears the bezel.
+//!
+//! Checking the rectangle's own corners against the circle rather than bounding it by the inscribed
+//! square: a landscape photo is far wider than the square that fits the same circle, and photos are
+//! mostly landscape.
+static bool prv_image_fits_circle(int16_t width, uint8_t aspect) {
+  const int32_t half_w = width / 2;
+  const int32_t half_h = ((int32_t)width * aspect) / 32;
+  const int32_t dy = ABS(NOTIFICATION_IMAGE_PAGE_CENTRE_Y - DISP_ROWS / 2) + half_h;
+  const int32_t r = NOTIFICATION_IMAGE_RADIUS;
+  return (half_w * half_w) + (dy * dy) <= (r * r);
+}
+#endif
+
+//! Clamped height/width in sixteenths of the image the phone holds, or 0 for none. Clamping bounds
+//! the band a malformed attribute can reserve.
+static uint8_t prv_image_aspect(const NotificationLayout *layout) {
+  const uint8_t aspect =
+      attribute_get_uint8(layout->layout.attributes, AttributeIdImageAspectRatio, 0);
+  return aspect ? CLIP(aspect, NOTIFICATION_IMAGE_MIN_ASPECT, NOTIFICATION_IMAGE_MAX_ASPECT) : 0;
+}
+
+//! Size of the image itself for a content box `width` wide. Derived from the attribute rather than
+//! the bitmap, so the card's height is final before the pixels arrive and nothing reflows when they
+//! do — and so the requester and the renderer ask for the same thing.
+static GSize prv_image_size(const NotificationLayout *layout, int16_t width) {
+  const uint8_t aspect = prv_image_aspect(layout);
+  GSize size = { width, (width * aspect) / 16 };
+#if PBL_ROUND
+  // Shrink to the widest that still clears the bezel. Bounded by the content width, so this is a
+  // few dozen integer comparisons at most, and the result is cached with the node's size.
+  while (size.w > 0 && !prv_image_fits_circle(size.w, aspect)) {
+    size.w--;
+    size.h = (size.w * aspect) / 16;
+  }
+#endif
+  return size;
+}
+
+static void prv_image_node_callback(GContext *ctx, const GRect *box,
+                                    const GTextNodeDrawConfig *config, bool render,
+                                    GSize *size_out, void *user_data) {
+  NotificationLayout *layout = user_data;
+  const GSize image = prv_image_size(layout, box->size.w);
+  GSize band = { box->size.w, image.h };
+  GPoint origin = box->origin;
+
+#if PBL_ROUND
+  // Give the image a page to itself: a fixed-height band that straddled a page seam would be
+  // sliced in half, since paging only knows how to break text.
+  if (config && config->paging && config->page_frame->size.h > 0) {
+    const int16_t page_h = config->page_frame->size.h;
+    const int16_t page_y = config->origin_on_screen->y + box->origin.y -
+                           config->page_frame->origin.y;
+    const int16_t into_page = (page_y > 0) ? (page_y % page_h) : 0;
+    const int16_t skip = into_page ? (page_h - into_page) : 0;
+    band.h = skip + page_h;
+    origin.y += skip + (page_h - image.h) / 2;
+  }
+#endif
+  origin.x += (band.w - image.w) / 2;
+
+  if (render) {
+    const Uuid *item_id = &layout->info.item->header.id;
+    const GBitmap *bitmap = notification_image_lock(item_id);
+    if (bitmap) {
+      const GSize bitmap_size = bitmap->bounds.size;
+      const GRect dest = {
+        { origin.x + (image.w - bitmap_size.w) / 2,
+          origin.y + (image.h - bitmap_size.h) / 2 },
+        bitmap_size,
+      };
+      graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+      graphics_draw_bitmap_in_rect(ctx, bitmap, &dest);
+    } else if (notification_image_is_pending(item_id)) {
+      // Still transferring: fill the reserved area so the card doesn't look broken. Once the phone
+      // answers NoImage this stops and the space is simply blank.
+      const GRect placeholder = { origin, image };
+      graphics_context_set_fill_color(ctx, GColorLightGray);
+      graphics_fill_round_rect(ctx, &placeholder, NOTIFICATION_IMAGE_CORNER_RADIUS, GCornersAll);
+    }
+    notification_image_unlock();
+  }
+  if (size_out) {
+    *size_out = band;
+  }
+}
+
+static GTextNode *prv_create_image_node(const LayoutLayer *layout_ref,
+                                        const LayoutNodeConstructorConfig *config) {
+  NotificationLayout *layout = (NotificationLayout *)layout_ref;
+  if (!prv_image_aspect(layout)) {
+    return NULL;
+  }
+  return &graphics_text_node_create_custom(prv_image_node_callback, layout)->node;
+}
+
+bool notification_layout_get_image_size(const LayoutLayer *layout_ref, GSize *size_out) {
+  const NotificationLayout *layout = (const NotificationLayout *)layout_ref;
+  if (!prv_image_aspect(layout)) {
+    return false;
+  }
+  *size_out = prv_image_size(layout, DISP_COLS - 2 * CARD_MARGIN);
+  return true;
+}
+#endif
+
 //! Creates a GTextNode view node representing the inner content of the notification
 //! @param layout NotificationLayout of the notification
 //! @param use_body_icon Whether to display a body icon. Currently used by Jumboji
@@ -291,6 +414,14 @@ static NOINLINE GTextNode *prv_create_view(NotificationLayout *layout, bool use_
     .heading_style_font = TextStyleFont_Header,
     .paragraph_style_font = TextStyleFont_Body,
   };
+#if NOTIFICATION_IMAGE_SUPPORTED
+  const LayoutNodeConstructorConfig image_config = {
+    .extent.node.type = LayoutNodeType_Constructor,
+    .constructor = prv_create_image_node,
+    .extent.offset.y = NOTIFICATION_IMAGE_PADDING,
+    .extent.margin.h = 2 * NOTIFICATION_IMAGE_PADDING,
+  };
+#endif
   const LayoutNodeConfig *reminder_timestamp_node_config = NULL;
   const LayoutNodeConfig *notification_timestamp_node_config = NULL;
   const LayoutNodeConfig *header_node_config = NULL;
@@ -316,6 +447,9 @@ static NOINLINE GTextNode *prv_create_view(NotificationLayout *layout, bool use_
     use_body_icon ? &body_icon_config.extent.node :
                     &body_config.text.extent.node,
     &headings_paragraphs_node.extent.node,
+#if NOTIFICATION_IMAGE_SUPPORTED
+    &image_config.extent.node,
+#endif
 #if PBL_RECT
     notification_timestamp_node_config,
 #endif

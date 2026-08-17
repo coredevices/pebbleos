@@ -358,6 +358,40 @@ void test_attribute__too_long_app_glance_subtitle_in_attribute_list(void) {
       "really really really really really really really really long su");
 }
 
+void test_attribute__image_aspect_ratio_deserializes(void) {
+  // An attribute whose type isn't recognised aborts the whole list, so a new id must be typed
+  // before anything after it survives.
+  static const uint8_t serialized[] = {
+    0x34,                     // AttributeIdImageAspectRatio
+    0x01, 0x00,
+    12,                       // 4:3
+    0x01,                     // AttributeIdTitle
+    0x04, 0x00,
+    'N', 'e', 'x', 't',
+  };
+  const uint8_t num_attributes = 2;
+  const uint8_t *end = serialized + sizeof(serialized);
+  const uint8_t *buffer_size_cursor = serialized;
+  const int32_t buffer_size =
+      attribute_get_buffer_size_for_serialized_attributes(num_attributes, &buffer_size_cursor, end);
+
+  Attribute attribute_buffer[num_attributes];
+  char attribute_data_buffer[buffer_size];
+  char *attribute_data_buffer_pointer = attribute_data_buffer;
+  AttributeList result = (AttributeList) {
+      .num_attributes = num_attributes,
+      .attributes = attribute_buffer,
+  };
+  const uint8_t *cursor = serialized;
+
+  cl_assert_equal_b(attribute_deserialize_list(&attribute_data_buffer_pointer,
+                                               attribute_data_buffer + buffer_size,
+                                               &cursor, end, result),
+                    true);
+  cl_assert_equal_i(attribute_get_uint8(&result, AttributeIdImageAspectRatio, 0), 12);
+  cl_assert_equal_s(attribute_get_string(&result, AttributeIdTitle, NULL), "Next");
+}
+
 void test_attribute__unknown_attribute_id_does_not_overflow(void) {
   // has_attribute is indexed by attribute id, so an id this firmware doesn't know must not be
   // written into it.

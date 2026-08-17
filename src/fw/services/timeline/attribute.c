@@ -71,6 +71,7 @@ static AttributeType prv_attribute_type(AttributeId id) {
     case AttributeIdMuteDayOfWeek:
     case AttributeIdHealthActivityType:
     case AttributeIdAlarmKind:
+    case AttributeIdImageAspectRatio:
       return AttributeTypeUint8;
     case AttributeIdIconTiny:
     case AttributeIdIconSmall:

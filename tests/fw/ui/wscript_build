@@ -353,6 +353,7 @@ clar(ctx,
          " src/fw/apps/system/timeline/text_node.c"
          " src/fw/popups/notifications/notification_window.c"
          " src/fw/popups/notifications/notifications_presented_list.c"
+         " src/fw/services/notifications/notification_image.c"
          " src/fw/services/timeline/attribute.c"
          " src/fw/services/timeline/layout_layer.c"
          " src/fw/services/timeline/layout_node.c"

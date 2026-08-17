@@ -66,6 +66,18 @@ static void prv_art_handler(uint8_t token, GBitmap *bitmap) {
   s_last_bitmap = bitmap;
 }
 
+static int s_notif_deliveries;
+
+static void prv_notif_handler(uint8_t token, GBitmap *bitmap) {
+  s_notif_deliveries++;
+  prv_free_last_bitmap();
+  s_last_bitmap = bitmap;
+}
+
+static uint8_t prv_typed(ImagingImageType type, uint8_t flags) {
+  return flags | (type << IMAGING_RESPONSE_FLAG_TYPE_SHIFT);
+}
+
 // Helpers
 ///////////////////////////////////////////////////////////
 
@@ -128,7 +140,9 @@ void test_imaging__initialize(void) {
   s_transport = fake_transport_create(TransportDestinationSystem, NULL, NULL);
   fake_transport_set_connected(s_transport, true);
   imaging_register_handler(ImagingImageTypeAlbumArt, prv_art_handler);
+  imaging_register_handler(ImagingImageTypeNotification, prv_notif_handler);
   s_deliveries = 0;
+  s_notif_deliveries = 0;
   s_last_token = 0;
   s_last_bitmap = NULL;
   // Reset any latched state left over from a previous test
@@ -302,6 +316,8 @@ void test_imaging__unsupported_latches_until_session_close(void) {
   cl_assert_equal_i(s_deliveries, 1);
   cl_assert(s_last_bitmap == NULL);
   cl_assert(!imaging_is_type_supported(ImagingImageTypeAlbumArt));
+  // Latching is per type
+  cl_assert(imaging_is_type_supported(ImagingImageTypeNotification));
 
   // Closing the system session clears the latch
   const PebbleCommSessionEvent closed_event = {
@@ -321,4 +337,63 @@ void test_imaging__request_payload_format(void) {
     6, 'A', 'r', 't', 'i', 's', 't',
   };
   fake_transport_assert_sent(s_transport, 0, 0x35, expected, sizeof(expected));
+}
+
+void test_imaging__notification_request_payload_format(void) {
+  const Uuid id = UuidMake(0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                           0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10);
+  cl_assert(imaging_request_notification_image(9, ImagingFormat4BitPalette, 180, 135, &id));
+  fake_comm_session_process_send_next();
+  const uint8_t expected[] = {
+    0x01, 9, 0x01, 0x02, 180, 0, 135, 0,
+    0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+    0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+  };
+  fake_transport_assert_sent(s_transport, 0, 0x35, expected, sizeof(expected));
+}
+
+void test_imaging__response_routed_by_type(void) {
+  uint8_t buf[64];
+  const size_t len = prv_build_response(
+      buf, TEST_TOKEN,
+      prv_typed(ImagingImageTypeNotification,
+                ImagingResponseFlagFirst | ImagingResponseFlagLast),
+      0, sizeof(s_pixels), 4, 2, ImagingFormat4BitPalette,
+      s_palette, sizeof(s_palette), s_pixels, sizeof(s_pixels));
+  prv_receive(buf, len);
+  cl_assert_equal_i(s_notif_deliveries, 1);
+  cl_assert_equal_i(s_deliveries, 0);
+  cl_assert(s_last_bitmap != NULL);
+}
+
+void test_imaging__untyped_response_goes_to_album_art(void) {
+  // A phone that doesn't set the type bits only ever serves album art.
+  prv_receive_valid_image(TEST_TOKEN);
+  cl_assert_equal_i(s_deliveries, 1);
+  cl_assert_equal_i(s_notif_deliveries, 0);
+}
+
+void test_imaging__interleaved_requests_route_correctly(void) {
+  const Uuid id = UuidMake(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+  cl_assert(imaging_request_album_art(7, ImagingFormat4BitPalette, 166, 166, "Title", "Artist"));
+  cl_assert(imaging_request_notification_image(9, ImagingFormat4BitPalette, 180, 135, &id));
+  // The album art response arrives after the notification request was sent; it must still reach
+  // the album art handler.
+  prv_receive_valid_image(7);
+  cl_assert_equal_i(s_deliveries, 1);
+  cl_assert_equal_i(s_notif_deliveries, 0);
+}
+
+void test_imaging__unsupported_latches_per_type(void) {
+  // A response only ever follows a request, which always checks support first.
+  cl_assert(imaging_is_type_supported(ImagingImageTypeNotification));
+
+  uint8_t buf[32];
+  const size_t len = prv_build_response(
+      buf, TEST_TOKEN, prv_typed(ImagingImageTypeNotification, ImagingResponseFlagUnsupported),
+      0, 0, 0, 0, 0, NULL, 0, NULL, 0);
+  prv_receive(buf, len);
+  cl_assert_equal_i(s_notif_deliveries, 1);
+  cl_assert(!imaging_is_type_supported(ImagingImageTypeNotification));
+  cl_assert(imaging_is_type_supported(ImagingImageTypeAlbumArt));
 }

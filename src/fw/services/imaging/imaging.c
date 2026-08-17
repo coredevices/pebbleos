@@ -20,16 +20,12 @@ static const uint16_t IMAGING_ENDPOINT = 0x35;
 #define IMAGING_MAX_DIM (300)
 #define IMAGING_PALETTE_ENTRIES (16)
 
-static ImagingReceivedHandler s_handlers[ImagingImageTypeAlbumArt + 1];
+static ImagingReceivedHandler s_handlers[ImagingImageTypeCount];
 
-//! Guards the request/latch state below: requests come in on the requesting task (e.g. the Music
-//! app) while responses are handled on KernelMain. The reassembly state (s_rx) is deliberately
-//! not covered — it is only ever touched on KernelMain (endpoint receiver and comm-session
-//! events).
+//! Guards the latch state below: requests come in on the requesting task (e.g. the Music app)
+//! while responses are handled on KernelMain. The reassembly state (s_rx) is deliberately not
+//! covered — it is only ever touched on KernelMain (endpoint receiver and comm-session events).
 static PebbleMutex *s_lock;
-
-// The response only carries the token, so remember which type the in-flight request was for.
-static ImagingImageType s_pending_type;
 
 // Image types the phone told us it can't serve (ImagingResponseFlagUnsupported), so we stop asking.
 // Latched per session: the connected phone doesn't change what it supports mid-connection, and a
@@ -67,10 +63,14 @@ void imaging_register_handler(ImagingImageType image_type, ImagingReceivedHandle
   }
 }
 
-static void prv_deliver(uint8_t token, GBitmap *bitmap) {
-  mutex_lock(s_lock);
-  const ImagingImageType type = s_pending_type;
-  mutex_unlock(s_lock);
+//! The type a response answers, from the top nibble of its flags byte. Zero — which is what a phone
+//! that doesn't set those bits sends — is album art. A value we don't know is left out of range so
+//! it routes nowhere rather than to the wrong consumer.
+static uint8_t prv_response_type(const ImagingResponseHeader *hdr) {
+  return (hdr->flags & IMAGING_RESPONSE_FLAG_TYPE_MASK) >> IMAGING_RESPONSE_FLAG_TYPE_SHIFT;
+}
+
+static void prv_deliver(uint8_t token, uint8_t type, GBitmap *bitmap) {
   ImagingReceivedHandler handler = (type < ARRAY_LENGTH(s_handlers)) ? s_handlers[type] : NULL;
   if (handler) {
     handler(token, bitmap);
@@ -128,10 +128,28 @@ bool imaging_request_album_art(uint8_t token, ImagingFormat format, uint16_t wid
   memcpy(cursor, artist, artist_len);
   cursor += artist_len;
 
-  mutex_lock(s_lock);
-  s_pending_type = ImagingImageTypeAlbumArt;
-  mutex_unlock(s_lock);
   comm_session_send_data(session, IMAGING_ENDPOINT, payload, cursor - payload,
+                         COMM_SESSION_DEFAULT_TIMEOUT);
+  return true;
+}
+
+bool imaging_request_notification_image(uint8_t token, ImagingFormat format, uint16_t width,
+                                        uint16_t height, const Uuid *item_id) {
+  if (!item_id || !imaging_is_type_supported(ImagingImageTypeNotification)) {
+    return false;
+  }
+  CommSession *session = comm_session_get_system_session();
+  uint8_t payload[sizeof(ImagingRequestHeader) + UUID_SIZE];
+  ImagingRequestHeader *hdr = (ImagingRequestHeader *)payload;
+  hdr->cmd = ImagingCmdIDRequest;
+  hdr->token = token;
+  hdr->image_type = ImagingImageTypeNotification;
+  hdr->format = format;
+  hdr->width = width;
+  hdr->height = height;
+  memcpy(payload + sizeof(*hdr), item_id, UUID_SIZE);
+
+  comm_session_send_data(session, IMAGING_ENDPOINT, payload, sizeof(payload),
                          COMM_SESSION_DEFAULT_TIMEOUT);
   return true;
 }
@@ -162,20 +180,24 @@ void imaging_protocol_msg_callback(CommSession *session, const uint8_t *msg, siz
   const uint8_t *cursor = msg + sizeof(*hdr);
   const uint8_t *msg_end = msg + length;
 
+  const uint8_t type = prv_response_type(hdr);
+
   if (hdr->flags & ImagingResponseFlagUnsupported) {
     // Phone can't serve this type: latch it off so we don't ask again this connection, and deliver
     // NULL so the current request resolves (the app treats it like "no image").
-    mutex_lock(s_lock);
-    s_unsupported_types |= (1u << s_pending_type);
-    mutex_unlock(s_lock);
+    if (type < ImagingImageTypeCount) {
+      mutex_lock(s_lock);
+      s_unsupported_types |= (1u << type);
+      mutex_unlock(s_lock);
+    }
     prv_rx_reset();
-    prv_deliver(hdr->token, NULL);
+    prv_deliver(hdr->token, type, NULL);
     return;
   }
 
   if (hdr->flags & ImagingResponseFlagNoImage) {
     prv_rx_reset();
-    prv_deliver(hdr->token, NULL);
+    prv_deliver(hdr->token, type, NULL);
     return;
   }
 
@@ -230,6 +252,8 @@ void imaging_protocol_msg_callback(CommSession *session, const uint8_t *msg, siz
   }
 
   if (!s_rx.active || s_rx.token != hdr->token) {
+    // ponytail: one reassembly slot, so two consumers fetching at once costs one of them a retry.
+    // Add a per-token slot array if that ever matters.
     prv_rx_reset();
     return;
   }
@@ -265,7 +289,7 @@ void imaging_protocol_msg_callback(CommSession *session, const uint8_t *msg, siz
     s_rx.pixels = NULL;
     s_rx.palette = NULL;
     prv_rx_reset();
-    prv_deliver(token, bmp);
+    prv_deliver(token, type, bmp);
   }
 }
 
