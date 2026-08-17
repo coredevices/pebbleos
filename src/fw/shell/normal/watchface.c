@@ -38,6 +38,10 @@ static uint8_t s_buttons_pressed = BIT_CLEAR;
 static AppTimer *s_combo_back_hold_timer = NULL;
 static uint8_t s_active_combo_buttons = BIT_CLEAR;
 
+static void prv_launch_quick_launch_app(AppInstallId app_id, ButtonId button,
+                                        AppLaunchReason timeline_reason,
+                                        AppQuickLaunchAction action);
+
 static bool prv_should_ignore_button_click(void) {
   if (app_manager_get_task_context()->closing_state != ProcessRunState_Running) {
     // Ignore if the app is not running (such as if it is in the process of closing)
@@ -103,12 +107,8 @@ static void prv_combo_back_timer_callback(void *data) {
   if (app_id != INSTALL_ID_INVALID) {
     // Reset all button states before launching app to prevent state corruption.
     s_buttons_pressed = BIT_CLEAR;
-    app_manager_put_launch_app_event(&(AppLaunchEventConfig) {
-      .id = app_id,
-      .common.reason = APP_LAUNCH_QUICK_LAUNCH,
-      .common.button = source_button,
-      .common.args = (void*)APP_QUICK_LAUNCH_ACTION_COMBO,
-    });
+    prv_launch_quick_launch_app(app_id, source_button, APP_LAUNCH_QUICK_LAUNCH,
+                                APP_QUICK_LAUNCH_ACTION_COMBO);
   }
 }
 
@@ -145,16 +145,17 @@ static void prv_check_combo_back_hold(void) {
   }
 }
 
-static void prv_launch_timeline_app(AppInstallId app_id, ClickRecognizerRef recognizer,
-                                    AppLaunchReason reason) {
+static void prv_launch_timeline_app(AppInstallId app_id, ButtonId button,
+                                    AppLaunchReason reason, AppQuickLaunchAction action) {
   static TimelineArgs s_timeline_args;
   s_timeline_args.launch_into_pin = true;
   s_timeline_args.stay_in_list_view = true;
   timeline_peek_get_item_id(&s_timeline_args.pin_id);
 
-  const ButtonId button = click_recognizer_get_button_id(recognizer);
   const CompositorTransition *animation = NULL;
-  const bool is_up = (button == BUTTON_ID_UP);
+  // A combo gesture carries no up/down intent, so its representative button
+  // must not pick the timeline direction.
+  const bool is_up = (action != APP_QUICK_LAUNCH_ACTION_COMBO) && (button == BUTTON_ID_UP);
   const bool is_future = (app_id == APP_ID_TIMELINE) || (app_id == APP_ID_TIMELINE_FULL && !is_up);
 
   if (app_id == APP_ID_TIMELINE) {
@@ -174,27 +175,30 @@ static void prv_launch_timeline_app(AppInstallId app_id, ClickRecognizerRef reco
                      compositor_slide_transition_timeline_get(is_future, timeline_is_destination,
                                                               timeline_peek_is_future_empty());
 #endif
-  prv_launch_app_via_button(&(AppLaunchEventConfig) {
+  app_manager_put_launch_app_event(&(AppLaunchEventConfig) {
     .id = app_id,
     .common.reason = reason,
+    .common.button = button,
     .common.args = &s_timeline_args,
     .common.transition = animation,
-  }, recognizer);
+  });
 }
 
-static void prv_launch_quick_launch_app(AppInstallId app_id, ClickRecognizerRef recognizer,
-                                        AppLaunchReason timeline_reason, void *non_timeline_args) {
+static void prv_launch_quick_launch_app(AppInstallId app_id, ButtonId button,
+                                        AppLaunchReason timeline_reason,
+                                        AppQuickLaunchAction action) {
   const bool is_timeline = (app_id == APP_ID_TIMELINE) ||
                            (app_id == APP_ID_TIMELINE_PAST) ||
                            (app_id == APP_ID_TIMELINE_FULL);
   if (is_timeline) {
-    prv_launch_timeline_app(app_id, recognizer, timeline_reason);
+    prv_launch_timeline_app(app_id, button, timeline_reason, action);
   } else {
-    prv_launch_app_via_button(&(AppLaunchEventConfig) {
+    app_manager_put_launch_app_event(&(AppLaunchEventConfig) {
       .id = app_id,
       .common.reason = APP_LAUNCH_QUICK_LAUNCH,
-      .common.args = non_timeline_args,
-    }, recognizer);
+      .common.button = button,
+      .common.args = (void *)(uintptr_t)action,
+    });
   }
 }
 
@@ -212,8 +216,8 @@ static void prv_quick_launch_handler(ClickRecognizerRef recognizer, void *data) 
   }
   s_buttons_pressed = BIT_CLEAR;  // Reset our own tracking
 
-  prv_launch_quick_launch_app(app_id, recognizer, APP_LAUNCH_QUICK_LAUNCH,
-                              (void*)APP_QUICK_LAUNCH_ACTION_HOLD);
+  prv_launch_quick_launch_app(app_id, button, APP_LAUNCH_QUICK_LAUNCH,
+                              APP_QUICK_LAUNCH_ACTION_HOLD);
 }
 
 static void prv_launch_up_down(ClickRecognizerRef recognizer, void *data) {
@@ -226,8 +230,8 @@ static void prv_launch_up_down(ClickRecognizerRef recognizer, void *data) {
   if (!quick_launch_single_click_is_enabled(button)) return;
   const AppInstallId app_id = quick_launch_single_click_get_app(button);
 
-  prv_launch_quick_launch_app(app_id, recognizer, APP_LAUNCH_SYSTEM,
-                              (void*)APP_QUICK_LAUNCH_ACTION_TAP);
+  prv_launch_quick_launch_app(app_id, button, APP_LAUNCH_SYSTEM,
+                              APP_QUICK_LAUNCH_ACTION_TAP);
 }
 
 static void prv_configure_click_handler(ButtonId button_id, ClickHandler single_click_handler) {
