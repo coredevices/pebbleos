@@ -27,7 +27,8 @@
     [ 2003,  "0x07d3", "private", "reset_protocol_msg_callback", null, null ],
     [ 5001,  "0x1389", "private", "factory_registry_protocol_msg_callback", null, null ],
     [ 9000,  "0x2328", "private", "get_bytes_protocol_msg_callback", null, null ],
-    [ 48879, "0xbeef", "private", null, "g_put_bytes_receiver_impl", null ]
+    [ 48879, "0xbeef", "private", null, "g_put_bytes_receiver_impl", null ],
+    [ 61453, "0xf00d", "private", "remote_input_protocol_msg_callback", null, null ]
   ],
   "normal_fw_only": [
     [ 11,    "0x000b", "private", "clock_protocol_msg_callback", null, null ],

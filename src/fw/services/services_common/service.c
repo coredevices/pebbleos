@@ -20,6 +20,7 @@
 #include "pbl/services/firmware_update.h"
 #include "pbl/services/hrm/hrm_manager.h"
 #include "pbl/services/light.h"
+#include "kernel/remote_input.h"
 #include "pbl/services/poll_remote.h"
 #include "pbl/services/put_bytes/put_bytes.h"
 #include "pbl/services/shared_prf_storage/shared_prf_storage.h"
@@ -46,6 +47,8 @@ void services_common_init(void) {
   comm_session_app_session_capabilities_init();
 #endif
   comm_session_init();
+
+  remote_input_init();
 
   bt_ctl_init();
 
