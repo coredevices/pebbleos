@@ -9,13 +9,12 @@ openocd, reset, bork, image_*, make_lang, pack_lang, pack_all_langs) that used
 to live in the root ``wscript``but are not build steps, and provides thin 
 pass-through wrappers for the everyday ``./waf`` commands so there is a single entry point.
 
-Build state is read directly from the configured build dir
-(``build/c4che/_cache.py``); no waf process is spawned for operational
-commands. Run ``./waf configure --board BOARD`` first.
+Build state is read from ``build/build-info.json``, written at configure
+time; no waf process is spawned for operational commands. Run
+``./pbl configure --board BOARD`` first.
 """
 
 import argparse
-import importlib.util
 import os
 import platform
 import shlex
@@ -82,13 +81,27 @@ class Env:
 
 
 def load_env():
-    cache = os.path.join(BUILD_DIR, "c4che", "_cache.py")
-    if not os.path.isfile(cache):
-        _fatal("Build not configured -- run ./waf configure --board BOARD first.")
-    spec = importlib.util.spec_from_file_location("_waf_cache", cache)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    data = {k: v for k, v in vars(mod).items() if not k.startswith("__")}
+    from tools.build_info import load_build_info
+
+    try:
+        info = load_build_info(BUILD_DIR)
+    except (FileNotFoundError, ValueError) as e:
+        _fatal(str(e))
+
+    data = dict(info["config"])
+    data.update({
+        "BOARD": info["board"],
+        "BOARD_NAME": info["board_name"],
+        "BOARD_REVISION": info["board_revision"] or "",
+        "BOARD_NORMALIZED": info["board_normalized"],
+        "PLATFORM_NAME": info["platform"],
+        "MIN_SDK_VERSION": info["min_sdk_version"],
+        "VARIANT": info["variant"],
+        "JS_ENGINE": info["js_engine"],
+        "SLOT": -1 if info["slot"] is None else info["slot"],
+        "SUPPORTED_RUNNERS": info["runners"],
+        "RUNNER": info["runner"],
+    })
     return Env(data)
 
 
