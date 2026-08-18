@@ -54,6 +54,8 @@ typedef struct {
   MusicPlayState playback_state;
   int32_t playback_rate_percent;
   uint32_t elapsed_time_ms;
+  //! @see music_skip_seeks_within_track
+  bool skip_seeks_within_track;
 } MusicPlayerStateUpdate;
 
 //! Updates playstate, playback rate and elapsed time in one go.

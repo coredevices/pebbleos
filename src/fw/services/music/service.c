@@ -65,6 +65,9 @@ struct MusicServiceContext {
   //! The current playback state
   MusicPlayState playback_state;
 
+  //! @see music_skip_seeks_within_track
+  bool skip_seeks_within_track;
+
   //! Album art for the current track, or NULL if none. Owned by the service; freed with
   //! kernel_free. Deliberately kept (up to ~34 KB of kernel heap on the largest displays) even
   //! while the Music app is closed, so reopening it shows the cover instantly; a track change,
@@ -396,6 +399,7 @@ void music_update_player_playback_state(const MusicPlayerStateUpdate *state) {
   s_music_ctx.playback_rate_percent = state->playback_rate_percent;
   s_music_ctx.track_pos_ms = state->elapsed_time_ms;
   s_music_ctx.track_pos_updated_at = rtc_get_ticks();
+  s_music_ctx.skip_seeks_within_track = state->skip_seeks_within_track;
   mutex_unlock_recursive(s_music_ctx.mutex);
 
   prv_put_state_changed_event(state->playback_state);
@@ -461,6 +465,13 @@ void music_request_low_latency_for_period(uint32_t period_ms) {
   if (request_low_latency_for_period) {
     request_low_latency_for_period(period_ms);
   }
+}
+
+bool music_skip_seeks_within_track(void) {
+  mutex_lock_recursive(s_music_ctx.mutex);
+  const bool seeks = s_music_ctx.skip_seeks_within_track;
+  mutex_unlock_recursive(s_music_ctx.mutex);
+  return seeks;
 }
 
 bool music_is_command_supported(MusicCommand command) {

@@ -88,6 +88,11 @@ void music_command_send(MusicCommand command);
 //! @return True if the command is supported by the connected server.
 bool music_is_command_supported(MusicCommand command);
 
+//! @return True if MusicCommandNextTrack / MusicCommandPreviousTrack will seek within the current
+//! track (podcasts, audiobooks) rather than change track. The commands to send are the same either
+//! way; this only says what they will do, so the Music app can show matching icons.
+bool music_skip_seeks_within_track(void);
+
 //! @return True if playback needs to be started manually by the user from the phone.
 bool music_needs_user_to_start_playback_on_phone(void);
 

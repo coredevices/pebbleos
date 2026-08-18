@@ -95,6 +95,10 @@ bool music_is_command_supported(MusicCommand command) {
   return true;
 }
 
+bool music_skip_seeks_within_track(void) {
+  return false;
+}
+
 void music_command_send(MusicCommand command) {}
 
 void music_request_reduced_latency(bool reduced_latency) {}

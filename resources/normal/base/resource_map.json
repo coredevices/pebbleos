@@ -413,6 +413,16 @@
     },
     {
       "type": "pbi8",
+      "name": "MUSIC_ICON_FAST_FORWARD",
+      "file": "normal/base/images/music_icon_fast_forward.png"
+    },
+    {
+      "type": "pbi8",
+      "name": "MUSIC_ICON_REWIND",
+      "file": "normal/base/images/music_icon_rewind.png"
+    },
+    {
+      "type": "pbi8",
       "name": "MUSIC_ICON_ELLIPSIS",
       "file": "normal/base/images/music_icon_ellipsis.png"
     },

@@ -5,6 +5,7 @@
 
 #include "pbl/services/music.h"
 #include "pbl/services/music_endpoint.h"
+#include "pbl/services/music_endpoint_types.h"
 #include "pbl/services/music_internal.h"
 
 #include "pbl/services/comm_session/session.h"
@@ -342,6 +343,24 @@ void test_music_endpoint__supported_capabilities(void) {
     }
     cl_assert_equal_b(music_is_command_supported(cmd), expect_supported);
   }
+}
+
+void test_music_endpoint__skip_seeks_within_track(void) {
+  prv_receive_app_info_event(true /* is_android */);
+
+  // Phone apps that predate the flag send the shorter message.
+  uint8_t no_flags[] = { 0x11, 0x01, 0xAA, 0x00, 0x00, 0x00, 0xAA, 0x00, 0x00, 0x00, 0x01, 0x01 };
+  prv_receive_pp_data(no_flags, sizeof(no_flags));
+  cl_assert_equal_b(music_skip_seeks_within_track(), false);
+
+  uint8_t seeks[] = { 0x11, 0x01, 0xAA, 0x00, 0x00, 0x00, 0xAA, 0x00, 0x00, 0x00, 0x01, 0x01,
+                      MusicEndpointSkipSeeksWithinTrack };
+  prv_receive_pp_data(seeks, sizeof(seeks));
+  cl_assert_equal_b(music_skip_seeks_within_track(), true);
+
+  // Back to a player that changes track.
+  prv_receive_pp_data(no_flags, sizeof(no_flags));
+  cl_assert_equal_b(music_skip_seeks_within_track(), false);
 }
 
 void test_music_endpoint__reduced_latency(void) {

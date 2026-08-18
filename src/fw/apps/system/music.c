@@ -270,6 +270,8 @@ typedef struct {
 
   GBitmap icon_skip_forward;
   GBitmap icon_skip_backward;
+  GBitmap icon_fast_forward;
+  GBitmap icon_rewind;
   GBitmap icon_ellipsis;
   GBitmap icon_pause;
   GBitmap icon_play;
@@ -603,10 +605,13 @@ static void prv_update_cassette_icon(MusicAppData *data, bool animated) {
 static void prv_update_ui_state_skipping(MusicAppData *data, bool animated) {
   action_bar_layer_set_click_config_provider(&data->action_bar,
                                              prv_skipping_click_config_provider);
+  const bool seeks = music_skip_seeks_within_track();
   action_bar_layer_set_icon_animated(&data->action_bar, BUTTON_FORWARD,
-                                     &data->icon_skip_forward, animated);
+                                     seeks ? &data->icon_fast_forward : &data->icon_skip_forward,
+                                     animated);
   action_bar_layer_set_icon_animated(&data->action_bar, BUTTON_BACKWARD,
-                                     &data->icon_skip_backward, animated);
+                                     seeks ? &data->icon_rewind : &data->icon_skip_backward,
+                                     animated);
   const bool show_volume_controls = shell_prefs_get_music_show_volume_controls();
   if (music_get_playback_state() == MusicPlayStatePaused) {
     action_bar_layer_set_icon_animated(&data->action_bar, BUTTON_ID_SELECT, &data->icon_play,
@@ -1597,6 +1602,8 @@ static void prv_handle_init(void) {
 
   gbitmap_init_with_resource(&data->icon_skip_backward, RESOURCE_ID_MUSIC_ICON_SKIP_BACKWARD);
   gbitmap_init_with_resource(&data->icon_skip_forward, RESOURCE_ID_MUSIC_ICON_SKIP_FORWARD);
+  gbitmap_init_with_resource(&data->icon_rewind, RESOURCE_ID_MUSIC_ICON_REWIND);
+  gbitmap_init_with_resource(&data->icon_fast_forward, RESOURCE_ID_MUSIC_ICON_FAST_FORWARD);
   gbitmap_init_with_resource(&data->icon_ellipsis, RESOURCE_ID_MUSIC_ICON_ELLIPSIS);
   gbitmap_init_with_resource(&data->icon_play, RESOURCE_ID_MUSIC_ICON_PLAY);
   gbitmap_init_with_resource(&data->icon_pause, RESOURCE_ID_MUSIC_ICON_PAUSE);
