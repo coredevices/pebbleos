@@ -90,6 +90,23 @@ static RemoteInputResult prv_claim_timer(void) {
   return RemoteInputResult_Ok;
 }
 
+// Admits one sequence and fires its first callback immediately. Rolls the claim back if the timer
+// cannot start, so a failed request never leaves the service stuck reporting Busy.
+static RemoteInputResult prv_start_sequence(NewTimerCallback cb, void *context) {
+  mutex_lock(s_input_lock);
+  const RemoteInputResult claimed = prv_claim_timer();
+  mutex_unlock(s_input_lock);
+  if (claimed != RemoteInputResult_Ok) {
+    return claimed;
+  }
+  // Past this point the claim is ours: no other caller can be admitted, so no lock is needed.
+  if (!new_timer_start(s_input_timer, 0, cb, context, 0 /* flags */)) {
+    prv_sequence_finished();
+    return RemoteInputResult_Invalid;
+  }
+  return RemoteInputResult_Ok;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Buttons
 
@@ -143,17 +160,8 @@ RemoteInputResult remote_input_button_press(ButtonId button, uint32_t presses, u
     // and leaving the button stuck down.
     return RemoteInputResult_Ok;
   }
-  mutex_lock(s_input_lock);
-  const RemoteInputResult claimed = prv_claim_timer();
-  mutex_unlock(s_input_lock);
-  if (claimed != RemoteInputResult_Ok) {
-    return claimed;
-  }
-  // Past this point the claim is ours: no other caller can be admitted, so the rest needs no lock.
-
   ButtonPressContext *context = kernel_malloc(sizeof(ButtonPressContext));
   if (!context) {
-    prv_sequence_finished();
     return RemoteInputResult_Invalid;
   }
   *context = (ButtonPressContext){
@@ -166,12 +174,11 @@ RemoteInputResult remote_input_button_press(ButtonId button, uint32_t presses, u
 
   // Drive the whole sequence from timer callbacks so the button events can't race the timers that
   // separate them.
-  if (!new_timer_start(s_input_timer, 0, prv_button_timer_cb, context, 0 /* flags */)) {
+  const RemoteInputResult result = prv_start_sequence(prv_button_timer_cb, context);
+  if (result != RemoteInputResult_Ok) {
     kernel_free(context);
-    prv_sequence_finished();
-    return RemoteInputResult_Invalid;
   }
-  return RemoteInputResult_Ok;
+  return result;
 }
 
 RemoteInputResult remote_input_button_set(uint8_t buttons) {
@@ -288,12 +295,6 @@ RemoteInputResult remote_input_swipe(RemoteInputSwipeDirection direction, uint16
   if (!touch_injection_is_available()) {
     return RemoteInputResult_Invalid;
   }
-  mutex_lock(s_input_lock);
-  const RemoteInputResult claimed = prv_claim_timer();
-  mutex_unlock(s_input_lock);
-  if (claimed != RemoteInputResult_Ok) {
-    return claimed;
-  }
 
   const bool vertical =
       (direction == RemoteInputSwipeDirection_Up) || (direction == RemoteInputSwipeDirection_Down);
@@ -312,7 +313,6 @@ RemoteInputResult remote_input_swipe(RemoteInputSwipeDirection direction, uint16
 
   SwipeContext *context = kernel_malloc(sizeof(SwipeContext));
   if (!context) {
-    prv_sequence_finished();
     return RemoteInputResult_Invalid;
   }
   *context = (SwipeContext){
@@ -330,12 +330,11 @@ RemoteInputResult remote_input_swipe(RemoteInputSwipeDirection direction, uint16
     .finger_down = false,
   };
 
-  if (!new_timer_start(s_input_timer, 0, prv_swipe_timer_cb, context, 0 /* flags */)) {
+  const RemoteInputResult result = prv_start_sequence(prv_swipe_timer_cb, context);
+  if (result != RemoteInputResult_Ok) {
     kernel_free(context);
-    prv_sequence_finished();
-    return RemoteInputResult_Invalid;
   }
-  return RemoteInputResult_Ok;
+  return result;
 }
 
 #else  // !CONFIG_SERVICE_TOUCH
