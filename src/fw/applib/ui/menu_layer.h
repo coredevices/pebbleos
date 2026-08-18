@@ -460,10 +460,17 @@ typedef struct MenuLayer {
   //! above, so it does not change \c sizeof(MenuLayer).
   bool double_tap_armed:1;
 
+  //! @internal
+  //! True while an inertial coast (touch fling) drives the scroll offset: set when the coast
+  //! animation is scheduled, cleared by its stopped handler. The 8 flag bits above fill their
+  //! byte exactly, so this bit starts a new one, carved from \ref padding to keep
+  //! \c sizeof(MenuLayer) unchanged.
+  bool touch_fling_active:1;
+
   //! Add some padding to keep track of the \ref MenuLayer size budget.
   //! As long as the size stays within this budget, 2.x apps can safely use the 3.x MenuLayer type.
   //! The actual size check is generated from applib_malloc.json, not asserted here.
-  uint8_t padding[20];
+  uint8_t padding[19];
 } MenuLayer;
 
 //! Padding used below the last item in pixels

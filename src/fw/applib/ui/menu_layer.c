@@ -44,6 +44,7 @@ struct TouchNavState *modal_manager_get_touch_nav_state(void);
 
 static void prv_menu_touch_nav_register(MenuLayer *menu_layer);
 static void prv_menu_touch_nav_deregister(MenuLayer *menu_layer);
+static void prv_menu_touch_track_center_row(MenuLayer *menu_layer);
 #endif
 
 //! @return True if there was an animation to cancel, false otherwise
@@ -61,7 +62,13 @@ static bool prv_cancel_selection_animation(MenuLayer *menu_layer);
 
 static void prv_menu_scroll_offset_changed_handler(ScrollLayer *scroll_layer,
                                                    MenuLayer *menu_layer) {
-  // TODO: we might need to propagate this event down to MenuLayerCallbacks
+#ifdef CONFIG_TOUCH
+  // During an inertial coast on a carousel the row crossing the centre becomes the selection live,
+  // one row at a time, exactly as during a finger pan (same selection_will_change contract).
+  if (menu_layer->touch_fling_active && menu_layer->center_focused) {
+    prv_menu_touch_track_center_row(menu_layer);
+  }
+#endif
 }
 
 static void prv_menu_select_click_handler(ClickRecognizerRef recognizer, MenuLayer *menu_layer) {
@@ -1712,8 +1719,11 @@ static void prv_menu_touch_reselect_row(MenuLayer *menu_layer, MenuIndex index) 
   // Any selection move invalidates the double-tap window (same rule as prv_apply_selection_change).
   menu_layer->double_tap_armed = false;
   const bool up = (comp < 0);
+  // During an inertial coast the scroll animation IS the ongoing motion: change_ongoing_animation
+  // would unschedule it on the first row crossing and kill the coast dead. During a finger pan no
+  // scroll animation is scheduled, so the flag is inert either way.
   prv_menu_layer_update_selection_highlight(menu_layer, up, false /* animated */,
-                                            true /* change_ongoing_animation */);
+                                            !menu_layer->touch_fling_active);
   prv_announce_selection_changed(menu_layer, prev_selection.index);
 }
 
@@ -1760,19 +1770,56 @@ void menu_layer_touch_handle_pan_update(MenuLayer *menu_layer, GPoint base,
   // Plain menus: selection intentionally NOT touched — a pan scrolls, a tap selects.
 }
 
+static void prv_menu_touch_fling_stopped(Animation *animation, bool finished, void *context) {
+  (void)animation;
+  MenuLayer *menu_layer = context;
+  menu_layer->touch_fling_active = false;
+  // Restore the shared animation defaults first so a settle scheduled below runs with them.
+  scroll_layer_touch_fling_cleanup(&menu_layer->scroll_layer);
+  if (finished && menu_layer->center_focused) {
+    // The coast ended off-grid: adopt the row under the centre and glide it to the exact centre
+    // (this also reconciles a mid-coast veto). A not-finished stop means something else took over
+    // the offset -- whoever unscheduled owns the settle.
+    prv_menu_touch_track_center_row(menu_layer);
+    prv_menu_touch_settle_to_center(menu_layer, true /* animated */);
+  }
+}
+
+// Coast toward the velocity projection, clamped by the menu's own (possibly widened) clamp.
+static void prv_menu_touch_fling(MenuLayer *menu_layer, int16_t released_y, int32_t velocity_y) {
+  const int32_t projected_y = released_y + (velocity_y * TOUCH_FLING_TAU_MS) / 1000;
+  const int16_t target_y = prv_menu_touch_clamp_offset_y(
+      menu_layer, (int16_t)CLIP(projected_y, INT16_MIN, INT16_MAX));
+  if (scroll_layer_touch_fling_start(&menu_layer->scroll_layer, target_y, (int16_t)velocity_y,
+                                     prv_menu_touch_fling_stopped, menu_layer)) {
+    menu_layer->touch_fling_active = true;
+  }
+}
+
 void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint final_delta,
                                   GPoint velocity) {
-  // Liftoff: settle the final (unthrottled) scroll offset. Velocity is unused for now.
-  (void)velocity;
   const int16_t new_y = prv_menu_touch_clamp_offset_y(menu_layer, base.y + final_delta.y);
+  const int32_t v = CLIP((int32_t)velocity.y, -TOUCH_FLING_MAX_VELOCITY_PX_S,
+                         TOUCH_FLING_MAX_VELOCITY_PX_S);
+  if (ABS(v) >= TOUCH_FLING_MIN_VELOCITY_PX_S) {
+    // Fast liftoff: coast toward the projection from the released offset. The coast starts from
+    // the current (last throttled) offset, so the unthrottled residual is absorbed into the
+    // animation instead of jumping instantly at liftoff. Plain menus coast the content only (the
+    // selection is intentionally left where it was — a pan scrolls, a tap selects); on a carousel
+    // rows step through the centre live via the offset-changed handler, and the coast's stopped
+    // handler settles the final row to the exact centre.
+    prv_menu_touch_fling(menu_layer, new_y, v);
+    if (menu_layer->touch_fling_active) {
+      return;
+    }
+  }
+  // Slow liftoff (or a coast too short to schedule): settle the final (unthrottled) offset.
   scroll_layer_set_content_offset(&menu_layer->scroll_layer, GPoint(0, new_y), false);
   if (!menu_layer->center_focused) {
-    // Plain menus: the selection is intentionally left exactly where it was — a finger pan scrolls
-    // the content, it must not reselect (it may even scroll the selection off-screen).
     return;
   }
-  // Carousel liftoff: the final delta may have crossed one more boundary than the last throttled
-  // pan update saw, so re-track first, then glide the focused row into the exact centre.
+  // Carousel: the final delta may have crossed one more boundary than the last throttled pan
+  // update saw, so re-track, then glide the focused row into the exact centre.
   prv_menu_touch_track_center_row(menu_layer);
   prv_menu_touch_settle_to_center(menu_layer, true /* animated */);
 }
@@ -1901,7 +1948,17 @@ void menu_layer_touch_handle_swipe(MenuLayer *menu_layer, SwipeDirection directi
 static void prv_menu_ops_pan_started(void *w) {
   // Touchdown-equivalent for the pan: stop any in-flight selection animation so the finger takes
   // over. The base offset is latched by the core via get_base_offset immediately after.
-  prv_cancel_selection_animation((MenuLayer *)w);
+  MenuLayer *menu_layer = w;
+  prv_cancel_selection_animation(menu_layer);
+  // Also stop a running settle/coast on the scroll offset itself; otherwise it and the first
+  // throttled pan update both write the offset for up to one frame. A coast caught before its
+  // first frame never ran its stopped handler, so clear its state explicitly.
+  Animation *anim = property_animation_get_animation(menu_layer->scroll_layer.animation);
+  if (anim && animation_is_scheduled(anim)) {
+    animation_unschedule(anim);
+  }
+  menu_layer->touch_fling_active = false;
+  scroll_layer_touch_fling_cleanup(&menu_layer->scroll_layer);
 }
 
 static GPointReturn prv_menu_ops_get_base_offset(void *w) {

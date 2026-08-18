@@ -13,6 +13,9 @@
 #include "applib/ui/recognizer/recognizer_manager.h"
 #include "applib/ui/recognizer/touch_nav.h"
 
+#include "applib/ui/animation_private.h"
+#include "applib/ui/property_animation_private.h"
+
 #include "fake_rtc.h"
 #include "pbl/drivers/rtc.h"
 
@@ -142,9 +145,44 @@ int16_t menu_cell_basic_cell_height(void) {
 
 static uint16_t s_num_rows;
 
+// Strong overrides of the WEAK animation stubs: capture the scroll animation's to-target and
+// stopped handler so fling physics are observable and the coast end can be simulated by the test.
+static GPoint s_anim_to;
+static AnimationHandlers s_anim_handlers;
+static void *s_anim_handlers_context;
+
+bool property_animation_init(PropertyAnimation *animation,
+                             const PropertyAnimationImplementation *implementation,
+                             void *subject, void *from_value, void *to_value) {
+  if (!animation) {
+    return false;
+  }
+  *(PropertyAnimationPrivate *)animation = (PropertyAnimationPrivate) {
+    .animation.implementation = (const AnimationImplementation *)implementation,
+    .subject = subject,
+  };
+  if (to_value) {
+    s_anim_to = *(GPoint *)to_value;   // every scroll animation targets a GPoint offset
+  }
+  return true;
+}
+
+bool animation_set_handlers(Animation *animation, AnimationHandlers callbacks, void *context) {
+  if (!animation) {
+    return false;
+  }
+  ((AnimationPrivate *)animation)->context = context;
+  s_anim_handlers = callbacks;
+  s_anim_handlers_context = context;
+  return true;
+}
+
 void test_menu_layer__initialize(void) {
   s_num_rows = 10;
   fake_rtc_init(0, 0);
+  s_anim_to = GPointZero;
+  s_anim_handlers = (AnimationHandlers) { 0 };
+  s_anim_handlers_context = NULL;
   s_nav_enabled = true;
   // A zeroed state has a NULL manager, so menu_layer_init() registration is inert for the tests
   // that do not opt into the touch-nav harness (prv_touch_nav_setup()).
@@ -1667,4 +1705,196 @@ void test_menu_layer__dispatch_no_trigger_leaves_manager_idle(void) {
   // Liftoff with nothing triggered returns the manager to idle: no stuck Possible recognizer (wart).
   prv_drive(TouchEvent_Liftoff, 100, 4);
   cl_assert_equal_i(s_recognizer_manager.state, RecognizerManagerState_WaitForTouchdown);
+}
+
+// =============================================================================================
+// Inertial fling (plain menus): a fast liftoff coasts the content; the selection never moves.
+// Menu geometry here: 10 rows x 44px + 20px bottom padding = 460 content, 180 frame ->
+// clamp range [-280, 0]. The stubbed animation never moves the content, so offset assertions see
+// the released value while the captured to-target/duration pin the physics.
+
+void test_menu_layer__touch_fling_plain_coasts_content_only(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  const MenuIndex before = menu_layer_get_selected_index(&l);
+  prv_reset_touch_counters();
+  // The drag left the content at -88; projection = -88 + (-500 * 240 / 1000) = -208, inside
+  // [-280, 0] -> the unclamped coast runs the full 3*TAU duration.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -88));
+  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, -88), GPoint(0, -500));
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, -88);  // no liftoff jump
+  cl_assert(l.touch_fling_active);
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, -208);
+  cl_assert_equal_i(animation_get_duration(anim, false, false), TOUCH_FLING_MAX_DURATION_MS);
+  // The selection contract is untouched: a coast is still "a pan scrolls, a tap selects".
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, before.row);
+  cl_assert_equal_i(s_will_change_count, 0);
+  cl_assert_equal_i(s_selection_changed_count, 0);
+  cl_assert_equal_i(s_select_click_count, 0);
+}
+
+// The coast target is clamped by the menu clamp; the truncated distance shortens the duration
+// (with the floor applied), so the coast does not crawl into the edge.
+void test_menu_layer__touch_fling_plain_clamps_target(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  prv_reset_touch_counters();
+  // The drag left the content at -88; upward coast projection = -88 + 720 = 632 -> clamped to 0;
+  // d = 88 -> raw T = 3000*88/3000 = 88 -> floored to MIN_DURATION.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -88));
+  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, -88), GPoint(0, 3000));
+  cl_assert(l.touch_fling_active);
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, 0);
+  cl_assert_equal_i(animation_get_duration(anim, false, false), TOUCH_FLING_MIN_DURATION_MS);
+}
+
+// Below the fling threshold a liftoff behaves exactly as before: settle only, nothing scheduled.
+void test_menu_layer__touch_fling_below_threshold_settles_only(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  prv_reset_touch_counters();
+  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, -88),
+                               GPoint(0, -(TOUCH_FLING_MIN_VELOCITY_PX_S - 1)));
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, -88);
+  cl_assert(!l.touch_fling_active);
+  cl_assert(l.scroll_layer.animation == NULL);   // never animated: no coast was scheduled
+}
+
+// The coast's stopped handler clears the fling flag and restores the shared animation defaults,
+// on a natural finish and on an unschedule alike.
+void test_menu_layer__touch_fling_stopped_clears_state(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, -88), GPoint(0, -500));
+  cl_assert(l.touch_fling_active);
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(s_anim_handlers.stopped != NULL);
+  cl_assert_equal_p(s_anim_handlers_context, &l);
+  // Simulate the coast ending: the animation service unschedules, then fires stopped.
+  animation_unschedule(anim);
+  s_anim_handlers.stopped(anim, true /* finished */, s_anim_handlers_context);
+  cl_assert(!l.touch_fling_active);
+  cl_assert_equal_i(animation_get_duration(anim, false, false), ANIMATION_DEFAULT_DURATION_MS);
+  cl_assert(s_anim_handlers.stopped == NULL);    // handlers cleared for the next plain scroll
+}
+
+// =============================================================================================
+// Inertial fling (center-focused carousels): the coast tracks the row crossing the centre live,
+// then the stopped handler settles the final row to the exact centre. Geometry: 10 rows x 44px,
+// frame 180 -> row r centres at offset 68 - 44r; widened clamp [-370, 90]. Coast frames are
+// simulated through the animation's actual setter (the T_STATIC internal offset setter), NOT
+// scroll_layer_set_content_offset: the public call unschedules the running animation, which a
+// real animation frame never does, and would mask a tracking path that kills the coast.
+
+void prv_scroll_layer_set_content_offset_internal(ScrollLayer *scroll_layer, GPoint offset);
+
+void test_menu_layer__touch_fling_center_tracks_rows_and_settles(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, 68);  // row 0 centred
+  prv_reset_touch_counters();
+
+  // The drag lands at -32 (centre inside row 2, tracked live by the pan); the fast liftoff then
+  // schedules the coast toward -32 + (-800 * 240 / 1000) = -224, starting from the current offset
+  // (no jump).
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 68), GPoint(0, -100));
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 2);
+  cl_assert_equal_i(s_will_change_count, 1);
+  menu_layer_touch_handle_snap(&l, GPoint(0, 68), GPoint(0, -100), GPoint(0, -800));
+  cl_assert(l.touch_fling_active);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, -32);  // no liftoff jump
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, -224);
+  cl_assert_equal_i(animation_get_duration(anim, false, false), TOUCH_FLING_MAX_DURATION_MS);
+
+  // A coast frame at -120 puts the centre (content y 210) inside row 4: the offset-changed
+  // handler steps the selection there through the will_change contract.
+  prv_scroll_layer_set_content_offset_internal(&l.scroll_layer, GPoint(0, -120));
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 4);
+  cl_assert_equal_i(s_will_change_count, 2);
+  cl_assert_equal_i(s_selection_changed_count, 2);
+  cl_assert_equal_i(s_select_click_count, 0);   // a coast never activates
+  // Regression: the reselect on a row crossing must NOT unschedule the coast (the selection
+  // highlight update's change_ongoing_animation path once killed the fling on the first crossing).
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert(l.touch_fling_active);
+
+  // The final coast frame lands at the target: centre (content y 314) is inside row 7.
+  prv_scroll_layer_set_content_offset_internal(&l.scroll_layer, GPoint(0, -224));
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 7);
+
+  // Coast end: the stopped handler clears the flag, restores defaults, and glides row 7 to its
+  // exact centre (offset 68 - 44*7 = -240).
+  animation_unschedule(anim);
+  s_anim_handlers.stopped(anim, true /* finished */, s_anim_handlers_context);
+  cl_assert(!l.touch_fling_active);
+  cl_assert(animation_is_scheduled(anim));      // the settle glide was scheduled
+  cl_assert_equal_i(s_anim_to.y, -240);
+  // (Defaults restoration is asserted in the unscheduled_no_settle test: the stubbed
+  // property_animation_init zeroes the duration on the settle's re-init, unlike the real one.)
+}
+
+// A veto mid-coast keeps the old focus; the end-of-coast reconcile settles back to the vetoed
+// row's centre instead of the row the content stopped under.
+void test_menu_layer__touch_fling_center_veto_reconciles(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  prv_reset_touch_counters();
+  s_will_change_mode = WillChange_Veto;
+
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 68), GPoint(0, -100));
+  menu_layer_touch_handle_snap(&l, GPoint(0, 68), GPoint(0, -100), GPoint(0, -500));
+  cl_assert(l.touch_fling_active);
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 0);   // vetoed: focus stays
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  prv_scroll_layer_set_content_offset_internal(&l.scroll_layer, GPoint(0, -152));
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 0);   // still vetoed mid-coast
+  cl_assert_equal_i(s_selection_changed_count, 0);
+
+  animation_unschedule(anim);
+  s_anim_handlers.stopped(anim, true /* finished */, s_anim_handlers_context);
+  cl_assert(!l.touch_fling_active);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, 68);   // settle back to the vetoed row 0's centre
+}
+
+// A not-finished stop (caught, or something else took the offset) only clears state: whoever
+// unscheduled the coast owns the settle, so none is scheduled here.
+void test_menu_layer__touch_fling_center_unscheduled_no_settle(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  prv_reset_touch_counters();
+  menu_layer_touch_handle_snap(&l, GPoint(0, 68), GPoint(0, -100), GPoint(0, -500));
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(l.touch_fling_active);
+  animation_unschedule(anim);
+  s_anim_handlers.stopped(anim, false /* finished */, s_anim_handlers_context);
+  cl_assert(!l.touch_fling_active);
+  cl_assert(!animation_is_scheduled(anim));
+  cl_assert_equal_i(animation_get_duration(anim, false, false), ANIMATION_DEFAULT_DURATION_MS);
 }
