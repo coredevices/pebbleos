@@ -28,7 +28,7 @@ BUILD_DIR = os.path.join(REPO_ROOT, "build")
 LANG_DIR_REL = "resources/normal/base/lang"
 
 # Commands forwarded verbatim to ./waf (no build env / waflib needed).
-WAF_PASSTHROUGH = ("configure", "menuconfig", "build", "bundle", "clean", "test", "waf")
+WAF_PASSTHROUGH = ("configure", "menuconfig", "build", "clean", "test", "waf")
 
 # QEMU SDL decorations per board. The first entry is used as the default.
 QEMU_DECORATIONS = {
@@ -501,6 +501,14 @@ def cmd_bork(env, options):
     _run_runner(env, options, "erase")
 
 
+def cmd_bundle(env, options):
+    """Bundle the built firmware into a .pbz (no waf involved)."""
+    ret = subprocess.call([sys.executable, "tools/make_fw_bundle.py",
+                           "--build-dir", BUILD_DIR])
+    if ret != 0:
+        _fatal("bundle failed")
+
+
 def cmd_image_resources(env, options):
     tty = options.tty
     if tty is None:
@@ -745,6 +753,7 @@ def cmd_pack_all_langs(env, options):
 
 
 OPERATIONAL = {
+    "bundle": cmd_bundle,
     "flash": cmd_flash,
     "console": cmd_console,
     "debug": cmd_debug,
@@ -830,6 +839,8 @@ def build_parser():
                    help="Start or resume a connected device")
     sub.add_parser("bork", parents=[dry, runner, runner_args],
                    help="Reset and wipe a connected device")
+
+    sub.add_parser("bundle", help="Bundle the built firmware into a .pbz")
 
     p = sub.add_parser("image_resources", parents=[dry],
                        help="UART-image system resources")

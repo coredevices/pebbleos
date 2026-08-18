@@ -50,13 +50,6 @@ LOGHASH_OUT_PATH = 'src/fw/loghash_dict.json'
 
 
 @conf
-def get_pbz_node(ctx, fw_type, board_type, version_string, slot=None):
-    return ctx.path.get_bld().make_node('{}_{}_{}{}.pbz'.format(
-        fw_type, board_type, version_string, "" if slot is None else f"_slot{slot}"
-    ))
-
-
-@conf
 def get_pbpack_node(ctx):
     return ctx.path.get_bld().make_node('system_resources.pbpack')
 
@@ -717,80 +710,6 @@ def docs_sdk(ctx):
 def docs_all(ctx):
     """builds the documentation with all dependency graphs out to build/doxygen"""
     ctx.exec_command('doxygen Doxyfile-all-graphs', stdout=None, stderr=None)
-
-# Bundle commands
-#################################################
-
-
-def _get_version_info(ctx):
-    # FIXME: it's probably a better idea to lift board + version info from the .bin file... this can get out of sync!
-    git_revision = tools.waf.gitinfo.get_git_revision(ctx)
-    if git_revision['TAG'] != '?':
-        version_string = git_revision['TAG']
-        version_ts = int(git_revision['TIMESTAMP'])
-        version_commit = git_revision['COMMIT']
-    else:
-        version_string = 'dev'
-        version_ts = 0
-        version_commit = ''
-    return version_string, version_ts, version_commit
-
-
-def _make_bundle(ctx, fw_bin_path, fw_type='normal', board=None, resource_path=None, write=True):
-    import mkbundle
-
-    if board is None:
-        board = ctx.env.BOARD_NORMALIZED
-
-    b = mkbundle.PebbleBundle()
-
-    version_string, version_ts, version_commit = _get_version_info(ctx)
-    slot = ctx.env.SLOT if fw_type == 'normal' and ctx.env.SLOT != -1 else None
-    out_file = ctx.get_pbz_node(fw_type, ctx.env.BOARD_NORMALIZED, version_string, slot).path_from(ctx.path)
-
-    try:
-        _check_firmware_image_size(ctx, fw_bin_path)
-        b.add_firmware(fw_bin_path, fw_type, version_ts, version_commit, board, version_string, slot)
-    except FirmwareTooLargeException as e:
-        ctx.fatal(str(e))
-    except mkbundle.MissingFileException as e:
-        ctx.fatal('Error: Missing file ' + e.filename + ', have you run ./waf build yet?')
-
-    if resource_path is not None:
-        b.add_resources(resource_path, version_ts)
-    if not ctx.env.CONFIG_RELEASE and ctx.env.CONFIG_LOG_HASHED:
-        loghash_dict = ctx.path.get_bld().make_node(LOGHASH_OUT_PATH).abspath()
-        b.add_loghash(loghash_dict)
-
-    # Add a LICENSE.txt file
-    b.add_license('LICENSE')
-
-    if fw_type == 'normal':
-        layouts_node = ctx.path.get_bld().find_node('resources/layouts.json.auto')
-        if layouts_node is not None:
-            b.add_layouts(layouts_node.path_from(ctx.path))
-
-    if write:
-        b.write(out_file)
-        waflib.Logs.pprint('CYAN', 'Writing bundle to: %s' % out_file)
-
-    return b
-
-
-class BundleCommand(BuildContext):
-    cmd = 'bundle'
-    fun = 'bundle'
-
-
-def bundle(ctx):
-    """bundles a firmware"""
-
-    if ctx.env.VARIANT == 'prf':
-        _make_bundle(ctx, ctx.get_pebbleos_node().path_from(ctx.path), fw_type='recovery')
-    else:
-        _make_bundle(ctx, ctx.get_pebbleos_node().path_from(ctx.path),
-                     resource_path=ctx.get_pbpack_node().path_from(ctx.path))
-
 
 # QEMU flash image commands
 #################################################

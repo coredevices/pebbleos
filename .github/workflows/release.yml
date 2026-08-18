@@ -54,7 +54,7 @@ jobs:
         run: ./waf build
 
       - name: Bundle PRF
-        run: ./waf bundle
+        run: ./pbl bundle
 
       - name: Copy PRF artifacts
         run: |
@@ -172,7 +172,7 @@ jobs:
         run: ./waf build
 
       - name: Bundle firmware
-        run: ./waf bundle
+        run: ./pbl bundle
 
       - name: Copy firmware artifacts
         run: |

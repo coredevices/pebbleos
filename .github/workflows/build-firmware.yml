@@ -90,7 +90,7 @@ jobs:
         run: ./waf build
 
       - name: Bundle
-        run: ./waf bundle
+        run: ./pbl bundle
 
       - name: Store
         uses: actions/upload-artifact@v6
