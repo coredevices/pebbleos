@@ -62,15 +62,6 @@ def _run_shell(cmd):
     return subprocess.call(cmd, shell=True)
 
 
-def _run_waf(*args):
-    """Run a ./waf subcommand for build steps that pbl orchestrates but does
-    not perform itself (e.g. the QEMU flash images)."""
-    if _DRY_RUN:
-        _pprint("YELLOW", "[dry-run] ./waf " + " ".join(args))
-        return 0
-    return subprocess.call([sys.executable, "waf"] + list(args), cwd=REPO_ROOT)
-
-
 # --- Configured build env -------------------------------------------------
 
 class Env:
@@ -333,15 +324,28 @@ def _qemu_launch(env, options):
     _run_shell(cmd_line)
 
 
+def _make_qemu_images(*images):
+    if _DRY_RUN:
+        _pprint("YELLOW", "[dry-run] make_qemu_images " + " ".join(images))
+        return 0
+    return subprocess.call([sys.executable, "tools/make_qemu_images.py",
+                            "--build-dir", BUILD_DIR] + list(images))
+
+
+def cmd_qemu_images(env, options):
+    """Build the QEMU micro + SPI flash images from the built firmware."""
+    if _make_qemu_images() != 0:
+        _fatal("Failed to build QEMU flash images")
+
+
 def cmd_qemu(env, options):
-    # The flash images are build artifacts, so let waf produce them. Always
-    # rebuild the micro-flash image; by default rebuild the SPI flash too
-    # (--keep-flash-image keeps the stored apps/data from a previous run).
-    if _run_waf("qemu_image_micro") != 0:
+    # Always rebuild the micro-flash image; by default rebuild the SPI flash
+    # too (--keep-flash-image keeps the stored apps/data from a previous run).
+    if _make_qemu_images("micro") != 0:
         _fatal("Failed to build QEMU micro flash image")
     spi_flash = os.path.join(BUILD_DIR, "qemu_spi_flash.bin")
     if not options.keep_flash_image or not os.path.isfile(spi_flash):
-        if _run_waf("qemu_image_spi") != 0:
+        if _make_qemu_images("spi") != 0:
             _fatal("Failed to build QEMU SPI flash image")
     _qemu_launch(env, options)
 
@@ -758,6 +762,7 @@ OPERATIONAL = {
     "console": cmd_console,
     "debug": cmd_debug,
     "qemu": cmd_qemu,
+    "qemu_images": cmd_qemu_images,
     "screenshot": cmd_screenshot,
     "touch": cmd_touch,
     "swipe": cmd_swipe,
@@ -813,6 +818,9 @@ def build_parser():
                    help="Keep the existing QEMU SPI flash image instead of rebuilding it")
     p.add_argument("--qemu-decoration", default=None, choices=QEMU_DECORATION_CHOICES,
                    help="SDL decoration for QEMU (defaults to the per-board default)")
+
+    sub.add_parser("qemu_images",
+                   help="Build the QEMU micro + SPI flash images")
 
     p = sub.add_parser("touch", help="Inject a touch tap into running QEMU (pixels)")
     p.add_argument("x", type=int, help="x coordinate in screen pixels")

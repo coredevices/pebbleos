@@ -711,61 +711,6 @@ def docs_all(ctx):
     """builds the documentation with all dependency graphs out to build/doxygen"""
     ctx.exec_command('doxygen Doxyfile-all-graphs', stdout=None, stderr=None)
 
-# QEMU flash image commands
-#################################################
-
-class QemuImageMicroCommand(BuildContext):
-    cmd = 'qemu_image_micro'
-    fun = 'qemu_image_micro'
-
-
-class QemuImageSpiCommand(BuildContext):
-    cmd = 'qemu_image_spi'
-    fun = 'qemu_image_spi'
-
-
-def qemu_image_micro(ctx):
-    """creates the micro-flash image for qemu"""
-    from intelhex import IntelHex
-
-    fw_hex = ctx.get_pebbleos_node().change_ext('.hex')
-    micro_flash_node = ctx.path.get_bld().make_node('qemu_micro_flash.bin')
-    micro_flash_path = micro_flash_node.path_from(ctx.path)
-    Logs.pprint('CYAN', 'Writing micro flash image to {}'.format(micro_flash_path))
-
-    img = IntelHex(fw_hex.path_from(ctx.path))
-    img.padding = 0xff
-    flash_end = ((img.maxaddr() + 511) // 512) * 512
-    img.tobinfile(micro_flash_path, start=0x00000000, end=flash_end - 1)
-
-
-def qemu_image_spi(ctx):
-    """creates a SPI flash image for qemu"""
-    if ctx.env.CONFIG_QEMU:
-        # QEMU generic boards: resources at offset 0x620000 in 32MB flash
-        resources_begin = 0x620000
-        image_size = 0x2000000
-    else:
-        resources_begin = 0x280000
-        image_size = 0x400000
-
-    spi_flash_node = ctx.path.get_bld().make_node('qemu_spi_flash.bin')
-    spi_flash_path = spi_flash_node.path_from(ctx.path)
-    Logs.pprint('CYAN', 'Writing SPI flash image to {}'.format(spi_flash_path))
-    with open(spi_flash_path, 'wb') as qemu_spi_img_file:
-        # Pad the first section before system resources with FF's
-        qemu_spi_img_file.write(bytes([0xff]) * resources_begin)
-
-        # Write system resources:
-        pbpack = ctx.get_pbpack_node()
-        res_img = open(pbpack.path_from(ctx.path), 'rb').read()
-        qemu_spi_img_file.write(res_img)
-
-        # Pad with 0xFF up to image size
-        tail_padding_size = image_size - resources_begin - len(res_img)
-        qemu_spi_img_file.write(bytes([0xff]) * tail_padding_size)
-
-
 # Flash commands
 #################################################
 
