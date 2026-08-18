@@ -12,19 +12,13 @@
 
 #include <string.h>
 
-// Minimum travel (component-wise, on the major axis) from the touchdown point for a path to count
-// as a swipe. A shorter flick is treated as a tap or noise. Value from the reference PT2 touch-nav
-// gesture spec.
-#define SWIPE_MIN_LENGTH_PX (30)
+// SWIPE_MIN_LENGTH_PX and SWIPE_MAX_DURATION_MS live in swipe.h: synthetic gesture generators size
+// their paths from the same limits this recognizer enforces.
 
 // Once the major-axis travel exceeds this, the path is committed enough that we start enforcing
 // straightness: any further wandering on the minor axis fails the swipe early. The drag threshold
 // value comes from the reference PT2 touch-nav gesture spec.
 #define SWIPE_STRAIGHTNESS_MIN_PX (10)
-
-// Maximum touchdown-to-liftoff duration for a swipe; a slower drag is a pan, not a flick. Value
-// from the reference PT2 touch-nav gesture spec.
-#define SWIPE_MAX_DURATION_MS (300)
 
 // Number of most-recent position samples retained for the velocity estimate.
 #define SWIPE_VELOCITY_SAMPLE_COUNT (3)

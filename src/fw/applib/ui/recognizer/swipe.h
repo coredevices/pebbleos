@@ -17,6 +17,17 @@
 
 typedef struct SwipeRecognizerData SwipeRecognizerData;
 
+//! Minimum travel (component-wise, on the major axis) from the touchdown point for a path to count
+//! as a swipe. A shorter flick is treated as a tap or noise. Value from the reference PT2 touch-nav
+//! gesture spec. Exposed so synthetic gesture generators size their paths from the same number the
+//! recognizer enforces.
+#define SWIPE_MIN_LENGTH_PX (30)
+
+//! Maximum touchdown-to-liftoff duration for a swipe; a slower drag is a pan, not a flick. Value
+//! from the reference PT2 touch-nav gesture spec. Exposed alongside the minimum length so a
+//! synthetic generator cannot produce a path this recognizer is bound to reject.
+#define SWIPE_MAX_DURATION_MS (300)
+
 //! Swipe direction, also used as a bitmask when configuring which directions a swipe recognizer
 //! accepts. Screen coordinates grow downward, so a positive y delta is a downward swipe.
 typedef enum SwipeDirection {
