@@ -377,6 +377,25 @@ void test_remote_input__rejects_swipe_slower_than_the_recognizer_allows(void) {
                     remote_input_swipe(RemoteInputSwipeDirection_Up, SWIPE_MAX_DURATION_MS));
 }
 
+void test_remote_input__cap_duration_swipe_stays_inside_the_recognizer_window(void) {
+  cl_assert_equal_i(RemoteInputResult_Ok,
+                    remote_input_swipe(RemoteInputSwipeDirection_Up, SWIPE_MAX_DURATION_MS));
+
+  // Touchdown fires immediately; sum what the rest of the path is scheduled to take.
+  stub_new_timer_fire(INPUT_TIMER_ID);
+  uint32_t scheduled_ms = 0;
+  while (stub_new_timer_is_scheduled(INPUT_TIMER_ID)) {
+    scheduled_ms += stub_new_timer_timeout(INPUT_TIMER_ID);
+    stub_new_timer_fire(INPUT_TIMER_ID);
+  }
+
+  // The recognizer measures touchdown-to-liftoff in wall-clock time and rejects anything past the
+  // maximum, so a path scheduled to land exactly on it would fail under any dispatch latency. A
+  // swipe that was acknowledged Ok must leave headroom.
+  cl_assert_equal_i(TouchState_FingerUp, s_touches[s_touch_count - 1].state);
+  cl_assert(scheduled_ms < SWIPE_MAX_DURATION_MS);
+}
+
 void test_remote_input__swipe_aborts_when_injection_is_refused(void) {
   cl_assert_equal_i(RemoteInputResult_Ok, remote_input_swipe(RemoteInputSwipeDirection_Up, 150));
   // Touchdown lands, then the touch service takes the sensor away mid-path.

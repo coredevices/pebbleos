@@ -263,7 +263,9 @@ static void prv_swipe_timer_cb(void *cb_data) {
   if (!emitted) {
     // Ownership was lost mid-path: touch switched off, or the service reset under us. The service
     // refuses a Move from a gesture that no longer owns the sensor, so this is where we find out;
-    // carrying on would strand a half-finished path.
+    // carrying on would strand a half-finished path. The caller was already told Ok, so leave a
+    // trace of the abort.
+    PBL_LOG_DBG("Remote input: swipe aborted, injection refused");
     kernel_free(context);
     prv_sequence_finished();
     return;
@@ -320,8 +322,11 @@ RemoteInputResult remote_input_swipe(RemoteInputSwipeDirection direction, uint16
     .step_dy = vertical ? step : 0,
     .steps_remaining = REMOTE_INPUT_SWIPE_STEPS,
     // The touchdown-to-liftoff time covers the position updates plus the liftoff that follows
-    // them. At least 1ms per step, or the chained timers never separate the velocity samples.
-    .step_ms = MAX(1, duration_ms / (REMOTE_INPUT_SWIPE_STEPS + 1)),
+    // them. One divisor step beyond that count keeps the scheduled path strictly inside the
+    // requested duration: the recognizer measures the gesture in wall-clock time, so a path
+    // timed to land exactly on SWIPE_MAX_DURATION_MS would be rejected by any dispatch latency
+    // at all. At least 1ms per step, or the chained timers never separate the velocity samples.
+    .step_ms = MAX(1, duration_ms / (REMOTE_INPUT_SWIPE_STEPS + 2)),
     .finger_down = false,
   };
 
