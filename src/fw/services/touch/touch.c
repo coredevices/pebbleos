@@ -3,9 +3,11 @@
 
 #include "pbl/services/touch/touch.h"
 #include "pbl/services/touch/touch_event.h"
+#include "pbl/services/touch/touch_session.h"
 
 #include <pbl/drivers/display/display.h>
 #include <pbl/drivers/touch/touch_sensor.h>
+#include "kernel/event_loop.h"
 #include "kernel/events.h"
 #include "kernel/pebble_tasks.h"
 #include "pbl/services/event_service.h"
@@ -36,6 +38,9 @@ static bool s_nav_enabled = false;
 static bool s_app_nav_active = false;
 static bool s_globally_enabled = true;
 static bool s_rotated = false;
+//! Set while an injected gesture owns the sensor, between its touchdown and liftoff. Physical
+//! samples are ignored for its duration so the synthetic path cannot be corrupted mid-swipe.
+static bool s_injecting = false;
 
 static void prv_apply_rotation(int16_t *x, int16_t *y) {
   if (s_rotated) {
@@ -237,15 +242,28 @@ static void prv_put_gesture_event(GestureEventType gesture, int16_t x, int16_t y
   event_put(&e);
 }
 
-void touch_handle_update(TouchState touch_state, int16_t x, int16_t y) {
+static void prv_arm_session_cb(void *unused) {
+  // touch_session is KernelMain-only, and injection runs off a timer callback.
+  touch_session_arm(TouchSessionArmSource_Injected);
+}
+
+static bool prv_handle_update(TouchState touch_state, int16_t x, int16_t y, bool injected) {
   mutex_lock(s_touch_mutex);
 
   if (!s_globally_enabled) {
     mutex_unlock(s_touch_mutex);
-    return;
+    return false;
   }
 
-  prv_apply_rotation(&x, &y);
+  if (injected) {
+    // Injected coordinates are already the ones the UI observes, so no rotation is applied.
+  } else {
+    if (s_injecting) {
+      mutex_unlock(s_touch_mutex);
+      return false;
+    }
+    prv_apply_rotation(&x, &y);
+  }
 
   if (s_touch_state != touch_state) {
     s_touch_state = touch_state;
@@ -261,7 +279,7 @@ void touch_handle_update(TouchState touch_state, int16_t x, int16_t y) {
       PBL_LOG_DBG("Touch: Liftoff");
       prv_put_touch_event(TouchEvent_Liftoff, x, y);
     }
-    return;
+    return true;
   }
 
   if (touch_state == TouchState_FingerDown && (x != s_last_x || y != s_last_y)) {
@@ -271,16 +289,72 @@ void touch_handle_update(TouchState touch_state, int16_t x, int16_t y) {
 
     PBL_LOG_DBG("Touch: Position Update @ (%" PRId16 ", %" PRId16 ")", x, y);
     prv_put_touch_event(TouchEvent_PositionUpdate, x, y);
-    return;
+    return true;
   }
 
   mutex_unlock(s_touch_mutex);
+  return true;
+}
+
+void touch_handle_update(TouchState touch_state, int16_t x, int16_t y) {
+  prv_handle_update(touch_state, x, y, false /* injected */);
+}
+
+bool touch_handle_injected_update(TouchInjectPhase phase, int16_t x, int16_t y) {
+  mutex_lock(s_touch_mutex);
+  if (!s_globally_enabled) {
+    mutex_unlock(s_touch_mutex);
+    return false;
+  }
+  if (phase == TouchInjectPhase_Begin) {
+    // Whoever puts a finger down first owns the sensor until the gesture ends.
+    if (s_injecting || (s_touch_state == TouchState_FingerDown)) {
+      mutex_unlock(s_touch_mutex);
+      return false;
+    }
+    s_injecting = true;
+  } else if (!s_injecting) {
+    // The gesture lost the sensor (reset, or touch switched off and back on). Refusing here is
+    // what lets the caller abort, rather than having this sample taken as a new touchdown from
+    // the middle of its path.
+    mutex_unlock(s_touch_mutex);
+    return false;
+  } else if (phase == TouchInjectPhase_End) {
+    s_injecting = false;
+  }
+  const bool starting = (phase == TouchInjectPhase_Begin);
+  mutex_unlock(s_touch_mutex);
+
+  if (starting) {
+    // Arm before the touchdown is queued: both land on KernelMain in order, so the gate sees an
+    // armed session rather than dropping the gesture as unarmed idle-watchface contact.
+    launcher_task_add_callback(prv_arm_session_cb, NULL);
+  }
+
+  const TouchState touch_state =
+      (phase == TouchInjectPhase_End) ? TouchState_FingerUp : TouchState_FingerDown;
+  return prv_handle_update(touch_state, x, y, true /* injected */);
+}
+
+bool touch_injection_is_available(void) {
+  mutex_lock(s_touch_mutex);
+  const bool available =
+      s_globally_enabled && (s_injecting || (s_touch_state != TouchState_FingerDown));
+  mutex_unlock(s_touch_mutex);
+  return available;
 }
 
 void touch_handle_gesture(TouchGesture gesture, int16_t x, int16_t y) {
   mutex_lock(s_touch_mutex);
 
   if (!s_globally_enabled) {
+    mutex_unlock(s_touch_mutex);
+    return;
+  }
+
+  // Drivers report gestures alongside the raw samples they are derived from, so a real finger
+  // landing mid-injection would otherwise reach subscribers even though its samples do not.
+  if (s_injecting) {
     mutex_unlock(s_touch_mutex);
     return;
   }
@@ -310,6 +384,9 @@ void touch_reset(void) {
   s_touch_state = TouchState_FingerUp;
   s_last_x = 0;
   s_last_y = 0;
+  // Ownership ends with the finger it belonged to; leaving it set would block physical touch for
+  // good, since the injected liftoff that would clear it can no longer arrive.
+  s_injecting = false;
   mutex_unlock(s_touch_mutex);
 }
 
@@ -319,6 +396,8 @@ void touch_release_active(void) {
   const int16_t x = s_last_x;
   const int16_t y = s_last_y;
   s_touch_state = TouchState_FingerUp;
+  // The gesture is over however it was owned; see touch_reset().
+  s_injecting = false;
   mutex_unlock(s_touch_mutex);
 
   if (was_down) {
@@ -341,3 +420,4 @@ void touch_set_rotated(bool rotated) {
   s_rotated = rotated;
   mutex_unlock(s_touch_mutex);
 }
+

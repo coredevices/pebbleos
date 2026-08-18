@@ -21,6 +21,8 @@
 typedef enum TouchSessionArmSource {
   TouchSessionArmSource_WakeGesture,
   TouchSessionArmSource_Button,
+  //! A synthetic touch injected for automated input; deliberate by construction.
+  TouchSessionArmSource_Injected,
 } TouchSessionArmSource;
 
 //! Open (or re-open) the session: deliberate interaction observed.
