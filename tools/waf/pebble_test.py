@@ -361,8 +361,10 @@ def add_clar_test(
     idl_includes = [root_build_dir + "src/idl"]
     includes += idl_includes
 
-    if use is None:
-        use = []
+    # Copy the caller's lists before appending: they are shared across
+    # platforms and call sites.
+    use = list(use) if use is not None else []
+    test_libs = list(test_libs)
     # Add DUMA for memory corruption checking
     # conditionally disable duma based on DUMA_DISABLED being defined
     # DUMA is found in tests/vendor/duma
@@ -490,8 +492,8 @@ def clar(
     sources_ant_glob=None,
     test_sources_ant_glob=None,
     test_sources=None,
-    test_libs=[],
-    override_includes=[],
+    test_libs=None,
+    override_includes=None,
     add_includes=None,
     defines=None,
     test_name=None,
@@ -525,6 +527,8 @@ def clar(
 
     # Make a copy so if we modify it we don't accidentally modify the callers list
     defines = list(defines or [])
+    test_libs = list(test_libs or [])
+    override_includes = list(override_includes or [])
     defines.append("UNITTEST")
     defines.append("MEMFAULT=0")
 
@@ -550,21 +554,23 @@ def clar(
 
     for test_source in test_sources:
         if test_name is None:
-            test_name = test_source.name
-            test_name = test_name[: test_name.rfind(".")]  # Scrape the extension
+            source_test_name = test_source.name
+            source_test_name = source_test_name[: source_test_name.rfind(".")]
+        else:
+            source_test_name = test_name
 
-    for platform in platforms:
-        add_clar_test(
-            bld,
-            test_name,
-            test_source,
-            sources_ant_glob,
-            sources,
-            test_libs,
-            override_includes,
-            add_includes,
-            defines,
-            runtime_deps,
-            platform,
-            use,
-        )
+        for platform in platforms:
+            add_clar_test(
+                bld,
+                source_test_name,
+                test_source,
+                sources_ant_glob,
+                sources,
+                test_libs,
+                override_includes,
+                add_includes,
+                defines,
+                runtime_deps,
+                platform,
+                use,
+            )
