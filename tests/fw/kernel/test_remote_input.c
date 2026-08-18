@@ -3,6 +3,7 @@
 
 #include "kernel/remote_input.h"
 
+#include "applib/event_service_client.h"
 #include "applib/ui/recognizer/swipe.h"
 #include <pbl/drivers/display/display.h>
 #include "kernel/events.h"
@@ -31,6 +32,26 @@ static int s_event_count;
 void event_put(PebbleEvent *event) {
   cl_assert(s_event_count < MAX_RECORDED);
   s_events[s_event_count++] = *event;
+}
+
+static EventServiceInfo *s_comm_session_subscription;
+
+void event_service_client_subscribe(EventServiceInfo *service_info) {
+  cl_assert_equal_i(PEBBLE_COMM_SESSION_EVENT, service_info->type);
+  s_comm_session_subscription = service_info;
+}
+
+//! Delivers a comm session open/close event the way the event service would.
+static void prv_put_comm_session_event(bool is_open, bool is_system) {
+  cl_assert(s_comm_session_subscription != NULL);
+  PebbleEvent event = {
+    .type = PEBBLE_COMM_SESSION_EVENT,
+    .bluetooth.comm_session_event = {
+      .is_open = is_open,
+      .is_system = is_system,
+    },
+  };
+  s_comm_session_subscription->handler(&event, s_comm_session_subscription->context);
 }
 
 typedef struct RecordedTouch {
@@ -245,6 +266,26 @@ void test_remote_input__held_buttons_block_sequences(void) {
 
   // Releasing the hold lets sequences through again.
   cl_assert_equal_i(RemoteInputResult_Ok, remote_input_button_set(0));
+  cl_assert_equal_i(RemoteInputResult_Ok, remote_input_button_press(BUTTON_ID_UP, 1, 20, 0));
+}
+
+void test_remote_input__session_close_releases_held_buttons(void) {
+  cl_assert_equal_i(RemoteInputResult_Ok, remote_input_button_set(1 << BUTTON_ID_BACK));
+  cl_assert_equal_i(1, s_event_count);
+
+  // Sessions opening, or a third-party app session closing, leave the hold alone: only the phone
+  // (system) session can have asked for it.
+  prv_put_comm_session_event(true /* is_open */, true /* is_system */);
+  prv_put_comm_session_event(false /* is_open */, false /* is_system */);
+  cl_assert_equal_i(1, s_event_count);
+
+  // The phone's session closing releases the hold: nothing else ever could have.
+  prv_put_comm_session_event(false /* is_open */, true /* is_system */);
+  cl_assert_equal_i(2, s_event_count);
+  cl_assert_equal_i(PEBBLE_BUTTON_UP_EVENT, s_events[1].type);
+  cl_assert_equal_i(BUTTON_ID_BACK, s_events[1].button.button_id);
+
+  // ...and injected sequences are admitted again.
   cl_assert_equal_i(RemoteInputResult_Ok, remote_input_button_press(BUTTON_ID_UP, 1, 20, 0));
 }
 

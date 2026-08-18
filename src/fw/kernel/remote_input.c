@@ -3,6 +3,7 @@
 
 #include "kernel/remote_input.h"
 
+#include "applib/event_service_client.h"
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include <pbl/drivers/display/display.h>
@@ -28,8 +29,8 @@
 // halfway through a button press, and either one reports Busy while the other runs.
 static TimerID s_input_timer = TIMER_INVALID_ID;
 
-// Buttons currently held down by remote_input_button_set(). Bit x is ButtonId x. Nothing releases
-// these but another call, so a held chord outlives the session that asked for it.
+// Buttons currently held down by remote_input_button_set(). Bit x is ButtonId x. Released by
+// another call, or when the phone's session closes.
 static uint8_t s_held_buttons;
 
 // Set from the moment a sequence is admitted until its last callback frees the context. The
@@ -44,8 +45,26 @@ static bool s_sequence_active;
 // second start of the shared timer replace the first callback, leaking its context.
 static PebbleMutex *s_input_lock;
 
+static void prv_comm_session_event_handler(PebbleEvent *e, void *context) {
+  const PebbleCommSessionEvent *event = &e->bluetooth.comm_session_event;
+  if (!event->is_system || event->is_open) {
+    return;
+  }
+  // A held button is a level with no timeout, and only the phone's session can release it. When
+  // that session closes, release here: otherwise the hold -- and the Busy it imposes on every
+  // other injected input -- outlives its controller for good.
+  remote_input_button_set(0);
+}
+
 void remote_input_init(void) {
   s_input_lock = mutex_create();
+
+  static EventServiceInfo s_comm_session_event_info;
+  s_comm_session_event_info = (EventServiceInfo){
+    .type = PEBBLE_COMM_SESSION_EVENT,
+    .handler = prv_comm_session_event_handler,
+  };
+  event_service_client_subscribe(&s_comm_session_event_info);
 }
 
 static void prv_sequence_finished(void) {

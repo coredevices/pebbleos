@@ -43,8 +43,9 @@ RemoteInputResult remote_input_button_press(ButtonId button, uint32_t presses, u
 //! Hold down exactly the given set of buttons, releasing any others that were held. Bit x of
 //! @p buttons is ButtonId x, so a mask with two bits set holds a chord, and 0 releases everything.
 //!
-//! Unlike remote_input_button_press() this leaves the buttons down: nothing releases them but a
-//! later call, so a caller that disconnects mid-hold leaves the watch holding a button.
+//! Unlike remote_input_button_press() this leaves the buttons down until a later call changes the
+//! mask, or the phone's session closes: a caller that disconnects mid-hold must not leave the
+//! watch holding a button forever.
 //!
 //! Reports Busy while a press or swipe sequence is running, and those report Busy while any
 //! button is held here.
