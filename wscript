@@ -324,6 +324,46 @@ def configure(conf):
     import tool_check
     tool_check.tool_check()
 
+    _write_build_info(conf)
+
+
+def _write_build_info(conf):
+    """Describe the configured build in build/build-info.json, the neutral
+    interface the standalone tooling (fw_image, bundling, pbl) consumes."""
+    import tools.build_info
+
+    env = conf.all_envs['']
+    config = {k: v for k, v in env.get_merged_dict().items()
+              if k.startswith('CONFIG_')}
+    is_prf = env.VARIANT == 'prf'
+    log_hashed = bool(env.CONFIG_LOG_HASHED)
+
+    tools.build_info.write_build_info(conf.bldnode.abspath(), {
+        'board': env.BOARD,
+        'board_name': env.BOARD_NAME,
+        'board_revision': env.BOARD_REVISION or None,
+        'board_normalized': env.BOARD_NORMALIZED,
+        'platform': env.PLATFORM_NAME,
+        'min_sdk_version': env.MIN_SDK_VERSION,
+        'variant': env.VARIANT,
+        'js_engine': env.JS_ENGINE,
+        'slot': None if env.SLOT == -1 else env.SLOT,
+        'runners': env.SUPPORTED_RUNNERS or [],
+        'runner': env.RUNNER or None,
+        # Paths are relative to the build directory.
+        'artifacts': {
+            'elf': 'pebbleos.elf',
+            'bin': 'pebbleos.bin',
+            'hex': 'pebbleos.hex',
+            'map': 'pebbleos.map',
+            'pbpack': None if is_prf else 'system_resources.pbpack',
+            'fw_loghash_dict': 'pebbleos_loghash_dict.json' if log_hashed else None,
+            'loghash_dict': LOGHASH_OUT_PATH if log_hashed else None,
+            'pot': None if is_prf else 'pebbleos.pot',
+        },
+        'config': config,
+    })
+
 
 def stop_build_timer(ctx):
     t = datetime.datetime.utcnow() - ctx.pbl_build_start_time
