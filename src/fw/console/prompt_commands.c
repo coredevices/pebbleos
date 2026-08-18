@@ -18,6 +18,7 @@
 #include "logging/logging_private.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
+#include "kernel/remote_input.h"
 #include "kernel/util/delay.h"
 #include "kernel/util/factory_reset.h"
 #include "kernel/util/sleep.h"
@@ -51,8 +52,6 @@
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
-
-static TimerID s_console_button_timer = TIMER_INVALID_ID;
 
 static void prv_pfs_stress_callback(void *data) {
   pfs_remove_files(NULL);
@@ -723,50 +722,6 @@ void command_boot_bit_set(const char* bit, const char* value) {
   prompt_send_response("OK bit assigned");
 }
 
-typedef struct {
-  ButtonId button_id;
-  bool button_is_held_down;
-  uint32_t num_presses_remaining;
-  uint32_t hold_down_time_ms;
-  uint32_t delay_between_presses_ms;
-} ButtonPressNewTimerContext;
-
-// This is a callback to only be used in conjunction with command_button_press() and
-// command_button_press_multiple()
-static void command_button_press_callback(void *cb_data) {
-  ButtonPressNewTimerContext *context = cb_data;
-
-  const bool button_is_held_down = context->button_is_held_down;
-  // Choose the next event type to emit and the next timeout based on the current button state
-  PebbleEventType next_event_type = button_is_held_down ? PEBBLE_BUTTON_UP_EVENT :
-                                                          PEBBLE_BUTTON_DOWN_EVENT;
-  const uint32_t next_timeout_ms = button_is_held_down ? context->delay_between_presses_ms :
-                                                         context->hold_down_time_ms;
-
-  // Add the next button event to the queue
-  PebbleEvent next_button_event = {
-    .type = next_event_type,
-    .button.button_id = context->button_id,
-  };
-  event_put(&next_button_event);
-
-  // Decrement the number of presses remaining if the button is currently held down (because we
-  // just pushed it up by adding that event)
-  if (button_is_held_down) {
-    context->num_presses_remaining--;
-  }
-
-  if (context->num_presses_remaining > 0) {
-    // Toggle the state of the button
-    context->button_is_held_down = !button_is_held_down;
-    // Restart the timer
-    new_timer_start(s_console_button_timer, next_timeout_ms, command_button_press_callback,
-                    context, 0 /* flags */);
-  } else {
-    kernel_free(context);
-  }
-}
-
 static bool prv_convert_and_validate_timeout_value(const char *timeout_string,
                                                    uint32_t default_value,
                                                    uint32_t *result) {
@@ -802,8 +757,6 @@ static void prv_button_press_multiple(const char *button_index, const char *pres
     goto error;
   }
 
-  const ButtonId button_id = (ButtonId)button;
-
   uint32_t num_presses = 1;
   // If presses is NULL, default to 1; otherwise convert the char string to an integer
   if (presses) {
@@ -831,44 +784,19 @@ static void prv_button_press_multiple(const char *button_index, const char *pres
     goto error;
   }
 
-  // Initialize timer on first use
-  if (s_console_button_timer == TIMER_INVALID_ID) {
-    s_console_button_timer = new_timer_create();
+  // The press sequence itself is synthesized by the shared input injection service, so the console
+  // and the remote input endpoint drive buttons through exactly one implementation.
+  switch (remote_input_button_press((ButtonId)button, num_presses, hold_down_timeout_ms,
+                                    delay_between_presses_timeout_ms)) {
+    case RemoteInputResult_Ok:
+      prompt_send_response("OK");
+      return;
+    case RemoteInputResult_Busy:
+      prompt_send_response("BUSY");
+      return;
+    case RemoteInputResult_Invalid:
+      break;
   }
-
-  // If the callback is already scheduled, notify busy and exit
-  if (new_timer_scheduled(s_console_button_timer, NULL)) {
-    prompt_send_response("BUSY");
-    return;
-  }
-
-  // Construct our new_timer context, will be freed in command_button_press_callback()
-  ButtonPressNewTimerContext *new_timer_context = kernel_malloc(sizeof(ButtonPressNewTimerContext));
-  if (!new_timer_context) {
-    goto error;
-  }
-  *new_timer_context = (ButtonPressNewTimerContext) {
-    .button_id = button_id,
-    .button_is_held_down = false,
-    .num_presses_remaining = num_presses,
-    .hold_down_time_ms = hold_down_timeout_ms,
-    .delay_between_presses_ms = delay_between_presses_timeout_ms,
-  };
-
-  // In order to avoid race conditions between button events and timers being registered, drive the
-  // entire multi click sequence in new_timers. The callback will re-register this timer as needed
-  // for each subsequent click event in the sequence.
-  const bool timer_started = new_timer_start(s_console_button_timer, 0,
-                                             command_button_press_callback, new_timer_context,
-                                             0 /* flags */);
-
-  if (!timer_started) {
-    kernel_free(new_timer_context);
-    goto error;
-  }
-
-  prompt_send_response("OK");
-  return;
 
   error:
     prompt_send_response("ERROR");
@@ -888,24 +816,11 @@ void command_button_press_multiple(const char *button_index, const char *num_pre
   prv_button_press_multiple(button_index, num_presses, hold_down_time_ms, delay_between_presses_ms);
 }
 
-static void prv_button_press_short_launcher_task_cb(void *data) {
-  uintptr_t button = (uintptr_t)data;
-  PebbleEvent e = {
-    .type = PEBBLE_BUTTON_DOWN_EVENT,
-    .button.button_id = button
-  };
-  event_put(&e);
-  e = (PebbleEvent) {
-    .type = PEBBLE_BUTTON_UP_EVENT,
-    .button.button_id = button
-  };
-  event_put(&e);
-}
-
-void command_button_press_short(const char* button_index) {
-  uintptr_t button = (uintptr_t)atoi(button_index);
-  launcher_task_add_callback(prv_button_press_short_launcher_task_cb, (void *)button);
-  prompt_send_response("OK");
+void command_button_press_short(const char *button_index) {
+  // Back-to-back down/up, as this command has always meant. Routing it through the shared service
+  // gives it the button validation and single-flight check it never had, and keeps it from racing
+  // a sequence started by the console or the remote input endpoint.
+  prv_button_press_multiple(button_index, "1", "0", "0");
 }
 
 void command_factory_reset(void) {
