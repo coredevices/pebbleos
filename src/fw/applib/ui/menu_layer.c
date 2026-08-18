@@ -1760,8 +1760,10 @@ void menu_layer_touch_handle_pan_update(MenuLayer *menu_layer, GPoint base,
   // Plain menus: selection intentionally NOT touched — a pan scrolls, a tap selects.
 }
 
-void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint final_delta) {
-  // Liftoff: settle the final (unthrottled) scroll offset.
+void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint final_delta,
+                                  GPoint velocity) {
+  // Liftoff: settle the final (unthrottled) scroll offset. Velocity is unused for now.
+  (void)velocity;
   const int16_t new_y = prv_menu_touch_clamp_offset_y(menu_layer, base.y + final_delta.y);
   scroll_layer_set_content_offset(&menu_layer->scroll_layer, GPoint(0, new_y), false);
   if (!menu_layer->center_focused) {
@@ -1910,8 +1912,8 @@ static void prv_menu_ops_pan_update(void *w, GPoint base, GPoint delta) {
   menu_layer_touch_handle_pan_update((MenuLayer *)w, base, delta);
 }
 
-static void prv_menu_ops_pan_snap(void *w, GPoint base, GPoint final_delta) {
-  menu_layer_touch_handle_snap((MenuLayer *)w, base, final_delta);
+static void prv_menu_ops_pan_snap(void *w, GPoint base, GPoint final_delta, GPoint velocity) {
+  menu_layer_touch_handle_snap((MenuLayer *)w, base, final_delta, velocity);
 }
 
 static void prv_menu_ops_pan_cancel(void *w) {

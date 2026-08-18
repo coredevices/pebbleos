@@ -286,7 +286,8 @@ static void prv_widget_recognizer_event(const Recognizer *recognizer, Recognizer
       if (!state->declined) {
         if (recognizer == state->widget_pan) {
           ops->pan_snap(w, state->gesture_base,
-                        pan_recognizer_get_delta_since_start((Recognizer *)recognizer));
+                        pan_recognizer_get_delta_since_start((Recognizer *)recognizer),
+                        pan_recognizer_get_velocity((Recognizer *)recognizer));
         } else if (recognizer == state->widget_tap) {
           if (ops->tap) {
             ops->tap(w, tap_recognizer_get_tap_point((Recognizer *)recognizer));

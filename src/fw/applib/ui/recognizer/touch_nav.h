@@ -69,8 +69,9 @@ typedef struct TouchNavWidgetOps {
   GPointReturn (*get_base_offset)(void *w);
   //! Live pan: apply `base + delta` to the widget's content offset (throttled by the core).
   void (*pan_update)(void *w, GPoint base, GPoint delta);
-  //! Liftoff after a pan: settle the final (unthrottled) offset.
-  void (*pan_snap)(void *w, GPoint base, GPoint final_delta);
+  //! Liftoff after a pan: settle the final (unthrottled) offset. `velocity` is the liftoff
+  //! velocity in px/s (see \ref pan_recognizer_get_velocity), for widgets that fling.
+  void (*pan_snap)(void *w, GPoint base, GPoint final_delta, GPoint velocity);
   //! A pan cancelled mid-gesture (e.g. the widget is torn down): the core clears its latch first.
   void (*pan_cancel)(void *w);
   //! A tap completed on the widget. NULL means the widget has no tap action and the tap is dropped.

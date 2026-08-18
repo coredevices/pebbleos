@@ -15,10 +15,15 @@
 //! navigates (right = BACK, left = SELECT), mirroring MenuLayer's Tier-1 wiring. See scroll_layer.c
 //! for the wiring into the per-task recognizer set.
 
-//! Live scroll during a pan (and the final settle on liftoff): move the content to
-//! \a base + \a delta_since_start on the y axis, clamped to [min(frame_h - content_h, 0), 0].
+//! Live scroll during a pan: move the content to \a base + \a delta_since_start on the y axis,
+//! clamped to [min(frame_h - content_h, 0), 0].
 void scroll_layer_touch_handle_pan_update(ScrollLayer *scroll_layer, GPoint base,
                                           GPoint delta_since_start);
+
+//! Liftoff: settle the final (unthrottled) offset, same clamp as the live pan. \a velocity is the
+//! liftoff velocity in px/s (see \ref pan_recognizer_get_velocity).
+void scroll_layer_touch_handle_snap(ScrollLayer *scroll_layer, GPoint base, GPoint final_delta,
+                                    GPoint velocity);
 
 //! Horizontal swipe navigation through the touch bridge: right emits BACK (pop when the top window
 //! has no back handler), left emits SELECT. A no-op when the bridge is mid-transition.

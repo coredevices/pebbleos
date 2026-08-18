@@ -157,6 +157,13 @@ void scroll_layer_touch_handle_pan_update(ScrollLayer *scroll_layer, GPoint base
   scroll_layer_set_content_offset(scroll_layer, GPoint(0, new_y), false);
 }
 
+void scroll_layer_touch_handle_snap(ScrollLayer *scroll_layer, GPoint base, GPoint final_delta,
+                                    GPoint velocity) {
+  // Liftoff: settle the final (unthrottled) offset. Velocity is unused for now.
+  (void)velocity;
+  scroll_layer_touch_handle_pan_update(scroll_layer, base, final_delta);
+}
+
 void scroll_layer_touch_handle_swipe(ScrollLayer *scroll_layer, SwipeDirection direction) {
   (void)scroll_layer;
   // Horizontal swipe navigation, mirroring the Tier-2 bridge and MenuLayer: right = BACK (pop the
@@ -214,10 +221,8 @@ static void prv_scroll_ops_pan_update(void *w, GPoint base, GPoint delta) {
   scroll_layer_touch_handle_pan_update((ScrollLayer *)w, base, delta);
 }
 
-static void prv_scroll_ops_pan_snap(void *w, GPoint base, GPoint final_delta) {
-  // Scroll has no separate settle: the final (unthrottled) offset is the same 1:1 clamp applied on
-  // liftoff as during the pan.
-  scroll_layer_touch_handle_pan_update((ScrollLayer *)w, base, final_delta);
+static void prv_scroll_ops_pan_snap(void *w, GPoint base, GPoint final_delta, GPoint velocity) {
+  scroll_layer_touch_handle_snap((ScrollLayer *)w, base, final_delta, velocity);
 }
 
 static void prv_scroll_ops_pan_cancel(void *w) {

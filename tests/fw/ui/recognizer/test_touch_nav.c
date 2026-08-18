@@ -1018,6 +1018,7 @@ typedef struct FakeWidget {
   int tap_calls;
   int swipe_calls;
   GPoint base;
+  GPoint snap_velocity;
 } FakeWidget;
 
 static FakeWidget s_widget;
@@ -1036,8 +1037,10 @@ static GPointReturn prv_w_get_base_offset(void *w) {
 static void prv_w_pan_update(void *w, GPoint base, GPoint delta) {
   ((FakeWidget *)w)->pan_update_calls++;
 }
-static void prv_w_pan_snap(void *w, GPoint base, GPoint final_delta) {
-  ((FakeWidget *)w)->pan_snap_calls++;
+static void prv_w_pan_snap(void *w, GPoint base, GPoint final_delta, GPoint velocity) {
+  FakeWidget *fw = w;
+  fw->pan_snap_calls++;
+  fw->snap_velocity = velocity;
 }
 static void prv_w_pan_cancel(void *w) { ((FakeWidget *)w)->pan_cancel_calls++; }
 static void prv_w_tap(void *w, GPoint pt) { ((FakeWidget *)w)->tap_calls++; }
@@ -1114,6 +1117,10 @@ void test_touch_nav__widget_can_start_decline_then_accept(void) {
   cl_assert_equal_i(s_widget.pan_update_calls, 1);
   prv_dispatch(TouchEvent_Liftoff, 0, 0, false);           // Completed -> pan_snap
   cl_assert_equal_i(s_widget.pan_snap_calls, 1);
+  // The snap carries the pan recognizer's liftoff velocity: the finger moved up (negative y) at
+  // 30-35 px per 20 ms, so a vertical-only negative velocity in px/s must reach the widget.
+  cl_assert_equal_i(s_widget.snap_velocity.x, 0);
+  cl_assert(s_widget.snap_velocity.y < 0);
 
   touch_nav_registry_remove(&s_state, TouchNavWidgetType_Menu, &node);
 }

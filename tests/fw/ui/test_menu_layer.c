@@ -719,7 +719,7 @@ void test_menu_layer__touch_snap_leaves_selection_unchanged(void) {
   const MenuIndex before = menu_layer_get_selected_index(&l);
   prv_reset_touch_counters();
   // A downward pan of -88 (two rows) then Liftoff: offset settles, selection stays on row 1.
-  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, -88));
+  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, -88), GPointZero);
   const MenuIndex after = menu_layer_get_selected_index(&l);
   cl_assert_equal_i(after.section, before.section);
   cl_assert_equal_i(after.row, before.row);                    // selection unchanged
@@ -739,7 +739,7 @@ void test_menu_layer__touch_snap_up_leaves_selection_unchanged(void) {
   scroll_layer_set_content_offset(&l.scroll_layer, GPoint(0, -176), false);
   const MenuIndex before = menu_layer_get_selected_index(&l);
   prv_reset_touch_counters();
-  menu_layer_touch_handle_snap(&l, GPoint(0, -176), GPoint(0, 88));  // pan up two rows, Liftoff
+  menu_layer_touch_handle_snap(&l, GPoint(0, -176), GPoint(0, 88), GPointZero);  // pan up two rows, Liftoff
   const MenuIndex after = menu_layer_get_selected_index(&l);
   cl_assert_equal_i(after.row, before.row);                    // selection unchanged
   cl_assert_equal_i(s_will_change_count, 0);
@@ -798,7 +798,7 @@ void test_menu_layer__touch_snap_center_focused_settles_center_row(void) {
   prv_reset_touch_counters();
   // -100 leaves the centre inside row 2 but off its exact centre, so a settle is required (a
   // two-row drag of -88 would land dead-centre and hide a missing settle).
-  menu_layer_touch_handle_snap(&l, GPoint(0, base), GPoint(0, -100));
+  menu_layer_touch_handle_snap(&l, GPoint(0, base), GPoint(0, -100), GPointZero);
   cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 2);   // nearest row adopted
   cl_assert_equal_i(s_will_change_count, 1);
   cl_assert_equal_i(s_select_click_count, 0);                    // snapping never activates
