@@ -647,14 +647,9 @@ def size_resources(ctx):
     if pbpack_path is None:
         ctx.fatal('No resource pbpack found')
 
-    if ctx.env.CONFIG_SOC_NRF52:
-        max_size = 1024 * 1024
-    elif ctx.env.CONFIG_SOC_SF32LB52:
-        max_size = 2048 * 1024
-    elif ctx.env.CONFIG_QEMU:
-        max_size = 2048 * 1024
-    else:
-        max_size = 256 * 1024
+    max_size = ctx.env.CONFIG_SYSTEM_RESOURCES_MAX_SIZE
+    if not max_size:
+        ctx.fatal('CONFIG_SYSTEM_RESOURCES_MAX_SIZE not set, cannot check resources size')
 
     pbpack_actual_size = os.path.getsize(pbpack_path.path_from(ctx.path))
 
@@ -840,25 +835,10 @@ class FirmwareTooLargeException(Exception):
 
 
 def _check_firmware_image_size(ctx, path):
-    BYTES_PER_K = 1024
     firmware_size = os.path.getsize(path)
-    # Determine flash and bootloader size so we can calculate the max firmware size
-    if ctx.env.CONFIG_SOC_NRF52:
-        if ctx.env.VARIANT == 'prf' and not ctx.env.CONFIG_MFG:
-            max_firmware_size = 512 * BYTES_PER_K
-        else:
-            # 1024k of flash and 32k bootloader
-            max_firmware_size = (1024 - 32) * BYTES_PER_K
-    elif ctx.env.CONFIG_SOC_SF32LB52:
-        if ctx.env.VARIANT == 'prf' and not ctx.env.CONFIG_MFG:
-            max_firmware_size = 576 * BYTES_PER_K
-        else:
-            # 3072k of flash
-            max_firmware_size = 3072 * BYTES_PER_K
-    elif ctx.env.CONFIG_QEMU:
-        max_firmware_size = 4096 * BYTES_PER_K
-    else:
-        ctx.fatal('Cannot check firmware size against unknown micro family')
+    max_firmware_size = ctx.env.CONFIG_FW_MAX_SIZE
+    if not max_firmware_size:
+        ctx.fatal('CONFIG_FW_MAX_SIZE not set, cannot check firmware size')
 
     if firmware_size > max_firmware_size:
         raise FirmwareTooLargeException('Firmware is too large! Size is 0x%x should be less than 0x%x' \

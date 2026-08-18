@@ -199,22 +199,10 @@ class FirmwareTooLargeException(Exception):
 
 
 def _check_firmware_image_size(env, path):
-    BYTES_PER_K = 1024
     firmware_size = os.path.getsize(path)
-    if env.CONFIG_SOC_NRF52:
-        if env.VARIANT == "prf" and not env.CONFIG_MFG:
-            max_firmware_size = 512 * BYTES_PER_K
-        else:
-            max_firmware_size = (1024 - 32) * BYTES_PER_K
-    elif env.CONFIG_SOC_SF32LB52:
-        if env.VARIANT == "prf" and not env.CONFIG_MFG:
-            max_firmware_size = 576 * BYTES_PER_K
-        else:
-            max_firmware_size = 3072 * BYTES_PER_K
-    elif env.CONFIG_QEMU:
-        max_firmware_size = 4096 * BYTES_PER_K
-    else:
-        _fatal("Cannot check firmware size against unknown micro family")
+    max_firmware_size = env.CONFIG_FW_MAX_SIZE
+    if not max_firmware_size:
+        _fatal("CONFIG_FW_MAX_SIZE not set, cannot check firmware size")
 
     if firmware_size > max_firmware_size:
         raise FirmwareTooLargeException(
