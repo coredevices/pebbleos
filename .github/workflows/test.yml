@@ -35,6 +35,7 @@ jobs:
               - 'third_party/**'
               - 'tools/waf/**'
               - 'waf'
+              - 'pbl'
               - 'wscript'
 
   build-test:
@@ -64,12 +65,12 @@ jobs:
           pip install -r requirements.txt
 
       - name: Configure
-        run: ./waf configure --board ${{env.TEST_BOARD}}
+        run: ./pbl configure --board ${{env.TEST_BOARD}}
 
       - name: Run tests
         # -k keeps going after a failing test so the run reports every failure,
         # not just the first. The job still fails if anything failed.
-        run: ./waf test -k
+        run: ./pbl test -k
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v6
