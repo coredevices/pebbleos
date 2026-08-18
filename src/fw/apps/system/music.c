@@ -1538,6 +1538,9 @@ static void prv_push_window(MusicAppData *data) {
   window_init(window, WINDOW_NAME("Music"));
   window_set_user_data(window, data);
   window_set_status_bar_icon(window, (GBitmap*)&s_status_icon_music_bitmap);
+  // Play/pause is too easy to hit by accident: only taps on the action-bar icons count here, so a
+  // stray touch on the album art / track info does not toggle playback. Swipe nav still works.
+  window_set_touch_tap_requires_action_bar(window, true);
 
   const bool animated = true;
   app_window_stack_push(window, animated);
