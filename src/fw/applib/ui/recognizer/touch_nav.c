@@ -179,18 +179,22 @@ void touch_nav_set_action_bar(TouchNavState *state, const GRect *frame, uint8_t 
   }
 }
 
-ButtonId touch_nav_action_bar_zone_button(const TouchNavActionBar *bar, GPoint point) {
-  // No bar (or a degenerate frame) / a tap outside the bar is a plain SELECT.
+ButtonId touch_nav_action_bar_zone_button(const TouchNavActionBar *bar, GPoint point,
+                                          bool require_icon_zone) {
+  // The fallback for any tap that does not land on an icon zone: a plain SELECT normally, or no
+  // button at all for a window that only accepts taps on the bar's icons.
+  const ButtonId fallback = require_icon_zone ? NUM_BUTTONS : BUTTON_ID_SELECT;
+  // No bar (or a degenerate frame) / a tap outside the bar.
   if (!bar->present || bar->frame.size.h <= 0 || !grect_contains_point(&bar->frame, &point)) {
-    return BUTTON_ID_SELECT;
+    return fallback;
   }
   // Split the bar vertically into three equal zones with half-open bounds: top = UP, middle =
   // SELECT, bottom = DOWN. zone i maps to icon bit i and to button (BUTTON_ID_UP + i).
   int zone = (point.y - bar->frame.origin.y) * 3 / bar->frame.size.h;
   zone = CLIP(zone, 0, 2);
   if (!(bar->icon_mask & (1 << zone))) {
-    // The zone has no icon: fall back to SELECT.
-    return BUTTON_ID_SELECT;
+    // The zone has no icon.
+    return fallback;
   }
   return (ButtonId)(BUTTON_ID_UP + zone);
 }
@@ -437,9 +441,14 @@ static void prv_recognizer_event(const Recognizer *recognizer, RecognizerEvent e
           prv_emit_click(state, prv_swipe_button(dir));
         } else if (recognizer == state->tap) {
           // Route the tap into the action-bar UP/SELECT/DOWN zone if the tap point is inside a
-          // present bar; otherwise (no bar, or a tap outside it) this is a plain SELECT.
+          // present bar; otherwise (no bar, or a tap outside it) this is a plain SELECT -- unless
+          // the top window requires taps to land on an action-bar icon zone.
+          const bool require_icon_zone =
+              state->ops->top_tap_requires_action_bar &&
+              state->ops->top_tap_requires_action_bar(state->ops->ctx);
           const GPoint tap_point = tap_recognizer_get_tap_point((Recognizer *)recognizer);
-          prv_emit_click(state, touch_nav_action_bar_zone_button(&state->action_bar, tap_point));
+          prv_emit_click(state, touch_nav_action_bar_zone_button(&state->action_bar, tap_point,
+                                                                require_icon_zone));
         }
       }
       break;

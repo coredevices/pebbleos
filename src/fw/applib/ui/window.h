@@ -117,6 +117,12 @@ typedef struct Window {
   bool touch_bridge_disabled:1;
 
   //! @internal
+  //! If set, the touch-nav bridge only synthesizes a button for a tap landing on an action-bar
+  //! icon zone; a tap anywhere else is dropped instead of falling back to SELECT. Swipes are
+  //! unaffected. @see \ref window_set_touch_tap_requires_action_bar()
+  bool touch_tap_requires_action_bar:1;
+
+  //! @internal
   //! If a click config provider was changed while the window was covered by a modal,
   //! this flag is used to indicate that it should be called when uncovered.
   bool is_waiting_for_click_config:1;
@@ -409,6 +415,14 @@ void window_detach_recognizer(Window *window, Recognizer *recognizer);
 //! @param window \ref Window to configure
 //! @param disabled true to disable the bridge for this window
 void window_set_touch_bridge_disabled(Window *window, bool disabled);
+
+//! Restrict the touch-navigation bridge's tap handling for a window to action-bar icon zones:
+//! a tap outside the bar (or on a zone without an icon) is dropped instead of synthesizing
+//! SELECT. Swipe navigation is unaffected. Used by windows whose SELECT action is too easy to
+//! trigger with an accidental screen touch (e.g. the Music app's play/pause).
+//! @param window \ref Window to configure
+//! @param requires_action_bar true to drop taps that miss the action-bar icon zones
+void window_set_touch_tap_requires_action_bar(Window *window, bool requires_action_bar);
 
 //! Get the recognizers attached to a window
 //! @param window \ref Window from which to get recognizers

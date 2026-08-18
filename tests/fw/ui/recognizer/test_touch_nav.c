@@ -78,6 +78,7 @@ typedef struct FakeOps {
   bool animating;
   bool overrides_back;
   bool bridge_disabled;         // the top window opted out (window_set_touch_bridge_disabled)
+  bool tap_requires_action_bar; // the top window only accepts taps on action-bar icon zones
   bool app_has_raw_subscriber;  // the app installed its own raw touch subscriber
   int pop_count;
   int idle_refresh_count;
@@ -94,6 +95,9 @@ static bool prv_top_bridge_disabled(void *ctx) {
   // app_state.c's top_bridge_disabled op does.
   const FakeOps *f = ctx;
   return touch_nav_app_bridge_disabled(f->bridge_disabled, f->app_has_raw_subscriber);
+}
+static bool prv_top_tap_requires_action_bar(void *ctx) {
+  return ((FakeOps *)ctx)->tap_requires_action_bar;
 }
 static void prv_pop_top(void *ctx) { ((FakeOps *)ctx)->pop_count++; }
 static void prv_idle_refresh(void *ctx) { ((FakeOps *)ctx)->idle_refresh_count++; }
@@ -141,6 +145,7 @@ void test_touch_nav__initialize(void) {
   s_ops = (TouchNavOps){
     .is_animating = prv_is_animating,
     .top_overrides_back = prv_top_overrides_back,
+    .top_tap_requires_action_bar = prv_top_tap_requires_action_bar,
     .top_bridge_disabled = prv_top_bridge_disabled,
     .pop_top = prv_pop_top,
     .emit_button = prv_emit_button,
@@ -794,14 +799,14 @@ void test_touch_nav__action_bar_zone_math(void) {
     .present = true,
   };
   // Top zone -> UP.
-  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 20)), BUTTON_ID_UP);
-  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 49)), BUTTON_ID_UP);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 20), false), BUTTON_ID_UP);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 49), false), BUTTON_ID_UP);
   // Middle zone -> SELECT (half-open boundary at 50).
-  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 50)), BUTTON_ID_SELECT);
-  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 79)), BUTTON_ID_SELECT);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 50), false), BUTTON_ID_SELECT);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 79), false), BUTTON_ID_SELECT);
   // Bottom zone -> DOWN (half-open boundary at 80; last pixel 109 inside).
-  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 80)), BUTTON_ID_DOWN);
-  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 109)), BUTTON_ID_DOWN);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 80), false), BUTTON_ID_DOWN);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 109), false), BUTTON_ID_DOWN);
 }
 
 // A zone whose icon bit is clear falls back to SELECT even though the point is in that zone.
@@ -812,9 +817,9 @@ void test_touch_nav__action_bar_zone_without_icon_is_select(void) {
     .present = true,
   };
   // UP zone has no icon -> SELECT.
-  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 30)), BUTTON_ID_SELECT);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 30), false), BUTTON_ID_SELECT);
   // DOWN zone still has its icon.
-  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 95)), BUTTON_ID_DOWN);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 95), false), BUTTON_ID_DOWN);
 }
 
 // A tap outside the bar frame, or on an absent snapshot, is a plain SELECT.
@@ -825,12 +830,12 @@ void test_touch_nav__action_bar_outside_and_absent_are_select(void) {
     .present = true,
   };
   // Left of the bar (x < 100) -> SELECT.
-  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(50, 30)), BUTTON_ID_SELECT);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(50, 30), false), BUTTON_ID_SELECT);
   // Above the bar (y < 20) -> SELECT.
-  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 10)), BUTTON_ID_SELECT);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 10), false), BUTTON_ID_SELECT);
   // Absent snapshot -> SELECT regardless of the point.
   const TouchNavActionBar absent = { .present = false };
-  cl_assert_equal_i(touch_nav_action_bar_zone_button(&absent, GPoint(120, 30)), BUTTON_ID_SELECT);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&absent, GPoint(120, 30), false), BUTTON_ID_SELECT);
 }
 
 // Through the dispatcher: with a bar snapshot set, a tap inside a zone emulates that zone's button.
@@ -875,6 +880,48 @@ void test_touch_nav__action_bar_swipe_stays_fullscreen(void) {
   // Swipe up entirely within the bar's x-column. Vertical swipe maps by content-scroll, not zone.
   prv_swipe(120, 95, 120, 30);
   cl_assert_equal_i(s_fake.emit_count, 1);
+  cl_assert_equal_i(s_fake.last_emit, BUTTON_ID_DOWN);
+}
+
+// require_icon_zone (the Music-app exception): every SELECT fallback becomes NUM_BUTTONS, so only
+// a tap landing on an icon zone maps to a button.
+void test_touch_nav__action_bar_zone_math_require_icon_zone(void) {
+  const TouchNavActionBar bar = {
+    .frame = GRect(100, 20, 40, 90),
+    .icon_mask = 0x5,  // UP (bit0) + DOWN (bit2), no SELECT icon
+    .present = true,
+  };
+  // Icon zones still map.
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 30), true), BUTTON_ID_UP);
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 95), true), BUTTON_ID_DOWN);
+  // In-bar zone without an icon -> no button.
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(120, 65), true), NUM_BUTTONS);
+  // Outside the bar -> no button.
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&bar, GPoint(50, 65), true), NUM_BUTTONS);
+  // Absent snapshot -> no button.
+  const TouchNavActionBar absent = { .present = false };
+  cl_assert_equal_i(touch_nav_action_bar_zone_button(&absent, GPoint(120, 30), true), NUM_BUTTONS);
+}
+
+// Through the dispatcher: with the top window requiring action-bar taps, a tap off the bar emits
+// nothing, a tap on an icon zone still emits, and swipes are unaffected.
+void test_touch_nav__tap_requires_action_bar_through_dispatcher(void) {
+  s_fake.tap_requires_action_bar = true;
+  const GRect frame = GRect(100, 20, 40, 90);
+  touch_nav_set_action_bar(&s_state, &frame, 0x7);
+
+  // Tap outside the bar (the album-art area): dropped, no SELECT.
+  prv_tap(50, 65);
+  cl_assert_equal_i(s_fake.emit_count, 0);
+
+  // Tap on the SELECT icon zone: still emits.
+  prv_tap(120, 65);
+  cl_assert_equal_i(s_fake.emit_count, 1);
+  cl_assert_equal_i(s_fake.last_emit, BUTTON_ID_SELECT);
+
+  // Swipe up anywhere: still the full-screen content-scroll mapping.
+  prv_swipe(50, 90, 50, 20);
+  cl_assert_equal_i(s_fake.emit_count, 2);
   cl_assert_equal_i(s_fake.last_emit, BUTTON_ID_DOWN);
 }
 

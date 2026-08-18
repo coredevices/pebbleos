@@ -111,6 +111,8 @@ typedef struct TouchNavOps {
   bool (*is_animating)(void *ctx);
   //! @return true if the top window overrides the back button.
   bool (*top_overrides_back)(void *ctx);
+  //! @return true if the top window only accepts taps on action-bar icon zones.
+  bool (*top_tap_requires_action_bar)(void *ctx);
   //! @return true if the top window has the touch bridge disabled.
   bool (*top_bridge_disabled)(void *ctx);
   //! Pop the top window (BACK on a window without a back handler).
@@ -217,9 +219,12 @@ void touch_nav_set_action_bar(TouchNavState *state, const GRect *frame, uint8_t 
 //! Resolve a tap at \a point against the action-bar snapshot \a bar. Returns the zoned button when
 //! the bar is present and the point is inside its frame: the frame is split vertically into three
 //! equal zones (top = UP, middle = SELECT, bottom = DOWN). A zone whose icon bit is clear, a point
-//! outside the frame, or an absent snapshot all fall back to \ref BUTTON_ID_SELECT. Swipes are not
-//! zoned; only taps consult this.
-ButtonId touch_nav_action_bar_zone_button(const TouchNavActionBar *bar, GPoint point);
+//! outside the frame, or an absent snapshot all fall back to \ref BUTTON_ID_SELECT -- unless
+//! \a require_icon_zone is set (the top window's touch_tap_requires_action_bar exception), in which
+//! case every fallback returns NUM_BUTTONS so no button is synthesized. Swipes are not zoned; only
+//! taps consult this.
+ButtonId touch_nav_action_bar_zone_button(const TouchNavActionBar *bar, GPoint point,
+                                          bool require_icon_zone);
 
 //! Register a Tier-1 widget node under the given registry. Dedup-by-address (a re-add WARNs and is
 //! a no-op). Robust to a node zeroed by the widget's *_init. \a ops and \a widget are the migrated

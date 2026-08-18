@@ -201,6 +201,11 @@ static bool prv_app_touch_nav_top_overrides_back(void *ctx) {
   return top && top->overrides_back_button;
 }
 
+static bool prv_app_touch_nav_top_tap_requires_action_bar(void *ctx) {
+  Window *top = app_window_stack_get_top_window();
+  return top && top->touch_tap_requires_action_bar;
+}
+
 static bool prv_app_touch_nav_top_bridge_disabled(void *ctx) {
   Window *top = app_window_stack_get_top_window();
   const bool window_opt_out = top && top->touch_bridge_disabled;
@@ -226,6 +231,7 @@ static void prv_app_touch_nav_emit_button(void *ctx, ButtonId button) {
 static const TouchNavOps s_app_touch_nav_ops = {
   .is_animating = prv_app_touch_nav_is_animating,
   .top_overrides_back = prv_app_touch_nav_top_overrides_back,
+  .top_tap_requires_action_bar = prv_app_touch_nav_top_tap_requires_action_bar,
   .top_bridge_disabled = prv_app_touch_nav_top_bridge_disabled,
   .pop_top = prv_app_touch_nav_pop_top,
   .emit_button = prv_app_touch_nav_emit_button,
