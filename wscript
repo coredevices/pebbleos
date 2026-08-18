@@ -31,13 +31,10 @@ sys.path.append(os.path.join(waf_dir, 'tools/log_hashing'))
 sys.path.append(os.path.join(waf_dir, 'sdk/tools/'))
 sys.path.append(os.path.join(waf_dir, 'tools/waf'))
 
-import tools.waf.generate_log_strings_json
 import tools.waf.generate_timezone_data
 import tools.waf.gitinfo
 import tools.waf.boards
 import tools.waf.ldscript
-import tools.waf.objcopy
-import tools.waf.pblboot
 import tools.waf.pebble_sdk_gcc as pebble_sdk_gcc
 import tools.runners as pebble_runners
 from tools.waf.pebble_sdk_locator import activate_sdk
@@ -436,8 +433,7 @@ def _link_firmware(bld, sources):
         fw_linkflags.append('-Wl,--require-defined=g_memfault_build_id')
         uses.append('memfault')
 
-    # Used by pblboot image tools; the C define mirrors the historical name.
-    bld.env.FIRMWARE_OFFSET = bld.env.CONFIG_FIRMWARE_OFFSET
+    # The C define mirrors the historical name.
     bld.env.append_value('DEFINES', [f'FIRMWARE_OFFSET={bld.env.CONFIG_FIRMWARE_OFFSET}'])
 
     # Build and link the firmware ELF
@@ -453,30 +449,24 @@ def _link_firmware(bld, sources):
 
     x.env.append_value('LINKFLAGS', fw_linkflags)
 
-    if bld.env.CONFIG_PBLBOOT:
-        git_revision = tools.waf.gitinfo.get_git_revision(bld)
-        bld.env.PBLBOOT_PRIORITY = str(tools.waf.pblboot.boot_priority(
-            git_revision['TAG'], int(git_revision['TIMESTAMP'])))
-        nohdr_hex_node = elf_node.change_ext('.nohdr.hex')
-        bld(rule=tools.waf.objcopy.objcopy_hex, source=elf_node, target=nohdr_hex_node)
-        hex_node = elf_node.change_ext('.hex')
-        bld(rule=tools.waf.pblboot.insert_header_hex, source=nohdr_hex_node, target=hex_node)
-        nohdr_bin_node = elf_node.change_ext('.nohdr.bin')
-        bld(rule=tools.waf.objcopy.objcopy_bin, source=elf_node, target=nohdr_bin_node)
-        bin_node = elf_node.change_ext('.bin')
-        bld(rule=tools.waf.pblboot.insert_header_bin, source=nohdr_bin_node, target=bin_node)
-    else:
-        hex_node = elf_node.change_ext('.hex')
-        bld(rule=tools.waf.objcopy.objcopy_hex, source=elf_node, target=hex_node)
-        bin_node = elf_node.change_ext('.bin')
-        bld(rule=tools.waf.objcopy.objcopy_bin, source=elf_node, target=bin_node)
-
-    # Create the log_strings .elf and check the format specifier rules
+    # Post-link image pipeline: hex/bin (+ pblboot header) and the loghash
+    # dictionaries, all handled by the standalone tools/fw_image.py driven
+    # from build-info.json.
+    targets = [elf_node.change_ext('.hex'), elf_node.change_ext('.bin')]
     if bld.env.CONFIG_LOG_HASHED:
-        fw_loghash_node = bld.path.get_bld().make_node('pebbleos_loghash_dict.json')
-        bld(rule=tools.waf.generate_log_strings_json.wafrule,
-            source=elf_node, target=fw_loghash_node, path=bld.path)
-        bld.LOGHASH_DICTS.append(fw_loghash_node)
+        targets.append(bld.path.get_bld().make_node('pebbleos_loghash_dict.json'))
+        targets.append(bld.path.get_bld().make_node(LOGHASH_OUT_PATH))
+    bld(rule=_fw_image_rule, source=elf_node, target=targets)
+
+
+def _fw_image_rule(task):
+    bld = task.generator.bld
+    return task.exec_command([
+        sys.executable,
+        os.path.join(bld.srcnode.abspath(), 'tools', 'fw_image.py'),
+        '--build-dir', bld.bldnode.abspath(),
+        '--elf', task.inputs[0].abspath(),
+    ])
 
 
 def _build_recovery(bld):
@@ -596,7 +586,6 @@ def _build_fw(bld):
 
 def build(bld):
     bld.DYNAMIC_RESOURCES = []
-    bld.LOGHASH_DICTS = []
 
     # Start this timer here to include the time to generate tasks.
     bld.pbl_build_start_time = datetime.datetime.utcnow()
@@ -661,15 +650,6 @@ def build(bld):
     bld.recurse('resources')
 
     bld.add_post_fun(size_resources)
-    if bld.env.CONFIG_LOG_HASHED:
-        bld.add_post_fun(merge_loghash_dicts)
-
-
-def merge_loghash_dicts(bld):
-    loghash_dict = bld.path.get_bld().make_node(LOGHASH_OUT_PATH)
-
-    import log_hashing.newlogging
-    log_hashing.newlogging.merge_loghash_dict_json_files(loghash_dict, bld.LOGHASH_DICTS)
 
 
 class SizeResources(BuildContext):
