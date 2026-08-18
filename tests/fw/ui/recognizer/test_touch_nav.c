@@ -65,11 +65,11 @@ Layer *layer_find_layer_containing_point(const Layer *node, const GPoint *point)
 
 static bool s_nav_enabled;
 
-bool touch_nav_enabled(void) {
+bool sys_touch_nav_enabled(void) {
   return s_nav_enabled;
 }
 
-bool touch_app_nav_active(void) { return false; }
+bool sys_touch_app_nav_active(void) { return false; }
 
 // ---------------------------------------------------------------------------------------------
 // Fake TouchNavOps, recording every effect.

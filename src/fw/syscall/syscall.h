@@ -218,6 +218,12 @@ bool sys_pebblekit_is_connected_debounced(void);
 bool sys_touch_service_is_enabled(void);
 void sys_touch_reset(void);
 
+//! Read the system and app-twin touch-navigation gates. The dispatcher runs on the app task,
+//! which is unprivileged for third-party apps, so these reads cannot touch the service's mutex
+//! and statics directly. Not exported to the SDK.
+bool sys_touch_nav_enabled(void);
+bool sys_touch_app_nav_active(void);
+
 //! Mark whether the calling task has a live raw-slot touch subscription
 //! (touch_service_subscribe). Drives touch_has_app_subscribers(); the shared
 //! per-task event-service subscription cannot distinguish the raw slot from

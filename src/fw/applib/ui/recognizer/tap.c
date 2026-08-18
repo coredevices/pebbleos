@@ -8,6 +8,7 @@
 
 #include "pbl/drivers/rtc.h"
 #include "pbl/util/math.h"
+#include "syscall/syscall.h"
 
 #include <string.h>
 
@@ -57,7 +58,7 @@ static bool prv_moved_too_far(const TapRecognizerData *data, const TouchEvent *t
 }
 
 static uint32_t prv_touch_duration_ms(const TapRecognizerData *data) {
-  const RtcTicks elapsed = rtc_get_ticks() - data->state.touch_down_ticks;
+  const RtcTicks elapsed = sys_get_ticks() - data->state.touch_down_ticks;
   return (uint32_t)((elapsed * MS_PER_SECOND) / RTC_TICKS_HZ);
 }
 
@@ -71,7 +72,7 @@ static void prv_handle_touch_event(Recognizer *recognizer, const TouchEvent *tou
       // refined by later position updates.
       data->state.touch_down_point = GPoint(touch_event->x, touch_event->y);
       data->state.tap_point = data->state.touch_down_point;
-      data->state.touch_down_ticks = rtc_get_ticks();
+      data->state.touch_down_ticks = sys_get_ticks();
       data->state.fingers_down = 1;
       break;
 

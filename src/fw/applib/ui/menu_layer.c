@@ -35,6 +35,7 @@
 #include "applib/ui/scroll_layer_private.h"
 #include "kernel/pebble_tasks.h"
 #include "pbl/drivers/rtc.h"
+#include "syscall/syscall.h"
 
 // The per-task touch-nav state lives in the app state (app task) or the modal manager (KernelMain).
 // Forward-declared here to avoid pulling those heavy kernel/app headers into this applib module.
@@ -1802,7 +1803,7 @@ void menu_layer_touch_handle_tap(MenuLayer *menu_layer, GPoint point_on_screen) 
     return;
   }
 
-  const RtcTicks now = rtc_get_ticks();
+  const RtcTicks now = sys_get_ticks();
   const RtcTicks window_ticks = (RtcTicks)DOUBLE_TAP_WINDOW_MS * RTC_TICKS_HZ / 1000;
 
   // Priority 1 — fast double tap: a second tap within the window after a tap-select activates the

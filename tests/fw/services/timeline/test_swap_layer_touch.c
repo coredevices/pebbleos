@@ -86,8 +86,8 @@ void window_multi_click_subscribe(ButtonId button_id, uint8_t min_clicks, uint8_
 // the master gate; the recognizer manager needs a couple of window/layer collaborators to link.
 
 static bool s_nav_enabled = true;
-bool touch_nav_enabled(void) { return s_nav_enabled; }
-bool touch_app_nav_active(void) { return false; }
+bool sys_touch_nav_enabled(void) { return s_nav_enabled; }
+bool sys_touch_app_nav_active(void) { return false; }
 
 static TouchNavState s_touch_nav_state;
 struct TouchNavState *app_state_get_touch_nav_state(void) { return &s_touch_nav_state; }

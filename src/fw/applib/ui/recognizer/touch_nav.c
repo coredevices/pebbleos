@@ -17,6 +17,7 @@
 #include "pbl/services/touch/touch.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
+#include "syscall/syscall.h"
 #include "system/passert.h"
 
 #include <stddef.h>
@@ -267,7 +268,7 @@ static void prv_widget_recognizer_event(const Recognizer *recognizer, Recognizer
       break;
     case RecognizerEvent_Updated:
       if (!state->declined && recognizer == state->widget_pan) {
-        const RtcTicks now = rtc_get_ticks();
+        const RtcTicks now = sys_get_ticks();
         const RtcTicks min_ticks =
             (RtcTicks)TOUCH_NAV_WIDGET_PAN_UPDATE_MIN_INTERVAL_MS * RTC_TICKS_HZ / 1000;
         if (now - state->last_update_ticks >= min_ticks) {
@@ -456,7 +457,7 @@ void touch_nav_dispatch(const TouchEvent *touch_event, void *context) {
   // activated, no route is resolved, and the bridge synthesizes nothing. System nav covers the
   // kernel twin and participating apps; app-nav-active covers an opted-in app riding the master
   // pref alone.
-  if (!touch_nav_enabled() && !touch_app_nav_active()) {
+  if (!sys_touch_nav_enabled() && !sys_touch_app_nav_active()) {
     return;
   }
 
