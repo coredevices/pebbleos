@@ -1393,12 +1393,20 @@ static void prv_apply_art_appearance(MusicAppData *data) {
   // The bezel arc + drawn times replace the stock bar and time labels permanently on round.
   prv_update_layout(data);
 #endif
-  // Big clock in both modes; over art it's white with a black outline (matching the artist) so the
-  // time reads over the cover, otherwise plain black on the light background.
+  // The big clock belongs to the media layout. Over art it's white with a black outline (matching
+  // the artist) so the time reads over the cover; in the media layout without art it's plain big
+  // black. The stock (rectangular, no-art) layout keeps the normal status-bar clock.
+  StatusBarLayerMode clock_mode;
+  if (!prv_use_media_layout(data)) {
+    clock_mode = StatusBarLayerModeClock;
+  } else if (data->has_album_art) {
+    clock_mode = StatusBarLayerModeClockLargeBoldOutlined;
+  } else {
+    clock_mode = StatusBarLayerModeClockLargeBold;
+  }
   status_bar_layer_set_colors(&data->status_layer, GColorClear,
                               data->has_album_art ? GColorWhite : GColorBlack);
-  status_bar_layer_set_mode(&data->status_layer, data->has_album_art ?
-                            StatusBarLayerModeClockLargeBoldOutlined : StatusBarLayerModeClockLargeBold);
+  status_bar_layer_set_mode(&data->status_layer, clock_mode);
   layer_mark_dirty(&data->window.layer);
 }
 
