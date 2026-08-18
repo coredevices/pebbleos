@@ -1760,6 +1760,30 @@ static void prv_menu_touch_settle_to_center(MenuLayer *menu_layer, bool animated
 // ---------------------------------------------------------------------------------------------
 // Gesture handlers (also the unit-test entry surface)
 
+void menu_layer_touch_handle_touchdown(MenuLayer *menu_layer) {
+  // Finger down while the content is coasting: catch it. The tap this gesture may become is then a
+  // stop, not a select. The flag is ASSIGNED (never OR-ed) so it always reflects this gesture: a
+  // caught-then-abandoned gesture's leftover is overwritten by the next Touchdown.
+  const bool coasting = menu_layer->touch_fling_active;
+  menu_layer->touch_tap_swallow = coasting;
+  if (!coasting) {
+    return;
+  }
+  Animation *anim = property_animation_get_animation(menu_layer->scroll_layer.animation);
+  if (anim && animation_is_scheduled(anim)) {
+    animation_unschedule(anim);
+  }
+  menu_layer->touch_fling_active = false;   // a coast caught pre-first-frame skips its handler
+  scroll_layer_touch_fling_cleanup(&menu_layer->scroll_layer);
+  if (menu_layer->center_focused) {
+    // A dead stop could freeze the carousel off-grid forever on a catch-and-hold (a >300 ms hold
+    // fails the tap, so no later callback would re-centre). Glide into the nearest row centre
+    // instead; a pan taking over unschedules this settle with the base latched mid-flight.
+    prv_menu_touch_track_center_row(menu_layer);
+    prv_menu_touch_settle_to_center(menu_layer, true /* animated */);
+  }
+}
+
 void menu_layer_touch_handle_pan_update(MenuLayer *menu_layer, GPoint base,
                                         GPoint delta_since_start) {
   const int16_t new_y = prv_menu_touch_clamp_offset_y(menu_layer, base.y + delta_since_start.y);
@@ -1836,6 +1860,11 @@ void menu_layer_touch_handle_cancel(MenuLayer *menu_layer) {
 }
 
 void menu_layer_touch_handle_tap(MenuLayer *menu_layer, GPoint point_on_screen) {
+  if (menu_layer->touch_tap_swallow) {
+    // This tap caught (stopped) a coast at its Touchdown: it is a stop, not a select.
+    menu_layer->touch_tap_swallow = false;
+    return;
+  }
   // The recognizer reports the tap in screen coordinates; map it into the scroll layer's frame
   // first. Skipping this mis-hits by the frame's screen offset, so a menu inset below the status
   // bar resolves the bottom of every row to the next row down.
@@ -1945,6 +1974,10 @@ void menu_layer_touch_handle_swipe(MenuLayer *menu_layer, SwipeDirection directi
 // TouchNavState) drives the menu through these; direct assignment of the apply functions would not
 // compile because their first parameter is MenuLayer*, not void*.
 
+static void prv_menu_ops_touchdown(void *w) {
+  menu_layer_touch_handle_touchdown((MenuLayer *)w);
+}
+
 static void prv_menu_ops_pan_started(void *w) {
   // Touchdown-equivalent for the pan: stop any in-flight selection animation so the finger takes
   // over. The base offset is latched by the core via get_base_offset immediately after.
@@ -1989,6 +2022,7 @@ static void prv_menu_ops_swipe(void *w, SwipeDirection dir) {
 // can_start is NULL: a MenuLayer is always ready to start a pan.
 static const TouchNavWidgetOps s_menu_touch_nav_ops = {
   .can_start = NULL,
+  .touchdown = prv_menu_ops_touchdown,
   .pan_started = prv_menu_ops_pan_started,
   .get_base_offset = prv_menu_ops_get_base_offset,
   .pan_update = prv_menu_ops_pan_update,

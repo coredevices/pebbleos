@@ -1898,3 +1898,86 @@ void test_menu_layer__touch_fling_center_unscheduled_no_settle(void) {
   cl_assert(!animation_is_scheduled(anim));
   cl_assert_equal_i(animation_get_duration(anim, false, false), ANIMATION_DEFAULT_DURATION_MS);
 }
+
+// =============================================================================================
+// Catch-to-stop: a Touchdown during a coast stops it immediately, and the tap that gesture may
+// become is swallowed (a catch is a stop, not a select).
+
+void test_menu_layer__touch_catch_stops_fling_and_swallows_tap(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  prv_reset_touch_counters();
+  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, -88), GPoint(0, -500));
+  cl_assert(l.touch_fling_active);
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(animation_is_scheduled(anim));
+
+  // Finger down mid-coast: dead stop on a plain menu, and the gesture is marked as a catch.
+  menu_layer_touch_handle_touchdown(&l);
+  cl_assert(!l.touch_fling_active);
+  cl_assert(!animation_is_scheduled(anim));
+  cl_assert(l.touch_tap_swallow);
+  cl_assert_equal_i(animation_get_duration(anim, false, false), ANIMATION_DEFAULT_DURATION_MS);
+
+  // The catch's tap is swallowed: no selection contract, no activation; the flag is consumed.
+  const MenuIndex before = menu_layer_get_selected_index(&l);
+  menu_layer_touch_handle_tap(&l, GPoint(72, 22));
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, before.row);
+  cl_assert_equal_i(s_will_change_count, 0);
+  cl_assert_equal_i(s_select_click_count, 0);
+  cl_assert(!l.touch_tap_swallow);
+
+  // A following gesture with no coast to catch taps normally (row 1: 44px rows, offset 0).
+  menu_layer_touch_handle_touchdown(&l);
+  cl_assert(!l.touch_tap_swallow);
+  menu_layer_touch_handle_tap(&l, GPoint(72, 66));
+  cl_assert_equal_i(s_will_change_count, 1);   // tap-select ran the contract this time
+}
+
+// A caught-then-abandoned gesture (the catch became a pan, not a tap) leaves a stale swallow mark;
+// the next Touchdown reassigns it, so a later legitimate tap is never eaten.
+void test_menu_layer__touch_catch_abandoned_swallow_reassigned(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  prv_reset_touch_counters();
+  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, -88), GPoint(0, -500));
+  menu_layer_touch_handle_touchdown(&l);   // catch
+  cl_assert(l.touch_tap_swallow);
+  // ...the gesture becomes a pan (no tap consumes the flag)...
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, -88), GPoint(0, 20));
+  menu_layer_touch_handle_snap(&l, GPoint(0, -88), GPoint(0, 20), GPointZero);
+  // The next Touchdown has nothing to catch: the flag is assigned false, and the tap selects.
+  menu_layer_touch_handle_touchdown(&l);
+  cl_assert(!l.touch_tap_swallow);
+  menu_layer_touch_handle_tap(&l, GPoint(72, 22));
+  cl_assert_equal_i(s_will_change_count, 1);
+}
+
+// Catching a coasting carousel does not dead-stop off-grid: the catch glides the nearest row to
+// the centre (a catch-and-hold past the tap window would otherwise freeze the carousel misaligned).
+void test_menu_layer__touch_catch_center_focused_settles_to_row(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  prv_reset_touch_counters();
+  menu_layer_touch_handle_snap(&l, GPoint(0, 68), GPoint(0, -100), GPoint(0, -500));
+  cl_assert(l.touch_fling_active);
+  // A coast frame lands at -120: the centre is inside row 4 (tracked live).
+  prv_scroll_layer_set_content_offset_internal(&l.scroll_layer, GPoint(0, -120));
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 4);
+
+  menu_layer_touch_handle_touchdown(&l);
+  cl_assert(!l.touch_fling_active);
+  cl_assert(l.touch_tap_swallow);
+  // The catch scheduled a settle toward row 4's exact centre: 68 - 44*4 = -108.
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, -108);
+}

@@ -225,16 +225,26 @@ void scroll_layer_touch_handle_swipe(ScrollLayer *scroll_layer, SwipeDirection d
 // by TouchNavState) drives the scroll layer through these; direct assignment of the apply functions
 // would not compile because their first parameter is ScrollLayer*, not void*.
 
-static void prv_scroll_ops_pan_started(void *w) {
-  // Touchdown-equivalent for the pan: stop any running scroll animation so the finger takes over
-  // from a fling/settle cleanly. The base offset is latched by the core via get_base_offset next.
-  ScrollLayer *scroll_layer = w;
+void scroll_layer_touch_handle_touchdown(ScrollLayer *scroll_layer) {
+  // Finger down: stop any running scroll animation immediately so a coasting fling (or a settle)
+  // is caught at touchdown, not at the pan threshold.
   Animation *anim = property_animation_get_animation(scroll_layer->animation);
   if (anim && animation_is_scheduled(anim)) {
     animation_unschedule(anim);
   }
   // A fling caught before its first frame never ran its stopped handler; restore explicitly.
   scroll_layer_touch_fling_cleanup(scroll_layer);
+}
+
+static void prv_scroll_ops_touchdown(void *w) {
+  scroll_layer_touch_handle_touchdown((ScrollLayer *)w);
+}
+
+static void prv_scroll_ops_pan_started(void *w) {
+  // The touchdown op already stopped any running animation; this covers an animation that started
+  // between the Touchdown and the pan threshold (e.g. a button-driven scroll) so the finger takes
+  // over cleanly. The base offset is latched by the core via get_base_offset next.
+  scroll_layer_touch_handle_touchdown((ScrollLayer *)w);
 }
 
 static GPointReturn prv_scroll_ops_get_base_offset(void *w) {
@@ -262,6 +272,7 @@ static void prv_scroll_ops_swipe(void *w, SwipeDirection dir) {
 // NULL: a ScrollLayer has no tap action, so a tap on it is dropped (never a bridge SELECT).
 static const TouchNavWidgetOps s_scroll_touch_nav_ops = {
   .can_start = NULL,
+  .touchdown = prv_scroll_ops_touchdown,
   .pan_started = prv_scroll_ops_pan_started,
   .get_base_offset = prv_scroll_ops_get_base_offset,
   .pan_update = prv_scroll_ops_pan_update,

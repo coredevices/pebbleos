@@ -45,6 +45,11 @@ typedef struct MenuRenderIterator {
 bool menu_layer_touch_find_row_at_content_y(MenuLayer *menu_layer, int16_t content_y,
                                             MenuIndex *index_out);
 
+//! Finger down: catch a coasting fling (stop it at touchdown, not at the pan threshold) and mark
+//! the gesture's tap, if it becomes one, to be swallowed — a catch is a stop, not a select. On a
+//! carousel the catch glides into the nearest row centre instead of dead-stopping off-grid.
+void menu_layer_touch_handle_touchdown(MenuLayer *menu_layer);
+
 //! Live scroll during a pan: move the content to \a base + \a delta_since_start, coarsely clamped.
 //! On a plain menu the selection index is intentionally left unchanged. On a center-focused menu
 //! the focus stays pinned at the viewport centre: the row crossing the centre becomes the

@@ -523,7 +523,13 @@ void touch_nav_dispatch(const TouchEvent *touch_event, void *context) {
     // the Touchdown and is only consumed by later events.
     state->latched_target = prv_resolve_widget_target(state);
     state->declined = false;
-    if (!state->latched_target) {
+    if (state->latched_target) {
+      // Catch-to-stop: let the widget react to the bare Touchdown (e.g. stop a coasting fling)
+      // before any recognizer triggers.
+      if (state->latched_target->ops->touchdown) {
+        state->latched_target->ops->touchdown(state->latched_target->widget);
+      }
+    } else {
       // The gesture belongs to the bridge or an un-migrated widget's own set, not the unified set:
       // fail the unified tap/pan/swipe now, symmetrically to the bridge exclusion. On a fresh
       // Touchdown these three are provably still Possible (no recognizer triggers on Touchdown), and

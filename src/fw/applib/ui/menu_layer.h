@@ -467,6 +467,13 @@ typedef struct MenuLayer {
   //! \c sizeof(MenuLayer) unchanged.
   bool touch_fling_active:1;
 
+  //! @internal
+  //! True when the current touch gesture began by catching (stopping) a coasting fling: the tap it
+  //! may become is a stop, not a select, and is swallowed. Assigned (never OR-ed) on every
+  //! Touchdown so it always reflects the current gesture. Packs into \ref touch_fling_active's
+  //! byte.
+  bool touch_tap_swallow:1;
+
   //! Add some padding to keep track of the \ref MenuLayer size budget.
   //! As long as the size stays within this budget, 2.x apps can safely use the 3.x MenuLayer type.
   //! The actual size check is generated from applib_malloc.json, not asserted here.

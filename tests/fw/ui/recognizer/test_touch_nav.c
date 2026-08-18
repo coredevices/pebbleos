@@ -1010,6 +1010,7 @@ void test_touch_nav__disable_transaction_order(void) {
 typedef struct FakeWidget {
   bool can_start_result;
   int can_start_calls;
+  int touchdown_calls;
   int pan_started_calls;
   int get_base_offset_calls;
   int pan_update_calls;
@@ -1028,6 +1029,7 @@ static bool prv_w_can_start(void *w) {
   fw->can_start_calls++;
   return fw->can_start_result;
 }
+static void prv_w_touchdown(void *w) { ((FakeWidget *)w)->touchdown_calls++; }
 static void prv_w_pan_started(void *w) { ((FakeWidget *)w)->pan_started_calls++; }
 static GPointReturn prv_w_get_base_offset(void *w) {
   FakeWidget *fw = w;
@@ -1048,6 +1050,7 @@ static void prv_w_swipe(void *w, SwipeDirection dir) { ((FakeWidget *)w)->swipe_
 
 static const TouchNavWidgetOps s_fake_widget_ops = {
   .can_start = prv_w_can_start,
+  .touchdown = prv_w_touchdown,
   .pan_started = prv_w_pan_started,
   .get_base_offset = prv_w_get_base_offset,
   .pan_update = prv_w_pan_update,
@@ -1188,4 +1191,58 @@ void test_touch_nav__typed_getters_reject_wrong_type(void) {
   p = tap_recognizer_get_tap_point(NULL);
   cl_assert_equal_i(p.x, zero.x);
   cl_assert_equal_i(p.y, zero.y);
+}
+
+// The optional touchdown op fires exactly once per navigational Touchdown that latches the widget
+// (catch-to-stop hook), never for later events, gated Touchdowns, or unlatched gestures; a widget
+// without the op is a safe no-op.
+void test_touch_nav__widget_touchdown_op(void) {
+  static TouchNavWidgetNode node;
+  prv_register_fake_widget(&node);
+  s_widget.can_start_result = true;
+
+  // Once per latching Touchdown; pan/liftoff never re-fire it.
+  prv_dispatch(TouchEvent_Touchdown, 50, 90, false);
+  cl_assert_equal_i(s_widget.touchdown_calls, 1);
+  prv_advance_ms(20);
+  prv_dispatch(TouchEvent_PositionUpdate, 50, 55, false);
+  prv_dispatch(TouchEvent_Liftoff, 0, 0, false);
+  cl_assert_equal_i(s_widget.touchdown_calls, 1);
+
+  // A gated (non-navigational) Touchdown unwinds before routing: the widget never hears it.
+  prv_dispatch(TouchEvent_Touchdown, 50, 90, true /* non_navigational */);
+  cl_assert_equal_i(s_widget.touchdown_calls, 1);
+
+  // A fresh navigational gesture fires it again.
+  prv_dispatch(TouchEvent_Touchdown, 50, 90, false);
+  cl_assert_equal_i(s_widget.touchdown_calls, 2);
+  prv_dispatch(TouchEvent_Liftoff, 50, 90, false);
+
+  // A widget whose ops leave touchdown NULL is driven safely (no call, no crash) and the rest of
+  // the vtable still works.
+  touch_nav_registry_remove(&s_state, TouchNavWidgetType_Menu, &node);
+  static const TouchNavWidgetOps s_ops_no_touchdown = {
+    .can_start = prv_w_can_start,
+    .pan_started = prv_w_pan_started,
+    .get_base_offset = prv_w_get_base_offset,
+    .pan_update = prv_w_pan_update,
+    .pan_snap = prv_w_pan_snap,
+    .pan_cancel = prv_w_pan_cancel,
+    .tap = prv_w_tap,
+    .swipe = prv_w_swipe,
+  };
+  static TouchNavWidgetNode node2;
+  node2 = (TouchNavWidgetNode){0};
+  touch_nav_registry_add(&s_state, TouchNavWidgetType_Menu, &node2, &s_child_layer,
+                         &s_ops_no_touchdown, &s_widget);
+  s_widget = (FakeWidget) { .can_start_result = true };
+  prv_dispatch(TouchEvent_Touchdown, 50, 90, false);
+  cl_assert_equal_i(s_widget.touchdown_calls, 0);   // op absent: never called
+  prv_advance_ms(20);
+  prv_dispatch(TouchEvent_PositionUpdate, 50, 55, false);   // pan Starts -> widget still driven
+  cl_assert_equal_i(s_widget.pan_started_calls, 1);
+  prv_dispatch(TouchEvent_Liftoff, 0, 0, false);
+  cl_assert_equal_i(s_widget.pan_snap_calls, 1);
+
+  touch_nav_registry_remove(&s_state, TouchNavWidgetType_Menu, &node2);
 }

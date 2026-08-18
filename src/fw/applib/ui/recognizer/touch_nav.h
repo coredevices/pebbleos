@@ -61,6 +61,10 @@ typedef struct TouchNavWidgetOps {
   //! Optional readiness gate consulted before a pan Starts. NULL means always ready. When it returns
   //! false the gesture is declined for its whole lifetime (no pan_started/get_base_offset is called).
   bool (*can_start)(void *w);
+  //! Optional. Called once when a navigational Touchdown latches this widget as the Tier-1 target,
+  //! before any recognizer triggers. Lets the widget stop a coasting fling at finger-down instead
+  //! of at the pan threshold (catch-to-stop). NULL means nothing to do.
+  void (*touchdown)(void *w);
   //! Pan Started: cancel any of the widget's own running animation so the finger takes over.
   void (*pan_started)(void *w);
   //! @return the widget's content offset at pan Start, latched as the base for the whole gesture.

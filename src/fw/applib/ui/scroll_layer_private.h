@@ -15,6 +15,10 @@
 //! navigates (right = BACK, left = SELECT), mirroring MenuLayer's Tier-1 wiring. See scroll_layer.c
 //! for the wiring into the per-task recognizer set.
 
+//! Finger down: stop any running scroll animation (catch-to-stop for a coasting fling) and
+//! restore the shared animation's fling defaults.
+void scroll_layer_touch_handle_touchdown(ScrollLayer *scroll_layer);
+
 //! Live scroll during a pan: move the content to \a base + \a delta_since_start on the y axis,
 //! clamped to [min(frame_h - content_h, 0), 0].
 void scroll_layer_touch_handle_pan_update(ScrollLayer *scroll_layer, GPoint base,
