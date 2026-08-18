@@ -226,8 +226,6 @@ def configure(conf):
 
     conf.load('protoc')
 
-    conf.load('binary_header')
-
     platform = pebble_platforms[conf.env.PLATFORM_NAME]
     define = 'MAX_FONT_GLYPH_SIZE={}'.format(platform['MAX_FONT_GLYPH_SIZE'])
     conf.env.append_value('DEFINES', [define])
