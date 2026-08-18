@@ -52,7 +52,9 @@ void services_common_init(void) {
 
   bt_ctl_init();
 
-#ifdef CONFIG_TOUCH
+#ifdef CONFIG_SERVICE_TOUCH
+  // Gate on the same symbol that compiles touch.c and its consumers (e.g. the remote input
+  // endpoint), so no configuration can reach the touch service before touch_init() has run.
   touch_init();
 #endif
 
