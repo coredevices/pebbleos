@@ -247,57 +247,46 @@ static void prv_arm_session_cb(void *unused) {
   touch_session_arm(TouchSessionArmSource_Injected);
 }
 
-static bool prv_handle_update(TouchState touch_state, int16_t x, int16_t y, bool injected) {
-  mutex_lock(s_touch_mutex);
-
-  if (!s_globally_enabled) {
-    mutex_unlock(s_touch_mutex);
-    return false;
-  }
-
-  if (injected) {
-    // Injected coordinates are already the ones the UI observes, so no rotation is applied.
-  } else {
-    if (s_injecting) {
-      mutex_unlock(s_touch_mutex);
-      return false;
-    }
-    prv_apply_rotation(&x, &y);
-  }
-
+//! Applies one sample's state transition and queues the matching events.
+//! Caller must hold s_touch_mutex. The events are queued with the lock held so a concurrent
+//! sample cannot interleave between a transition and the event it produced.
+static void prv_apply_update(TouchState touch_state, int16_t x, int16_t y, bool injected) {
   if (s_touch_state != touch_state) {
     s_touch_state = touch_state;
     s_last_x = x;
     s_last_y = y;
-    mutex_unlock(s_touch_mutex);
 
     if (touch_state == TouchState_FingerDown) {
-      PBL_ANALYTICS_ADD(touch_event_count, 1);
+      if (!injected) {
+        // Synthetic contact must not read as user engagement.
+        PBL_ANALYTICS_ADD(touch_event_count, 1);
+      }
       PBL_LOG_DBG("Touch: Touchdown @ (%" PRId16 ", %" PRId16 ")", x, y);
       prv_put_touch_event(TouchEvent_Touchdown, x, y);
     } else {
       PBL_LOG_DBG("Touch: Liftoff");
       prv_put_touch_event(TouchEvent_Liftoff, x, y);
     }
-    return true;
+    return;
   }
 
   if (touch_state == TouchState_FingerDown && (x != s_last_x || y != s_last_y)) {
     s_last_x = x;
     s_last_y = y;
-    mutex_unlock(s_touch_mutex);
-
     PBL_LOG_DBG("Touch: Position Update @ (%" PRId16 ", %" PRId16 ")", x, y);
     prv_put_touch_event(TouchEvent_PositionUpdate, x, y);
-    return true;
   }
-
-  mutex_unlock(s_touch_mutex);
-  return true;
 }
 
 void touch_handle_update(TouchState touch_state, int16_t x, int16_t y) {
-  prv_handle_update(touch_state, x, y, false /* injected */);
+  mutex_lock(s_touch_mutex);
+  if (!s_globally_enabled || s_injecting) {
+    mutex_unlock(s_touch_mutex);
+    return;
+  }
+  prv_apply_rotation(&x, &y);
+  prv_apply_update(touch_state, x, y, false /* injected */);
+  mutex_unlock(s_touch_mutex);
 }
 
 bool touch_handle_injected_update(TouchInjectPhase phase, int16_t x, int16_t y) {
@@ -313,6 +302,9 @@ bool touch_handle_injected_update(TouchInjectPhase phase, int16_t x, int16_t y) 
       return false;
     }
     s_injecting = true;
+    // Arm before the touchdown is queued: both land on KernelMain in order, so the gate sees an
+    // armed session rather than dropping the gesture as unarmed idle-watchface contact.
+    launcher_task_add_callback(prv_arm_session_cb, NULL);
   } else if (!s_injecting) {
     // The gesture lost the sensor (reset, or touch switched off and back on). Refusing here is
     // what lets the caller abort, rather than having this sample taken as a new touchdown from
@@ -322,18 +314,15 @@ bool touch_handle_injected_update(TouchInjectPhase phase, int16_t x, int16_t y) 
   } else if (phase == TouchInjectPhase_End) {
     s_injecting = false;
   }
-  const bool starting = (phase == TouchInjectPhase_Begin);
-  mutex_unlock(s_touch_mutex);
 
-  if (starting) {
-    // Arm before the touchdown is queued: both land on KernelMain in order, so the gate sees an
-    // armed session rather than dropping the gesture as unarmed idle-watchface contact.
-    launcher_task_add_callback(prv_arm_session_cb, NULL);
-  }
-
+  // Injected coordinates are already the ones the UI observes, so no rotation is applied. The
+  // sample is applied under the same lock hold as the arbitration above: dropping the lock in
+  // between would let a physical sample or a reset interleave and garble the event stream.
   const TouchState touch_state =
       (phase == TouchInjectPhase_End) ? TouchState_FingerUp : TouchState_FingerDown;
-  return prv_handle_update(touch_state, x, y, true /* injected */);
+  prv_apply_update(touch_state, x, y, true /* injected */);
+  mutex_unlock(s_touch_mutex);
+  return true;
 }
 
 bool touch_injection_is_available(void) {
@@ -420,4 +409,3 @@ void touch_set_rotated(bool rotated) {
   s_rotated = rotated;
   mutex_unlock(s_touch_mutex);
 }
-
