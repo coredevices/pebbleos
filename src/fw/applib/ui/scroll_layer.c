@@ -157,11 +157,33 @@ void scroll_layer_touch_handle_pan_update(ScrollLayer *scroll_layer, GPoint base
   scroll_layer_set_content_offset(scroll_layer, GPoint(0, new_y), false);
 }
 
+static void prv_scroll_touch_fling_stopped(Animation *animation, bool finished, void *context) {
+  (void)animation;
+  (void)finished;
+  scroll_layer_touch_fling_cleanup((ScrollLayer *)context);
+}
+
 void scroll_layer_touch_handle_snap(ScrollLayer *scroll_layer, GPoint base, GPoint final_delta,
                                     GPoint velocity) {
-  // Liftoff: settle the final (unthrottled) offset. Velocity is unused for now.
-  (void)velocity;
-  scroll_layer_touch_handle_pan_update(scroll_layer, base, final_delta);
+  const int16_t released_y = prv_scroll_touch_clamp_offset_y(scroll_layer,
+                                                             base.y + final_delta.y);
+  // Coast: project where the finger's velocity carries the content and decelerate there. The
+  // coast starts from the current (last throttled) offset, so the unthrottled residual is
+  // absorbed into the animation instead of jumping instantly at liftoff. Paging keeps its snap
+  // semantics (a coast would break page alignment).
+  const int32_t v = CLIP((int32_t)velocity.y, -TOUCH_FLING_MAX_VELOCITY_PX_S,
+                         TOUCH_FLING_MAX_VELOCITY_PX_S);
+  if (ABS(v) >= TOUCH_FLING_MIN_VELOCITY_PX_S && !scroll_layer_get_paging(scroll_layer)) {
+    const int32_t projected_y = released_y + (v * TOUCH_FLING_TAU_MS) / 1000;
+    const int16_t target_y = prv_scroll_touch_clamp_offset_y(
+        scroll_layer, (int16_t)CLIP(projected_y, INT16_MIN, INT16_MAX));
+    if (scroll_layer_touch_fling_start(scroll_layer, target_y, (int16_t)v,
+                                       prv_scroll_touch_fling_stopped, scroll_layer)) {
+      return;
+    }
+  }
+  // Slow liftoff (or a coast too short to schedule): settle the final offset, as before.
+  scroll_layer_set_content_offset(scroll_layer, GPoint(0, released_y), false);
 }
 
 void scroll_layer_touch_handle_swipe(ScrollLayer *scroll_layer, SwipeDirection direction) {
@@ -211,6 +233,8 @@ static void prv_scroll_ops_pan_started(void *w) {
   if (anim && animation_is_scheduled(anim)) {
     animation_unschedule(anim);
   }
+  // A fling caught before its first frame never ran its stopped handler; restore explicitly.
+  scroll_layer_touch_fling_cleanup(scroll_layer);
 }
 
 static GPointReturn prv_scroll_ops_get_base_offset(void *w) {
@@ -386,6 +410,16 @@ T_STATIC void prv_scroll_layer_set_content_offset_internal(
   }
 }
 
+static const PropertyAnimationImplementation s_content_offset_animation_impl = {
+  .base = {
+    .update = (AnimationUpdateImplementation) property_animation_update_gpoint,
+  },
+  .accessors = {
+    .setter = { .grect = (const GRectSetter) (void *) prv_scroll_layer_set_content_offset_internal, },
+    .getter = { .grect = (const GRectGetter) (void *) scroll_layer_get_content_offset, },
+  },
+};
+
 void scroll_layer_set_content_offset(ScrollLayer *scroll_layer, GPoint offset, bool animated) {
   // Note: animation_is_scheduled() returns false and property_animation_destroy does nothing
   // if the argument is NULL
@@ -398,24 +432,15 @@ void scroll_layer_set_content_offset(ScrollLayer *scroll_layer, GPoint offset, b
     }
   }
   if (animated) {
-    static const PropertyAnimationImplementation implementation = {
-      .base = {
-        .update = (AnimationUpdateImplementation) property_animation_update_gpoint,
-      },
-      .accessors = {
-        .setter = { .grect = (const GRectSetter) (void *) prv_scroll_layer_set_content_offset_internal, },
-        .getter = { .grect = (const GRectGetter) (void *) scroll_layer_get_content_offset, },
-      },
-    };
     if (animation) {
-      property_animation_init(scroll_layer->animation, &implementation, scroll_layer, NULL,
-                              &offset);
+      property_animation_init(scroll_layer->animation, &s_content_offset_animation_impl,
+                              scroll_layer, NULL, &offset);
       if (was_running && !scroll_layer_get_paging(scroll_layer)) {
         animation_set_curve(animation, AnimationCurveEaseOut);
       }
     } else {
-      scroll_layer->animation = property_animation_create(&implementation, scroll_layer, NULL,
-                                                          &offset);
+      scroll_layer->animation = property_animation_create(&s_content_offset_animation_impl,
+                                                          scroll_layer, NULL, &offset);
       animation = property_animation_get_animation(scroll_layer->animation);
       if (scroll_layer_get_paging(scroll_layer)) {
         animation_set_custom_interpolation(animation, interpolate_moook);
@@ -428,6 +453,67 @@ void scroll_layer_set_content_offset(ScrollLayer *scroll_layer, GPoint offset, b
     prv_scroll_layer_set_content_offset_internal(scroll_layer, offset);
   }
 }
+
+#ifdef CONFIG_TOUCH
+// Cubic ease-out in AnimationProgress space: f(t) = 1 - (1 - t)^3. Compared to the stock
+// quadratic EaseOut it brakes harder early and glides out longer, so a fast coast tapers off
+// instead of stopping dead.
+static AnimationProgress prv_fling_ease_out_cubic(AnimationProgress progress) {
+  const int64_t remaining = ANIMATION_NORMALIZED_MAX - progress;
+  return (AnimationProgress)(ANIMATION_NORMALIZED_MAX -
+      (remaining * remaining * remaining) /
+          ((int64_t)ANIMATION_NORMALIZED_MAX * ANIMATION_NORMALIZED_MAX));
+}
+
+bool scroll_layer_touch_fling_start(ScrollLayer *scroll_layer, int16_t target_y,
+                                    int16_t velocity_y, AnimationStoppedHandler stopped,
+                                    void *stopped_context) {
+  const int16_t current_y = scroll_layer_get_content_offset(scroll_layer).y;
+  const int32_t distance = (int32_t)target_y - current_y;
+  if (ABS(distance) < TOUCH_FLING_MIN_DISTANCE_PX || velocity_y == 0) {
+    return false;
+  }
+  const GPoint target = GPoint(0, target_y);
+  Animation *animation = property_animation_get_animation(scroll_layer->animation);
+  if (animation) {
+    if (animation_is_scheduled(animation)) {
+      animation_unschedule(animation);  // fires a previous coast's stopped handler, if any
+    }
+    property_animation_init(scroll_layer->animation, &s_content_offset_animation_impl,
+                            scroll_layer, NULL, (void *)&target);
+  } else {
+    scroll_layer->animation = property_animation_create(&s_content_offset_animation_impl,
+                                                        scroll_layer, NULL, (void *)&target);
+    if (!scroll_layer->animation) {
+      return false;
+    }
+    animation = property_animation_get_animation(scroll_layer->animation);
+    animation_set_auto_destroy(animation, false);
+  }
+  // The cubic ease-out launches at slope 3 (f(t) = 1 - (1 - t)^3), so T = 3000 * |d| / |v| makes
+  // the animated launch velocity equal the finger's liftoff velocity, with a long soft tail. An
+  // edge-truncated distance shortens T proportionally, preserving the launch speed instead of
+  // crawling into the clamp.
+  const int32_t duration_ms = CLIP((3000 * ABS(distance)) / ABS((int32_t)velocity_y),
+                                   (int32_t)TOUCH_FLING_MIN_DURATION_MS,
+                                   (int32_t)TOUCH_FLING_MAX_DURATION_MS);
+  animation_set_duration(animation, (uint32_t)duration_ms);
+  animation_set_custom_curve(animation, prv_fling_ease_out_cubic);
+  animation_set_handlers(animation, (AnimationHandlers) { .stopped = stopped }, stopped_context);
+  animation_schedule(animation);
+  return true;
+}
+
+void scroll_layer_touch_fling_cleanup(ScrollLayer *scroll_layer) {
+  Animation *animation = property_animation_get_animation(scroll_layer->animation);
+  if (!animation || animation_is_scheduled(animation)) {
+    return;
+  }
+  animation_set_duration(animation, ANIMATION_DEFAULT_DURATION_MS);
+  animation_set_curve(animation, AnimationCurveDefault);
+  animation_set_handlers(animation, (AnimationHandlers) { 0 }, NULL);
+}
+#endif
 
 void scroll_layer_set_content_size(ScrollLayer *scroll_layer, GSize size) {
   GRect bounds = scroll_layer->content_sublayer.bounds;
