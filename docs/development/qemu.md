@@ -104,3 +104,21 @@ You can debug with GDB using:
 ```shell
 ./pbl debug
 ```
+
+## Install .pbw applications
+
+You can install applications coming from .pbw files onto QEMU. This requires [pebble-tool](https://github.com/coredevices/pebble-tool) to be installed and having `pebble` available in the $PATH.
+
+Start by launching QEMU as you normally would:
+
+```shell
+./pbl qemu
+```
+
+Inside another shell locate a .pbw file to install:
+
+```shell
+pebble install /path/to/your/file.pbw --qemu
+```
+
+The `pebble` CLI will detect the running QEMU instance and install the application. It should start automatically.
