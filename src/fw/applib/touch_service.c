@@ -83,6 +83,8 @@ void touch_service_subscribe(TouchServiceHandler handler, void *context) {
   }
   state->raw_handler = handler;
   state->raw_context = context;
+  // End any in-progress gesture before the reset zeroes the last coordinates: a finger that is still down must get its Liftoff synthesized here, or the eventual lift reports FingerUp against the already-reset state and emits nothing -- the Touchdown's backlight hold leaks.
+  sys_touch_release_active();
   sys_touch_reset();
   sys_touch_set_raw_subscribed(handler != NULL);
   prv_update_subscription(state);
