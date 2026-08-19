@@ -21,6 +21,12 @@ void app_idle_timeout_refresh(void) {
 void app_idle_timeout_stop(void) {
 }
 
+void app_idle_timeout_touch_down(void) {
+}
+
+void app_idle_timeout_touch_up(void) {
+}
+
 void watchface_start_low_power(bool enable) {
 }
 

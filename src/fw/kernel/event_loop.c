@@ -335,9 +335,13 @@ static NOINLINE void prv_minimal_event_handler(PebbleEvent* e) {
           PBL_ANALYTICS_ADD(touch_gated_touchdown_count, 1);
         }
         touch_session_extend();
+        // A finger on the screen is ongoing interaction: halt the app idle timeout until liftoff.
+        // A motionless hold emits no further touch events, so a timer refresh alone can't cover it.
+        app_idle_timeout_touch_down();
       } else if (e->touch.event.type == TouchEvent_Liftoff) {
         light_touch_up();
         touch_session_extend();
+        app_idle_timeout_touch_up();
       }
       if (compositor_is_animating() || is_modal_focused) {
         // Mask the app task while the compositor animates or a modal is focused. Otherwise a
