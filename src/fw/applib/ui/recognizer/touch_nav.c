@@ -141,24 +141,35 @@ static bool prv_registry_contains_layer(TouchNavState *state, const struct Layer
   return false;
 }
 
-// @return the single registered widget layer across both registries, or NULL if there is not
-// exactly one.
-static struct Layer *prv_registry_sole_widget(TouchNavState *state) {
-  struct Layer *sole = NULL;
+// @return the single registered widget node across all three registries, or NULL if there is not
+// exactly one. The dead-zone routing (prv_resolve_route, prv_resolve_widget_target) falls back to the window's sole widget, so both need the node itself, not just its layer.
+static TouchNavWidgetNode *prv_registry_sole_widget(TouchNavState *state) {
+  TouchNavWidgetNode *sole = NULL;
   uint32_t count = 0;
   for (TouchNavWidgetNode *n = state->menu_head; n; n = n->next) {
-    sole = n->layer;
+    sole = n;
     count++;
   }
   for (TouchNavWidgetNode *n = state->swap_head; n; n = n->next) {
-    sole = n->layer;
+    sole = n;
     count++;
   }
   for (TouchNavWidgetNode *n = state->scroll_head; n; n = n->next) {
-    sole = n->layer;
+    sole = n;
     count++;
   }
   return (count == 1) ? sole : NULL;
+}
+
+// The dead-zone fallback widget: the window's sole registered widget, but only when it actually lies under the dead-zone strip (its layer frame contains the Touchdown point). The dead zone exists because the status bar swallows hit-testing over content that continues beneath it -- a full-bleed menu under the strip should still receive the touch. A widget positioned away from the strip has nothing under the touch and must not capture it.
+static TouchNavWidgetNode *prv_registry_sole_widget_under(TouchNavState *state,
+                                                          const TouchEvent *touchdown) {
+  TouchNavWidgetNode *const sole = prv_registry_sole_widget(state);
+  if (!sole || !sole->layer) {
+    return NULL;
+  }
+  const GPoint point = GPoint(touchdown->x, touchdown->y);
+  return grect_contains_point(&sole->layer->frame, &point) ? sole : NULL;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -211,7 +222,10 @@ ButtonId touch_nav_action_bar_zone_button(const TouchNavActionBar *bar, GPoint p
 // the old attach-order arbitration. If that winning node is un-migrated (ops == NULL) the gesture
 // belongs to the widget's own recognizer set, so return NULL and let that set drive it -- the
 // unified set only ever drives ops-bearing (migrated) widgets.
-static TouchNavWidgetNode *prv_resolve_widget_target(TouchNavState *state) {
+//
+// The touchdown event supplies the status-bar dead-zone fallback: when the parent walk finds nothing (the touch hit a layer outside every registered widget, e.g. the status-bar strip) and the Touchdown landed inside the dead zone, the window's sole registered widget owns the gesture -- the same fallback prv_resolve_route commits to when it answers TouchNavRoute_Tier1. Without it here, the router fails the bridge set while the latch fails the unified set and the touch drives nothing.
+static TouchNavWidgetNode *prv_resolve_widget_target(TouchNavState *state,
+                                                     const TouchEvent *touchdown) {
   if (!state || !state->manager) {
     return NULL;
   }
@@ -225,16 +239,23 @@ static TouchNavWidgetNode *prv_resolve_widget_target(TouchNavState *state) {
       }
     }
   }
+  if (touchdown && touchdown->type == TouchEvent_Touchdown &&
+      touchdown->y < TOUCH_NAV_STATUS_BAR_DEAD_ZONE_PX) {
+    TouchNavWidgetNode *const sole = prv_registry_sole_widget_under(state, touchdown);
+    return (sole && sole->ops) ? sole : NULL;
+  }
   return NULL;
 }
 
-// Touch filter for the unified widget set: handle a gesture only when the latched active layer
-// resolves to a migrated (ops-bearing) widget. A filtered-out recognizer returns without advancing,
-// so on a bridge / un-migrated-widget route it never Starts and never competes with the bridge set
-// or an un-migrated widget's own set on this task's global recognizer list.
+// Touch filter for the unified widget set: handle a gesture only when the latched active layer resolves to a migrated (ops-bearing) widget. A filtered-out recognizer returns without advancing, so on a bridge / un-migrated-widget route it never Starts and never competes with the bridge set or an un-migrated widget's own set on this task's global recognizer list.
+//
+// The filter runs on every event of the gesture, so it must stay gesture-stable: a Touchdown is resolved fresh from the event itself (the only event whose dead-zone coordinate is meaningful), while later events answer from the route the Touchdown dispatch already latched -- otherwise a finger dragging out of the dead zone would drop the unified set mid-gesture.
 static bool prv_widget_touch_filter(const Recognizer *recognizer, const TouchEvent *touch_event) {
   TouchNavState *state = recognizer_get_user_data(recognizer);
-  return prv_resolve_widget_target(state) != NULL;
+  if (touch_event->type == TouchEvent_Touchdown) {
+    return prv_resolve_widget_target(state, touch_event) != NULL;
+  }
+  return state->route == TouchNavRoute_Tier1;
 }
 
 // Unified widget dispatch. Mirrors the per-widget recognizer callbacks this replaces, but drives the
@@ -323,9 +344,10 @@ static TouchNavRoute prv_resolve_route(TouchNavState *state, const TouchEvent *t
     }
   }
 
-  // Status-bar dead zone: route to the window's sole widget, else drop.
+  // Status-bar dead zone: route to the window's sole widget when it lies under the strip, else drop.
   if (touchdown->y < TOUCH_NAV_STATUS_BAR_DEAD_ZONE_PX) {
-    return prv_registry_sole_widget(state) ? TouchNavRoute_Tier1 : TouchNavRoute_Dropped;
+    return prv_registry_sole_widget_under(state, touchdown) ? TouchNavRoute_Tier1 :
+                                                              TouchNavRoute_Dropped;
   }
 
   // Otherwise the Tier-2 bridge, unless the window opted out.
@@ -521,7 +543,7 @@ void touch_nav_dispatch(const TouchEvent *touch_event, void *context) {
     // Latch the unified widget target for the whole gesture, mirroring the bridge route latch. Do
     // NOT read latched_target during this Touchdown dispatch: it is set AFTER the manager processed
     // the Touchdown and is only consumed by later events.
-    state->latched_target = prv_resolve_widget_target(state);
+    state->latched_target = prv_resolve_widget_target(state, touch_event);
     state->declined = false;
     if (state->latched_target) {
       // Catch-to-stop: let the widget react to the bare Touchdown (e.g. stop a coasting fling)
