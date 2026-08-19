@@ -1065,7 +1065,7 @@ void animation_private_state_init(AnimationState *state) {
     // To aid for debugging, let's start each task off at a different handle offset. Eventually they
     // will collide but it is not required that each task have globally unique handles
     .next_handle = pebble_task_get_current() * 100000000,
-    .last_delay_ms = ANIMATION_TARGET_FRAME_INTERVAL_MS,
+    .last_delay_ms = ANIMATION_RENDER_FRAME_INTERVAL_MS,
     .last_frame_time_ms = prv_get_ms_since_system_start()
   };
 
@@ -1136,10 +1136,10 @@ void animation_private_timer_callback(void *context) {
 
   // Frame rate control:
   const int32_t frame_interval_ms = serial_distance32(state->aux->last_frame_time_ms, now);
-  const int32_t error_ms = frame_interval_ms - ANIMATION_TARGET_FRAME_INTERVAL_MS;
+  const int32_t error_ms = frame_interval_ms - ANIMATION_RENDER_FRAME_INTERVAL_MS;
   const int32_t theoretic_delay_ms = state->aux->last_delay_ms - error_ms;
   const uint32_t delay_ms = CLIP(theoretic_delay_ms, (int32_t) 0,
-                                (int32_t) ANIMATION_TARGET_FRAME_INTERVAL_MS);
+                                (int32_t) ANIMATION_RENDER_FRAME_INTERVAL_MS);
 
   prv_reschedule_timer(state, delay_ms);
   state->aux->last_delay_ms = delay_ms;
