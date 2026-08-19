@@ -223,6 +223,8 @@ static bool cst816_fw_update(void) {
 }
 
 static void cst816_hw_reset(void) {
+  // Toggling the reset pin must not race an in-flight I2C transfer on another task: a chip hit by reset mid-byte stops ACKing and corrupts the transfer (touch_sensor_set_enabled is reachable synchronously from arbitrary tasks while the system task services IRQ-driven reads). Take the same per-transfer lock prv_read_data/prv_write_data use. No caller holds it already -- the only lock-takers are those two, neither of which resets -- so this cannot self-deadlock.
+  mutex_lock(s_i2c_lock);
 #ifdef RESET_PIN_CTRLBY_NPM1300
   NPM1300_OPS.gpio_set(Npm1300_Gpio2, 0);
   psleep(CST816_RESET_CYCLE_TIME);
@@ -234,6 +236,7 @@ static void cst816_hw_reset(void) {
   gpio_output_set(&CST816->reset, false);
   psleep(CST816_POR_DELAY_TIME);
 #endif
+  mutex_unlock(s_i2c_lock);
 }
 
 void touch_sensor_init(void) {
