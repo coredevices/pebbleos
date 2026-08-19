@@ -432,14 +432,13 @@ static NOINLINE GTextNode *prv_create_view(NotificationLayout *layout, bool use_
     notification_timestamp_node_config = &notification_timestamp_config.text.extent.node;
     header_node_config = &header_config.text.extent.node;
   }
-  if (!layout->info.show_notification_timestamp && PBL_IF_RECT_ELSE(use_body_icon, true)) {
+  // Only jumboji drops the timestamp: an enlarged emoji replaces it. Incoming (modal)
+  // notifications keep it on round too, matching rect.
+  if (!layout->info.show_notification_timestamp && use_body_icon) {
     notification_timestamp_node_config = NULL;
   }
   const LayoutNodeConfig * const vertical_config_nodes[] = {
     reminder_timestamp_node_config,
-#if PBL_ROUND
-    notification_timestamp_node_config,
-#endif
     header_node_config,
     &title_config.text.extent.node,
     &subtitle_config.text.extent.node,
@@ -450,9 +449,7 @@ static NOINLINE GTextNode *prv_create_view(NotificationLayout *layout, bool use_
 #if NOTIFICATION_IMAGE_SUPPORTED
     &image_config.extent.node,
 #endif
-#if PBL_RECT
     notification_timestamp_node_config,
-#endif
   };
   const LayoutNodeVerticalConfig vertical_config = {
     .container.extent.node.type = LayoutNodeType_Vertical,
