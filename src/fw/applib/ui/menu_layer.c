@@ -1062,10 +1062,16 @@ static void prv_menu_layer_update_selection_highlight(MenuLayer *menu_layer, boo
 }
 
 static MenuRowAlign prv_corrected_scroll_align(MenuLayer *menu_layer, MenuRowAlign align) {
-  if (menu_layer->center_focused) {
-    return MenuRowAlignCenter;
+  if (!menu_layer->center_focused) {
+    return align;
   }
-  return align;
+#ifdef CONFIG_TOUCH
+  // While a touch gesture owns this menu, the finger owns the scroll offset (the carousel settles to the centre on liftoff via prv_menu_touch_settle_to_center, never through here). MenuRowAlignNone must keep its "leave the offset where it is" meaning in that window: a reload's update_caches re-selects the current row with None, and promoting that to a re-centre yanks the offset under the finger, which the next pan update jumps straight back from the gesture's base offset.
+  if (menu_layer_touch_is_gesture_target(menu_layer)) {
+    return align;
+  }
+#endif
+  return MenuRowAlignCenter;
 }
 
 static void prv_menu_layer_update_selection_scroll_position(MenuLayer *menu_layer,

@@ -1609,6 +1609,40 @@ void test_menu_layer__dispatch_tap_redirect_selects_target(void) {
 
 // ---- Pan through the dispatcher scrolls 1:1 and snaps on liftoff, selection frozen ----
 
+// A data reload landing mid-pan on a center-focused carousel must not touch the scroll offset: the finger owns it until liftoff. update_caches re-selects the current row with MenuRowAlignNone, which the center-focused promotion turns into a re-centre -- yanking the offset under the finger, which the next pan update immediately jumps back from the gesture's base offset (a visible double-jump, and a desync for the rest of the gesture).
+void test_menu_layer__dispatch_pan_reload_mid_gesture_keeps_offset(void) {
+  prv_touch_nav_setup();
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 200, 300));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  layer_add_child(&s_root_layer, menu_layer_get_layer(&l));
+  const int16_t base = scroll_layer_get_content_offset(&l.scroll_layer).y;  // row 0 centred
+  prv_reset_touch_counters();
+
+  prv_drive(TouchEvent_Touchdown, 100, 150);
+  prv_advance_ms(20);
+  prv_drive(TouchEvent_PositionUpdate, 100, 110);   // 40px up -> pan Started
+  prv_advance_ms(20);
+  prv_drive(TouchEvent_PositionUpdate, 100, 80);    // Updated -> live scroll
+  cl_assert(menu_layer_touch_is_gesture_target(&l));
+  const int16_t mid_pan = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert(mid_pan != base);                       // the pan actually moved the content
+
+  // The reload (timer, inbox, timeline update) lands while the finger is still down.
+  menu_layer_reload_data(&l);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, mid_pan);
+
+  // Liftoff still settles the carousel: the glide is animated, so (as in the direct-handler settle test) assert it was scheduled rather than driven to its target.
+  prv_advance_ms(20);
+  prv_drive(TouchEvent_Liftoff, 100, 80);
+  Animation *settle = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(settle != NULL);
+  cl_assert(animation_is_scheduled(settle));
+  menu_layer_deinit(&l);
+}
+
 void test_menu_layer__dispatch_pan_scrolls_1to1_and_snaps(void) {
   prv_touch_nav_setup();
   MenuLayer l;
