@@ -210,6 +210,15 @@ static void prv_finish_workout_heart_rate_dls_session(void *data) {
     .version = WORKOUT_HEART_RATE_LOGGING_VERSION,
   };
   DataLoggingResult result = dls_log(finish_data->session, &record, 1);
+  // Buffered sessions can temporarily be full while their preceding samples are being written
+  // from the System Task queue.  The completion marker is the companion's commit record: losing
+  // it would leave every otherwise valid detail point pending forever.  Requeue behind that
+  // writer rather than finishing the session without a marker.
+  if (result == DATA_LOGGING_BUSY &&
+      system_task_add_callback(prv_finish_workout_heart_rate_dls_session, finish_data)) {
+    PBL_LOG_WRN("Workout HR completion buffer busy; retrying");
+    return;
+  }
   if (result != DATA_LOGGING_SUCCESS) {
     PBL_LOG_WRN("Workout HR completion log failed: %"PRIi32, (int32_t)result);
   }
