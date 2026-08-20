@@ -28,6 +28,9 @@ typedef enum {
   DlsSystemTagProtobufLogSession = 85,
   DlsSystemTagMemfaultChunksSession = 86,
   DlsSystemTagAnalyticsNativeHeartbeat = 87,
+  // High-resolution heart-rate detail captured by the built-in Workout service. The matching
+  // activity-session record remains the authoritative workout summary.
+  DlsSystemTagWorkoutHeartRate = 88,
 } DlsSystemTag;
 
 //! Init the data logging service. Called by the system at boot time.

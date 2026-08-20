@@ -273,6 +273,25 @@ typedef struct PACKED {
   };
 } ActivitySessionDataLoggingRecord;
 
+// Versioned, fixed-size record used to persist the high-resolution heart-rate detail of a
+// manually started Workout. workout_id is the corresponding ActivitySession start_utc, which
+// lets the companion associate the samples with the existing workout rather than inventing a
+// second workout.
+#define WORKOUT_HEART_RATE_LOGGING_VERSION 1
+
+typedef struct PACKED {
+  uint32_t workout_id;
+  uint32_t sequence;
+  uint32_t timestamp_utc;
+  uint8_t bpm;
+  int8_t quality;
+  uint8_t flags;
+  uint8_t version;
+} WorkoutHeartRateDataLoggingRecord;
+
+#define WORKOUT_HEART_RATE_FLAG_ACTIVE (1 << 0)
+#define WORKOUT_HEART_RATE_FLAG_COMPLETE (1 << 1)
+
 // -----------------------------------------------------------------------------------------
 // Globals
 
