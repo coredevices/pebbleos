@@ -196,6 +196,14 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
       int32_t remaining_ticks = INT32_MAX;
       const int32_t spin_up_ticks = (int32_t)milliseconds_to_ticks(
                                              HRM_SENSOR_SPIN_UP_SEC * MS_PER_SECOND);
+      const int64_t unserved_timeout_ticks = milliseconds_to_ticks(
+          HRM_MAX_UNSERVED_TIME_SEC * MS_PER_SECOND);
+      // True once the sensor has been on a full serve window without satisfying every
+      // subscriber. Only counts continuous on-time, so subscribers that went overdue while the
+      // sensor was forced off (charging, run level) still get served first.
+      const bool serve_window_expired =
+          hrm_is_enabled(HRM) && s_manager_state.sensor_on_since_ticks &&
+          ((int64_t)(cur_ticks - s_manager_state.sensor_on_since_ticks) > unserved_timeout_ticks);
 
       // Loop through each of the subscribers and figure out when the next one needs an update
       HRMSubscriberState *state = (HRMSubscriberState *) s_manager_state.subscribers;
@@ -205,16 +213,31 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
           continue;
         }
         needed_features |= state->features;
+        const int64_t interval_ticks =
+            (int64_t)milliseconds_to_ticks(state->update_interval_s * MS_PER_SECOND);
         int64_t subscriber_age_ticks;
         if (state->last_valid_bpm_ticks) {
           subscriber_age_ticks = cur_ticks - state->last_valid_bpm_ticks;
         } else {
           // Never got an update yet
-          subscriber_age_ticks = milliseconds_to_ticks(state->update_interval_s * MS_PER_SECOND);
+          subscriber_age_ticks = interval_ticks;
+        }
+        if (serve_window_expired &&
+            ((state->last_valid_bpm_ticks == 0) ||
+             (subscriber_age_ticks >= interval_ticks + unserved_timeout_ticks))) {
+          // The sensor ran a whole serve window without producing a Good-quality reading for
+          // this subscriber. Mark it served so it waits out its interval instead of pinning the
+          // sensor on; short-interval (live HR) subscribers become due again immediately.
+          if (!s_manager_state.unserved_timeout_logged) {
+            PBL_LOG_WRN("HRM on for %ds without a valid reading, deferring subscribers",
+                        HRM_MAX_UNSERVED_TIME_SEC);
+            s_manager_state.unserved_timeout_logged = true;
+          }
+          state->last_valid_bpm_ticks = cur_ticks;
+          subscriber_age_ticks = 0;
         }
         int64_t subscriber_remaining_ticks =
-            (int64_t)milliseconds_to_ticks(state->update_interval_s * MS_PER_SECOND)
-            - subscriber_age_ticks - spin_up_ticks;
+            interval_ticks - subscriber_age_ticks - spin_up_ticks;
         subscriber_remaining_ticks = MAX(0, subscriber_remaining_ticks);
 
         remaining_ticks = MIN(remaining_ticks, subscriber_remaining_ticks);
@@ -274,6 +297,8 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
         // Success - reset failure counter
         s_manager_state.enable_failure_count = 0;
         s_manager_state.enabled_features = needed_features;
+        s_manager_state.sensor_on_since_ticks = rtc_get_ticks();
+        s_manager_state.unserved_timeout_logged = false;
         // Don't need the re-enable timer to fire
         new_timer_stop(s_manager_state.update_enable_timer_id);
         // Track HRM on-time
@@ -285,6 +310,7 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
       HRM_LOG("Turning off HR sensor");
       hrm_disable(HRM);
       s_manager_state.enabled_features = (HRMFeature)0;
+      s_manager_state.sensor_on_since_ticks = 0;
       // Stop tracking HRM on-time
       PBL_ANALYTICS_TIMER_STOP(hrm_on_time_ms);
 

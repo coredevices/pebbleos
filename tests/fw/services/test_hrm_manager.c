@@ -821,6 +821,66 @@ void test_hrm_manager__app_queue_full_drops_without_panic(void) {
   sys_hrm_manager_unsubscribe(session_ref);
 }
 
+// A subscriber the sensor cannot serve (quality never reaches Good) must not pin the sensor on
+// indefinitely: after HRM_MAX_UNSERVED_TIME_SEC it is deferred to its next interval.
+void test_hrm_manager__unserved_subscriber_timeout(void) {
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1 /*app_id*/, 600 /*interval_s*/,
+                                                            0 /*expire_s*/, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+
+  // Never served, so the sensor turns on right away
+  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+
+  // Sub-Good readings don't serve the subscriber; the sensor stays on before the timeout
+  const HRMData poor_data = {
+    .features = HRMFeature_BPM,
+    .hrm_bpm = 70,
+    .hrm_quality = HRMQuality_Acceptable,
+  };
+  for (int i = 0; i < 2 * HRM_CHECK_SENSOR_DISABLE_COUNT; ++i) {
+    hrm_manager_new_data_cb(&poor_data);
+    fake_system_task_callbacks_invoke_pending();
+  }
+  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+
+  // Once the serve window expires, the subscriber is deferred and the sensor powers off
+  prv_advance_time_ms((HRM_MAX_UNSERVED_TIME_SEC + 1) * MS_PER_SECOND);
+  for (int i = 0; i <= HRM_CHECK_SENSOR_DISABLE_COUNT; ++i) {
+    hrm_manager_new_data_cb(&poor_data);
+    fake_system_task_callbacks_invoke_pending();
+  }
+  cl_assert_equal_b(hrm_is_enabled(HRM), false);
+
+  // The re-enable timer waits out the subscriber's interval, not another immediate attempt
+  uint32_t timeout_ms = stub_new_timer_timeout(prv_get_timer_id());
+  cl_assert_equal_i(timeout_ms, (600 - HRM_SENSOR_SPIN_UP_SEC) * MS_PER_SECOND);
+
+  sys_hrm_manager_unsubscribe(session_ref);
+}
+
+// The unserved-subscriber timeout must not shut the sensor off under a short-interval (live HR)
+// subscriber: deferring it makes it due again immediately, so the sensor stays on.
+void test_hrm_manager__unserved_timeout_keeps_live_hr_on(void) {
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1 /*app_id*/, 1 /*interval_s*/,
+                                                            0 /*expire_s*/, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+
+  const HRMData poor_data = {
+    .features = HRMFeature_BPM,
+    .hrm_bpm = 70,
+    .hrm_quality = HRMQuality_Acceptable,
+  };
+  prv_advance_time_ms((HRM_MAX_UNSERVED_TIME_SEC + 1) * MS_PER_SECOND);
+  for (int i = 0; i <= HRM_CHECK_SENSOR_DISABLE_COUNT; ++i) {
+    hrm_manager_new_data_cb(&poor_data);
+    fake_system_task_callbacks_invoke_pending();
+  }
+  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+
+  sys_hrm_manager_unsubscribe(session_ref);
+}
+
 // Test that OffWrist quality is delivered immediately without delay
 void test_hrm_manager__immediate_off_wrist(void) {
   stub_pebble_tasks_set_current(PebbleTask_KernelBackground);
