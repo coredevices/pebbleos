@@ -6,6 +6,7 @@
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/activity/activity_calculators.h"
 #include "pbl/services/activity/workout_service.h"
+#include "pbl/services/data_logging/data_logging_service.h"
 #include "pbl/services/hrm/hrm_manager.h"
 #include "process_management/app_install_types.h"
 #include "util/time/time.h"
@@ -17,6 +18,7 @@
 #include "stubs_logging.h"
 #include "stubs_pbl_malloc.h"
 #include "stubs_regular_timer.h"
+#include "stubs_system_task.h"
 
 #include "fake_rtc.h"
 #include "fake_mutex.h"
@@ -78,6 +80,22 @@ uint8_t activity_prefs_heart_get_zone3_threshold(void) {
 AppInstallId app_get_app_id(void) {
   return 0;
 }
+
+// ---------------------------------------------------------------------------------------
+
+static DataLoggingSession *const s_data_logging_session = (DataLoggingSession *)1;
+
+DataLoggingSession *dls_create(uint32_t tag, DataLoggingItemType item_type, uint16_t item_size,
+                               bool buffered, bool resume, const Uuid *uuid) {
+  return s_data_logging_session;
+}
+
+DataLoggingResult dls_log(DataLoggingSession *logging_session, const void *data,
+                          uint32_t num_items) {
+  return DATA_LOGGING_SUCCESS;
+}
+
+void dls_finish(DataLoggingSession *logging_session) {}
 
 // ---------------------------------------------------------------------------------------
 

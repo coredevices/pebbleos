@@ -15,6 +15,7 @@ clar(ctx,
          " src/fw/services/activity/activity_sessions.c" \
          " src/fw/services/activity/activity_calculators.c" \
          " src/fw/services/activity/hr_util.c" \
+         " src/fw/services/activity/sleep_capture.c" \
          " src/fw/services/filesystem/flash_translation.c" \
          " src/fw/services/filesystem/pfs.c" \
          " src/fw/services/settings/settings_file.c" \
@@ -26,7 +27,8 @@ clar(ctx,
          " src/fw/util/legacy_checksum.c" \
          " tests/fakes/fake_events.c" \
          " tests/fakes/fake_rtc.c" \
-         " tests/fakes/fake_spi_flash.c",
+         " tests/fakes/fake_spi_flash.c" \
+         " src/fw/drivers/rng/stubs.c",
      test_sources_ant_glob = "test_activity.c",
      override_includes=['dummy_board'],
      defines=["DUMA_DISABLED", "CAPABILITY_HAS_HEALTH_TRACKING=1",
