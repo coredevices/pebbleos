@@ -232,7 +232,10 @@ static void prv_set_from_forecast(const WeatherLocationForecast *f,
   if (raw) {
     s_ev->icon = gdraw_command_image_clone(raw);   // writable copy so we can scale it
     gdraw_command_image_destroy(raw);
-    if (s_ev->icon) gdraw_command_image_scale(s_ev->icon, GSize(EV_ICON_SIZE, EV_ICON_SIZE));
+    if (s_ev->icon) {
+      gdraw_command_image_scale(s_ev->icon, GSize(EV_ICON_SIZE, EV_ICON_SIZE));
+      weather_recolor_pdc_image_for_dark_mode(s_ev->icon);
+    }
   }
 }
 
@@ -307,7 +310,7 @@ static void prv_draw_gauge(GContext *ctx, int cx, int cy, int r, const char *lab
     int v = value < 0 ? 0 : (value > max_val ? max_val : value);
     int32_t filled = weather_scale_i32(EV_GAUGE_ARC_SPAN, v, max_val);
     if (filled > 0) {
-      graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(fill, GColorBlack));
+      graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(fill, system_theme_get_fg_color()));
       graphics_fill_radial(ctx, ring, GOvalScaleModeFitCircle, EV_GAUGE_RING_W,
                            EV_GAUGE_ARC_START, EV_GAUGE_ARC_START + filled);
     }
@@ -315,7 +318,7 @@ static void prv_draw_gauge(GContext *ctx, int cx, int cy, int r, const char *lab
   char vbuf[12];
   if (unknown) snprintf(vbuf, sizeof(vbuf), "--");
   else         snprintf(vbuf, sizeof(vbuf), "%d%s", value, unit);
-  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   graphics_draw_text(ctx, vbuf, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
                      GRect(cx - r + 2, cy - 12, 2 * r - 4, 24),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
@@ -368,7 +371,7 @@ static void prv_draw_precip_pill(GContext *ctx, int W, int tdx, int precip) {
 void expanded_view_draw_glance_content(GContext *ctx, int W, int tdx, const char *status,
                                        const char *sunset, const char *temp, int uv, int precip,
                                        int wind) {
-  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   // Status bar (top) — the time or "Last updated ..."; NULL while the card draws the swap itself.
   if (status) {
     graphics_draw_text(ctx, status, fonts_get_system_font(EV_STATUS_FONT),
@@ -448,7 +451,7 @@ void expanded_view_draw_glance_content(GContext *ctx, int W, int tdx, const char
     if (precip >= 0) snprintf(rain_part, sizeof(rain_part), "RAIN %d%%", precip);
     else             snprintf(rain_part, sizeof(rain_part), "RAIN --");
     snprintf(meters, sizeof(meters), "%s   %s", uv_part, rain_part);
-    graphics_context_set_text_color(ctx, GColorBlack);
+    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
     graphics_draw_text(ctx, meters, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
                        GRect(tdx, EV_METERS_Y, W, 22),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
@@ -466,7 +469,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   GRect b = layer_get_bounds(layer);
   const int W = b.size.w;
 
-  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
   graphics_fill_rect(ctx, b, 0, GCornerNone);
 
   // Icon stays fixed (the hero fly placed it); everything else slides in from the left + bounces.
@@ -487,7 +490,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     prv_build_time(time_str, sizeof(time_str));
     const int sx = (int)interpolate_moook_soft(s_ev->swap_p, 0, W, 3);
     GFont f = fonts_get_system_font(EV_STATUS_FONT);
-    graphics_context_set_text_color(ctx, GColorBlack);
+    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
     graphics_draw_text(ctx, s_ev->updated_str, f, GRect(sx, EV_STATUS_Y, W, 20),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
     graphics_draw_text(ctx, time_str, f, GRect(sx - W, EV_STATUS_Y, W, 20),
@@ -509,7 +512,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   // half-circle reads as a rendering glitch, not an affordance.
   if (!EV_SMALL_RECT) {
     const int select_protrusion = 5;
-    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
     graphics_fill_oval(ctx, GRect(W - select_protrusion, (b.size.h - 26) / 2, 26, 26),
                        GOvalScaleModeFitCircle);
   }
@@ -524,7 +527,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     const int arrow_band = 18;
     const GRect down_frame = GRect(0, b.size.h - arrow_band, W, arrow_band);
     content_indicator_draw_arrow(ctx, &down_frame, ContentIndicatorDirectionDown,
-                                 GColorBlack, GColorWhite, GAlignCenter);
+                                 system_theme_get_fg_color(), system_theme_get_bg_color(), GAlignCenter);
   }
 #endif
 }
@@ -719,7 +722,7 @@ static void prv_window_appear(Window *window) {
 
 static void prv_window_load(Window *window) {
   if (!s_ev) return;
-  window_set_background_color(window, GColorWhite);
+  window_set_background_color(window, system_theme_get_bg_color());
   GRect bounds = layer_get_bounds(window_get_root_layer(window));
   GRect frame = bounds;
   // Globe-BACK entrance (BOTH shapes): start the whole card off-screen to the left so its first

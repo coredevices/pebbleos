@@ -2270,7 +2270,7 @@ static void show_intro_canvas(GlobeView *view) {
     if (!view) return;
 
     if (view->window) {
-        window_set_background_color(view->window, GColorWhite);
+        window_set_background_color(view->window, system_theme_get_bg_color());
     }
     if (view->canvas_layer) layer_set_hidden(view->canvas_layer, false);
     if (view->space_layer) layer_set_hidden(view->space_layer, true);
@@ -3102,7 +3102,7 @@ static void draw_transition_state(GContext *ctx, GlobeView *view, GPoint origin,
                   frame_size.w + (GLOBE_CRADLE_WIPE_MARGIN * 2),
                   wipe_h + (GLOBE_CRADLE_WIPE_MARGIN * 2));
 
-        graphics_context_set_fill_color(ctx, GColorWhite);
+        graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
         graphics_fill_rect(ctx, wipe_rect,
                            0, GCornerNone);
         if (view->reveal_direction > 0) {
@@ -3151,7 +3151,7 @@ static void draw_intro_title(GContext *ctx, GRect bounds, int globe_y,
     (void)frame_size;
 
     const int header_height = GLOBE_SMALL_RECT ? 24 : 38;
-    graphics_context_set_text_color(ctx, GColorBlack);
+    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
     graphics_draw_text(ctx, "CITY SELECT",
                        fonts_get_system_font(GLOBE_SMALL_RECT ? FONT_KEY_GOTHIC_18_BOLD
                                                               : FONT_KEY_GOTHIC_28_BOLD),
@@ -3159,7 +3159,7 @@ static void draw_intro_title(GContext *ctx, GRect bounds, int globe_y,
                        GTextOverflowModeTrailingEllipsis,
                        GTextAlignmentCenter,
                        NULL);
-    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
     graphics_fill_rect(ctx,
                        GRect(0, header_height - 2, bounds.size.w, 2),
                        0, GCornerNone);
@@ -3172,7 +3172,7 @@ static void draw_intro_title(GContext *ctx, GRect bounds, int globe_y,
     int title_y = (planet_top - GLOBE_INTRO_TITLE_HEIGHT) / 2;
     if (title_y < 0) title_y = 0;
 
-    graphics_context_set_text_color(ctx, GColorBlack);
+    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
     graphics_draw_text(ctx, title,
                        font,
                        GRect(0, title_y - 4,
@@ -3182,11 +3182,11 @@ static void draw_intro_title(GContext *ctx, GRect bounds, int globe_y,
                        GTextAlignmentCenter,
                        NULL);
     // Divider under the title (round port of the rect city-select redesign): the same
-    // 2px black rule, FULL WIDTH — the round framebuffer clips each row to the glass,
+    // 2px rule, FULL WIDTH — the round framebuffer clips each row to the glass,
     // so drawing edge to edge lands it bezel-to-bezel. Rides title_y like the title.
     {
       const int rule_y = title_y + GLOBE_INTRO_TITLE_HEIGHT - 2;
-      graphics_context_set_fill_color(ctx, GColorBlack);
+      graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
       graphics_fill_rect(ctx, GRect(0, rule_y, bounds.size.w, 2), 0, GCornerNone);
     }
 #endif
@@ -3240,15 +3240,15 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
 
     // BW: the dithered blue read as noise under white text — the selected bar
     // goes solid black instead.
-    const GColor sel_fill = PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorBlack);
-    graphics_context_set_fill_color(ctx, selected ? sel_fill : GColorWhite);
+    const GColor sel_fill = PBL_IF_COLOR_ELSE(GColorVividCerulean, system_theme_get_fg_color());
+    graphics_context_set_fill_color(ctx, selected ? sel_fill : system_theme_get_bg_color());
     graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, bar_h), 0, GCornerNone);
-    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
     graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, 2),
                        0, GCornerNone);
 
-    GColor label_color = selected ? GColorWhite : GColorBlack;
-    GColor bg_color = selected ? sel_fill : GColorWhite;
+    GColor label_color = selected ? GColorWhite : system_theme_get_fg_color();
+    GColor bg_color = selected ? sel_fill : system_theme_get_bg_color();
     draw_saved_locations_pin(ctx,
                              GPoint(side_inset,
                                     y + (bar_h - GLOBE_SAVED_COG_SIZE) / 2),
@@ -3299,13 +3299,13 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view,
         graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, fill_h),
                            0, GCornerNone);
     }
-    // Divider above the row, ALWAYS drawn (rect redesign parity): 2px black rule replacing
+    // Divider above the row, ALWAYS drawn (rect redesign parity): 2px rule replacing
     // the old selection-only 1px grey line, FULL WIDTH (the glass mask clips it edge to edge).
-    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
     graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, 2), 0, GCornerNone);
 
-    GColor label_color = selected ? GColorWhite : GColorBlack;
-    GColor bg_color = selected ? GColorVividCerulean : GColorWhite;
+    GColor label_color = selected ? GColorWhite : system_theme_get_fg_color();
+    GColor bg_color = selected ? GColorVividCerulean : system_theme_get_bg_color();
     draw_saved_locations_pin(ctx,
                              GPoint(pin_x, y + (GLOBE_SAVED_LABEL_HEIGHT -
                                                 GLOBE_SAVED_COG_SIZE) / 2),
@@ -3659,7 +3659,7 @@ GlobeView *globe_view_create(void) {
 
     // Configure window
     window_set_user_data(view->window, view);
-    window_set_background_color(view->window, GColorWhite);
+    window_set_background_color(view->window, system_theme_get_bg_color());
     window_set_click_config_provider_with_context(view->window, window_click_provider, view);
     window_set_window_handlers(view->window, (WindowHandlers) {
         .appear = window_appear_handler,

@@ -191,7 +191,7 @@ static void prv_draw_glance_row(GContext *ctx, const Layer *cell_layer,
   const bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
   GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   graphics_context_set_text_color(ctx,
-                                  highlighted ? GColorWhite : GColorBlack);
+                                  highlighted ? GColorWhite : system_theme_get_fg_color());
 
   char temp_text[12];
   snprintf(temp_text, sizeof(temp_text), "%d°", (int)glance->temp);
@@ -495,7 +495,7 @@ void saved_locations_push(const SavedLocationsConfig *config) {
     return;
   }
   window_set_user_data(view->window, view);
-  window_set_background_color(view->window, GColorWhite);
+  window_set_background_color(view->window, system_theme_get_bg_color());
   window_set_window_handlers(view->window, (WindowHandlers) {
 #ifdef CONFIG_TOUCH
     .appear = prv_window_appear,
@@ -529,10 +529,10 @@ void saved_locations_push(const SavedLocationsConfig *config) {
     .draw_row = prv_draw_row,
     .select_click = prv_select_click,
   });
-  menu_layer_set_normal_colors(view->menu_layer, GColorWhite, GColorBlack);
+  menu_layer_set_normal_colors(view->menu_layer, system_theme_get_bg_color(), system_theme_get_fg_color());
   menu_layer_set_highlight_colors(view->menu_layer,
-                                  PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorBlack),
-                                  GColorWhite);
+                                  PBL_IF_COLOR_ELSE(GColorVividCerulean, system_theme_get_fg_color()),
+                                  system_theme_get_bg_color());
   menu_layer_set_click_config_onto_window(view->menu_layer, view->window);
   layer_add_child(root, menu_layer_get_layer(view->menu_layer));
 
