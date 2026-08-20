@@ -58,6 +58,11 @@ typedef struct CurrentWorkoutData {
   uint32_t next_heart_rate_sequence;
   time_t last_logged_heart_rate_utc;
 
+  // PPI/RR intervals can arrive more than once in a second. Keep their own stream and sequence
+  // rather than downsampling or inferring them from the BPM stream.
+  DataLoggingSession *ppi_dls_session;
+  uint32_t next_ppi_sequence;
+
   // Step count total from the last HealthEventMovementUpdate
   int32_t last_event_step_count;
   time_t last_movement_event_time_ts;
@@ -87,6 +92,13 @@ typedef struct WorkoutHeartRateDlsFinishData {
   uint32_t sequence;
   time_t end_utc;
 } WorkoutHeartRateDlsFinishData;
+
+typedef struct WorkoutPpiDlsFinishData {
+  DataLoggingSession *session;
+  uint32_t workout_id;
+  uint32_t sequence;
+  time_t end_utc;
+} WorkoutPpiDlsFinishData;
 
 static void prv_lock(void) {
   mutex_lock_recursive(s_workout_data.s_workout_mutex);
@@ -165,6 +177,31 @@ static bool prv_ensure_workout_heart_rate_dls_session(CurrentWorkoutData *wrkt_d
   return true;
 }
 
+#ifdef CONFIG_HRM_HRV
+// ---------------------------------------------------------------------------------------
+static bool prv_ensure_workout_ppi_dls_session(CurrentWorkoutData *wrkt_data) {
+  if (wrkt_data->ppi_dls_session) {
+    return true;
+  }
+
+  // The HRV driver emits accepted PPI values on the shell task. Allocate the buffered system
+  // session lazily here, after a real interval exists, so a Workout with no valid PPI consumes no
+  // DataLogging storage and can still retain its normal ActivitySession summary.
+  const Uuid system_uuid = UUID_SYSTEM;
+  wrkt_data->ppi_dls_session = dls_create(
+      DlsSystemTagWorkoutPpi, DATA_LOGGING_BYTE_ARRAY,
+      sizeof(WorkoutPpiDataLoggingRecord), true /* buffered */, false /* resume */,
+      &system_uuid);
+  if (!wrkt_data->ppi_dls_session) {
+    PBL_LOG_WRN("Unable to create workout PPI logging session");
+    return false;
+  }
+
+  return true;
+}
+
+#endif  // CONFIG_HRM_HRV
+
 // ---------------------------------------------------------------------------------------
 static void prv_log_workout_heart_rate(CurrentWorkoutData *wrkt_data,
                                        HealthEventHeartRateUpdateData *event) {
@@ -198,6 +235,36 @@ static void prv_log_workout_heart_rate(CurrentWorkoutData *wrkt_data,
   wrkt_data->last_logged_heart_rate_utc = now_utc;
 }
 
+#ifdef CONFIG_HRM_HRV
+// ---------------------------------------------------------------------------------------
+static void prv_log_workout_ppi(CurrentWorkoutData *wrkt_data,
+                                 const HealthEventHRVUpdateData *event) {
+  if (wrkt_data->paused || event->ppi_ms == 0 || !prv_ensure_workout_ppi_dls_session(wrkt_data)) {
+    return;
+  }
+
+  // The firmware's HRV driver has already discarded invalid vendor results. Preserve every
+  // accepted non-zero PPI plus its quality; a companion must not manufacture missing intervals.
+  WorkoutPpiDataLoggingRecord record = {
+    .workout_id = (uint32_t)wrkt_data->start_utc,
+    .sequence = wrkt_data->next_ppi_sequence++,
+    .timestamp_utc = (uint32_t)rtc_get_time(),
+    .ppi_ms = event->ppi_ms,
+    .quality = event->quality,
+    .flags_and_version = (WORKOUT_PPI_LOGGING_VERSION << WORKOUT_PPI_VERSION_SHIFT) |
+        WORKOUT_PPI_FLAG_ACTIVE,
+  };
+
+  const DataLoggingResult result = dls_log(wrkt_data->ppi_dls_session, &record, 1);
+  if (result != DATA_LOGGING_SUCCESS) {
+    // A buffered DLS session retains data locally and reports BUSY only when its bounded RAM
+    // staging buffer is full. Do not reuse this sequence after a failed append: a future retry
+    // must never overwrite an interval the phone might already have received.
+    PBL_LOG_WRN("Workout PPI log failed: %"PRIi32, (int32_t)result);
+  }
+}
+#endif  // CONFIG_HRM_HRV
+
 // ---------------------------------------------------------------------------------------
 static void prv_finish_workout_heart_rate_dls_session(void *data) {
   WorkoutHeartRateDlsFinishData *finish_data = data;
@@ -221,6 +288,30 @@ static void prv_finish_workout_heart_rate_dls_session(void *data) {
   }
   if (result != DATA_LOGGING_SUCCESS) {
     PBL_LOG_WRN("Workout HR completion log failed: %"PRIi32, (int32_t)result);
+  }
+  dls_finish(finish_data->session);
+  kernel_free(finish_data);
+}
+
+// ---------------------------------------------------------------------------------------
+static void prv_finish_workout_ppi_dls_session(void *data) {
+  WorkoutPpiDlsFinishData *finish_data = data;
+  WorkoutPpiDataLoggingRecord record = {
+    .workout_id = finish_data->workout_id,
+    .sequence = finish_data->sequence,
+    .timestamp_utc = (uint32_t)finish_data->end_utc,
+    .quality = -128, // terminal marker; not a sensor measurement
+    .flags_and_version = (WORKOUT_PPI_LOGGING_VERSION << WORKOUT_PPI_VERSION_SHIFT) |
+        WORKOUT_PPI_FLAG_COMPLETE,
+  };
+  const DataLoggingResult result = dls_log(finish_data->session, &record, 1);
+  if (result == DATA_LOGGING_BUSY &&
+      system_task_add_callback(prv_finish_workout_ppi_dls_session, finish_data)) {
+    PBL_LOG_WRN("Workout PPI completion buffer busy; retrying");
+    return;
+  }
+  if (result != DATA_LOGGING_SUCCESS) {
+    PBL_LOG_WRN("Workout PPI completion log failed: %"PRIi32, (int32_t)result);
   }
   dls_finish(finish_data->session);
   kernel_free(finish_data);
@@ -289,6 +380,15 @@ static void prv_handle_heart_rate_update(HealthEventHeartRateUpdateData *event) 
 }
 
 // ---------------------------------------------------------------------------------------
+static void prv_handle_hrv_update(HealthEventHRVUpdateData *event) {
+#ifdef CONFIG_HRM_HRV
+  prv_log_workout_ppi(s_workout_data.current_workout, event);
+#else
+  (void)event;
+#endif
+}
+
+// ---------------------------------------------------------------------------------------
 bool workout_service_is_workout_type_supported(ActivitySessionType type) {
   return type == ActivitySessionType_Walk ||
          type == ActivitySessionType_Run ||
@@ -344,6 +444,8 @@ void workout_service_health_event_handler(PebbleHealthEvent *event) {
       prv_handle_movement_update(&event->data.movement_update);
     } else if (event->type == HealthEventHeartRateUpdate) {
       prv_handle_heart_rate_update(&event->data.heart_rate_update);
+    } else if (event->type == HealthEventHRVUpdate) {
+      prv_handle_hrv_update(&event->data.hrv_update);
     }
   }
 unlock:
@@ -431,8 +533,14 @@ void workout_service_frontend_closed(void) {
 
     if (hr_time_left > 0) {
       // Still some time left. Set a subscription with an expiration
-      s_workout_data.hrm_session =
-          sys_hrm_manager_app_subscribe(app_get_app_id(), 1, hr_time_left, HRMFeature_BPM);
+      s_workout_data.hrm_session = sys_hrm_manager_app_subscribe(
+          app_get_app_id(), 1, hr_time_left,
+#ifdef CONFIG_HRM_HRV
+          workout_service_is_workout_ongoing() ? (HRMFeature_BPM | HRMFeature_HRV) : HRMFeature_BPM
+#else
+          HRMFeature_BPM
+#endif
+      );
     } else {
       // No time left. Kill the subscription
       sys_hrm_manager_unsubscribe(s_workout_data.hrm_session);
@@ -492,6 +600,17 @@ bool workout_service_start_workout(ActivitySessionType type) {
 
     regular_timer_add_seconds_callback(&s_workout_data.second_timer);
 
+#ifdef CONFIG_HRM
+    // A normal Workout begins with the existing one-second BPM subscription. Add HRV only while
+    // the user is actively recording: this causes the optional Time 2 driver path to run and
+    // stops it again on Workout end, without changing idle or merely-open Workout battery use.
+    if (s_workout_data.hrm_session != HRM_INVALID_SESSION_REF) {
+#ifdef CONFIG_HRM_HRV
+      sys_hrm_manager_set_features(s_workout_data.hrm_session, HRMFeature_BPM | HRMFeature_HRV);
+#endif
+    }
+#endif
+
     // Finally tell our algorithm it should stop automatically tracking activities
     activity_algorithm_enable_activity_tracking(false /* disable */);
 
@@ -549,6 +668,7 @@ bool workout_service_stop_workout(void) {
   int32_t avg_hr_to_save = 0;
   int32_t hr_zone_time_s_to_save[HRZoneCount];
   WorkoutHeartRateDlsFinishData *heart_rate_dls_finish_data = NULL;
+  WorkoutPpiDlsFinishData *ppi_dls_finish_data = NULL;
 
   prv_lock();
   {
@@ -596,6 +716,10 @@ bool workout_service_stop_workout(void) {
     // the user's preferred rate within a bounded window, regardless of when the app actually exits.
     sys_hrm_manager_set_update_interval(s_workout_data.hrm_session, 1,
                                         WORKOUT_ENDED_HR_SUBSCRIPTION_TS_EXPIRE);
+#ifdef CONFIG_HRM_HRV
+    // Return to the existing BPM-only recovery behavior before releasing the Workout state.
+    sys_hrm_manager_set_features(s_workout_data.hrm_session, HRMFeature_BPM);
+#endif
 #endif // CONFIG_HRM
 
     PBL_LOG_INFO("Stopping a workout with type: %d", wrkt->type);
@@ -607,6 +731,15 @@ bool workout_service_stop_workout(void) {
         .session = wrkt->heart_rate_dls_session,
         .workout_id = (uint32_t)wrkt->start_utc,
         .sequence = wrkt->next_heart_rate_sequence,
+        .end_utc = rtc_get_time(),
+      };
+    }
+    if (wrkt->ppi_dls_session) {
+      ppi_dls_finish_data = kernel_zalloc_check(sizeof(*ppi_dls_finish_data));
+      *ppi_dls_finish_data = (WorkoutPpiDlsFinishData) {
+        .session = wrkt->ppi_dls_session,
+        .workout_id = (uint32_t)wrkt->start_utc,
+        .sequence = wrkt->next_ppi_sequence,
         .end_utc = rtc_get_time(),
       };
     }
@@ -628,6 +761,12 @@ bool workout_service_stop_workout(void) {
                                   heart_rate_dls_finish_data)) {
       PBL_LOG_WRN("Unable to finish workout HR logging session");
       kernel_free(heart_rate_dls_finish_data);
+    }
+  }
+  if (ppi_dls_finish_data) {
+    if (!system_task_add_callback(prv_finish_workout_ppi_dls_session, ppi_dls_finish_data)) {
+      PBL_LOG_WRN("Unable to finish workout PPI logging session");
+      kernel_free(ppi_dls_finish_data);
     }
   }
 

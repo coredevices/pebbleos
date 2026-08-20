@@ -31,6 +31,9 @@ typedef enum {
   // High-resolution heart-rate detail captured by the built-in Workout service. The matching
   // activity-session record remains the authoritative workout summary.
   DlsSystemTagWorkoutHeartRate = 88,
+  // Accepted PPI/RR intervals from the Time 2 HRV algorithm while a built-in Workout is active.
+  // These are raw algorithm outputs, not precomputed HRV metrics.
+  DlsSystemTagWorkoutPpi = 89,
 } DlsSystemTag;
 
 //! Init the data logging service. Called by the system at boot time.

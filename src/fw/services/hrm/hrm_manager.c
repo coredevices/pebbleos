@@ -759,6 +759,10 @@ DEFINE_SYSCALL(bool, sys_hrm_manager_set_features, HRMSessionRef session, HRMFea
   HRMSubscriberState *state = prv_get_subscriber_state_from_ref(session);
   if (state) {
     state->features = features;
+    // The driver must restart when a live subscriber changes the requested feature mix (for
+    // example BPM-only to BPM + HRV during a Workout). Without this wake-up, the state changes
+    // only in RAM and the sensor can keep running with its old feature set indefinitely.
+    system_task_add_callback(prv_update_hrm_enable_system_cb, NULL);
     success = true;
   }
   mutex_unlock_recursive(s_manager_state.lock);

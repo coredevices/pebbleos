@@ -292,6 +292,24 @@ typedef struct PACKED {
 #define WORKOUT_HEART_RATE_FLAG_ACTIVE (1 << 0)
 #define WORKOUT_HEART_RATE_FLAG_COMPLETE (1 << 1)
 
+// A compact, versioned raw PPI item. The upper nibble stores the version and the lower nibble
+// stores flags, keeping one accepted interval at 16 bytes and allowing several values per second.
+typedef struct PACKED {
+  uint32_t workout_id;
+  uint32_t sequence;
+  uint32_t timestamp_utc;
+  uint16_t ppi_ms;
+  int8_t quality;
+  uint8_t flags_and_version;
+} WorkoutPpiDataLoggingRecord;
+_Static_assert(sizeof(WorkoutPpiDataLoggingRecord) == 16,
+               "Workout PPI DataLogging record must remain wire-compatible");
+
+#define WORKOUT_PPI_LOGGING_VERSION 1
+#define WORKOUT_PPI_VERSION_SHIFT 4
+#define WORKOUT_PPI_FLAG_ACTIVE (1 << 0)
+#define WORKOUT_PPI_FLAG_COMPLETE (1 << 1)
+
 // -----------------------------------------------------------------------------------------
 // Globals
 
