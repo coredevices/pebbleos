@@ -89,6 +89,8 @@ typedef struct PACKED {
       //! Selected tone (AlarmTone enum value). Default 0 (Reveille). Irrelevant when
       //! sound_enabled is 0.
       uint8_t tone:3;
+      //! Whether the alarm's immediate next occurrence should be snoozed/skipped.
+      bool is_snoozed_next:1;
     };
     uint8_t flags;
   };
@@ -110,6 +112,7 @@ static void prv_cron_callback(CronJob *job, void* data);
 static void prv_snooze_alarm(int snooze_delay_s);
 static bool prv_set_alarm_kind_op(AlarmId id, AlarmConfig *config, void *context);
 static bool prv_set_alarm_custom_op(AlarmId id, AlarmConfig *config, void *context);
+static bool prv_set_alarm_snoozed_next_op(AlarmId id, AlarmConfig *config, void *context);
 
 // Private globals
 static bool s_alarms_enabled = false;
@@ -241,7 +244,7 @@ static void prv_timeline_add_alarm(SettingsFile *file, const Alarm *alarm,
                                    const CronJob *cron, const time_t current_time) {
   // If an alarm was updated then remove all the pins with stale information
   // If an alarm was added then this has no effect
-  bool updated = prv_timeline_remove_alarm(file, alarm->id);
+  prv_timeline_remove_alarm(file, alarm->id);
 
   // We allocate some larger variables on the heap to reduce stack usage
   struct tm *local_alarm_time = kernel_malloc_check(sizeof(struct tm));
@@ -252,19 +255,23 @@ static void prv_timeline_add_alarm(SettingsFile *file, const Alarm *alarm,
   }
 
   int num_pin_adds = 0;
-  time_t alarm_time = prv_get_alarm_time(alarm, cron_job_get_execute_time(cron));
+  time_t next_cron_time = cron_job_get_execute_time(cron);
+  time_t alarm_time = prv_get_alarm_time(alarm, next_cron_time);
+  time_t skipped_alarm_time = 0;
+  if (alarm->config.is_snoozed_next && next_cron_time > current_time) {
+    skipped_alarm_time = alarm_time;
+  }
 
   time_t last_alarm = 0;
   for (int i = 0; alarm_time <= current_time + SECONDS_PER_DAY * 3; i++) {
     if (last_alarm != alarm_time) {
       last_alarm = alarm_time;
-      localtime_r(&alarm_time, local_alarm_time);
-      if (alarm->config.scheduled_days[local_alarm_time->tm_wday]) {
-        Uuid *pinid = (Uuid *)&settings_file_buffer[num_pin_adds++ * UUID_SIZE];
-        prv_add_pin(alarm->id, &alarm->config, alarm_time, pinid);
+      if (alarm_time != skipped_alarm_time) {
+        localtime_r(&alarm_time, local_alarm_time);
+        if (alarm->config.scheduled_days[local_alarm_time->tm_wday]) {
+          Uuid *pinid = (Uuid *)&settings_file_buffer[num_pin_adds++ * UUID_SIZE];
+          prv_add_pin(alarm->id, &alarm->config, alarm_time, pinid);
 
-        if (updated) {
-        } else {
         }
       }
     }
@@ -301,16 +308,30 @@ static time_t prv_build_cron(AlarmConfig *config, CronJob *cron) {
   for (int i = 0; i < DAYS_PER_WEEK; i++) {
     cron->wday |= config->scheduled_days[i] ? (1 << i) : 0;
   }
-  return cron_job_get_execute_time(cron);
+  time_t execute_time = cron_job_get_execute_time(cron);
+  if (config->is_snoozed_next) {
+    time_t now = rtc_get_time();
+    if (execute_time > now) {
+      execute_time = cron_job_get_execute_time_from_epoch(cron, execute_time + 1);
+    } else {
+      config->is_snoozed_next = false;
+    }
+  }
+  return execute_time;
 }
 
 // ----------------------------------------------------------------------------------------------
-static void prv_assign_alarm(Alarm *alarm, CronJob *cron) {
+static void prv_assign_alarm(Alarm *alarm, CronJob *cron, time_t execute_time) {
   cron_job_unschedule(&s_next_alarm_cron);
   s_next_alarm_cron = *cron;
   s_next_alarm_cron.cb_data = (void*)(intptr_t)alarm->id;
   s_next_alarm = *alarm;
-  s_next_alarm_time = cron_job_schedule(&s_next_alarm_cron);
+  if (alarm->config.is_snoozed_next) {
+    time_t first_time = cron_job_get_execute_time(cron);
+    s_next_alarm_time = cron_job_schedule_from_epoch(&s_next_alarm_cron, first_time + 1);
+  } else {
+    s_next_alarm_time = cron_job_schedule(&s_next_alarm_cron);
+  }
   PBL_LOG_INFO("Scheduling alarm %u to go off at %d:%d (%ld) (smart:%d)",
           alarm->id, alarm->config.hour, alarm->config.minute, s_next_alarm_time,
           alarm->config.is_smart);
@@ -334,7 +355,7 @@ static void prv_check_and_schedule_alarm(SettingsFile *fd, Alarm *alarm, bool re
 
   if (s_next_alarm_time == 0 || execute_time < s_next_alarm_time) {
     // This alarm is sooner than the previous one!
-    prv_assign_alarm(alarm, &cron);
+    prv_assign_alarm(alarm, &cron, execute_time);
   }
   if (refresh) {
     timeline_event_refresh();
@@ -498,6 +519,7 @@ static void prv_persist_alarm(SettingsFile *fd, Alarm *alarm) {
     .sound_enabled = alarm->config.sound_enabled,
     .vibrate_disabled = alarm->config.vibrate_disabled,
     .tone = alarm->config.tone,
+    .is_snoozed_next = alarm->config.is_snoozed_next,
   };
   memcpy(&config.scheduled_days, alarm->config.scheduled_days, sizeof(config.scheduled_days));
   settings_file_set(fd, &key, sizeof(key), &config, sizeof(config));
@@ -537,6 +559,7 @@ static bool prv_alarm_get_config(SettingsFile *file, AlarmId id, AlarmConfig* co
       .sound_enabled = config.sound_enabled,
       .vibrate_disabled = config.vibrate_disabled,
       .tone = config.tone,
+      .is_snoozed_next = config.is_snoozed_next,
     };
     memcpy(&config_out->scheduled_days, config.scheduled_days, sizeof(config.scheduled_days));
     return true;
@@ -603,6 +626,9 @@ static void prv_assert_alarm_params(int hour, int minute) {
 // ----------------------------------------------------------------------------------------------
 static void prv_enable_alarm_config(AlarmConfig *config, bool enable) {
   config->is_disabled = !enable;
+  if (!enable) {
+    config->is_snoozed_next = false;
+  }
   if (enable && config->kind == ALARM_KIND_JUST_ONCE) {
     // Update the day required for the alarm
     prv_set_day_for_just_once_alarm(config, config->hour, config->minute);
@@ -629,6 +655,7 @@ AlarmId alarm_create(const AlarmInfo *info) {
     .sound_enabled = info->sound_enabled,
     .vibrate_disabled = !info->vibrate_enabled,
     .tone = info->tone,
+    .is_snoozed_next = info->is_snoozed_next,
   };
   if (info->kind == ALARM_KIND_CUSTOM && info->scheduled_days) {
     prv_set_alarm_custom_op(id, &config, (void *)info->scheduled_days);
@@ -684,6 +711,7 @@ static bool prv_set_alarm_time_op(AlarmId id, AlarmConfig *config, void *context
   }
   config->hour = ctx->hour;
   config->minute = ctx->minute;
+  config->is_snoozed_next = false;
   return true;
 }
 
@@ -733,6 +761,33 @@ void alarm_set_tone(AlarmId id, AlarmTone tone) {
 }
 
 // ----------------------------------------------------------------------------------------------
+static bool prv_set_alarm_snoozed_next_op(AlarmId id, AlarmConfig *config, void *context) {
+  config->is_snoozed_next = (uintptr_t)context;
+  return true;
+}
+
+void alarm_set_snoozed_next(AlarmId id, bool snooze_next) {
+  prv_alarm_operation(id, prv_set_alarm_snoozed_next_op, (void *)(uintptr_t)snooze_next);
+}
+
+bool alarm_get_snoozed_next(AlarmId id) {
+  SettingsFile file;
+  if (!prv_file_open_and_lock(&file)) {
+    return false;
+  }
+
+  AlarmConfig config;
+  bool rv = prv_alarm_get_config(&file, id, &config);
+  bool is_snoozed_next = false;
+  if (rv) {
+    is_snoozed_next = config.is_snoozed_next;
+  }
+
+  prv_file_close_and_unlock(&file);
+  return is_snoozed_next;
+}
+
+// ----------------------------------------------------------------------------------------------
 static bool prv_set_alarm_kind_op(AlarmId id, AlarmConfig *config, void *context) {
   AlarmKind type = (uintptr_t)context;
   switch (type) {
@@ -760,6 +815,7 @@ static bool prv_set_alarm_kind_op(AlarmId id, AlarmConfig *config, void *context
     default:
       return false;
   }
+  config->is_snoozed_next = false;
   return true;
 }
 
@@ -772,6 +828,7 @@ static bool prv_set_alarm_custom_op(AlarmId id, AlarmConfig *config, void *conte
   const bool (*scheduled_days)[DAYS_PER_WEEK] = context;
   config->kind = ALARM_KIND_CUSTOM;
   memcpy(&config->scheduled_days, scheduled_days, sizeof(config->scheduled_days));
+  config->is_snoozed_next = false;
   return true;
 }
 
@@ -1003,6 +1060,7 @@ bool alarm_get_info(AlarmId id, AlarmInfo *info_out) {
     .sound_enabled = config.sound_enabled,
     .vibrate_enabled = !config.vibrate_disabled,
     .tone = config.tone,
+    .is_snoozed_next = config.is_snoozed_next,
     .scheduled_days = NULL,
   };
 
@@ -1089,6 +1147,7 @@ static bool alarm_for_each_itr(SettingsFile *file, SettingsRecordInfo *info, voi
     .sound_enabled = config.sound_enabled,
     .vibrate_enabled = !config.vibrate_disabled,
     .tone = config.tone,
+    .is_snoozed_next = config.is_snoozed_next,
     .scheduled_days = &config.scheduled_days,
   };
   itr_data->cb(key.id, &alarm_info, itr_data->cb_data);

@@ -5,6 +5,7 @@ import glob
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -246,7 +247,7 @@ def parse_file(
     # Check Clang for unsigned types being undefined
     # https://sourceware.org/ml/newlib/2014/msg00082.html
     # this workaround should be removed when fixed in newlib
-    cmd = ["clang"] + ["-dM", "-E", "-"]
+    cmd = ["clang" if shutil.which("clang") else "gcc", "-dM", "-E", "-"]
     try:
         out = (
             subprocess.check_output(cmd, stdin=open("/dev/null")).decode("utf8").strip()
@@ -254,8 +255,8 @@ def parse_file(
         if not isinstance(out, str):
             out = out.decode(sys.stdout.encoding or "iso8859-1")
     except Exception as err:
-        print("Could not run clang type checking %r" % err)
-        raise
+        print("Could not run compiler type checking %r" % err)
+        out = ""
 
     if "__UINT8_TYPE__" not in out:
         args.insert(0, r"-D__UINT8_TYPE__=unsigned __INT8_TYPE__")

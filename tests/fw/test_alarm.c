@@ -1166,7 +1166,79 @@ void test_alarm__skip_two_alarms(void) {
   cl_assert_equal_i(s_num_alarms_fired, 1);
 }
 
+void test_alarm__snooze_next_recurring_alarm(void) {
+  AlarmId id;
+  time_t next_alarm;
+  time_t expected_thursday_10am = s_thursday + prv_hours_and_minutes_to_seconds(10, 0);
+  time_t expected_friday_10am = s_friday + prv_hours_and_minutes_to_seconds(10, 0);
+
+  // Initial time: Thursday 00:00
+  s_current_hour = 0;
+  s_current_minute = 0;
+  s_current_day = s_thursday;
+
+  id = alarm_create(&(AlarmInfo) { .hour = 10, .minute = 0, .kind = ALARM_KIND_EVERYDAY });
+  cl_assert_equal_b(alarm_get_enabled(id), true);
+  cl_assert_equal_b(alarm_get_snoozed_next(id), false);
+
+  cl_assert_equal_b(alarm_get_next_enabled_alarm(&next_alarm), true);
+  cl_assert_equal_i(next_alarm, expected_thursday_10am);
+
+  // Snooze only the next occurrence
+  alarm_set_snoozed_next(id, true);
+  cl_assert_equal_b(alarm_get_enabled(id), true);
+  cl_assert_equal_b(alarm_get_snoozed_next(id), true);
+
+  // Next alarm should now skip Thursday and be scheduled for Friday 10:00
+  cl_assert_equal_b(alarm_get_next_enabled_alarm(&next_alarm), true);
+  cl_assert_equal_i(next_alarm, expected_friday_10am);
+
+  // Un-snooze / resume next alarm
+  alarm_set_snoozed_next(id, false);
+  cl_assert_equal_b(alarm_get_snoozed_next(id), false);
+  cl_assert_equal_b(alarm_get_next_enabled_alarm(&next_alarm), true);
+  cl_assert_equal_i(next_alarm, expected_thursday_10am);
+}
+
+void test_alarm__snooze_next_weekday_alarm(void) {
+  AlarmId id;
+  time_t next_alarm;
+  time_t expected_friday_8am = s_friday + prv_hours_and_minutes_to_seconds(8, 0);
+  time_t expected_monday_8am = s_monday + prv_hours_and_minutes_to_seconds(8, 0);
+
+  // Initial time: Friday 00:00
+  s_current_hour = 0;
+  s_current_minute = 0;
+  s_current_day = s_friday;
+
+  id = alarm_create(&(AlarmInfo) { .hour = 8, .minute = 0, .kind = ALARM_KIND_WEEKDAYS });
+  cl_assert_equal_b(alarm_get_enabled(id), true);
+
+  cl_assert_equal_b(alarm_get_next_enabled_alarm(&next_alarm), true);
+  cl_assert_equal_i(next_alarm, expected_friday_8am);
+
+  // Snooze next occurrence on Friday -> next should be Monday (skipping weekend)
+  alarm_set_snoozed_next(id, true);
+  cl_assert_equal_b(alarm_get_snoozed_next(id), true);
+  cl_assert_equal_b(alarm_get_next_enabled_alarm(&next_alarm), true);
+  cl_assert_equal_i(next_alarm, expected_monday_8am);
+}
+
+void test_alarm__snooze_next_disabled_alarm(void) {
+  AlarmId id;
+
+  id = alarm_create(&(AlarmInfo) { .hour = 8, .minute = 0, .kind = ALARM_KIND_EVERYDAY });
+  alarm_set_snoozed_next(id, true);
+  cl_assert_equal_b(alarm_get_snoozed_next(id), true);
+
+  // Disabling the alarm should clear the snooze state
+  alarm_set_enabled(id, false);
+  cl_assert_equal_b(alarm_get_enabled(id), false);
+  cl_assert_equal_b(alarm_get_snoozed_next(id), false);
+}
+
 // TODO:
 // - Test disable while snoozing
 // - Test delete while snoozing
+
 

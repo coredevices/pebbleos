@@ -120,18 +120,18 @@ void cron_service_init(void) {
 }
 
 // -------------------------------------------------------------------------------------------
-time_t cron_job_schedule(CronJob *job) {
+time_t cron_job_schedule_from_epoch(CronJob *job, time_t from_epoch) {
   PBL_ASSERTN(s_list_mutex);
 
   mutex_lock(s_list_mutex);
 
-  const time_t now = rtc_get_time();
-  // Always update the execution time.
-  job->cached_execute_time = cron_job_get_execute_time_from_epoch(job, now);
+  // Update the execution time based on the given epoch
+  job->cached_execute_time = cron_job_get_execute_time_from_epoch(job, from_epoch);
   // If not scheduled yet, schedule it.
   if (!prv_is_scheduled(job)) {
     s_scheduled_jobs = list_sorted_add(s_scheduled_jobs, &job->list_node, prv_sort, true);
   }
+  time_t now = rtc_get_time();
   PBL_LOG_DBG("Cron job scheduled for %ld (%+ld)", job->cached_execute_time,
           (job->cached_execute_time - now));
 
@@ -139,6 +139,10 @@ time_t cron_job_schedule(CronJob *job) {
   mutex_unlock(s_list_mutex);
 
   return job->cached_execute_time;
+}
+
+time_t cron_job_schedule(CronJob *job) {
+  return cron_job_schedule_from_epoch(job, rtc_get_time());
 }
 
 // ------------------------------------------------------------------------------------------
