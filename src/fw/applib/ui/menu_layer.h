@@ -413,10 +413,11 @@ typedef struct MenuLayer {
   } touch_nav_node;
 
   //! @internal
-  //! Tier-1 touch tap state for the "tap selects, second/double tap activates" behaviour: the last
-  //! row a tap-select committed and when (\ref rtc_get_ticks). A second tap within the double-tap
-  //! window activates that row without re-hit-testing (the row may have animated to the centre by
-  //! then). Declared unconditionally (not under \c CONFIG_TOUCH) so \c sizeof(MenuLayer) is identical
+  //! Tier-1 touch tap state for the center-focused "tap selects, second/double tap activates"
+  //! behaviour: the last row a tap-select committed and when (\ref rtc_get_ticks). A second tap
+  //! within the double-tap window activates that row without re-hit-testing (the row may have
+  //! animated to the centre by then). Plain menus activate on the first tap and never arm this
+  //! window. Declared unconditionally (not under \c CONFIG_TOUCH) so \c sizeof(MenuLayer) is identical
   //! on every board, and carved from \ref padding below like \ref touch_nav_node. The timestamp is
   //! split into two 32-bit halves rather than a single 8-byte \ref RtcTicks on purpose: a naturally
   //! 8-byte-aligned member would raise the struct's alignment to 8 and its size past the fixed
@@ -473,6 +474,14 @@ typedef struct MenuLayer {
   //! Touchdown so it always reflects the current gesture. Packs into \ref touch_fling_active's
   //! byte.
   bool touch_tap_swallow:1;
+
+  //! @internal
+  //! True when a tap on a not-selected row of a plain (non-center-focused) menu must only select
+  //! it, keeping activation a deliberate second tap, instead of the default select-and-activate.
+  //! For menus whose rows hold several items (the action menu's short-item columns), where the
+  //! row-granular tap hit-test cannot tell which item the finger meant. See
+  //! \ref menu_layer_set_tap_select_only. Packs into \ref touch_fling_active's byte.
+  bool tap_select_only:1;
 
   //! Add some padding to keep track of the \ref MenuLayer size budget.
   //! As long as the size stays within this budget, 2.x apps can safely use the 3.x MenuLayer type.
@@ -684,6 +693,15 @@ bool menu_layer_get_center_focused(MenuLayer *menu_layer);
 //! @param center_focused true = enable the mode, false = disable it.
 //! @see \ref menu_layer_get_center_focused
 void menu_layer_set_center_focused(MenuLayer *menu_layer, bool center_focused);
+
+//! @internal
+//! On a plain (non-center-focused) menu a touch tap on a not-selected row selects it and activates
+//! it in one gesture. Setting this makes such a tap only select, keeping activation a deliberate
+//! second tap — for menus whose rows hold several items (the action menu's short-item columns),
+//! where the row-granular tap hit-test cannot tell which item the finger meant.
+//! @param menu_layer The menu layer for which to enable or disable the behavior.
+//! @param tap_select_only true = a tap only selects, false (default) = a tap selects and activates.
+void menu_layer_set_tap_select_only(MenuLayer *menu_layer, bool tap_select_only);
 
 //! True, if the \ref MenuLayer can wrap around the first and last element.
 //! @see \ref menu_layer_set_scroll_wrap_around

@@ -236,18 +236,15 @@ void test_action_menu_layer__tap_on_selected_item_activates(void) {
   action_menu_layer_deinit(&s_aml);
 }
 
-// A tap on a different action selects it (no activation); a later tap on it activates it.
-void test_action_menu_layer__tap_other_item_selects_then_activates(void) {
+// A wide-item row holds exactly one action, so a tap on a different action selects it and
+// activates it in the same gesture (plain menus open on a single tap).
+void test_action_menu_layer__tap_other_item_selects_and_activates(void) {
   prv_init_aml_with_wide_items();
 
   menu_layer_touch_handle_tap(&s_aml.menu_layer, prv_tap_point_for_row(&s_aml.menu_layer, 2));
-  cl_assert_equal_i(s_select_count, 0);
   cl_assert_equal_i(s_aml.selected_index, 2);
   cl_assert_equal_i(s_selection_changed_count, 1);
   cl_assert(s_last_changed_item == &s_wide_items[2]);
-
-  prv_advance_past_double_tap_window();
-  menu_layer_touch_handle_tap(&s_aml.menu_layer, prv_tap_point_for_row(&s_aml.menu_layer, 2));
   cl_assert_equal_i(s_select_count, 1);
   cl_assert(s_last_selected_item == &s_wide_items[2]);
 

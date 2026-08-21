@@ -1495,6 +1495,13 @@ void menu_layer_set_center_focused(MenuLayer *menu_layer, bool center_focused) {
   menu_layer_update_caches(menu_layer);
 }
 
+void menu_layer_set_tap_select_only(MenuLayer *menu_layer, bool tap_select_only) {
+  if (!menu_layer) {
+    return;
+  }
+  menu_layer->tap_select_only = tap_select_only;
+}
+
 bool menu_layer_get_scroll_wrap_around(MenuLayer *menu_layer) {
   return menu_layer->scroll_wrap_around;
 }
@@ -1550,13 +1557,19 @@ void menu_layer_set_scroll_vibe_on_blocked(MenuLayer *menu_layer, bool scroll_vi
 // public per-menu gesture surface (and the unit-test entry points).
 //
 // Live scrolling happens on pan Updated. On a plain (non-center-focused) menu the selection is
-// frozen for the whole pan and never changes on liftoff — a pan scrolls, a tap selects. A
-// center-focused menu is a carousel instead: the focus stays pinned at the viewport centre, so the
-// row crossing the centre becomes the selection live during the pan (through the full
-// selection_will_change contract), and liftoff settles the selected row to the exact centre.
+// frozen for the whole pan and never changes on liftoff — a pan only scrolls. A center-focused
+// menu is a carousel instead: the focus stays pinned at the viewport centre, so the row crossing
+// the centre becomes the selection live during the pan (through the full selection_will_change
+// contract), and liftoff settles the selected row to the exact centre.
+//
+// Taps differ by shape. A plain menu behaves like a phone list: a single tap on any row both
+// selects it (selection_will_change honoured) and activates it — one tap opens the item. A
+// carousel keeps the two-step model (a tap on an off-centre row centres it, a tap on the centred
+// row activates), bridged by the double-tap window below.
 
-// Two independent taps within this window on the same menu count as a "double tap" and activate the
-// last tap-selected row (there is no dedicated double-tap recognizer). CALIBRATION: ~300ms is the
+// Two independent taps within this window on the same carousel count as a "double tap" and activate
+// the last tap-selected row (there is no dedicated double-tap recognizer). Plain menus activate on
+// the first tap, so the window only ever arms on center-focused menus. CALIBRATION: ~300ms is the
 // usual comfortable double-tap spacing; tune on hardware if it feels too eager/sluggish.
 #define DOUBLE_TAP_WINDOW_MS 300
 
@@ -1904,31 +1917,47 @@ void menu_layer_touch_handle_tap(MenuLayer *menu_layer, GPoint point_on_screen) 
     return;
   }
 
-  // Priority 3 — select the tapped row through the full will_change contract (veto/redirect honoured)
-  // and centre it, WITHOUT activating. A veto (final == old selection) must change nothing: it must
-  // not re-centre the old selection (that mini-snap is exactly what Fix 1 removed from pans). Record
-  // the double-tap state only when a selection actually changes (normal or redirect).
+  // Priority 3 — the tapped row is not the selection: run the full will_change contract
+  // (veto/redirect honoured). A veto (final == old selection) must change nothing: no select, no
+  // activate, no re-centre of the old selection (that mini-snap is exactly what Fix 1 removed from
+  // pans), no animation cancel, and the double-tap window stays as it was — cancelling would abort
+  // an in-flight highlight animation and violate "veto changes nothing", so the cancel lives past
+  // the veto check.
   const MenuIndex old_index = menu_layer->selection.index;
   const MenuIndex final = prv_menu_run_will_change(menu_layer, candidate);
   if (menu_index_compare(&final, &old_index) == 0) {
-    // Vetoed: no select, no activate, no re-centre, no animation cancel, and the window stays as it
-    // was. Cancelling here would abort an in-flight highlight animation and violate "veto changes
-    // nothing", so the cancel lives in the select branch below.
     return;
   }
   prv_cancel_selection_animation(menu_layer);
-  // Animated: a center-focused menu plays the same jump/bounce as a button step (the nudge-in,
-  // half-way snap and bounce-out of prv_schedule_center_focus_animation); plain menus slide as
-  // before.
+
+  if (!menu_layer->center_focused) {
+    // Plain menus behave like a phone list: the tap selects AND opens the row in one gesture.
+    // Commit without scrolling — the row is already visible under the finger, and a re-centre
+    // would visibly shift the content just as the activated window pushes. Activate only when the
+    // contract kept the tapped row: a redirect selects the redirected row without opening it
+    // (opening a row the finger never touched would be a misfire), so there activation stays a
+    // deliberate second tap (priority 2). tap_select_only menus (short-item action menus, whose
+    // rows hold several columns the row-granular hit-test cannot tell apart) keep that two-step
+    // model for every row.
+    menu_layer_set_selected_index(menu_layer, final, MenuRowAlignNone, false);
+    if (!menu_layer->tap_select_only &&
+        menu_index_compare(&menu_layer->selection.index, &candidate) == 0) {
+      prv_menu_activate_selected(menu_layer);
+    }
+    return;
+  }
+
+  // Carousel: select the tapped row and centre it WITHOUT activating — the same jump/bounce as a
+  // button step (the nudge-in, half-way snap and bounce-out of
+  // prv_schedule_center_focus_animation); opening is the second tap (or the double-tap window).
   menu_layer_set_selected_index(menu_layer, final, MenuRowAlignCenter, true);
   // Record the committed (range-clamped) selection, not the raw will_change output: a client that
   // redirects to an out-of-range index would otherwise be handed that OOB index by a fast double tap
-  // (priority 1), diverging from priority 2 which activates the clamped selection.index. On a
-  // center-focused menu the index commit is deferred to the half-way point of the jump animation;
-  // until then the committed target lives in animation.new_selection (a priority-1 tap during the
-  // jump cancels it, which drives the animation to its end state and commits that same target).
-  const bool jump_in_flight = menu_layer->center_focused &&
-                              animation_is_scheduled(menu_layer->animation.animation);
+  // (priority 1), diverging from priority 2 which activates the clamped selection.index. The index
+  // commit is deferred to the half-way point of the jump animation; until then the committed
+  // target lives in animation.new_selection (a priority-1 tap during the jump cancels it, which
+  // drives the animation to its end state and commits that same target).
+  const bool jump_in_flight = animation_is_scheduled(menu_layer->animation.animation);
   menu_layer->last_selected_index = jump_in_flight ? menu_layer->animation.new_selection.index
                                                    : menu_layer->selection.index;
   prv_menu_set_last_select_ticks(menu_layer, now);

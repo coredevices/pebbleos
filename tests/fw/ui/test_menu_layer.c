@@ -895,11 +895,13 @@ void test_menu_layer__touch_pan_center_focused_tracks_with_focus_heights(void) {
   cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, target_offset);
 }
 
-// ---- Criterion 3: tap selects, a second tap on the selected row activates ----
+// ---- Criterion 3: a tap on a plain menu selects AND activates in one gesture (phone model);
+// a carousel keeps the two-step (tap centres, tap on the centred row activates) ----
 
-// A tap on a row that is NOT the current selection only selects it (through the will_change
-// contract) and centres it — it must NOT activate. Activation is the second tap.
-void test_menu_layer__touch_tap_unselected_selects_no_activate(void) {
+// A tap on a row that is NOT the current selection selects it (through the will_change contract)
+// and activates it in the same gesture — the "scroll, then tap the item you want" flow opens in
+// ONE tap. The commit does not scroll: the row stays exactly where the finger touched it.
+void test_menu_layer__touch_tap_unselected_selects_and_activates(void) {
   MenuLayer l;
   menu_layer_init(&l, &GRect(0, 0, 144, 180));
   prv_set_touch_callbacks(&l);
@@ -910,7 +912,9 @@ void test_menu_layer__touch_tap_unselected_selects_no_activate(void) {
   menu_layer_touch_handle_tap(&l, GPoint(72, 2 * 44 + 22));  // row 2, offset 0
   cl_assert_equal_i(s_will_change_count, 1);                 // the full contract ran
   cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 2);  // selection moved to the tapped row
-  cl_assert_equal_i(s_select_click_count, 0);               // but it did NOT activate
+  cl_assert_equal_i(s_select_click_count, 1);                // and it activated in the same tap
+  cl_assert_equal_i(s_select_click_index.row, 2);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, 0);  // no re-centre scroll
 }
 
 // A tap on the row that IS the current selection activates it, without re-running the contract.
@@ -927,10 +931,9 @@ void test_menu_layer__touch_tap_selected_activates(void) {
   cl_assert_equal_i(s_will_change_count, 0);                // no reselection contract on the selected row
 }
 
-// Animation robustness: the "tapped == selection" check keys off the committed selection INDEX, not
-// the on-screen position. A selection can be committed to a row that is still off-centre (mid-flight
-// toward the centre); a tap landing on it must still ACTIVATE, so a fast double tap in one spot
-// launches the row even though it has not finished animating to the centre.
+// The "tapped == selection" check keys off the committed selection INDEX, not the on-screen
+// position: a selection committed off-centre (button nav, MenuRowAlignNone commits) must still
+// activate when tapped.
 void test_menu_layer__touch_tap_selected_offcentre_activates(void) {
   MenuLayer l;
   menu_layer_init(&l, &GRect(0, 0, 144, 180));
@@ -1019,43 +1022,12 @@ void test_menu_layer__touch_double_tap_during_center_focused_jump(void) {
   cl_assert_equal_i(s_select_click_index.row, 2);          // the jump target, not the stale row 0
 }
 
-// ---- Criterion 3a: double-tap window (fast double tap in one spot on an animated menu) ----
+// ---- Criterion 3a: plain menus have no double-tap special case — every tap activates ----
 
-// The case the naive index compare CANNOT handle: on an animated (non-center_focused) menu, tap 1
-// selects a row and it starts sliding to the centre; tap 2 in the SAME screen spot now hit-tests a
-// DIFFERENT row, yet must ACTIVATE the row tap 1 selected (via the double-tap window), not re-select.
-void test_menu_layer__touch_double_tap_same_spot_activates(void) {
-  MenuLayer l;
-  menu_layer_init(&l, &GRect(0, 0, 144, 180));  // non-center_focused => animated selection
-  prv_set_touch_callbacks(&l);
-  menu_layer_reload_data(&l);
-  prv_reset_touch_counters();
-  s_will_change_mode = WillChange_Passthrough;
-
-  // Tap 1: selects row 3 and arms the window. No activation yet.
-  menu_layer_touch_handle_tap(&l, GPoint(72, 3 * 44 + 22));  // screen y 154, offset 0 => row 3
-  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 3);
-  cl_assert_equal_i(s_select_click_count, 0);
-
-  // Simulate row 3 sliding toward the centre: scroll so the SAME screen point sits on another row.
-  scroll_layer_set_content_offset(&l.scroll_layer, GPoint(0, -66), false);
-  MenuIndex probe;  // content_y = 154 - (-66) = 220 => row 5, a DIFFERENT row than the selected 3
-  cl_assert(menu_layer_touch_find_row_at_content_y(&l, 154 + 66, &probe));
-  cl_assert(probe.row != 3);
-
-  // Tap 2 in the same spot, well within the 300ms window: activates the RECORDED row 3, not the
-  // neighbour the tap now hit-tests, and runs no new will_change contract.
-  fake_rtc_increment_ticks((RtcTicks)100 * RTC_TICKS_HZ / 1000);  // +100ms < 300ms
-  prv_reset_touch_counters();
-  menu_layer_touch_handle_tap(&l, GPoint(72, 3 * 44 + 22));
-  cl_assert_equal_i(s_select_click_count, 1);
-  cl_assert_equal_i(s_select_click_index.row, 3);   // the selected row, NOT the hit-tested neighbour
-  cl_assert_equal_i(s_will_change_count, 0);
-}
-
-// A second tap AFTER the window (> 300ms) is a fresh single tap: it selects the newly tapped row and
-// does not activate the earlier one.
-void test_menu_layer__touch_tap_after_window_selects(void) {
+// Two taps on the same row activate it twice (e.g. toggling a checkbox row on and then off). The
+// first tap selects + activates in one gesture; the second lands on the now-selected row and
+// activates again. No double-tap window is ever armed on a plain menu.
+void test_menu_layer__touch_tap_each_tap_activates(void) {
   MenuLayer l;
   menu_layer_init(&l, &GRect(0, 0, 144, 180));
   prv_set_touch_callbacks(&l);
@@ -1063,41 +1035,43 @@ void test_menu_layer__touch_tap_after_window_selects(void) {
   prv_reset_touch_counters();
   s_will_change_mode = WillChange_Passthrough;
 
-  menu_layer_touch_handle_tap(&l, GPoint(72, 1 * 44 + 22));  // tap row 1: selects + arms window
-  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 1);
-  cl_assert_equal_i(s_select_click_count, 0);
+  menu_layer_touch_handle_tap(&l, GPoint(72, 3 * 44 + 22));  // row 3: select + activate
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 3);
+  cl_assert_equal_i(s_select_click_count, 1);
+  cl_assert_equal_i(s_select_click_index.row, 3);
+  cl_assert(!l.double_tap_armed);                            // plain taps never arm the window
 
-  // Let the window lapse, then tap a different visible row from a clean offset.
-  fake_rtc_increment_ticks((RtcTicks)400 * RTC_TICKS_HZ / 1000);  // +400ms > 300ms
-  scroll_layer_set_content_offset(&l.scroll_layer, GPoint(0, 0), false);
-  prv_reset_touch_counters();
-  menu_layer_touch_handle_tap(&l, GPoint(72, 3 * 44 + 22));  // row 3
-  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 3);  // selected the new row
-  cl_assert_equal_i(s_select_click_count, 0);                   // did NOT activate the old one
+  fake_rtc_increment_ticks((RtcTicks)100 * RTC_TICKS_HZ / 1000);  // a fast second tap...
+  menu_layer_touch_handle_tap(&l, GPoint(72, 3 * 44 + 22));  // ...same spot (the row never moved)
+  cl_assert_equal_i(s_select_click_count, 2);                // ...simply activates again
+  cl_assert_equal_i(s_select_click_index.row, 3);
 }
 
+// Carousel: the recorded double-tap index is the committed (range-clamped) jump target, never the
+// raw will_change output — a redirect to an out-of-range row must not hand select_click an OOB
+// index on the fast second tap.
 void test_menu_layer__touch_double_tap_records_clamped_selection(void) {
   MenuLayer l;
   menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
   prv_set_touch_callbacks(&l);
   menu_layer_reload_data(&l);
   prv_reset_touch_counters();
 
-  // Tap 1: will_change redirects to an out-of-range row; menu_layer_set_selected_index clamps it to
-  // the last valid row. The recorded double-tap index must be that CLAMPED selection, not the raw
-  // out-of-range will_change output.
+  // Tap 1: taps row 2 (row 0 centred at offset 68); will_change redirects out of range, and
+  // menu_layer_set_selected_index clamps the jump target to the last valid row.
   s_will_change_mode = WillChange_Redirect;
   s_will_change_redirect = MenuIndex(0, 999);
-  menu_layer_touch_handle_tap(&l, GPoint(72, 2 * 44 + 22));  // taps row 2, redirected out of range
-  const uint16_t clamped_row = menu_layer_get_selected_index(&l).row;
-  cl_assert(clamped_row < 999);                 // proved clamped to a valid row
-  cl_assert_equal_i(s_select_click_count, 0);   // selected, not activated
+  menu_layer_touch_handle_tap(&l, GPoint(72, 110 + 68));
+  cl_assert_equal_i(s_select_click_count, 0);              // selected, not activated
+  const uint16_t clamped_row = l.animation.new_selection.index.row;  // the jump's committed target
+  cl_assert(clamped_row < 999);                            // proved clamped to a valid row
 
-  // Tap 2 inside the window: priority 1 activates the RECORDED index, which must be the clamped row,
-  // never the out-of-range 999 a client redirect asked for.
+  // Tap 2 inside the window: priority 1 activates the RECORDED index, which must be the clamped
+  // row, never the out-of-range 999 the client redirect asked for.
   fake_rtc_increment_ticks((RtcTicks)100 * RTC_TICKS_HZ / 1000);  // +100ms < 300ms
   prv_reset_touch_counters();
-  menu_layer_touch_handle_tap(&l, GPoint(72, 2 * 44 + 22));
+  menu_layer_touch_handle_tap(&l, GPoint(72, 110 + 68));
   cl_assert_equal_i(s_select_click_count, 1);
   cl_assert_equal_i(s_select_click_index.row, clamped_row);  // clamped, NOT the out-of-range 999
 }
@@ -1131,61 +1105,64 @@ void test_menu_layer__touch_tap_veto_does_not_recenter(void) {
   cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, offset_before);
 }
 
-// A2: a non-tap selection move (button nav) between two taps disarms the double-tap window, so the
-// second in-window tap SELECTS the freshly hit-tested row instead of activating the stale recorded
-// one. Without the disarm at the selection choke point, this would wrongly activate the old row.
+// A2: a non-tap selection move (button nav) between two carousel taps disarms the double-tap
+// window, so the second in-window tap goes through the normal tap path instead of activating the
+// stale recorded row. Without the disarm at the selection choke point, this would wrongly fire.
 void test_menu_layer__touch_button_nav_disarms_double_tap(void) {
   MenuLayer l;
   menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
   prv_set_touch_callbacks(&l);
   menu_layer_reload_data(&l);
   prv_reset_touch_counters();
   s_will_change_mode = WillChange_Passthrough;
 
-  // Tap row 3: selects it and arms the window (no activation yet).
-  menu_layer_touch_handle_tap(&l, GPoint(72, 3 * 44 + 22));  // content_y 154 => row 3
-  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 3);
+  // Tap row 2 (row 0 centred at offset 68): schedules the jump and arms the window.
+  menu_layer_touch_handle_tap(&l, GPoint(72, 110 + 68));
+  cl_assert(l.double_tap_armed);
   cl_assert_equal_i(s_select_click_count, 0);
 
-  // Button DOWN moves the selection through the non-tap path -> must disarm the window.
-  menu_layer_set_selected_next(&l, false, MenuRowAlignCenter, false);
-  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 4);
+  // Button nav moves the selection through the non-tap choke point -> must disarm the window.
+  menu_layer_set_selected_next(&l, false /* down */, MenuRowAlignCenter, false);
+  cl_assert(!l.double_tap_armed);
 
-  // A tap within the 300ms window at the ORIGINAL screen point: the stale arm is gone, so it
-  // hit-tests row 3 and SELECTS it instead of activating the recorded row.
+  // A tap within the 300ms window on a not-selected row: with the arm gone it is an ordinary
+  // carousel tap-select (no activation). A stale arm would have activated the recorded row here.
   fake_rtc_increment_ticks((RtcTicks)100 * RTC_TICKS_HZ / 1000);  // +100ms < 300ms
-  scroll_layer_set_content_offset(&l.scroll_layer, GPoint(0, 0), false);
   prv_reset_touch_counters();
-  menu_layer_touch_handle_tap(&l, GPoint(72, 3 * 44 + 22));  // content_y 154 => row 3
-  cl_assert_equal_i(s_select_click_count, 0);                   // SELECTED, not activated
-  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 3);  // the newly hit-tested row
+  const int16_t off = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  menu_layer_touch_handle_tap(&l, GPoint(72, 154 + off));  // row 3 (content_y 154)
+  cl_assert_equal_i(s_select_click_count, 0);              // selected, not activated
+  cl_assert_equal_i(s_will_change_count, 1);               // the normal tap contract ran
 }
 
-// A2: menu_layer_reload_data disarms the window, so a reload that deletes the recorded row cannot let
-// a follow-up in-window tap activate a now out-of-range index (client OOB on select_click).
+// A2: menu_layer_reload_data disarms the window, so a reload that deletes the recorded row cannot
+// let a follow-up in-window tap activate a now out-of-range index (client OOB on select_click).
 void test_menu_layer__touch_reload_disarms_double_tap(void) {
   MenuLayer l;
   menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
   prv_set_touch_callbacks(&l);
   menu_layer_reload_data(&l);
   prv_reset_touch_counters();
   s_will_change_mode = WillChange_Passthrough;
 
-  // Tap row 5: selects it and arms the window.
-  menu_layer_touch_handle_tap(&l, GPoint(72, 5 * 44 + 22));  // content_y 242 => row 5
-  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 5);
+  // Tap row 2 (row 0 centred at offset 68): schedules the jump and arms the window.
+  menu_layer_touch_handle_tap(&l, GPoint(72, 110 + 68));
+  cl_assert(l.double_tap_armed);
   cl_assert_equal_i(s_select_click_count, 0);
 
-  // Reload shrinking the list so the recorded row 5 no longer exists must disarm the window.
-  s_num_rows = 3;
+  // Reload shrinking the list so the recorded row 2 no longer exists must disarm the window.
+  s_num_rows = 2;
   menu_layer_reload_data(&l);
+  cl_assert(!l.double_tap_armed);
 
-  // A tap within the window must NOT activate the stale (now out-of-range) row 5.
+  // A tap within the window must NOT activate the stale (now out-of-range) row 2.
   fake_rtc_increment_ticks((RtcTicks)100 * RTC_TICKS_HZ / 1000);  // +100ms < 300ms
-  scroll_layer_set_content_offset(&l.scroll_layer, GPoint(0, 0), false);
   prv_reset_touch_counters();
-  menu_layer_touch_handle_tap(&l, GPoint(72, 1 * 44 + 22));  // content_y 66 => row 1
-  cl_assert_equal_i(s_select_click_count, 0);                 // no stale activation
+  const int16_t off = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  menu_layer_touch_handle_tap(&l, GPoint(72, 66 + off));   // row 1 (content_y 66)
+  cl_assert_equal_i(s_select_click_count, 0);              // no stale activation
 }
 
 // ---- Criterion 4: on a plain menu the selection is frozen during a pan; no client callbacks ----
@@ -1383,7 +1360,7 @@ void test_menu_layer__touch_deinit_mid_gesture_cancels(void) {
   layer_add_child(&s_root_layer, menu_layer_get_layer(&l2));
   prv_reset_touch_counters();
   s_will_change_mode = WillChange_Passthrough;
-  // A tap on the unselected row 2 selects it (routing recovered); activation would be a second tap.
+  // A tap on the unselected row 2 selects and activates it (routing recovered).
   menu_layer_touch_handle_tap(&l2, GPoint(100, 2 * 44 + 22));
   cl_assert_equal_i(menu_layer_get_selected_index(&l2).row, 2);
   cl_assert_equal_i(s_will_change_count, 1);
@@ -1565,7 +1542,8 @@ static MenuLayer *prv_dispatch_menu_setup(MenuLayer *l) {
 
 // ---- Tap through the dispatcher honours the full selection_will_change contract ----
 
-// (a) Passthrough: a tap on an unselected row runs the contract and selects it, without activating.
+// (a) Passthrough: a tap on an unselected row runs the contract, selects it, and activates it in
+// the same gesture (plain menus open on a single tap).
 void test_menu_layer__dispatch_tap_passthrough_selects(void) {
   prv_touch_nav_setup();
   MenuLayer l;
@@ -1575,7 +1553,8 @@ void test_menu_layer__dispatch_tap_passthrough_selects(void) {
   prv_menu_dispatch_tap(100, 2 * 44 + 22);  // row 2 (offset 0)
   cl_assert_equal_i(s_will_change_count, 1);                     // the contract ran through dispatch
   cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 2);   // selection moved to the tapped row
-  cl_assert_equal_i(s_select_click_count, 0);                    // but did NOT activate
+  cl_assert_equal_i(s_select_click_count, 1);                    // and it activated
+  cl_assert_equal_i(s_select_click_index.row, 2);
   menu_layer_deinit(&l);
 }
 
