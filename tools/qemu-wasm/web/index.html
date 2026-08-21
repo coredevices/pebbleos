@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PebbleOS Emulator</title>
+  <!-- Provides COOP/COEP headers when served from a plain static host.
+       serve.py sets the real headers; this is the GitHub-Pages fallback. -->
+  <script src="coi-serviceworker.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #14141f;
+      color: #d8d8e0;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    h1 { font-size: 18px; margin-bottom: 4px; }
+    .subtitle {
+      color: #8a8a99; font-size: 12px; max-width: 620px;
+      text-align: center; line-height: 1.5; margin-bottom: 14px;
+    }
+    #controls {
+      display: flex; align-items: center; gap: 8px;
+      flex-wrap: wrap; justify-content: center; margin-bottom: 10px;
+      font-size: 13px;
+    }
+    select, button {
+      background: #1e1e30; color: #d8d8e0;
+      border: 1px solid #3a3a50; border-radius: 4px;
+      font-family: inherit; font-size: 13px; padding: 5px 10px;
+    }
+    button { cursor: pointer; }
+    button:hover:not(:disabled) { border-color: #7a7a99; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    #btn-boot { background: #cc4b2f; border-color: #cc4b2f; color: #fff; font-weight: bold; }
+    #status {
+      font-size: 13px; padding: 4px 10px; margin-bottom: 8px;
+      background: #1e1e30; border-radius: 4px; max-width: 640px;
+    }
+    #progress { width: 320px; height: 5px; background: #1e1e30;
+      border-radius: 3px; overflow: hidden; margin-bottom: 10px; display: none; }
+    #progress-fill { height: 100%; width: 0; background: #4cc9f0; transition: width 0.2s; }
+    #fps { font-size: 12px; color: #4cc9f0; margin-bottom: 6px; }
+    #screen-frame {
+      background: #000; border: 2px solid #333; border-radius: 10px;
+      padding: 10px; margin-bottom: 12px;
+    }
+    canvas#canvas { display: block; image-rendering: pixelated; background: #000; }
+    #buttons { display: flex; gap: 8px; margin-bottom: 6px; }
+    #buttons button { padding: 8px 16px; user-select: none; touch-action: none; }
+    #buttons button.pressed { background: #31314d; }
+    .hint { font-size: 11px; color: #6a6a7a; margin-bottom: 14px; }
+    details {
+      width: min(640px, 100%);
+    }
+    details summary {
+      font-size: 12px; color: #8a8a99; cursor: pointer; margin-bottom: 4px;
+    }
+    #console {
+      width: 100%; height: 240px; overflow-y: auto;
+      background: #0a0a10; color: #7fd97f;
+      border: 1px solid #2a2a3a; border-radius: 4px;
+      font-size: 11px; padding: 8px;
+      white-space: pre-wrap; word-wrap: break-word;
+    }
+    footer { margin-top: 14px; font-size: 11px; color: #6a6a7a; }
+    footer a { color: #4cc9f0; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <h1>PebbleOS Emulator</h1>
+  <p class="subtitle">
+    QEMU compiled to WebAssembly boots real PebbleOS firmware entirely in your
+    browser. Emulation uses the TCG interpreter, so booting takes a while.
+  </p>
+
+  <div id="controls">
+    <label for="board">Board:</label>
+    <select id="board">
+      <option value="emery" selected>emery (Pebble Time 2)</option>
+      <option value="flint">flint (untested)</option>
+      <option value="gabbro">gabbro (untested)</option>
+    </select>
+    <button id="btn-boot">Boot</button>
+  </div>
+
+  <div id="status">Select a board and click Boot</div>
+  <div id="progress"><div id="progress-fill"></div></div>
+
+  <div id="fps">FPS: --</div>
+  <div id="screen-frame"><canvas id="canvas" width="200" height="228"></canvas></div>
+
+  <div id="buttons">
+    <button id="btn-back" title="Back (Left / Escape)">Back</button>
+    <button id="btn-up" title="Up (Arrow Up)">Up</button>
+    <button id="btn-select" title="Select (Right / Enter)">Select</button>
+    <button id="btn-down" title="Down (Arrow Down)">Down</button>
+  </div>
+  <div class="hint">Keys: &larr; Back &middot; &uarr;/&darr; Navigate &middot; &rarr;/Enter Select &middot; buttons can be held</div>
+
+  <details open>
+    <summary>Serial console (UART2)</summary>
+    <div id="console"></div>
+  </details>
+
+  <footer>
+    Machine models: <a href="https://github.com/coredevices/qemu">coredevices/qemu</a>
+    &middot; shell derived from <a href="https://github.com/ericmigi/pebble-qemu-wasm">ericmigi/pebble-qemu-wasm</a>
+  </footer>
+
+  <script>
+    'use strict';
+
+    // Board configs mirror hw/arm/pebble_generic.c in coredevices/qemu.
+    var BOARDS = {
+      emery:  { machine: 'pebble-emery',  width: 200, height: 228, audio: true },
+      flint:  { machine: 'pebble-flint',  width: 144, height: 168, audio: true },
+      gabbro: { machine: 'pebble-gabbro', width: 260, height: 260, audio: false },
+    };
+
+    var params = new URLSearchParams(window.location.search);
+    var statusEl = document.getElementById('status');
+    var consoleEl = document.getElementById('console');
+    var progressEl = document.getElementById('progress');
+    var progressFill = document.getElementById('progress-fill');
+    var fpsEl = document.getElementById('fps');
+    var bootBtn = document.getElementById('btn-boot');
+    var boardSel = document.getElementById('board');
+    var canvas = document.getElementById('canvas');
+    var canvasCtx = canvas.getContext('2d');
+
+    if (params.has('board') && BOARDS[params.get('board')]) {
+      boardSel.value = params.get('board');
+    }
+
+    function log(msg) {
+      console.log(msg);
+      consoleEl.textContent += msg + '\n';
+      if (consoleEl.textContent.length > 200000) {
+        consoleEl.textContent = consoleEl.textContent.slice(-100000);
+      }
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+      console.log('[status] ' + msg);
+    }
+
+    function showProgress(pct) {
+      progressEl.style.display = 'block';
+      progressFill.style.width = pct + '%';
+    }
+
+    async function fetchWithProgress(url, label) {
+      var resp = await fetch(url);
+      if (!resp.ok) throw new Error(label + ': HTTP ' + resp.status + ' (' + url + ')');
+      var total = parseInt(resp.headers.get('content-length')) || 0;
+      var reader = resp.body.getReader();
+      var chunks = [], received = 0;
+      for (;;) {
+        var r = await reader.read();
+        if (r.done) break;
+        chunks.push(r.value);
+        received += r.value.length;
+        if (total) {
+          setStatus(label + '... ' + (received >> 10) + ' / ' + (total >> 10) + ' KB');
+          showProgress(Math.round(received / total * 100));
+        }
+      }
+      progressEl.style.display = 'none';
+      var data = new Uint8Array(received);
+      var off = 0;
+      for (var i = 0; i < chunks.length; i++) { data.set(chunks[i], off); off += chunks[i].length; }
+      return data;
+    }
+
+    var qemu = null;  // emscripten Module instance (set once runtime is up)
+
+    // ================================================================
+    // Display: pebble_display.c re-renders its console surface on a
+    // 33 ms virtual-clock timer even with -display none, and exports
+    // the surface via pebble_wasm_display_* (EMSCRIPTEN_KEEPALIVE).
+    // Poll the frame counter and blit only when it changes.
+    // Surface format is 32bpp x8r8g8b8 little-endian: bytes B,G,R,X.
+    // ================================================================
+    var lastFrameCount = 0;
+    var firstFrame = true;
+    var cachedImg = null;
+
+    function blitFrame() {
+      if (!qemu) return;
+      var fc = qemu._pebble_wasm_display_frame_count();
+      if (fc === lastFrameCount) return;
+      lastFrameCount = fc;
+
+      var width = qemu._pebble_wasm_display_width();
+      var height = qemu._pebble_wasm_display_height();
+      var stride = qemu._pebble_wasm_display_stride();
+      var dataPtr = qemu._pebble_wasm_display_data();
+      if (!dataPtr || !width || !height) return;
+
+      if (firstFrame) {
+        firstFrame = false;
+        setStatus('Display active: ' + width + 'x' + height);
+      }
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        cachedImg = null;
+      }
+      if (!cachedImg) {
+        cachedImg = canvasCtx.createImageData(width, height);
+      }
+
+      // BGRX -> RGBA; dest Uint32 on little-endian is 0xAABBGGRR
+      var dst32 = new Uint32Array(cachedImg.data.buffer);
+      var heap = qemu.HEAPU8;
+      for (var y = 0; y < height; y++) {
+        var src = dataPtr + y * stride;
+        var dst = y * width;
+        for (var x = 0; x < width; x++) {
+          var s = src + x * 4;
+          dst32[dst + x] =
+            heap[s + 2] | (heap[s + 1] << 8) | (heap[s] << 16) | 0xFF000000;
+        }
+      }
+      canvasCtx.putImageData(cachedImg, 0, 0);
+      fpsFrames++;
+    }
+    setInterval(blitFrame, 30);
+
+    // FPS: guest frames blitted, 3-second window
+    var fpsFrames = 0, fpsT0 = performance.now();
+    setInterval(function () {
+      var now = performance.now();
+      var fps = fpsFrames / ((now - fpsT0) / 1000);
+      if (!firstFrame) {
+        fpsEl.textContent = 'FPS: ' + fps.toFixed(1);
+        console.log('[fps] ' + fps.toFixed(1));
+      }
+      fpsFrames = 0;
+      fpsT0 = now;
+    }, 3000);
+
+    // ================================================================
+    // Buttons: pebble_gpio.c exports a uint32 bitmask in shared memory
+    // (pebble_wasm_button_state_addr) and applies press/release edges
+    // on a 16 ms virtual-clock poll. Set and clear bits with Atomics;
+    // holds work, no auto-release, no synthetic key events.
+    // ================================================================
+    var BTN_BACK = 1, BTN_UP = 2, BTN_SELECT = 4, BTN_DOWN = 8;
+    var buttonMask = 0;
+    var buttonAddr = 0;
+
+    function updateButtons(bit, pressed) {
+      buttonMask = pressed ? (buttonMask | bit) : (buttonMask & ~bit);
+      if (!qemu) return;
+      if (!buttonAddr) {
+        buttonAddr = qemu._pebble_wasm_button_state_addr();
+        if (!buttonAddr) return;
+        log('[input] button mask at 0x' + buttonAddr.toString(16));
+      }
+      Atomics.store(qemu.HEAPU32, buttonAddr >> 2, buttonMask);
+    }
+
+    var keyMap = {
+      ArrowLeft: BTN_BACK, Escape: BTN_BACK, Backspace: BTN_BACK,
+      ArrowUp: BTN_UP, w: BTN_UP,
+      ArrowRight: BTN_SELECT, Enter: BTN_SELECT, s: BTN_SELECT,
+      ArrowDown: BTN_DOWN, x: BTN_DOWN,
+    };
+
+    document.addEventListener('keydown', function (e) {
+      var bit = keyMap[e.key];
+      if (bit === undefined) return;
+      e.preventDefault();
+      if (!e.repeat) updateButtons(bit, true);
+    });
+    document.addEventListener('keyup', function (e) {
+      var bit = keyMap[e.key];
+      if (bit === undefined) return;
+      e.preventDefault();
+      updateButtons(bit, false);
+    });
+
+    var btnMap = {
+      'btn-back': BTN_BACK,
+      'btn-up': BTN_UP,
+      'btn-select': BTN_SELECT,
+      'btn-down': BTN_DOWN,
+    };
+
+    Object.keys(btnMap).forEach(function (id) {
+      var el = document.getElementById(id);
+      var bit = btnMap[id];
+      el.addEventListener('pointerdown', function (e) {
+        e.preventDefault();
+        el.setPointerCapture(e.pointerId);
+        el.classList.add('pressed');
+        updateButtons(bit, true);
+      });
+      function release() {
+        el.classList.remove('pressed');
+        updateButtons(bit, false);
+      }
+      el.addEventListener('pointerup', release);
+      el.addEventListener('pointercancel', release);
+    });
+
+    // ================================================================
+    // Serial console: UART2 (debug console) is routed to a file in the
+    // emscripten MEMFS; poll it and show printable text.
+    // ================================================================
+    var serialPos = 0;
+
+    function pollSerial() {
+      if (!qemu) return;
+      try {
+        var stat = qemu.FS.stat('/tmp/uart2.log');
+        if (stat.size <= serialPos) return;
+        var stream = qemu.FS.open('/tmp/uart2.log', 'r');
+        var chunk = new Uint8Array(stat.size - serialPos);
+        qemu.FS.read(stream, chunk, 0, chunk.length, serialPos);
+        qemu.FS.close(stream);
+        serialPos = stat.size;
+        var text = '';
+        for (var i = 0; i < chunk.length; i++) {
+          var b = chunk[i];
+          if ((b >= 32 && b <= 126) || b === 9 || b === 10 || b === 13) {
+            text += String.fromCharCode(b);
+          }
+        }
+        if (text) log(text.replace(/\r/g, ''));
+      } catch (e) {
+        // File doesn't exist until QEMU opens the chardev.
+      }
+    }
+    setInterval(pollSerial, 200);
+
+    // ================================================================
+    // Boot
+    // ================================================================
+    function buildArgs(board) {
+      var args = [
+        '-machine', board.machine,
+        '-kernel', '/firmware/qemu_micro_flash.bin',
+        '-drive', 'if=mtd,format=raw,file=/firmware/qemu_spi_flash.bin',
+        '-display', 'none',
+        '-monitor', 'none',
+        '-parallel', 'none',
+        '-serial', 'null',                 // UART0
+        '-serial', 'null',                 // UART1: pebble control protocol
+        '-serial', 'file:/tmp/uart2.log',  // UART2: debug console
+        '-rtc', 'base=localtime',
+      ];
+      if (board.audio && params.has('audio')) {
+        args[1] = board.machine + ',audiodev=snd0';
+        args.push('-audiodev', 'sdl,id=snd0');
+      }
+      return args;
+    }
+
+    async function boot() {
+      var name = boardSel.value;
+      var board = BOARDS[name];
+      bootBtn.disabled = true;
+      boardSel.disabled = true;
+      canvas.width = board.width;
+      canvas.height = board.height;
+
+      try {
+        setStatus('Fetching micro flash (' + name + ')...');
+        var micro = await fetchWithProgress('firmware/' + name + '/qemu_micro_flash.bin', 'Micro flash');
+        setStatus('Fetching SPI flash (32 MB)...');
+        var spi = await fetchWithProgress('firmware/' + name + '/qemu_spi_flash.bin', 'SPI flash');
+
+        setStatus('Loading QEMU WASM module...');
+        var factory = (await import('./qemu-system-arm.mjs')).default;
+
+        var args = buildArgs(board);
+        log('[qemu] args: ' + args.join(' '));
+
+        // The factory adopts this object as Module, so cfg.FS is valid
+        // by the time preRun callbacks fire.
+        var cfg = {
+          arguments: args,
+          print: function (t) { log(t); },
+          printErr: function (t) { log('[err] ' + t); },
+          preRun: [function () {
+            cfg.FS.mkdir('/firmware');
+            cfg.FS.writeFile('/firmware/qemu_micro_flash.bin', micro);
+            cfg.FS.writeFile('/firmware/qemu_spi_flash.bin', spi);
+          }],
+          onRuntimeInitialized: function () {
+            setStatus('QEMU running — booting PebbleOS (this takes a few minutes)...');
+          },
+          onAbort: function (why) { setStatus('QEMU aborted: ' + why); },
+          locateFile: function (p) { return './' + p; },
+        };
+        qemu = await factory(cfg);
+      } catch (e) {
+        setStatus('Error: ' + e.message);
+        log(e.stack || String(e));
+        bootBtn.disabled = false;
+        boardSel.disabled = false;
+      }
+    }
+
+    bootBtn.addEventListener('click', boot);
+    if (params.has('auto')) boot();
+  </script>
+</body>
+</html>

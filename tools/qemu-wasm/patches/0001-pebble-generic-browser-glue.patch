@@ -1,0 +1,163 @@
+diff --git a/configs/meson/emscripten.txt b/configs/meson/emscripten.txt
+index 4230e88..144f045 100644
+--- a/configs/meson/emscripten.txt
++++ b/configs/meson/emscripten.txt
+@@ -4,5 +4,5 @@ cpp_args = ['-pthread']
+ objc_args = ['-pthread']
+ # -sPROXY_TO_PTHREAD link time flag always requires -pthread even during
+ # configuration so explicitly add the flag here.
+-c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
+-cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
++c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
++cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
+diff --git a/hw/display/pebble_display.c b/hw/display/pebble_display.c
+index 34f4d9c..dbd2ad0 100644
+--- a/hw/display/pebble_display.c
++++ b/hw/display/pebble_display.c
+@@ -140,6 +140,56 @@ static bool pixel_in_round_mask(int x, int y, int w, int h)
+     return (dx * dx + dy * dy) <= (r * r);
+ }
+ 
++static PblDisplay *s_display_instance;
++
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++
++/* Browser bridge: no host display backend runs under -display none, so a
++ * virtual-clock timer drives console updates and the rendered surface is
++ * exposed for the web shell to blit. JS reads race harmlessly with updates. */
++static uint32_t s_wasm_frame_count;
++static QEMUTimer *s_wasm_refresh_timer;
++
++static void pbl_display_wasm_refresh(void *opaque)
++{
++    PblDisplay *s = opaque;
++
++    graphic_hw_update(s->con);
++    timer_mod(s_wasm_refresh_timer,
++              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 33);
++}
++
++EMSCRIPTEN_KEEPALIVE int pebble_wasm_display_width(void)
++{
++    return s_display_instance ? (int)s_display_instance->width : 0;
++}
++
++EMSCRIPTEN_KEEPALIVE int pebble_wasm_display_height(void)
++{
++    return s_display_instance ? (int)s_display_instance->height : 0;
++}
++
++EMSCRIPTEN_KEEPALIVE int pebble_wasm_display_stride(void)
++{
++    DisplaySurface *sur = s_display_instance && s_display_instance->con ?
++        qemu_console_surface(s_display_instance->con) : NULL;
++    return sur ? surface_stride(sur) : 0;
++}
++
++EMSCRIPTEN_KEEPALIVE uint8_t *pebble_wasm_display_data(void)
++{
++    DisplaySurface *sur = s_display_instance && s_display_instance->con ?
++        qemu_console_surface(s_display_instance->con) : NULL;
++    return sur ? surface_data(sur) : NULL;
++}
++
++EMSCRIPTEN_KEEPALIVE uint32_t pebble_wasm_display_frame_count(void)
++{
++    return s_wasm_frame_count;
++}
++#endif
++
+ static void pbl_display_update(void *opaque)
+ {
+     PblDisplay *s = opaque;
+@@ -258,6 +308,9 @@ static void pbl_display_update(void *opaque)
+     }
+ 
+     dpy_gfx_update(s->con, 0, 0, s->width, s->height);
++#ifdef __EMSCRIPTEN__
++    s_wasm_frame_count++;
++#endif
+ }
+ 
+ static void pbl_display_invalidate(void *opaque)
+@@ -421,9 +474,6 @@ static const MemoryRegionOps pbl_display_fb_ops = {
+ 
+ /* === Device lifecycle === */
+ 
+-/* Global instance for external access */
+-static PblDisplay *s_display_instance;
+-
+ #define VIBE_FRAME_MS 30
+ 
+ static void pbl_display_vibe_tick(void *opaque)
+@@ -466,6 +516,13 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
+     s->bl_g = 0xFF;
+     s->bl_b = 0xFF;
+     s->redraw = true;
++
++#ifdef __EMSCRIPTEN__
++    s_wasm_refresh_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
++                                        pbl_display_wasm_refresh, s);
++    timer_mod(s_wasm_refresh_timer,
++              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 33);
++#endif
+ }
+ 
+ static void pbl_display_init(Object *obj)
+diff --git a/hw/gpio/pebble_gpio.c b/hw/gpio/pebble_gpio.c
+index eefbcd0..4614cd7 100644
+--- a/hw/gpio/pebble_gpio.c
++++ b/hw/gpio/pebble_gpio.c
+@@ -148,6 +148,39 @@ static const QemuInputHandler pbl_gpio_input_handler = {
+     .event = pbl_gpio_input_event,
+ };
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++
++/* Browser bridge: the web shell writes a button bitmask into shared memory
++ * (Atomics.store) and a virtual-clock timer applies the press/release edges,
++ * avoiding cross-thread calls into QEMU under PROXY_TO_PTHREAD. Unlike the
++ * keyboard path there is no auto-release, so holds work. */
++static uint32_t s_wasm_btn_state;
++static uint32_t s_wasm_btn_last;
++static QEMUTimer *s_wasm_btn_timer;
++
++EMSCRIPTEN_KEEPALIVE uint32_t pebble_wasm_button_state_addr(void)
++{
++    return (uint32_t)(uintptr_t)&s_wasm_btn_state;
++}
++
++static void pbl_gpio_wasm_poll(void *opaque)
++{
++    PblGpio *s = opaque;
++    uint32_t state = __atomic_load_n(&s_wasm_btn_state,
++                                     __ATOMIC_SEQ_CST) & BTN_ALL;
++
++    if (state != s_wasm_btn_last) {
++        s->pending_release = 0;
++        s->btn_edge |= state ^ s_wasm_btn_last;
++        s->btn_state = state;
++        s_wasm_btn_last = state;
++        pbl_gpio_update_irq(s);
++    }
++    timer_mod(s_wasm_btn_timer, qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 16);
++}
++#endif
++
+ /* === Register access === */
+ 
+ static uint64_t pbl_gpio_read(void *opaque, hwaddr offset, unsigned size)
+@@ -219,6 +252,11 @@ static void pbl_gpio_realize(DeviceState *dev, Error **errp)
+     qemu_input_handler_activate(s->input_handler);
+ 
+     s_pbl_gpio_instance = s;
++
++#ifdef __EMSCRIPTEN__
++    s_wasm_btn_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL, pbl_gpio_wasm_poll, s);
++    timer_mod(s_wasm_btn_timer, qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 16);
++#endif
+ }
+ 
+ static void pbl_gpio_init(Object *obj)

@@ -1,0 +1,5 @@
+web/qemu-system-arm.js
+web/qemu-system-arm.wasm
+web/qemu-system-arm.worker.js
+web/firmware/
+web/qemu-system-arm.mjs
