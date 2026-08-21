@@ -160,6 +160,21 @@ static uint32_t prv_dynamic_mode_full_lux(BacklightDynamicMode mode) {
       return 250;
   }
 }
+
+//! Intensity floor at 0 lux, per mode. Distinct floors keep the modes
+//! visually distinguishable in a dark room, where the ramp contributes
+//! nothing.
+static uint8_t prv_dynamic_mode_floor_intensity(BacklightDynamicMode mode) {
+  switch (mode) {
+    case BacklightDynamicMode_Bright:
+      return 30;
+    case BacklightDynamicMode_Dim:
+      return 10;
+    case BacklightDynamicMode_Standard:
+    default:
+      return 20;
+  }
+}
 #endif
 
 static void prv_change_state(BacklightState new_state);
@@ -234,27 +249,28 @@ static uint8_t prv_backlight_get_intensity(void) {
   }
   
 #if defined(CONFIG_DYNAMIC_BACKLIGHT) && !defined(CONFIG_RECOVERY_FW)
-  // Dynamic backlight: linear ramp from dim_intensity at 0 lux up to 100% at
-  // the mode's full-brightness lux level, then clamped to user_max. This keeps
-  // the slope independent of the user's brightness preference, so a user who
-  // caps their max at e.g. 60% still hits that cap partway up the ALS range
-  // rather than only at the brightest end. prv_light_allowed() independently
-  // rejects wakes above the dark threshold; paths that bypass it (app-driven
-  // force-on, ambient-sensor pref off) sensibly land at user_max here.
+  // Dynamic backlight: linear ramp from the mode's floor intensity at 0 lux up
+  // to 100% at the mode's full-brightness lux level, then clamped to user_max.
+  // This keeps the slope independent of the user's brightness preference, so a
+  // user who caps their max at e.g. 60% still hits that cap partway up the ALS
+  // range rather than only at the brightest end. prv_light_allowed()
+  // independently rejects wakes above the dark threshold; paths that bypass it
+  // (app-driven force-on, ambient-sensor pref off) sensibly land at user_max
+  // here.
   const BacklightDynamicMode mode = backlight_get_dynamic_mode();
   if (mode != BacklightDynamicMode_Off) {
-    const uint8_t dim_intensity = 10;
+    const uint8_t floor_intensity = prv_dynamic_mode_floor_intensity(mode);
     const uint8_t user_max = backlight_get_intensity();
     const uint32_t als = prv_get_als_level();
     const uint32_t full_lux = prv_dynamic_mode_full_lux(mode);
 
-    if (user_max <= dim_intensity) {
+    if (user_max <= floor_intensity) {
       return user_max;
     }
     if (als >= full_lux) {
       return user_max;
     }
-    const uint32_t ramped = dim_intensity + ((100 - dim_intensity) * als) / full_lux;
+    const uint32_t ramped = floor_intensity + ((100 - floor_intensity) * als) / full_lux;
     return (ramped > user_max) ? user_max : (uint8_t)ramped;
   }
 #endif
