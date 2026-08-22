@@ -207,5 +207,8 @@ bld.stlib(
         '-Wno-unused-but-set-variable',
         '-Wno-sign-compare',
         '-Wno-type-limits',
+        # bt_rf_fulcal.c trips GCC's flow analysis (p0/capcode0/idac0 in the
+        # RF-cal routines); silence it for this vendored SDK, not our code.
+        '-Wno-maybe-uninitialized',
     ],
 )
