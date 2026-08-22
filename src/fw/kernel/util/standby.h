@@ -12,3 +12,12 @@ NORETURN
 void
 #endif
 enter_standby(RebootReasonCode reason);
+
+#ifdef CONFIG_HIBERNATE
+#if !UNITTEST
+NORETURN
+#else
+void
+#endif
+enter_mcu_shutdown(RebootReasonCode reason);
+#endif

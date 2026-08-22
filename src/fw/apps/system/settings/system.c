@@ -150,6 +150,9 @@ typedef enum {
   SystemMenuItemStationaryToggle,
   SystemMenuItemDebugging,
   SystemMenuItemShutDown,
+#ifdef CONFIG_HIBERNATE
+  SystemMenuItemHibernate,
+#endif
   SystemMenuItemFactoryReset,
   SystemMenuItem_Count,
 } SystemMenuItem;
@@ -160,6 +163,9 @@ static const char *s_item_titles[SystemMenuItem_Count] = {
   [SystemMenuItemStationaryToggle] = i18n_noop("Stand-By Mode"),
   [SystemMenuItemDebugging]     = i18n_noop("Debugging"),
   [SystemMenuItemShutDown]      = i18n_noop("Shut Down"),
+#ifdef CONFIG_HIBERNATE
+  [SystemMenuItemHibernate]     = i18n_noop("Hibernate"),
+#endif
   [SystemMenuItemFactoryReset]  = i18n_noop("Factory Reset"),
 };
 
@@ -1270,6 +1276,22 @@ static void prv_shutdown_click_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_BACK, prv_shutdown_back_cb);
 }
 
+#ifdef CONFIG_HIBERNATE
+static void prv_hibernate_confirm_cb(ClickRecognizerRef recognizer, void *context) {
+  actionable_dialog_pop((ActionableDialog *) context);
+  battery_ui_handle_mcu_shutdown();
+}
+
+static void prv_hibernate_back_cb(ClickRecognizerRef recognizer, void *context) {
+  actionable_dialog_pop((ActionableDialog *) context);
+}
+
+static void prv_hibernate_click_provider(void *context) {
+  window_single_click_subscribe(BUTTON_ID_SELECT, prv_hibernate_confirm_cb);
+  window_single_click_subscribe(BUTTON_ID_BACK, prv_hibernate_back_cb);
+}
+#endif
+
 static void prv_shutdown_cb(void* data) {
   ActionableDialog *a_dialog = actionable_dialog_create("Shutdown");
   Dialog *dialog = actionable_dialog_get_dialog(a_dialog);
@@ -1287,6 +1309,25 @@ static void prv_shutdown_cb(void* data) {
   actionable_dialog_push(a_dialog, modal_manager_get_window_stack(ModalPriorityGeneric));
 }
 
+#ifdef CONFIG_HIBERNATE
+static void prv_hibernate_cb(void* data) {
+  ActionableDialog *a_dialog = actionable_dialog_create("Hibernate");
+  Dialog *dialog = actionable_dialog_get_dialog(a_dialog);
+
+  actionable_dialog_set_action_bar_type(a_dialog, DialogActionBarConfirm, NULL);
+  actionable_dialog_set_click_config_provider(a_dialog, prv_hibernate_click_provider);
+
+  dialog_set_text_color(dialog, GColorWhite);
+  dialog_set_background_color(dialog, GColorCobaltBlue);
+  dialog_set_text(dialog, i18n_get("Do you want to hibernate?", a_dialog));
+  dialog_set_icon(dialog, RESOURCE_ID_GENERIC_QUESTION_LARGE);
+
+  i18n_free_all(a_dialog);
+
+  actionable_dialog_push(a_dialog, modal_manager_get_window_stack(ModalPriorityGeneric));
+}
+#endif
+
 static void prv_deinit_cb(SettingsCallbacks *context) {
   SettingsSystemData *data = (SettingsSystemData *) context;
   i18n_free_all(data);
@@ -1302,6 +1343,9 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       subtitle = stationary_get_enabled() ? i18n_get("On", data) : i18n_get("Off", data);
       break;
     case SystemMenuItemShutDown:
+#ifdef CONFIG_HIBERNATE
+    case SystemMenuItemHibernate:
+#endif
     case SystemMenuItemInformation:
     case SystemMenuItemCertification:
     case SystemMenuItemDebugging:
@@ -1334,6 +1378,11 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
     case SystemMenuItemShutDown:
       launcher_task_add_callback(prv_shutdown_cb, 0);
       break;
+#ifdef CONFIG_HIBERNATE
+    case SystemMenuItemHibernate:
+      launcher_task_add_callback(prv_hibernate_cb, 0);
+      break;
+#endif
     case SystemMenuItemDebugging:
       prv_debugging_interstitial_trigger(data);
       break;

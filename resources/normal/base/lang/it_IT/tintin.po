@@ -3425,6 +3425,12 @@ msgstr "Martellante"
 msgid "Gentle"
 msgstr "Delicato"
 
+
+msgid "Hibernate"
+msgstr ""
+
+msgid "Do you want to hibernate?"
+msgstr ""
 #~ msgid "Default"
 #~ msgstr "Default"
 

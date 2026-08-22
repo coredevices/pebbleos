@@ -55,6 +55,15 @@ config MMAP_RESOURCES
       Serve read-only system resources as direct pointers into
       memory-mapped flash instead of copying them out.
 
+config HIBERNATE
+    bool "Hibernate"
+    default y
+    depends on SOC_SF32LB52
+    help
+      Add a hibernate quick-launch toggle and settings menu item that
+      puts the watch into an RTC-preserving low-power state. Only
+      supported on SF32LB52-based watches.
+
 endmenu
 
 choice

@@ -3473,6 +3473,12 @@ msgstr "削岩機"
 msgid "Gentle"
 msgstr "おだやか"
 
+
+msgid "Hibernate"
+msgstr ""
+
+msgid "Do you want to hibernate?"
+msgstr ""
 #~ msgid "Scaled"
 #~ msgstr "拡大"
 

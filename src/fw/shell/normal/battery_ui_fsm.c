@@ -267,6 +267,14 @@ void battery_ui_handle_shut_down(void) {
   }
 }
 
+#ifdef CONFIG_HIBERNATE
+void battery_ui_handle_mcu_shutdown(void) {
+  // Hibernate the MCU while keeping the RTC/backup domain alive so the
+  // clock is preserved. The watch wakes on button press and cold-boots.
+  enter_mcu_shutdown(RebootReasonCode_ShutdownMenuItem);
+}
+#endif
+
 void battery_ui_reset_fsm_for_tests(void) {
   s_state = BatteryGood;
   s_warning_points_index = -1;

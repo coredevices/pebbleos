@@ -22,6 +22,14 @@ void battery_ui_handle_state_change_event(PreciseBatteryChargeState new_state);
 //! entered once the watch is unplugged.
 void battery_ui_handle_shut_down(void);
 
+//! Shut down the watch using MCU hibernate instead of PMIC ship mode.
+//!
+//! This preserves the RTC and any backup state; the device wakes on button
+//! press and cold-boots normally.
+#ifdef CONFIG_HIBERNATE
+void battery_ui_handle_mcu_shutdown(void);
+#endif
+
 //! Show the 'battery charging' modal dialog
 void battery_ui_display_plugged(void);
 

@@ -3498,6 +3498,12 @@ msgstr "Britadeira"
 msgid "Gentle"
 msgstr "Suave"
 
+
+msgid "Hibernate"
+msgstr ""
+
+msgid "Do you want to hibernate?"
+msgstr ""
 #~ msgid "Default"
 #~ msgstr "Padrão"
 
