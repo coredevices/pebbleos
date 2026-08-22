@@ -560,7 +560,8 @@ static void NOINLINE prv_process_minute_data_tail(time_t utc_sec) {
   mutex_unlock_recursive(s_activity_state.mutex);
 
   // DataLogging may allocate or close a session, so keep it outside the Activity-state mutex.
-  sleep_capture_minute_handler(utc_sec, activity_prefs_heart_rate_is_enabled(), sleep_active);
+  sleep_capture_minute_handler(utc_sec, activity_prefs_heart_rate_is_enabled(), sleep_active,
+                               activity_prefs_enhanced_overnight_hr_logging_is_enabled());
 
   mutex_lock_recursive(s_activity_state.mutex);
   prv_heart_rate_subscription_update(time_get_uptime_seconds());

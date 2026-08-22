@@ -272,6 +272,9 @@ static uint8_t s_alarms_app_opened = 0;
 #define PREF_KEY_ACTIVITY_HRM_PREFERENCES "hrmPreferences"
 static ActivityHRMSettings s_activity_hrm_preferences = ACTIVITY_HRM_DEFAULT_PREFERENCES;
 
+#define PREF_KEY_ACTIVITY_ENHANCED_OVERNIGHT_HR_LOGGING "enhancedOvernightHrLogging"
+static bool s_activity_enhanced_overnight_hr_logging_enabled = false;
+
 #define PREF_KEY_ACTIVITY_HEART_RATE_PREFERENCES "heartRatePreferences"
 static HeartRatePreferences s_activity_hr_preferences = ACTIVITY_HEART_RATE_DEFAULT_PREFERENCES;
 
@@ -743,6 +746,11 @@ static bool prv_set_s_activity_hrm_preferences(ActivityHRMSettings *new_settings
 #if BLE_HRM_SERVICE
   ble_hrm_handle_activity_prefs_heart_rate_is_enabled(new_settings->enabled);
 #endif // BLE_HRM_SERVICE
+  return true;
+}
+
+static bool prv_set_s_activity_enhanced_overnight_hr_logging_enabled(bool *enabled) {
+  s_activity_enhanced_overnight_hr_logging_enabled = *enabled;
   return true;
 }
 
@@ -1991,6 +1999,16 @@ uint8_t activity_prefs_heart_get_zone3_threshold(void) {
 
 bool activity_prefs_heart_rate_is_enabled(void) {
   return s_activity_hrm_preferences.enabled;
+}
+
+bool activity_prefs_enhanced_overnight_hr_logging_is_enabled(void) {
+  return s_activity_enhanced_overnight_hr_logging_enabled;
+}
+
+void activity_prefs_set_enhanced_overnight_hr_logging_enabled(bool enabled) {
+  if (s_activity_enhanced_overnight_hr_logging_enabled != enabled) {
+    prv_pref_set(PREF_KEY_ACTIVITY_ENHANCED_OVERNIGHT_HR_LOGGING, &enabled, sizeof(enabled));
+  }
 }
 
 #ifdef CONFIG_HRM

@@ -410,6 +410,12 @@ uint8_t activity_prefs_heart_get_zone3_threshold(void);
 //! Return true if the HRM is enabled, false if not
 bool activity_prefs_heart_rate_is_enabled(void);
 
+//! Return true when detailed heart-rate logging during detected overnight sleep is enabled.
+bool activity_prefs_enhanced_overnight_hr_logging_is_enabled(void);
+
+//! Enable or disable detailed heart-rate logging during detected overnight sleep.
+void activity_prefs_set_enhanced_overnight_hr_logging_enabled(bool enabled);
+
 #ifdef CONFIG_HRM
 //! Get the HRM measurement interval setting
 //! @return the current HRMonitoringInterval value

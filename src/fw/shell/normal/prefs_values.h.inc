@@ -47,6 +47,7 @@
   PREFS_MACRO(PREF_KEY_ACTIVITY_WORKOUT_APP_OPENED, s_activity_prefs_workout_app_opened)
   PREFS_MACRO(PREF_KEY_ALARMS_APP_OPENED, s_alarms_app_opened)
   PREFS_MACRO(PREF_KEY_ACTIVITY_HRM_PREFERENCES, s_activity_hrm_preferences)
+  PREFS_MACRO(PREF_KEY_ACTIVITY_ENHANCED_OVERNIGHT_HR_LOGGING, s_activity_enhanced_overnight_hr_logging_enabled)
   PREFS_MACRO(PREF_KEY_ACTIVITY_HEART_RATE_PREFERENCES, s_activity_hr_preferences)
   PREFS_MACRO(PREF_KEY_TIMELINE_SETTINGS_OPENED, s_timeline_settings_opened)
   PREFS_MACRO(PREF_KEY_TIMELINE_PEEK_ENABLED, s_timeline_peek_enabled)

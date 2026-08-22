@@ -192,14 +192,17 @@ static void prv_start_capture(time_t now_utc) {
   PBL_LOG_INFO("Sleep capture started");
 }
 
-void sleep_capture_minute_handler(uint32_t utc_sec, bool heart_rate_enabled, bool sleep_active) {
+void sleep_capture_minute_handler(uint32_t utc_sec, bool heart_rate_enabled, bool sleep_active,
+                                  bool enhanced_logging_enabled) {
 #ifndef CONFIG_HRM_HRV
   (void)utc_sec;
   (void)heart_rate_enabled;
   (void)sleep_active;
+  (void)enhanced_logging_enabled;
 #else
   const time_t now_utc = (time_t)utc_sec;
-  const bool should_capture = heart_rate_enabled && sleep_active && prv_is_capture_window(now_utc);
+  const bool should_capture = enhanced_logging_enabled && heart_rate_enabled && sleep_active &&
+                              prv_is_capture_window(now_utc);
   if (should_capture && !s_sleep_capture.active) {
     prv_start_capture(now_utc);
   } else if (!should_capture && s_sleep_capture.active) {

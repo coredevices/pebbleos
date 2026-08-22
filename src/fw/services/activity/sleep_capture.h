@@ -10,7 +10,8 @@
 #include <stdint.h>
 
 //! Called once per minute by the Activity service.
-void sleep_capture_minute_handler(uint32_t utc_sec, bool heart_rate_enabled, bool sleep_active);
+void sleep_capture_minute_handler(uint32_t utc_sec, bool heart_rate_enabled, bool sleep_active,
+                                  bool enhanced_logging_enabled);
 
 //! True while the HRM subscription must include PPI collection.
 bool sleep_capture_is_active(void);
