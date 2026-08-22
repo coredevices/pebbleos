@@ -1,5 +1,25 @@
+diff --git a/accel/tcg/cputlb.c b/accel/tcg/cputlb.c
+index b063a57..750e648 100644
+--- a/accel/tcg/cputlb.c
++++ b/accel/tcg/cputlb.c
+@@ -1281,7 +1281,15 @@ io_prepare(hwaddr *out_offset, CPUState *cpu, hwaddr xlat,
+     mr_offset = (xlat & TARGET_PAGE_MASK) + addr;
+     cpu->mem_io_pc = retaddr;
+     if (!cpu->neg.can_do_io) {
++#ifdef __EMSCRIPTEN__
++        /* cpu_io_recompile() longjmps, which emscripten implements as a JS
++         * exception -- prohibitively expensive. Let the I/O proceed; the
++         * cost is icount accounting imprecise by at most one TB, and the
++         * Pebble machines do not run with icount. */
++        cpu->neg.can_do_io = true;
++#else
+         cpu_io_recompile(cpu, retaddr);
++#endif
+     }
+ 
+     *out_offset = mr_offset;
 diff --git a/configs/meson/emscripten.txt b/configs/meson/emscripten.txt
-index 4230e88..144f045 100644
+index 4230e88..a28ea28 100644
 --- a/configs/meson/emscripten.txt
 +++ b/configs/meson/emscripten.txt
 @@ -4,5 +4,5 @@ cpp_args = ['-pthread']
@@ -8,8 +28,8 @@ index 4230e88..144f045 100644
  # configuration so explicitly add the flag here.
 -c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
 -cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
-+c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
-+cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
++c_link_args = ['-pthread','-sMALLOC=mimalloc','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain','-sASYNCIFY_REMOVE=["tcg_qemu_tb_exec","tci_qemu_ld","tci_qemu_st","helper_ldub_mmu","helper_ldsb_mmu","helper_lduw_mmu","helper_ldsw_mmu","helper_ldul_mmu","helper_ldsl_mmu","helper_ldq_mmu","helper_stb_mmu","helper_stw_mmu","helper_stl_mmu","helper_stq_mmu","io_readx","io_writex","memory_region_dispatch_read","memory_region_dispatch_write","cpu_exec","cpu_exec_loop","cpu_tb_exec","helper_lookup_tb_ptr","tb_lookup","tb_htable_lookup","qht_lookup_custom","get_page_addr_code_hostp","probe_access_internal"]']
++cpp_link_args = ['-pthread','-sMALLOC=mimalloc','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain','-sASYNCIFY_REMOVE=["tcg_qemu_tb_exec","tci_qemu_ld","tci_qemu_st","helper_ldub_mmu","helper_ldsb_mmu","helper_lduw_mmu","helper_ldsw_mmu","helper_ldul_mmu","helper_ldsl_mmu","helper_ldq_mmu","helper_stb_mmu","helper_stw_mmu","helper_stl_mmu","helper_stq_mmu","io_readx","io_writex","memory_region_dispatch_read","memory_region_dispatch_write","cpu_exec","cpu_exec_loop","cpu_tb_exec","helper_lookup_tb_ptr","tb_lookup","tb_htable_lookup","qht_lookup_custom","get_page_addr_code_hostp","probe_access_internal"]']
 diff --git a/hw/arm/Kconfig b/hw/arm/Kconfig
 index cb1fed5..1004a13 100644
 --- a/hw/arm/Kconfig
@@ -23,7 +43,7 @@ index cb1fed5..1004a13 100644
      select SSI
      select SSI_M25P80
 diff --git a/hw/display/pebble_display.c b/hw/display/pebble_display.c
-index 34f4d9c..dbd2ad0 100644
+index 34f4d9c..0251218 100644
 --- a/hw/display/pebble_display.c
 +++ b/hw/display/pebble_display.c
 @@ -140,6 +140,56 @@ static bool pixel_in_round_mask(int x, int y, int w, int h)
@@ -93,8 +113,60 @@ index 34f4d9c..dbd2ad0 100644
  }
  
  static void pbl_display_invalidate(void *opaque)
-@@ -421,9 +474,6 @@ static const MemoryRegionOps pbl_display_fb_ops = {
+@@ -369,61 +422,8 @@ static const MemoryRegionOps pbl_display_regs_ops = {
  
+ /* === Framebuffer memory access === */
+ 
+-static uint64_t pbl_display_fb_read(void *opaque, hwaddr offset,
+-                                     unsigned size)
+-{
+-    PblDisplay *s = opaque;
+-
+-    if (offset + size <= s->fb_size) {
+-        switch (size) {
+-        case 1:
+-            return s->fb[offset];
+-        case 2:
+-            return lduw_le_p(&s->fb[offset]);
+-        case 4:
+-            return ldl_le_p(&s->fb[offset]);
+-        default:
+-            break;
+-        }
+-    }
+-    return 0;
+-}
+-
+-static void pbl_display_fb_write(void *opaque, hwaddr offset,
+-                                  uint64_t value, unsigned size)
+-{
+-    PblDisplay *s = opaque;
+-
+-    if (offset + size <= s->fb_size) {
+-        switch (size) {
+-        case 1:
+-            s->fb[offset] = value;
+-            break;
+-        case 2:
+-            stw_le_p(&s->fb[offset], value);
+-            break;
+-        case 4:
+-            stl_le_p(&s->fb[offset], value);
+-            break;
+-        default:
+-            break;
+-        }
+-    }
+-}
+-
+-static const MemoryRegionOps pbl_display_fb_ops = {
+-    .read = pbl_display_fb_read,
+-    .write = pbl_display_fb_write,
+-    .endianness = DEVICE_LITTLE_ENDIAN,
+-    .valid.min_access_size = 1,
+-    .valid.max_access_size = 4,
+-};
+-
  /* === Device lifecycle === */
  
 -/* Global instance for external access */
@@ -103,7 +175,25 @@ index 34f4d9c..dbd2ad0 100644
  #define VIBE_FRAME_MS 30
  
  static void pbl_display_vibe_tick(void *opaque)
-@@ -466,6 +516,13 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
+@@ -447,7 +447,7 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
+     s_display_instance = s;
+     s->vibe_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL, pbl_display_vibe_tick, s);
+ 
+-    /* Calculate framebuffer size */
++    /* Calculate framebuffer size (backing RAM is allocated in init) */
+     if (s->format == FMT_1BPP) {
+         uint32_t row_bytes = ((s->width + 31) / 32) * 4;
+         s->fb_size = row_bytes * s->height;
+@@ -455,8 +455,6 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
+         s->fb_size = s->width * s->height;  /* 8bpp = 1 byte per pixel */
+     }
+ 
+-    s->fb = g_malloc0(s->fb_size);
+-
+     /* Create QemuConsole */
+     s->con = graphic_console_init(dev, 0, &pbl_display_ops, s);
+     qemu_console_resize(s->con, s->width, s->height);
+@@ -466,6 +464,13 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
      s->bl_g = 0xFF;
      s->bl_b = 0xFF;
      s->redraw = true;
@@ -117,6 +207,23 @@ index 34f4d9c..dbd2ad0 100644
  }
  
  static void pbl_display_init(Object *obj)
+@@ -477,9 +482,13 @@ static void pbl_display_init(Object *obj)
+                           "pebble-display-regs", 0x1000);
+     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem_regs);
+ 
+-    /* Region 1: framebuffer (sized to max, actual usage depends on format) */
+-    memory_region_init_io(&s->iomem_fb, obj, &pbl_display_fb_ops, s,
+-                          "pebble-display-fb", 128 * 1024);
++    /* Region 1: framebuffer. Plain RAM: guest pixel writes must not take
++     * the MMIO slow path (tens of thousands of trapped accesses per frame
++     * under TCI). The CTRL_UPDATE doorbell is the only sync point the
++     * firmware relies on, so nothing needs to trap here. */
++    s->fb = g_malloc0(128 * 1024);
++    memory_region_init_ram_ptr(&s->iomem_fb, obj, "pebble-display-fb",
++                               128 * 1024, s->fb);
+     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem_fb);
+ 
+     sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq);
 diff --git a/hw/gpio/pebble_gpio.c b/hw/gpio/pebble_gpio.c
 index eefbcd0..4614cd7 100644
 --- a/hw/gpio/pebble_gpio.c
@@ -173,3 +280,96 @@ index eefbcd0..4614cd7 100644
  }
  
  static void pbl_gpio_init(Object *obj)
+diff --git a/tcg/tci.c b/tcg/tci.c
+index 700e672..aa77378 100644
+--- a/tcg/tci.c
++++ b/tcg/tci.c
+@@ -25,6 +25,15 @@
+ #include "tcg-has.h"
+ #include <ffi.h>
+ 
++/* Inline TLB fast path for memory access (TCI_TLB_FAST_PATH) */
++#ifndef CONFIG_USER_ONLY
++#include "exec/cpu-common.h"
++#include "exec/tlb-common.h"
++#include "exec/tlb-flags.h"
++#include "exec/target_page.h"
++#define TCI_TLB_FAST_PATH 1
++#endif
++
+ 
+ #define ctpop_tr    glue(ctpop, TCG_TARGET_REG_BITS)
+ #define deposit_tr  glue(deposit, TCG_TARGET_REG_BITS)
+@@ -281,6 +290,38 @@ static uint64_t tci_qemu_ld(CPUArchState *env, uint64_t taddr,
+     MemOp mop = get_memop(oi);
+     uintptr_t ra = (uintptr_t)tb_ptr;
+ 
++#ifdef TCI_TLB_FAST_PATH
++    /* On a TLB hit with no special flags, access host memory directly,
++     * bypassing the helper_*_mmu call chain (memory ops dominate the
++     * interpreted op mix). Miss or flagged entry falls through. */
++    {
++        CPUState *cpu = env_cpu(env);
++        int mmu_idx = get_mmuidx(oi);
++        uintptr_t tlb_mask = cpu->neg.tlb.f[mmu_idx].mask;
++        uintptr_t idx = (taddr >> TARGET_PAGE_BITS)
++                        & (tlb_mask >> CPU_TLB_ENTRY_BITS);
++        CPUTLBEntry *tlbe = &cpu->neg.tlb.f[mmu_idx].table[idx];
++        uintptr_t tlb_addr = tlbe->addr_read;
++        uintptr_t page = taddr & TARGET_PAGE_MASK;
++
++        if (__builtin_expect(
++                page == (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))
++                && !(tlb_addr & TLB_FORCE_SLOW), 1)) {
++            void *haddr = (void *)(uintptr_t)(taddr + tlbe->addend);
++            switch (mop & MO_SSIZE) {
++            case MO_UB: return *(uint8_t *)haddr;
++            case MO_SB: return (int8_t)*(uint8_t *)haddr;
++            case MO_UW: { uint16_t v; memcpy(&v, haddr, 2); return v; }
++            case MO_SW: { uint16_t v; memcpy(&v, haddr, 2); return (int16_t)v; }
++            case MO_UL: { uint32_t v; memcpy(&v, haddr, 4); return v; }
++            case MO_SL: { uint32_t v; memcpy(&v, haddr, 4); return (int32_t)v; }
++            case MO_UQ: { uint64_t v; memcpy(&v, haddr, 8); return v; }
++            default: break;
++            }
++        }
++    }
++#endif
++
+     switch (mop & MO_SSIZE) {
+     case MO_UB:
+         return helper_ldub_mmu(env, taddr, oi, ra);
+@@ -307,6 +348,33 @@ static void tci_qemu_st(CPUArchState *env, uint64_t taddr, uint64_t val,
+     MemOp mop = get_memop(oi);
+     uintptr_t ra = (uintptr_t)tb_ptr;
+ 
++#ifdef TCI_TLB_FAST_PATH
++    /* Store variant of the inline TLB fast path above. */
++    {
++        CPUState *cpu = env_cpu(env);
++        int mmu_idx = get_mmuidx(oi);
++        uintptr_t tlb_mask = cpu->neg.tlb.f[mmu_idx].mask;
++        uintptr_t idx = (taddr >> TARGET_PAGE_BITS)
++                        & (tlb_mask >> CPU_TLB_ENTRY_BITS);
++        CPUTLBEntry *tlbe = &cpu->neg.tlb.f[mmu_idx].table[idx];
++        uintptr_t tlb_addr = tlbe->addr_write;
++        uintptr_t page = taddr & TARGET_PAGE_MASK;
++
++        if (__builtin_expect(
++                page == (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))
++                && !(tlb_addr & TLB_FORCE_SLOW), 1)) {
++            void *haddr = (void *)(uintptr_t)(taddr + tlbe->addend);
++            switch (mop & MO_SIZE) {
++            case MO_UB: *(uint8_t *)haddr = val; return;
++            case MO_UW: { uint16_t v = val; memcpy(haddr, &v, 2); return; }
++            case MO_UL: { uint32_t v = val; memcpy(haddr, &v, 4); return; }
++            case MO_UQ: { uint64_t v = val; memcpy(haddr, &v, 8); return; }
++            default: break;
++            }
++        }
++    }
++#endif
++
+     switch (mop & MO_SIZE) {
+     case MO_UB:
+         helper_stb_mmu(env, taddr, val, oi, ra);

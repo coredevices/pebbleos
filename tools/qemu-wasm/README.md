@@ -122,3 +122,20 @@ touch via QMP, gdb, screenshots) see `docs/development/qemu.md`.
 - `fetch-firmware.sh` — download release firmware into `web/firmware/`
 - `smoke-test.mjs` — headless boot test under node
 - `NOTES.md` — link-flag requirements for the emscripten build
+
+## Performance patches
+
+`patches/0001` also carries the wasm perf work (all `__EMSCRIPTEN__`-gated
+or wasm-only): RAM-backed display framebuffer (no MMIO traps on pixel
+writes), inline TLB fast path in the TCI interpreter, `cpu_io_recompile`
+skip, `-sASYNCIFY_REMOVE` for the interpreter hot path, mimalloc, and
+`-Doptimization=3`. Measured on 4 shared cores under node, pebble-emery
+v4.35.0, continuous launcher scroll:
+
+| build | boot to ready | boot-anim fps | scroll fps |
+|---|---|---|---|
+| unpatched TCI | 91 s | 1.3 | 2.1 |
+| patched TCI | 38 s | 6.9 | 4.5 |
+
+The interpreter plateaus there; the next multiplier is the TCG-to-wasm
+JIT backend (ktock/qemu-wasm), tracked separately.
