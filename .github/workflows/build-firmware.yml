@@ -194,6 +194,40 @@ jobs:
           name: qa-firmware-${{ steps.artifact_board.outputs.NAME }}
           path: out/**
 
+  # Once the dual-slot QA firmware is built, kick off the hardware-lab release-QA in
+  # coredevices/unicorn against THIS run's qa-firmware artifact (erase -> PRF -> pair -> OTA ->
+  # functional pass on a real phone + watch), using the most recently tagged coreapp release. The
+  # unicorn run posts a `unicorn/release-qa` commit status back on this PR's commit. Internal PRs
+  # only (forks have no secrets); needs UNICORN_DISPATCH_TOKEN — a PAT with actions:write on unicorn.
+  dispatch-release-qa:
+    needs: build-qa-firmware
+    # Org members / collaborators only: author_association is MEMBER for org members, OWNER for the
+    # repo owner, COLLABORATOR for added collaborators — external contributors (CONTRIBUTOR/NONE) are
+    # excluded, so an outside PR can't spend the hardware lab.
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.build-qa-firmware.result == 'success' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+    runs-on: ubuntu-24.04
+    # One in-flight QA per PR: a newer push supersedes the older dispatch instead of queueing extras.
+    concurrency:
+      group: release-qa-dispatch-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Dispatch the hardware-lab release-QA (coredevices/unicorn)
+        env:
+          GH_TOKEN: ${{ secrets.UNICORN_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::UNICORN_DISPATCH_TOKEN not set — add a PAT with actions:write on coredevices/unicorn to run the hardware release-QA automatically"
+            exit 0
+          fi
+          # to_pbz_run_id = this Build Firmware run (its qa-firmware-<board> artifact is the "to").
+          # coreapp_run_id omitted -> unicorn uses the most recently tagged coreapp release.
+          gh workflow run one-off-pebbleos-test.yml -R coredevices/unicorn \
+            -f to_pbz_run_id=${{ github.run_id }}
+
   build-firmware-status:
     needs: [changes-firmware, build-firmware]
     if: always()
