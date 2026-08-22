@@ -1,0 +1,345 @@
+<meta charset="utf-8">
+<title>Pebble Wasm Emulator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..900&family=IBM+Plex+Mono:wght@400;500&family=Silkscreen&display=swap">
+<style>
+  :root {
+    --paper: #FAF8F3; --panel: #F0EDE3; --ink: #191713; --ink-soft: #4A463D;
+    --grey: #7C776C; --line: #D8D3C4; --accent: #D9411E; --accent-ink: #FFF;
+    --good: #2C7A3F; --bad: #B3261E; --bezel: #23201A;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #16140F; --panel: #201D15; --ink: #EDE9DF; --ink-soft: #C4BFAF;
+      --grey: #98937F; --line: #383325; --accent: #FF6A3D; --accent-ink: #1A0C05;
+      --good: #6FBF82; --bad: #E8837C; --bezel: #000;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #16140F; --panel: #201D15; --ink: #EDE9DF; --ink-soft: #C4BFAF;
+    --grey: #98937F; --line: #383325; --accent: #FF6A3D; --accent-ink: #1A0C05;
+    --good: #6FBF82; --bad: #E8837C; --bezel: #000;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-size: 15.5px; line-height: 1.55;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 28px 16px 60px;
+  }
+  .head { text-align: center; margin-bottom: 18px; }
+  .eyebrow { font-family: "Silkscreen", monospace; font-size: 10px; letter-spacing: .08em; color: var(--accent); text-transform: uppercase; margin: 0 0 10px; }
+  h1 { font-variation-settings: "wdth" 82; font-weight: 900; font-size: clamp(28px, 5vw, 44px); line-height: 1; letter-spacing: -.01em; margin: 0 0 10px; }
+  .sub { color: var(--ink-soft); max-width: 52ch; margin: 0 auto; font-size: 14.5px; }
+  .sub b { color: var(--ink); }
+
+  .checks { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 18px 0 6px; }
+  .chk { font-family: "Silkscreen", monospace; font-size: 9.5px; letter-spacing: .04em; text-transform: uppercase;
+         padding: 4px 9px 3px; border-radius: 3px; border: 1px solid var(--line); background: var(--panel); color: var(--grey); }
+  .chk.ok { color: var(--good); border-color: var(--good); }
+  .chk.no { color: var(--bad); border-color: var(--bad); }
+
+  .fail {
+    display: none; background: var(--panel); border: 1px solid var(--bad); border-left: 4px solid var(--bad);
+    border-radius: 6px; padding: 16px 20px; max-width: 60ch; margin: 14px 0; font-size: 14px;
+  }
+  .fail code { font-family: "IBM Plex Mono", monospace; font-size: .9em; }
+
+  .controls { display: flex; gap: 10px; align-items: center; margin: 14px 0 6px; }
+  button.boot {
+    font-family: "Archivo", sans-serif; font-variation-settings: "wdth" 85; font-weight: 800; font-size: 16px;
+    background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 5px;
+    padding: 10px 26px; cursor: pointer; letter-spacing: .01em;
+  }
+  button.boot:disabled { opacity: .45; cursor: default; }
+  button.boot:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .status { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--ink-soft); min-height: 20px; text-align: center; max-width: 64ch; }
+  .fps { font-family: "Silkscreen", monospace; font-size: 10px; color: var(--grey); min-height: 16px; }
+
+  .watch {
+    background: var(--bezel); border-radius: 26px; padding: 26px 22px;
+    margin: 16px 0 12px; box-shadow: 0 12px 34px rgba(0,0,0,.28);
+  }
+  canvas { display: block; width: 300px; height: auto; image-rendering: pixelated; background: #fff; border-radius: 4px; }
+  @media (max-width: 420px) { canvas { width: 220px; } }
+
+  .pads { display: flex; gap: 10px; margin: 4px 0 14px; }
+  .btn {
+    font-family: "Silkscreen", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 5px;
+    padding: 10px 16px; cursor: pointer; user-select: none; touch-action: none;
+  }
+  .btn.pressed { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .hint { font-size: 12.5px; color: var(--grey); margin: 0 0 8px; }
+
+  details { width: min(760px, 94vw); margin-top: 10px; }
+  summary { font-family: "Silkscreen", monospace; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--grey); cursor: pointer; }
+  .serial {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: 12px 14px; height: 220px; overflow-y: auto; margin-top: 8px; color: var(--ink-soft);
+  }
+  .foot { margin-top: 18px; font-size: 12.5px; color: var(--grey); text-align: center; max-width: 62ch; }
+  .foot code { font-family: "IBM Plex Mono", monospace; font-size: .9em; }
+</style>
+
+<div class="head">
+  <p class="eyebrow">coredevices/qemu 10.1.5-pebble17 · TCI · pebble-emery</p>
+  <h1>PebbleOS, live in this page</h1>
+  <p class="sub">Real <b>v4.35.0 firmware</b> booting on QEMU compiled to WebAssembly — everything below runs in your browser, nothing talks to a server. TCI interpretation is slow: expect <b>1–3 minutes</b> to the watchface and about a frame per second.</p>
+</div>
+
+<div class="checks" id="checks"></div>
+<div class="fail" id="fail"></div>
+
+<div class="controls">
+  <button class="boot" id="boot" disabled>Boot PebbleOS</button>
+</div>
+<p class="status" id="status">Checking what this page is allowed to do…</p>
+<p class="fps" id="fps"></p>
+
+<div class="watch"><canvas id="screen" width="200" height="228"></canvas></div>
+
+<div class="pads">
+  <div class="btn" id="btn-back" tabindex="0">◀ Back</div>
+  <div class="btn" id="btn-up" tabindex="0">▲ Up</div>
+  <div class="btn" id="btn-select" tabindex="0">● Select</div>
+  <div class="btn" id="btn-down" tabindex="0">▼ Down</div>
+</div>
+<p class="hint">Keys: ← Back · ↑ ↓ navigate · → / Enter select · buttons can be held</p>
+
+<details>
+  <summary>Serial console (UART2)</summary>
+  <div class="serial" id="serial"></div>
+</details>
+
+<p class="foot">Pebble Time 2 (emery) virtual machine — <code>pebble_generic.c</code>, no STM32 emulation. Firmware from the v4.35.0 release. Payload: __PAYLOAD_NOTE__. Derived from <code>ericmigi/pebble-qemu-wasm</code>; source on branch <code>claude/pebbleos-agent-swarm-iviybe</code> in coredevices/PebbleOS.</p>
+
+<script type="text/plain" id="p-mjs">__MJS_B64__</script>
+<script type="text/plain" id="p-worker">__WORKER_B64__</script>
+<script type="text/plain" id="p-wasm">__WASM_B64__</script>
+<script type="text/plain" id="p-micro">__MICRO_B64__</script>
+<script type="text/plain" id="p-spi">__SPI_B64__</script>
+
+<script type="module">
+  const $ = (id) => document.getElementById(id);
+  const statusEl = $('status'), serialEl = $('serial'), fpsEl = $('fps');
+  const canvas = $('screen'), ctx = canvas.getContext('2d');
+  const setStatus = (t) => { statusEl.textContent = t; };
+  const log = (t) => {
+    serialEl.textContent += t + '\n';
+    if (serialEl.textContent.length > 120000) serialEl.textContent = serialEl.textContent.slice(-90000);
+    serialEl.scrollTop = serialEl.scrollHeight;
+  };
+
+  // ---- Environment probes: each must pass before boot is possible ----
+  const checks = [];
+  function addCheck(name, ok, why) {
+    checks.push({ name, ok, why });
+    const el = document.createElement('span');
+    el.className = 'chk ' + (ok ? 'ok' : 'no');
+    el.textContent = name + (ok ? ' OK' : ' BLOCKED');
+    $('checks').appendChild(el);
+    return ok;
+  }
+
+  async function probe() {
+    let allOk = true;
+    allOk = addCheck('cross-origin isolation', !!globalThis.crossOriginIsolated,
+      'The host does not send COOP/COEP headers, so SharedArrayBuffer is unavailable and QEMU’s threads cannot start.') && allOk;
+    allOk = addCheck('SharedArrayBuffer', typeof SharedArrayBuffer !== 'undefined',
+      'SharedArrayBuffer is not exposed in this context.') && allOk;
+    let wasmOk = false;
+    try {
+      // Smallest valid module: (module)
+      wasmOk = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0]).buffer)
+        && !!(await WebAssembly.instantiate(new Uint8Array([0,97,115,109,1,0,0,0])));
+    } catch (e) {}
+    allOk = addCheck('wasm compile', wasmOk, 'The page CSP blocks WebAssembly compilation (wasm-unsafe-eval).') && allOk;
+    let workerOk = false;
+    try {
+      const u = URL.createObjectURL(new Blob(['postMessage(1)'], { type: 'text/javascript' }));
+      workerOk = await new Promise((res) => {
+        const w = new Worker(u);
+        const t = setTimeout(() => { w.terminate(); res(false); }, 3000);
+        w.onmessage = () => { clearTimeout(t); w.terminate(); res(true); };
+        w.onerror = () => { clearTimeout(t); w.terminate(); res(false); };
+      });
+      URL.revokeObjectURL(u);
+    } catch (e) {}
+    allOk = addCheck('blob workers', workerOk, 'The page CSP blocks Workers from blob: URLs, which emscripten pthreads need.') && allOk;
+    let importOk = false;
+    try {
+      const u = URL.createObjectURL(new Blob(['export default 1'], { type: 'text/javascript' }));
+      importOk = (await import(u)).default === 1;
+      URL.revokeObjectURL(u);
+    } catch (e) {}
+    allOk = addCheck('blob module import', importOk, 'The page CSP blocks dynamic import of blob: modules.') && allOk;
+
+    if (!allOk) {
+      const first = checks.find(c => !c.ok);
+      $('fail').style.display = 'block';
+      $('fail').innerHTML = '<b>This host can’t run the emulator.</b> ' + first.why +
+        ' It runs unmodified from a local checkout: <code>tools/qemu-wasm/</code> on the branch — ' +
+        '<code>./build-qemu-wasm.sh</code> (or copy prebuilt artifacts), <code>./fetch-firmware.sh emery</code>, <code>./serve.py 8080</code>, open localhost.';
+      setStatus('Blocked — see above.');
+      return false;
+    }
+    setStatus('Environment OK. Boot when ready — the payload unpacks in memory (~__UNPACK_MB__ MB).');
+    $('boot').disabled = false;
+    return true;
+  }
+
+  // ---- Payload unpacking ----
+  function b64ToBytes(id) {
+    const b64 = $(id).textContent.replace(/\s+/g, '');
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  async function gunzip(bytes) {
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  const td = new TextDecoder();
+
+  // ---- Display: poll the frame counter, blit BGRX -> RGBA ----
+  let qemu = null, lastFrameCount = 0, firstFrame = true, cachedImg = null;
+  let fpsFrames = 0, fpsT0 = performance.now();
+  function blitFrame() {
+    if (!qemu) return;
+    const fc = qemu._pebble_wasm_display_frame_count();
+    if (fc === lastFrameCount) return;
+    lastFrameCount = fc;
+    const width = qemu._pebble_wasm_display_width();
+    const height = qemu._pebble_wasm_display_height();
+    const stride = qemu._pebble_wasm_display_stride();
+    const dataPtr = qemu._pebble_wasm_display_data();
+    if (!dataPtr || !width || !height) return;
+    if (firstFrame) { firstFrame = false; setStatus('Display active: ' + width + '×' + height + ' — booting…'); }
+    if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; cachedImg = null; }
+    if (!cachedImg) cachedImg = ctx.createImageData(width, height);
+    const dst32 = new Uint32Array(cachedImg.data.buffer);
+    const heap = qemu.HEAPU8;
+    for (let y = 0; y < height; y++) {
+      const src = dataPtr + y * stride, dst = y * width;
+      for (let x = 0; x < width; x++) {
+        const s = src + x * 4;
+        dst32[dst + x] = heap[s + 2] | (heap[s + 1] << 8) | (heap[s] << 16) | 0xFF000000;
+      }
+    }
+    ctx.putImageData(cachedImg, 0, 0);
+    fpsFrames++;
+  }
+  setInterval(blitFrame, 30);
+  setInterval(() => {
+    if (!firstFrame) fpsEl.textContent = 'FPS ' + (fpsFrames / ((performance.now() - fpsT0) / 1000)).toFixed(1);
+    fpsFrames = 0; fpsT0 = performance.now();
+  }, 3000);
+
+  // ---- Buttons: shared-memory bitmask, holds work ----
+  const BTN = { back: 1, up: 2, select: 4, down: 8 };
+  let buttonMask = 0, buttonAddr = 0;
+  function updateButtons(bit, pressed) {
+    buttonMask = pressed ? (buttonMask | bit) : (buttonMask & ~bit);
+    if (!qemu) return;
+    if (!buttonAddr) { buttonAddr = qemu._pebble_wasm_button_state_addr(); if (!buttonAddr) return; }
+    Atomics.store(qemu.HEAPU32, buttonAddr >> 2, buttonMask);
+  }
+  const keyMap = {
+    ArrowLeft: BTN.back, Escape: BTN.back, Backspace: BTN.back,
+    ArrowUp: BTN.up, w: BTN.up,
+    ArrowRight: BTN.select, Enter: BTN.select, s: BTN.select,
+    ArrowDown: BTN.down, x: BTN.down,
+  };
+  document.addEventListener('keydown', (e) => {
+    const bit = keyMap[e.key]; if (bit === undefined) return;
+    e.preventDefault(); if (!e.repeat) updateButtons(bit, true);
+  });
+  document.addEventListener('keyup', (e) => {
+    const bit = keyMap[e.key]; if (bit === undefined) return;
+    e.preventDefault(); updateButtons(bit, false);
+  });
+  for (const [id, bit] of [['btn-back', BTN.back], ['btn-up', BTN.up], ['btn-select', BTN.select], ['btn-down', BTN.down]]) {
+    const el = $(id);
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); el.classList.add('pressed'); updateButtons(bit, true); });
+    const release = () => { el.classList.remove('pressed'); updateButtons(bit, false); };
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+  }
+
+  // ---- Serial console from MEMFS ----
+  let serialPos = 0;
+  setInterval(() => {
+    if (!qemu) return;
+    try {
+      const stat = qemu.FS.stat('/tmp/uart2.log');
+      if (stat.size <= serialPos) return;
+      const stream = qemu.FS.open('/tmp/uart2.log', 'r');
+      const chunk = new Uint8Array(stat.size - serialPos);
+      qemu.FS.read(stream, chunk, 0, chunk.length, serialPos);
+      qemu.FS.close(stream);
+      serialPos = stat.size;
+      let text = '';
+      for (const b of chunk) if ((b >= 32 && b <= 126) || b === 9 || b === 10 || b === 13) text += String.fromCharCode(b);
+      if (text) log(text.replace(/\r/g, ''));
+    } catch (e) { /* file appears once QEMU opens the chardev */ }
+  }, 250);
+
+  // ---- Boot ----
+  async function boot() {
+    $('boot').disabled = true;
+    try {
+      setStatus('Unpacking QEMU wasm…');
+      const wasmBytes = await gunzip(b64ToBytes('p-wasm'));
+      setStatus('Unpacking runtime + firmware…');
+      const mjsText = td.decode(await gunzip(b64ToBytes('p-mjs')));
+      const workerText = td.decode(await gunzip(b64ToBytes('p-worker')));
+      const micro = await gunzip(b64ToBytes('p-micro'));
+      const spi = await gunzip(b64ToBytes('p-spi'));
+
+      const mjsBlob = new Blob([mjsText], { type: 'text/javascript' });
+      const mjsUrl = URL.createObjectURL(mjsBlob);
+      const workerUrl = URL.createObjectURL(new Blob([workerText], { type: 'text/javascript' }));
+      const wasmUrl = URL.createObjectURL(new Blob([wasmBytes], { type: 'application/wasm' }));
+
+      setStatus('Loading QEMU module…');
+      const factory = (await import(mjsUrl)).default;
+
+      const cfg = {
+        arguments: [
+          '-machine', 'pebble-emery',
+          '-kernel', '/firmware/qemu_micro_flash.bin',
+          '-drive', 'if=mtd,format=raw,file=/firmware/qemu_spi_flash.bin',
+          '-display', 'none', '-monitor', 'none', '-parallel', 'none',
+          '-serial', 'null', '-serial', 'null', '-serial', 'file:/tmp/uart2.log',
+          '-rtc', 'base=localtime',
+        ],
+        wasmBinary: wasmBytes,
+        // emscripten 3.1.50 workers import() this value directly, so it
+        // must be a URL string, not a Blob.
+        mainScriptUrlOrBlob: mjsUrl,
+        print: (t) => log(t),
+        printErr: (t) => log('[err] ' + t),
+        preRun: [() => {
+          cfg.FS.mkdir('/firmware');
+          cfg.FS.writeFile('/firmware/qemu_micro_flash.bin', micro);
+          cfg.FS.writeFile('/firmware/qemu_spi_flash.bin', spi);
+        }],
+        onRuntimeInitialized: () => setStatus('QEMU running — booting PebbleOS (1–3 minutes on TCI)…'),
+        onAbort: (why) => setStatus('QEMU aborted: ' + why),
+        locateFile: (p) => p.endsWith('.worker.js') ? workerUrl : (p.endsWith('.wasm') ? wasmUrl : p),
+      };
+      qemu = await factory(cfg);
+    } catch (e) {
+      setStatus('Boot failed: ' + (e && e.message || e));
+      log((e && e.stack) || String(e));
+      $('boot').disabled = false;
+    }
+  }
+  $('boot').addEventListener('click', boot);
+
+  const auto = new URLSearchParams(location.search).has('auto');
+  probe().then((ok) => { if (ok && auto) boot(); });
+</script>

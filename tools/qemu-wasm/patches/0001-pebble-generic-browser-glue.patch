@@ -10,6 +10,18 @@ index 4230e88..144f045 100644
 -cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
 +c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
 +cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
+diff --git a/hw/arm/Kconfig b/hw/arm/Kconfig
+index cb1fed5..1004a13 100644
+--- a/hw/arm/Kconfig
++++ b/hw/arm/Kconfig
+@@ -699,6 +699,7 @@ config PEBBLE
+     depends on TCG && ARM
+     imply ARM_V7M
+     select ARM_V7M
++    select I2C
+     select PFLASH_CFI02
+     select SSI
+     select SSI_M25P80
 diff --git a/hw/display/pebble_display.c b/hw/display/pebble_display.c
 index 34f4d9c..dbd2ad0 100644
 --- a/hw/display/pebble_display.c
