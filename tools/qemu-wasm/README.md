@@ -136,6 +136,7 @@ v4.35.0, continuous launcher scroll:
 |---|---|---|---|
 | unpatched TCI | 91 s | 1.3 | 2.1 |
 | patched TCI | 38 s | 6.9 | 4.5 |
+| wasm JIT (`jit/`) | 15 s | 7.1 | 16.9 |
 
-The interpreter plateaus there; the next multiplier is the TCG-to-wasm
-JIT backend (ktock/qemu-wasm), tracked separately.
+The interpreter plateaus around 4.5 fps; the TCG-to-wasm JIT build in
+`jit/` is the next multiplier and reaches ~17 fps.

@@ -1,0 +1,85 @@
+diff --git a/configs/meson/emscripten.txt b/configs/meson/emscripten.txt
+index 4230e88..144f045 100644
+--- a/configs/meson/emscripten.txt
++++ b/configs/meson/emscripten.txt
+@@ -4,5 +4,5 @@ cpp_args = ['-pthread']
+ objc_args = ['-pthread']
+ # -sPROXY_TO_PTHREAD link time flag always requires -pthread even during
+ # configuration so explicitly add the flag here.
+-c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
+-cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
++c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
++cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
+diff --git a/hw/arm/Kconfig b/hw/arm/Kconfig
+index 97d747e..50b1aa4 100644
+--- a/hw/arm/Kconfig
++++ b/hw/arm/Kconfig
+@@ -694,3 +694,9 @@ config ARMSSE
+     select UNIMP
+     select SSE_COUNTER
+     select SSE_TIMER
++
++config PEBBLE
++    bool
++    default y
++    depends on TCG && ARM
++    select ARM_V7M
+diff --git a/hw/arm/meson.build b/hw/arm/meson.build
+index aeaf654..72e1c2f 100644
+--- a/hw/arm/meson.build
++++ b/hw/arm/meson.build
+@@ -106,5 +106,11 @@ arm_common_ss.add(when: 'CONFIG_VEXPRESS', if_true: files('vexpress.c'))
+ 
+ arm_common_ss.add(files('boot.c'))
+ 
++
++arm_common_ss.add(when: 'CONFIG_PEBBLE', if_true: files(
++  'pebble_generic.c',
++  'pebble_control.c',
++))
++
+ hw_arch += {'arm': arm_ss}
+ hw_common_arch += {'arm': arm_common_ss}
+diff --git a/hw/display/meson.build b/hw/display/meson.build
+index 90e6c04..c0dad63 100644
+--- a/hw/display/meson.build
++++ b/hw/display/meson.build
+@@ -145,3 +145,7 @@ endif
+ system_ss.add(when: 'CONFIG_OMAP', if_true: files('omap_lcdc.c'))
+ 
+ modules += { 'hw-display': hw_display_modules }
++
++system_ss.add(when: 'CONFIG_PEBBLE', if_true: files(
++  'pebble_display.c',
++))
+diff --git a/hw/gpio/meson.build b/hw/gpio/meson.build
+index 6a67ee9..b3d322d 100644
+--- a/hw/gpio/meson.build
++++ b/hw/gpio/meson.build
+@@ -19,3 +19,7 @@ system_ss.add(when: 'CONFIG_ASPEED_SOC', if_true: files('aspeed_gpio.c'))
+ system_ss.add(when: 'CONFIG_ASPEED_SOC', if_true: files('aspeed_sgpio.c'))
+ system_ss.add(when: 'CONFIG_SIFIVE_GPIO', if_true: files('sifive_gpio.c'))
+ system_ss.add(when: 'CONFIG_PCF8574', if_true: files('pcf8574.c'))
++
++system_ss.add(when: 'CONFIG_PEBBLE', if_true: files(
++  'pebble_gpio.c',
++))
+diff --git a/hw/misc/meson.build b/hw/misc/meson.build
+index 32b878e..8ce27f6 100644
+--- a/hw/misc/meson.build
++++ b/hw/misc/meson.build
+@@ -164,3 +164,14 @@ system_ss.add(when: 'CONFIG_SBSA_REF', if_true: files('sbsa_ec.c'))
+ 
+ # HPPA devices
+ system_ss.add(when: 'CONFIG_LASI', if_true: files('lasi.c'))
++
++system_ss.add(when: 'CONFIG_PEBBLE', if_true: files(
++  'pebble_simple_uart.c',
++  'pebble_sysctrl.c',
++  'pebble_rtc.c',
++  'pebble_timer.c',
++  'pebble_extflash.c',
++  'pebble_touch.c',
++  'pebble_audio.c',
++  'pebble_null_input.c',
++))
