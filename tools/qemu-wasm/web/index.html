@@ -202,7 +202,7 @@
       var width = qemu._pebble_wasm_display_width();
       var height = qemu._pebble_wasm_display_height();
       var stride = qemu._pebble_wasm_display_stride();
-      var dataPtr = qemu._pebble_wasm_display_data();
+      var dataPtr = Number(qemu._pebble_wasm_display_data());  // BigInt under MEMORY64
       if (!dataPtr || !width || !height) return;
 
       if (firstFrame) {
@@ -262,7 +262,7 @@
       buttonMask = pressed ? (buttonMask | bit) : (buttonMask & ~bit);
       if (!qemu) return;
       if (!buttonAddr) {
-        buttonAddr = qemu._pebble_wasm_button_state_addr();
+        buttonAddr = Number(qemu._pebble_wasm_button_state_addr());
         if (!buttonAddr) return;
         log('[input] button mask at 0x' + buttonAddr.toString(16));
       }
