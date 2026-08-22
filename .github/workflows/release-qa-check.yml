@@ -1,0 +1,59 @@
+name: release-qa check
+
+# Surfaces the hardware-lab release-QA result (run in coredevices/unicorn on a real phone + watch)
+# as a check-run on a PebbleOS commit, so a PR shows a "release-qa (hardware lab)" entry in its
+# Checks tab. A PAT cannot create check-runs and unicorn's GITHUB_TOKEN is scoped to unicorn, so
+# unicorn instead fires a repository_dispatch here and this workflow's own github-actions token
+# creates/updates the check-run. Payload: { sha, run_url, conclusion? }.
+#
+#   release-qa-start  -> in_progress check-run (the pass is running)
+#   release-qa-result -> completed check-run with conclusion success|failure (see run_url for detail)
+
+on:
+  repository_dispatch:
+    types: [release-qa-start, release-qa-result]
+
+permissions:
+  checks: write
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const p = context.payload.client_payload || {}
+            const sha = p.sha
+            if (!sha) { core.setFailed('client_payload.sha is required'); return }
+            const name = 'release-qa (hardware lab)'
+            const starting = context.payload.action === 'release-qa-start'
+            const { owner, repo } = context.repo
+
+            // Reuse an existing check-run of this name on the sha so start -> result is one entry.
+            const { data } = await github.rest.checks.listForRef({ owner, repo, ref: sha, check_name: name })
+            const existing = data.check_runs && data.check_runs[0]
+
+            const fields = starting
+              ? {
+                  status: 'in_progress',
+                  output: {
+                    title: 'release-QA running on the hardware lab',
+                    summary: 'A real phone + watch are running the upgrade + functional pass. Details in the linked run.',
+                  },
+                }
+              : {
+                  status: 'completed',
+                  conclusion: p.conclusion || 'neutral',
+                  output: {
+                    title: `release-QA ${p.conclusion || 'finished'}`,
+                    summary: p.summary || 'See the linked run for the per-stage PASS/FAIL table, logs, screenshots and video.',
+                  },
+                }
+
+            const args = { owner, repo, name, head_sha: sha, details_url: p.run_url, ...fields }
+            if (existing) {
+              await github.rest.checks.update({ ...args, check_run_id: existing.id })
+            } else {
+              await github.rest.checks.create(args)
+            }
