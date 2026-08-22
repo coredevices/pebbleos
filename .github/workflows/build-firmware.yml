@@ -118,6 +118,82 @@ jobs:
             "s3://${{ vars.LOG_HASH_BUCKET_NAME }}/${{ steps.build_id.outputs.BUILD_ID }}-${{ github.sha }}-normal.json" \
             --endpoint-url "${{ vars.LOG_HASH_BUCKET_ENDPOINT }}"
 
+  # Dual-slot RELEASE PBZ for the hardware-lab release-QA boards. The build-firmware job above is
+  # single-slot AND a debug build, so it cannot be the "to" of an upgrade test: OTA writes into the
+  # watch's *inactive* slot (needs both slots), and the watch refuses to apply a debug PBZ over the
+  # release "from". The release-QA dispatch (coredevices/unicorn) needs a merged dual-slot RELEASE
+  # PBZ, the same shape as a release asset — so build both slots (release) and merge, in one job per
+  # board, no cross-job artifact passing. Only the two QA-hardware boards; kept out of
+  # build-firmware-status so a QA-artifact hiccup never blocks a firmware PR.
+  build-qa-firmware:
+    needs: changes-firmware
+    if: needs.changes-firmware.outputs.should-build == 'true'
+    runs-on: ubuntu-24.04
+
+    container:
+      image: ghcr.io/coredevices/pebbleos-docker:v6
+
+    strategy:
+      matrix:
+        board:
+          - obelix@pvt
+          - getafix@dvt2
+
+    steps:
+      - name: Mark Github workspace as safe
+        run: git config --system --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Rebase onto target branch
+        uses: ./.github/actions/rebase
+        with:
+          submodules: true
+
+      - name: Install Python dependencies
+        run: |
+          pip install -U pip
+          pip install -r requirements.txt
+
+      - name: Set artifact board name
+        id: artifact_board
+        run: echo "NAME=$(printf '%s' "$BOARD" | tr @ _)" >> "$GITHUB_OUTPUT"
+        env:
+          BOARD: ${{ matrix.board }}
+
+      - name: Build both release slots and merge into a dual-slot PBZ
+        shell: bash
+        run: |
+          set -euo pipefail
+          name='${{ steps.artifact_board.outputs.NAME }}'
+          mkdir -p out
+          for slot in 0 1; do
+            ./waf configure --board '${{ matrix.board }}' -DCONFIG_FIRMWARE_SLOT=$slot -DCONFIG_RELEASE=y
+            ./waf build
+            ./waf bundle
+            cp build/normal_*_slot${slot}.pbz .
+          done
+          s0=$(ls normal_*_slot0.pbz | head -1)
+          s1=$(ls normal_*_slot1.pbz | head -1)
+          # Version string is embedded in the bundle name (git describe), e.g.
+          # normal_obelix_pvt_v4.35.0-2-gdeadbee_slot0.pbz -> v4.35.0-2-gdeadbee.
+          ver=$(basename "$s0" | sed -E "s/^normal_${name}_//; s/_slot0\.pbz$//")
+          python3 tools/merge_pbz.py --slot0-pbz "$s0" --slot1-pbz "$s1" \
+            --output "out/normal_${name}_${ver}.pbz"
+          # Ship the loghash dict alongside so the QA fwlog step can dehash release logs.
+          cp build/pebbleos_loghash_dict.json out/ 2>/dev/null || true
+          ls -la out
+
+      - name: Store merged QA firmware
+        uses: actions/upload-artifact@v6
+        with:
+          name: qa-firmware-${{ steps.artifact_board.outputs.NAME }}
+          path: out/**
+
   build-firmware-status:
     needs: [changes-firmware, build-firmware]
     if: always()
