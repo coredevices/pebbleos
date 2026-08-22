@@ -381,7 +381,7 @@
         var spi = await fetchWithProgress('firmware/' + name + '/qemu_spi_flash.bin', 'SPI flash');
 
         setStatus('Loading QEMU WASM module...');
-        var factory = (await import('./qemu-system-arm.mjs')).default;
+        var factory = (await import('./qemu-system-arm.js')).default;
 
         var args = buildArgs(board);
         log('[qemu] args: ' + args.join(' '));
