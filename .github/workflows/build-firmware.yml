@@ -225,7 +225,10 @@ jobs:
           fi
           # to_pbz_run_id = this Build Firmware run (its qa-firmware-<board> artifact is the "to").
           # coreapp_run_id omitted -> unicorn uses the most recently tagged coreapp release.
-          gh workflow run one-off-pebbleos-test.yml -R coredevices/unicorn \
+          # --ref main is required: without it gh resolves the default branch via a GraphQL query
+          # (repository.defaultBranchRef) that fine-grained PATs can't access, so the run fails even
+          # with Actions:write. Passing the ref uses the REST dispatch endpoint, which the token has.
+          gh workflow run one-off-pebbleos-test.yml -R coredevices/unicorn --ref main \
             -f to_pbz_run_id=${{ github.run_id }}
 
   build-firmware-status:
