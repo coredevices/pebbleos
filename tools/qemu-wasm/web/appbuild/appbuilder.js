@@ -19,7 +19,10 @@ const td = new TextDecoder();
 
 const CFLAGS = [
   '--target=arm-none-eabi', '-mcpu=cortex-m3', '-mthumb',
-  '-std=c99', '-ffunction-sections', '-fdata-sections', '-fcommon',
+  // the SDK's arm-none-eabi-gcc packs enums (clang defaults to int-sized);
+  // firmware structs like Tuplet depend on it, so match the ABI
+  '-std=c99', '-fshort-enums',
+  '-ffunction-sections', '-fdata-sections', '-fcommon',
   '-g', '-fPIE', '-Os', '-D_TIME_H_', '-Dtime_t=long',
   '-Wall', '-Wno-typedef-redefinition', '-Wno-missing-field-initializers',
   '-resource-dir', '/clang-res',
