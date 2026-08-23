@@ -3,7 +3,7 @@
 # clang.wasm/lld.wasm. Layout inside the zip:
 #   sdk/include/**  sdk/lib/libpebble.a     (exported SDK, one platform)
 #   newlib/**                               (newlib C headers, no c++)
-#   libgcc.a libc.a                         (arm-none-eabi thumb/v7-m)
+#   libgcc.a libc.a libm.a                  (arm-none-eabi thumb/v7-m)
 #   clang-res/include/*.h                   (clang builtin headers, pruned)
 #   js/*.js                                 (SDK pkjs helper modules)
 #
@@ -17,6 +17,7 @@ OUT="$(cd "$(dirname "${3:?out.zip}")" && pwd)/$(basename "$3")"
 
 GCC_LIB="$(arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb -print-libgcc-file-name)"
 C_LIB="$(arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb -print-file-name=libc.a)"
+M_LIB="$(arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb -print-file-name=libm.a)"
 
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
@@ -29,6 +30,7 @@ cp -r /usr/include/newlib/. "$stage/newlib/"
 rm -rf "$stage/newlib/c++"
 cp "$GCC_LIB" "$stage/libgcc.a"
 cp "$C_LIB" "$stage/libc.a"
+cp "$M_LIB" "$stage/libm.a"
 if [ -n "$COMMON" ] && [ -d "$COMMON/include" ]; then
   mkdir -p "$stage/js"
   cp "$COMMON"/include/*.js "$stage/js/"

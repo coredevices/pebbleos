@@ -717,6 +717,31 @@ function keyOf(data) {
 
 // --- driver ---------------------------------------------------------------
 
+// Pick the ~tagged variant of a resource for this platform, following
+// find_resource_filename.py: a candidate's tags must all be valid for the
+// platform, and the one sharing the most tags wins.
+export function findTaggedFile(wanted, available, tags) {
+  const dot = wanted.lastIndexOf('.');
+  const base = dot < 0 ? wanted : wanted.slice(0, dot);
+  const ext = dot < 0 ? '' : wanted.slice(dot);
+  const valid = new Set(tags);
+  let best = null, bestScore = -1, tied = [];
+  for (const cand of available) {
+    if (!cand.startsWith(base) || !cand.endsWith(ext)) continue;
+    const middle = cand.slice(base.length, cand.length - ext.length);
+    if (middle && !middle.startsWith('~')) continue;
+    const candTags = middle ? middle.slice(1).split('~') : [];
+    if (candTags.some((t) => !valid.has(t))) continue;
+    const score = candTags.length;
+    if (score > bestScore) { best = cand; bestScore = score; tied = [cand]; }
+    else if (score === bestScore) tied.push(cand);
+  }
+  if (tied.length > 1) {
+    throw new Error(`ambiguous resource "${wanted}": ${tied.join(', ')} all match equally`);
+  }
+  return best;
+}
+
 // media:    the package.json pebble.resources.media array
 // readFile: async (path) => Uint8Array, relative to the project's resources/
 // returns {pbpack, resourceNames} — names in resource_ids.auto.h order.

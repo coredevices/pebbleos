@@ -16,7 +16,7 @@ const REQUIRE_SHIM = `var require = typeof require !== 'undefined' ? require : f
 `;
 
 export async function bundlePkjs(esbuild, opts) {
-  const { entryPath, prefix, files, pkg, appKeys, sharedAdditions } = opts;
+  const { entryPath, prefix, files, pkg, appKeys, sharedAdditions, packages = {} } = opts;
   const read = (p) => files[prefix + p];
   const exists = (p) => read(p) !== undefined;
 
@@ -29,6 +29,27 @@ export async function bundlePkjs(esbuild, opts) {
   };
 
   const virtual = (path) => ({ path, namespace: 'virtual' });
+
+  // Resolve into a fetched npm package: "name" or "name/sub/path".
+  const resolveInPackage = (name, sub) => {
+    const p = packages[name];
+    if (!p) return null;
+    // An SDK library publishes its JS under dist/js, which the SDK aliases
+    // to the package name itself.
+    const cands = sub
+      ? [sub, sub + '.js', sub + '.json', sub + '/index.js']
+      : [p.main, 'index.js', 'index.json'].filter(Boolean);
+    for (const c of cands) {
+      if (p.files[c] !== undefined) return { path: `${name}\u0000${c}`, namespace: 'pkg' };
+    }
+    return null;
+  };
+  const resolvePackage = (spec) => {
+    const parts = spec.split('/');
+    const name = spec.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
+    const sub = spec.slice(name.length + 1);
+    return resolveInPackage(name, sub);
+  };
 
   const plugin = {
     name: 'pebble-repo',
@@ -50,7 +71,10 @@ export async function bundlePkjs(esbuild, opts) {
         } else if (args.kind === 'entry-point') {
           base = args.path;
         } else {
-          // bare specifier: the SDK puts src/common on the resolve path
+          // A bare specifier is an npm package first, then src/common,
+          // which the SDK also puts on the resolve path.
+          const hit = resolvePackage(args.path);
+          if (hit) return hit;
           base = resolveFile('src/common/' + args.path) !== null
             ? 'src/common/' + args.path : args.path;
         }
@@ -59,6 +83,29 @@ export async function bundlePkjs(esbuild, opts) {
           return { errors: [{ text: `cannot resolve "${args.path}" from ${args.importer}` }] };
         }
         return { path: found, namespace: 'repo' };
+      });
+      build.onResolve({ filter: /.*/, namespace: 'pkg' }, (args) => {
+        // Relative import inside a package stays inside it.
+        const owner = args.importer.split('\u0000')[0];
+        const dir = args.importer.split('\u0000')[1] || '';
+        if (args.path.startsWith('.')) {
+          const base = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : '';
+          const out = [];
+          for (const part of (base + '/' + args.path).split('/')) {
+            if (part === '' || part === '.') continue;
+            if (part === '..') out.pop();
+            else out.push(part);
+          }
+          return resolveInPackage(owner, out.join('/'));
+        }
+        return resolvePackage(args.path);
+      });
+      build.onLoad({ filter: /.*/, namespace: 'pkg' }, (args) => {
+        const [name, rel] = args.path.split('\u0000');
+        return {
+          contents: td.decode(packages[name].files[rel]),
+          loader: rel.endsWith('.json') ? 'json' : 'js',
+        };
       });
       build.onLoad({ filter: /.*/, namespace: 'repo' }, (args) => ({
         contents: td.decode(read(args.path)),

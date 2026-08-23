@@ -1173,6 +1173,8 @@
           buildWorker.onerror = (e) => reject(new Error('build worker failed: ' + e.message));
           buildWorker.postMessage({
             cmd: 'build', zipUrls, platform: boardSel.value, proxy: PKJS_PROXY,
+            // bundle the other boards the app targets, like the SDK does
+            alsoPlatforms: ['emery', 'flint', 'gabbro'],
           });
         });
         // The build saturates every core, which starves the emulator; give

@@ -149,7 +149,7 @@ async function rasterizeGlyph(fontData, codepoint, pxSize) {
 }
 
 self.onmessage = async (e) => {
-  const { cmd, zipUrl, zipUrls, zipBytes, platform = 'emery', proxy } = e.data;
+  const { cmd, zipUrl, zipUrls, zipBytes, platform = 'emery', proxy, appHint } = e.data;
   if (cmd !== 'build') return;
   // Tools live at the site root; this module sits one level down in
   // appbuild/, so resolve against that rather than the page's URL.
@@ -174,9 +174,21 @@ self.onmessage = async (e) => {
     log(`repository: ${(repoZip.length / 1024).toFixed(0)} KB — unpacking…`);
     const repoFiles = await unzip(repoZip);
 
-    const [{ clang, lld, esbuildMod }, sdkPack] = await Promise.all([
-      loadTools(base), loadSdkPack(base, platform),
-    ]);
+    const { clang, lld, esbuildMod } = await loadTools(base);
+    // The SDK bundles every target platform into one pbw. Build the
+    // selected board first, then any other board we hold an SDK for that
+    // the project also targets, so the result installs anywhere.
+    const wanted = [platform, ...(Array.isArray(e.data.alsoPlatforms)
+      ? e.data.alsoPlatforms : [])];
+    const packs = {};
+    for (const p of [...new Set(wanted)]) {
+      try {
+        packs[p] = await loadSdkPack(base, p);
+      } catch (err) {
+        if (p === platform) throw err;
+        log(`no SDK for ${p}, skipping it`);
+      }
+    }
 
     if (!esbuildReady) {
       esbuildReady = esbuild.initialize({ wasmModule: esbuildMod, worker: false })
@@ -184,9 +196,19 @@ self.onmessage = async (e) => {
     }
     await esbuildReady;
 
+    // npm serves CORS headers, but fall back to the proxy like the repo zip.
+    const fetchUrl = async (url) => {
+      let r = await fetch(url, { mode: 'cors' }).catch(() => null);
+      if ((!r || !r.ok) && proxy) {
+        r = await fetch(proxy + encodeURIComponent(url), { mode: 'cors' }).catch(() => null);
+      }
+      if (!r || !r.ok) throw new Error(`could not fetch ${url}`);
+      return new Uint8Array(await r.arrayBuffer());
+    };
+
     const t0 = performance.now();
     const { pbw, name } = await buildApp({
-      repoFiles, platform, clang, lld, sdkPack,
+      repoFiles, clang, lld, sdkPacks: packs, appHint, fetchUrl,
       rasterizeGlyph,
       bundleJs: (args) => bundlePkjs(esbuild, args),
       log,
