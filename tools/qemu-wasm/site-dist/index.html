@@ -688,6 +688,13 @@
         };
         qemu = await factory(cfg);
         setInterval(function () { persistSpi(name); }, 15000);
+        // Diagnostics, from the devtools console or a headless soak run:
+        // what the emulator is holding on to while it runs.
+        window.__qemuStats = function () {
+          var out = { wasmHeap: qemu.HEAPU8.length, uart2: -1 };
+          try { out.uart2 = qemu.FS.stat('/tmp/uart2.log').size; } catch (e) {}
+          return out;
+        };
       } catch (e) {
         setStatus('Error: ' + e.message);
         log(e.stack || String(e));
