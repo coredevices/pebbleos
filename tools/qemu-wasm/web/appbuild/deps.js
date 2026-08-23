@@ -115,10 +115,18 @@ export async function fetchDependencies(rootPkg, { platforms, get, vendored = {}
         throw new Error(`dependency "${name}" could not be downloaded ` +
           `(${resolved.tarball}): ${e.message}`);
       }
-      // npm tarballs put everything under package/
+      // npm tarballs put everything under package/; CloudPebble's
+      // package.tar.gz exports sit at ./ instead.
       files = {};
       for (const [p, d] of Object.entries(tar)) {
-        if (p.startsWith('package/')) files[p.slice('package/'.length)] = d;
+        const q = p.replace(/^\.\//, '');
+        if (q.startsWith('package/')) files[q.slice('package/'.length)] = d;
+      }
+      if (!Object.keys(files).length) {
+        for (const [p, d] of Object.entries(tar)) {
+          const q = p.replace(/^\.\//, '');
+          if (q) files[q] = d;
+        }
       }
     }
     let meta = {};
