@@ -1,0 +1,172 @@
+// Module worker: builds a Pebble app from a GitHub repo zip, entirely
+// client-side. Fetches the toolchain + SDK pack (cached via Cache API),
+// unzips the repo, runs the full pipeline, posts back the .pbw.
+//
+// in:  {cmd:'build', zipUrl | zipBytes, platform, proxy, base}
+// out: {type:'log'|'error'|'done', ...}
+import { unzip } from '../pbw.js';
+import { buildApp } from './appbuilder.js';
+import { bundlePkjs } from './jsbundle.js';
+import * as esbuild from '../vendor/esbuild/browser.min.js';
+
+const post = (m) => self.postMessage(m);
+const log = (msg) => post({ type: 'log', msg });
+
+let toolsPromise = null;
+let esbuildReady = null;
+
+async function fetchCached(url) {
+  const cache = await caches.open('pebble-buildtools-v1').catch(() => null);
+  if (cache) {
+    const hit = await cache.match(url);
+    if (hit) return new Uint8Array(await hit.arrayBuffer());
+  }
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status} fetching ${url}`);
+  const clone = cache ? r.clone() : null;
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  if (cache && clone) await cache.put(url, clone).catch(() => {});
+  return bytes;
+}
+
+async function gunzip(bytes) {
+  const ds = new DecompressionStream('gzip');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function loadTools(base) {
+  if (!toolsPromise) {
+    toolsPromise = (async () => {
+      log('downloading toolchain (one-time, ~39 MB — cached after this)…');
+      const [clangGz, lldGz, esbuildGz, packBytes] = await Promise.all([
+        fetchCached(base + 'tools/clang.wasm.gz'),
+        fetchCached(base + 'tools/lld.wasm.gz'),
+        fetchCached(base + 'tools/esbuild.wasm.gz'),
+        fetchCached(base + 'tools/sdkpack-emery.zip'),
+      ]);
+      log('decompressing + compiling toolchain…');
+      const [clangBytes, lldBytes, esbuildBytes] =
+        await Promise.all([gunzip(clangGz), gunzip(lldGz), gunzip(esbuildGz)]);
+      const [clang, lld, esbuildMod] = await Promise.all([
+        WebAssembly.compile(clangBytes.buffer),
+        WebAssembly.compile(lldBytes.buffer),
+        WebAssembly.compile(esbuildBytes.buffer),
+      ]);
+      const sdkPack = await unzip(packBytes);
+      log('toolchain ready');
+      return { clang, lld, esbuildMod, sdkPack };
+    })();
+    toolsPromise.catch(() => { toolsPromise = null; });
+  }
+  return toolsPromise;
+}
+
+// ---- canvas font rasterizer ----
+const fontFaces = new Map(); // fontData -> family name
+let fontCounter = 0;
+
+async function fontFamilyFor(fontData) {
+  if (fontFaces.has(fontData)) return fontFaces.get(fontData);
+  const family = 'PblAppFont' + (fontCounter++);
+  const face = new FontFace(family, fontData.buffer.slice(
+    fontData.byteOffset, fontData.byteOffset + fontData.byteLength));
+  await face.load();
+  self.fonts.add(face);
+  fontFaces.set(fontData, family);
+  return family;
+}
+
+async function rasterizeGlyph(fontData, codepoint, pxSize) {
+  const family = await fontFamilyFor(fontData);
+  const pad = Math.ceil(pxSize / 2);
+  const cw = pxSize * 3 + pad * 2, ch = pxSize * 3 + pad * 2;
+  const canvas = new OffscreenCanvas(cw, ch);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.font = `${pxSize}px ${family}`;
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#fff';
+  const s = String.fromCodePoint(codepoint);
+  const m = ctx.measureText(s);
+  const ox = pad + pxSize, oy = pad + pxSize * 2; // draw origin (baseline)
+  ctx.fillText(s, ox, oy);
+  const img = ctx.getImageData(0, 0, cw, ch).data;
+
+  // tight bounding box of alpha >= 128
+  let minX = cw, minY = ch, maxX = -1, maxY = -1;
+  for (let y = 0; y < ch; y++) {
+    for (let x = 0; x < cw; x++) {
+      if (img[(y * cw + x) * 4 + 3] >= 128) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  const advance = Math.round(m.width);
+  if (maxX < 0) {
+    return { bitmap: new Uint8Array(0), width: 0, height: 0, left: 0, top: 0, advance };
+  }
+  const width = maxX - minX + 1, height = maxY - minY + 1;
+  const stride = Math.ceil(width / 8);
+  const bitmap = new Uint8Array(stride * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (img[((minY + y) * cw + (minX + x)) * 4 + 3] >= 128) {
+        bitmap[y * stride + (x >> 3)] |= 0x80 >> (x & 7);
+      }
+    }
+  }
+  return {
+    bitmap, width, height,
+    left: minX - ox,          // bearing X from pen position
+    top: oy - minY,           // distance from baseline up to first row
+    advance,
+  };
+}
+
+self.onmessage = async (e) => {
+  const { cmd, zipUrl, zipUrls, zipBytes, platform = 'emery', proxy, base = './' } = e.data;
+  if (cmd !== 'build') return;
+  try {
+    let repoZip = zipBytes ? new Uint8Array(zipBytes) : null;
+    if (!repoZip) {
+      log('downloading repository…');
+      const urls = zipUrls || (zipUrl ? [zipUrl] : []);
+      let r = null;
+      for (const u of urls) {
+        try { r = await fetch(u, { mode: 'cors' }); } catch (err) { r = null; }
+        if ((!r || !r.ok) && proxy) {
+          r = await fetch(proxy + encodeURIComponent(u), { mode: 'cors' })
+            .catch(() => null);
+        }
+        if (r && r.ok) break;
+      }
+      if (!r || !r.ok) throw new Error('could not download the repository zip');
+      repoZip = new Uint8Array(await r.arrayBuffer());
+    }
+    log(`repository: ${(repoZip.length / 1024).toFixed(0)} KB — unpacking…`);
+    const repoFiles = await unzip(repoZip);
+
+    const { clang, lld, esbuildMod, sdkPack } = await loadTools(base);
+
+    if (!esbuildReady) {
+      esbuildReady = esbuild.initialize({ wasmModule: esbuildMod, worker: false })
+        .catch((err) => { esbuildReady = null; throw err; });
+    }
+    await esbuildReady;
+
+    const t0 = performance.now();
+    const { pbw, name } = await buildApp({
+      repoFiles, platform, clang, lld, sdkPack,
+      rasterizeGlyph,
+      bundleJs: (args) => bundlePkjs(esbuild, args),
+      log,
+    });
+    log(`build finished in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
+    post({ type: 'done', pbw: pbw.buffer, name }, [pbw.buffer]);
+  } catch (err) {
+    post({ type: 'error', msg: err.message || String(err) });
+  }
+};
