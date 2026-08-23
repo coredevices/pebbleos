@@ -66,6 +66,7 @@ export async function unzip(data) {
 // 144x168 platforms.
 const PLATFORM_PREFERENCE = {
   emery: ['emery', 'basalt', 'diorite', 'aplite'],
+  aplite: ['aplite'],
   basalt: ['basalt', 'aplite'],
   chalk: ['chalk'],
   diorite: ['diorite', 'aplite'],
