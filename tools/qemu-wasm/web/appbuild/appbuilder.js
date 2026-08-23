@@ -192,6 +192,13 @@ export async function buildApp(opts) {
         files.set('/mod/' + path, data);
       }
       for (const [path, data] of Object.entries(repoFiles)) files.set('/proj/' + path, data);
+      // A manifest may pull modules out of a dependency, so the packages we
+      // fetched have to look installed even though nothing wrote them to disk.
+      for (const [pkgName, pkg] of Object.entries(deps.packages)) {
+        for (const [path, data] of Object.entries(pkg.files || {})) {
+          files.set(`/proj/${prefix}node_modules/${pkgName}/${path}`, data);
+        }
+      }
       const manifestPath = findModManifest(
         Object.keys(repoFiles).filter((p) => p.startsWith(prefix)).map((p) => '/proj/' + p));
       if (!manifestPath) throw new Error('Moddable project has no manifest.json');

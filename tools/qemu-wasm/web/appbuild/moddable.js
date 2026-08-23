@@ -87,7 +87,7 @@ function globDir(files, dir) {
 // Walk a manifest and everything it includes, collecting the module,
 // resource and data entries a mod contributes. Includes are processed
 // before the manifest's own entries, which is the order mcrun links in.
-function collectManifest(start, files, platform, vars, log) {
+function collectManifest(start, files, platform, vars, moddableRoot, log) {
   const modules = new Map();   // target specifier -> source path
   const resources = new Map(); // target file name  -> source path
   const data = new Map();
@@ -108,7 +108,12 @@ function collectManifest(start, files, platform, vars, log) {
         }
         const src = compilable ? findSource(files, path) : findExact(files, path);
         if (!src) {
-          log(`  manifest: ${raw} not found, skipping`);
+          // We ship only the part of the Moddable SDK a mod can reach, so a
+          // manifest naming something outside it is expected; a missing file
+          // in the project itself is worth saying out loud.
+          if (!path.startsWith(moddableRoot + '/')) {
+            log(`  manifest: ${raw} not found, skipping`);
+          }
           continue;
         }
         into.set(key === '*' ? (compilable ? stem(src) : basename(src)) : key, src);
@@ -198,7 +203,8 @@ export async function buildMod(opts) {
           moddableRoot = '/mod', log = () => {} } = opts;
 
   const { modules, resources, data, config } =
-    collectManifest(manifestPath, files, platform, { MODDABLE: moddableRoot }, log);
+    collectManifest(manifestPath, files, platform, { MODDABLE: moddableRoot },
+                    moddableRoot, log);
   if (!modules.size) throw new Error(`${manifestPath}: no JavaScript modules`);
 
   // xsc and xsl only see /w: sources go in as they are named so error
