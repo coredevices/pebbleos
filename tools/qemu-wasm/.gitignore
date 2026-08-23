@@ -1,5 +1,6 @@
-web/qemu-system-arm.js
-web/qemu-system-arm.wasm
-web/qemu-system-arm.worker.js
-web/firmware/
-web/qemu-system-arm.mjs
+# Nothing here is ignored: the emulator binary and the firmware images are
+# shipped artifacts, and keeping them out of the repository is how a stale
+# local copy went unnoticed against a newer bundle. The repo-wide *.bin rule
+# is meant for firmware build output, so the images have to be excepted
+# by name.
+!web/firmware/**/*.bin
