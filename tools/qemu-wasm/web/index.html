@@ -623,7 +623,8 @@
       var name = boardSel.value;
       var board = BOARDS[name];
       bootBtn.disabled = true;
-      boardSel.disabled = true;
+      // The board selector stays active: changing it reloads the page
+      // onto the chosen machine (the only way to restart the emulator).
       canvas.width = board.width;
       canvas.height = board.height;
 
@@ -668,7 +669,6 @@
         setStatus('Error: ' + e.message);
         log(e.stack || String(e));
         bootBtn.disabled = false;
-        boardSel.disabled = false;
       }
     }
 
