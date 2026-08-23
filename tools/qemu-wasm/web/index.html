@@ -485,6 +485,15 @@
     const PKJS_PROXY = params2.get('pkjs_proxy') ||
       'https://pkjs-proxy.ericmigi.workers.dev/?url=';
 
+    // Optional fixed location for JS apps: ?loc=37.44,-122.14
+    let PKJS_LOC = null;
+    if (params2.get('loc')) {
+      const m = params2.get('loc').split(',').map(Number);
+      if (m.length === 2 && m.every(Number.isFinite)) {
+        PKJS_LOC = { latitude: m[0], longitude: m[1] };
+      }
+    }
+
     // Per-app persistent storage, scoped into the page's localStorage.
     function scopedStorage(prefix) {
       const p = 'pkjs-' + prefix + '-';
@@ -594,7 +603,7 @@
       installer = new AppInstaller(phone, onProgress, (m) => say(m));
       const am = new AppMessageClient(phone, jsLog);
       pkjs = new PkjsRuntime(phone, am, {
-        createSandbox: makeIframeSandbox(PKJS_PROXY, jsLog),
+        createSandbox: makeIframeSandbox(PKJS_PROXY, jsLog, PKJS_LOC),
         storage: scopedStorage,
         tokenStore: window.localStorage,
         openUrl: openConfigUrl,

@@ -248,9 +248,33 @@ export function makeMemoryStorage() {
   };
 }
 
+// IP-based location, used when the browser's own geolocation fails
+// (common: OS location services disabled). City-level accuracy is
+// plenty for weather watchfaces. Cached per page load.
+let ipLocationCache = null;
+async function ipLocate(fetchFn) {
+  if (ipLocationCache) return ipLocationCache;
+  const r = await fetchFn('https://ipwho.is/');
+  const j = await r.json();
+  if (!j || j.success === false || typeof j.latitude !== 'number') {
+    throw new Error('IP lookup returned no location');
+  }
+  ipLocationCache = { latitude: j.latitude, longitude: j.longitude, city: j.city };
+  return ipLocationCache;
+}
+
+function fakePosition(lat, lon, accuracy) {
+  return {
+    coords: { latitude: lat, longitude: lon, accuracy,
+              altitude: null, altitudeAccuracy: null, heading: null, speed: null },
+    timestamp: Date.now(),
+  };
+}
+
 // Browser sandbox: hidden same-origin iframe. The app JS gets the page's
 // real fetch/XHR (patched with the proxy fallback), geolocation, etc.
-export function makeIframeSandbox(proxyUrl, log = () => {}) {
+// fixedLoc: optional {latitude, longitude} override (?loc=lat,lon).
+export function makeIframeSandbox(proxyUrl, log = () => {}, fixedLoc = null) {
   return (globals) => {
     const frame = document.createElement('iframe');
     frame.style.display = 'none';
@@ -272,28 +296,42 @@ export function makeIframeSandbox(proxyUrl, log = () => {}) {
       }
       throw e;
     });
-    // Log geolocation outcomes — a silent OS-level denial otherwise
-    // looks identical to an app that never asked.
+    // Geolocation with fallbacks: ?loc= override -> native -> IP-based.
+    // An OS-level denial must not strand weather watchfaces.
     try {
       const geo = w.navigator.geolocation;
-      const origGet = geo.getCurrentPosition.bind(geo);
-      geo.getCurrentPosition = (ok, err, opts) => {
+      // Use the TOP page's geolocation, not the iframe's — it removes
+      // the permissions-delegation variable, and the permission grant
+      // is attributed to the visible page either way.
+      const pageGeo = window.navigator.geolocation;
+      const origGet = pageGeo.getCurrentPosition.bind(pageGeo);
+      const fallback = (ok, err, cause) => {
+        log(`geolocation failed (${cause}); trying IP-based location…`);
+        ipLocate(w.fetch).then((loc) => {
+          log(`IP location: ~${loc.city || 'unknown'}`);
+          ok(fakePosition(loc.latitude, loc.longitude, 25000));
+        }).catch((e2) => {
+          log('IP location failed too: ' + e2.message);
+          if (err) err({ code: 2, message: cause });
+        });
+      };
+      const resolvePosition = (ok, err, opts) => {
         log('app requested geolocation…');
+        if (fixedLoc) {
+          log(`using fixed location ${fixedLoc.latitude},${fixedLoc.longitude}`);
+          ok(fakePosition(fixedLoc.latitude, fixedLoc.longitude, 10));
+          return;
+        }
         origGet(
           (pos) => { log(`geolocation ok (±${Math.round(pos.coords.accuracy)}m)`); ok(pos); },
-          (e) => { log(`geolocation DENIED/failed: ${e.message} (code ${e.code})`); if (err) err(e); },
+          (e) => fallback(ok, err, `${e.message} (code ${e.code})`),
           opts,
         );
       };
-      const origWatch = geo.watchPosition.bind(geo);
-      geo.watchPosition = (ok, err, opts) => {
-        log('app watching geolocation…');
-        return origWatch(
-          (pos) => { log('geolocation update'); ok(pos); },
-          (e) => { log(`geolocation DENIED/failed: ${e.message} (code ${e.code})`); if (err) err(e); },
-          opts,
-        );
-      };
+      geo.getCurrentPosition = resolvePosition;
+      // Single-shot semantics are fine for watchfaces polling weather.
+      geo.watchPosition = (ok, err, opts) => { resolvePosition(ok, err, opts); return 0; };
+      geo.clearWatch = () => {};
     } catch (e) { /* geolocation unavailable in this context */ }
     return {
       run: (code) => w.eval(code),
