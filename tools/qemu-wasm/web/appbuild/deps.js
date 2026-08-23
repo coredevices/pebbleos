@@ -44,7 +44,13 @@ async function gunzip(bytes) {
 // Resolve a dependency range to a concrete tarball. Exact versions are
 // honoured; anything else takes the latest, which is what a fresh
 // `npm install` would do for the carets these projects use.
+const URL_DEP = /^(https?:\/\/|git\+|github:)/;
+
 async function resolvePackage(name, range, get) {
+  // npm also accepts a plain tarball URL in place of a version range.
+  if (URL_DEP.test(String(range || ''))) {
+    return { version: String(range), tarball: String(range), pkg: {} };
+  }
   const meta = JSON.parse(td.decode(await get(REGISTRY + name.replace('/', '%2f'))));
   const versions = meta.versions || {};
   let version = null;
@@ -61,7 +67,7 @@ async function resolvePackage(name, range, get) {
 // opts: { platforms: string[], get(url) -> Uint8Array, log }
 // Returns everything the compiler, linker and JS bundler need. Binaries
 // are collected per platform, since one fetch serves every board.
-export async function fetchDependencies(rootPkg, { platforms, get, log = () => {} }) {
+export async function fetchDependencies(rootPkg, { platforms, get, vendored = {}, log = () => {} }) {
   const wanted = { ...(rootPkg.dependencies || {}) };
   const seen = new Set();
   const includes = {};          // path -> bytes, mounted at /deps/include
@@ -77,19 +83,32 @@ export async function fetchDependencies(rootPkg, { platforms, get, log = () => {
     if (seen.has(name)) continue;
     seen.add(name);
 
-    let resolved;
-    try {
-      resolved = await resolvePackage(name, range, get);
-    } catch (e) {
-      throw new Error(`dependency "${name}" could not be resolved: ${e.message}`);
-    }
-    log(`dependency: ${name}@${resolved.version}`);
-    const tar = untar(await gunzip(await get(resolved.tarball)));
-
-    // npm tarballs put everything under package/
-    const files = {};
-    for (const [p, d] of Object.entries(tar)) {
-      if (p.startsWith('package/')) files[p.slice('package/'.length)] = d;
+    // A repository that commits its node_modules already has the package;
+    // the real SDK just uses what is there, so prefer it over the network.
+    let files;
+    if (vendored[name]) {
+      log(`dependency: ${name} (vendored in the repo)`);
+      files = vendored[name];
+    } else {
+      let resolved;
+      try {
+        resolved = await resolvePackage(name, range, get);
+      } catch (e) {
+        throw new Error(`dependency "${name}" could not be resolved: ${e.message}`);
+      }
+      log(`dependency: ${name}@${resolved.version}`);
+      let tar;
+      try {
+        tar = untar(await gunzip(await get(resolved.tarball)));
+      } catch (e) {
+        throw new Error(`dependency "${name}" could not be downloaded ` +
+          `(${resolved.tarball}): ${e.message}`);
+      }
+      // npm tarballs put everything under package/
+      files = {};
+      for (const [p, d] of Object.entries(tar)) {
+        if (p.startsWith('package/')) files[p.slice('package/'.length)] = d;
+      }
     }
     let meta = {};
     try { meta = JSON.parse(td.decode(files['package.json'])); } catch (e) { /* keep going */ }
@@ -130,9 +149,12 @@ export async function fetchDependencies(rootPkg, { platforms, get, log = () => {
     } else {
       // A plain JS package; the bundler resolves into it normally.
       packages[name] = { files, main: meta.main || 'index.js', isLibrary: false };
-      for (const [d, r] of Object.entries(meta.dependencies || {})) {
-        if (!seen.has(d)) queue.push([d, r]);
-      }
+    }
+    // A package's own dependencies have to come too, whichever shape it
+    // is: a C library links against them (nightstand needs
+    // pebble-effect-layer), a JS one imports them.
+    for (const [d, r] of Object.entries(meta.dependencies || {})) {
+      if (!seen.has(d)) queue.push([d, r]);
     }
   }
   return { includes, libs, packages, resources, messageKeys };

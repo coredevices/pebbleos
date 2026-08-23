@@ -148,7 +148,21 @@ export async function buildApp(opts) {
       log('note: app has dependencies but no fetcher was supplied — skipping');
     } else {
       log(`resolving ${Object.keys(pkg.dependencies).length} dependencies…`);
-      deps = await fetchDependencies(pkg, { platforms, get: opts.fetchUrl, log });
+      // Some repositories commit node_modules; use what is there first.
+      const vendored = {};
+      const nm = prefix + 'node_modules/';
+      for (const [p, d] of Object.entries(repoFiles)) {
+        if (!p.startsWith(nm)) continue;
+        const rest = p.slice(nm.length);
+        const parts = rest.split('/');
+        const name = rest.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
+        const rel = rest.slice(name.length + 1);
+        if (!rel) continue;
+        (vendored[name] = vendored[name] || {})[rel] = d;
+      }
+      deps = await fetchDependencies(pkg, {
+        platforms, get: opts.fetchUrl, vendored, log,
+      });
     }
   }
 
@@ -214,8 +228,20 @@ export async function buildApp(opts) {
     });
 
     // ---- compile ----
-    const sources = Object.keys(projFiles).filter((p) => p.endsWith('.c') &&
+      const sources = Object.keys(projFiles).filter((p) => p.endsWith('.c') &&
       !p.startsWith('src/js/') && !p.startsWith('src/pkjs/'));
+    // Nothing but the generated files means the app is not written in C.
+    if (!sources.some((p) => p.startsWith('src/'))) {
+      const langs = new Set();
+      for (const p of Object.keys(repoFiles)) {
+        if (/\.rs$/.test(p)) langs.add('Rust');
+        else if (/\.go$/.test(p)) langs.add('Go');
+        else if (/\.(ts|js)$/.test(p) && p.includes('/src/')) langs.add('JavaScript');
+      }
+      throw new Error('no C sources found under src/' +
+        (langs.size ? ` — this looks like a ${[...langs].join('/')} project, ` +
+          'which needs its own toolchain' : ''));
+    }
     const defines = (PLATFORM_DEFINES[platform] || [])
       .concat(['PBL_SDK_3', 'RELEASE']).map((d) => '-D' + d);
     // The SDK puts a package's include root and its per-platform directory
