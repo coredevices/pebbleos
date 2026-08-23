@@ -389,9 +389,13 @@ export async function buildApp(opts) {
     // ---- background worker ----
     // The SDK builds worker_src/c/**/*.c into a second binary that runs
     // outside the app's lifetime (app wscript, bin_type='worker').
-    const workerSources = Object.keys(repoFiles)
+    const workerFound = Object.keys(repoFiles)
       .filter((p) => p.startsWith(prefix + 'worker_src/') && p.endsWith('.c'))
       .map((p) => p.slice(prefix.length));
+    // worker_src carries the same two layouts as src, and so the same trap
+    // of a repo holding both copies.
+    const workerSources = workerFound.some((p) => p.startsWith('worker_src/c/'))
+      ? workerFound.filter((p) => p.startsWith('worker_src/c/')) : workerFound;
     let workerBin = null;
     if (workerSources.length) {
       log(`building background worker (${workerSources.length} sources)…`);

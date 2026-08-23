@@ -9,6 +9,22 @@ const td = new TextDecoder();
 // `require` so a plain (non-module) pkjs script can still ask for
 // message_keys. esbuild resolves static require() calls itself; this only
 // backstops the dynamic ones.
+// The SDK bundles PebbleKit JS with webpack's target: 'node', which leaves
+// node's own modules as runtime requires instead of failing the build. npm
+// packages reach for them constantly — usually in a branch that only runs
+// under node — so a package that merely mentions 'util' must not stop an
+// app from building. Anything that really does call one fails at runtime
+// with the message below, which is what the SDK does too.
+const NODE_BUILTINS = [
+  'assert', 'async_hooks', 'buffer', 'child_process', 'cluster', 'console',
+  'constants', 'crypto', 'dgram', 'dns', 'domain', 'events', 'fs', 'http',
+  'http2', 'https', 'module', 'net', 'os', 'path', 'perf_hooks', 'process',
+  'punycode', 'querystring', 'readline', 'repl', 'stream', 'string_decoder',
+  'sys', 'timers', 'tls', 'tty', 'url', 'util', 'v8', 'vm', 'worker_threads',
+  'zlib',
+];
+const EXTERNALS = NODE_BUILTINS.concat(NODE_BUILTINS.map((m) => 'node:' + m));
+
 const REQUIRE_SHIM = `var require = typeof require !== 'undefined' ? require : function (m) {
   if (m === 'message_keys') return __pebble_message_keys;
   throw new Error('Module not found: ' + m);
@@ -55,11 +71,18 @@ export async function bundlePkjs(esbuild, opts) {
     name: 'pebble-repo',
     setup(build) {
       build.onResolve({ filter: /^(message_keys|app_package\.json)$/ }, (a) => virtual(a.path));
+      // esbuild's own `external` never gets a say: a plugin's onResolve runs
+      // first, so the builtins have to be answered here or the error below
+      // fires instead.
+      const external = (args) =>
+        (EXTERNALS.includes(args.path) ? { path: args.path, external: true } : null);
       build.onResolve({ filter: /.*/ }, (args) => {
         // This runs for every namespace, so it has to stand aside for the
         // ones with a resolver of their own further down. Without that, a
         // package's own './lib/decoder' was looked for in the repo.
         if (args.namespace === 'virtual' || args.namespace === 'pkg') return null;
+        const ext = external(args);
+        if (ext) return ext;
         let base;
         if (args.path.startsWith('./') || args.path.startsWith('../')) {
           const dir = args.importer.includes('/')
@@ -88,6 +111,8 @@ export async function bundlePkjs(esbuild, opts) {
         return { path: found, namespace: 'repo' };
       });
       build.onResolve({ filter: /.*/, namespace: 'pkg' }, (args) => {
+        const ext = external(args);
+        if (ext) return ext;
         // Relative import inside a package stays inside it.
         const owner = args.importer.split('\u0000')[0];
         const dir = args.importer.split('\u0000')[1] || '';
