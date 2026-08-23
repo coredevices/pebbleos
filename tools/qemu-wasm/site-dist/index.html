@@ -350,13 +350,31 @@
       ArrowDown: BTN_DOWN, x: BTN_DOWN,
     };
 
+    // Clicked buttons must not keep focus, or the next Enter re-clicks
+    // them instead of pressing Select on the watch.
+    document.addEventListener('pointerup', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('button') : null;
+      if (b) setTimeout(function () { b.blur(); }, 0);
+    });
+
+    // Keys drive the watch only when focus is not in a form field —
+    // otherwise typing a URL would scroll the watch and Enter would
+    // press Select instead of submitting the field.
+    function typingIntoField(e) {
+      var t = e.target;
+      return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' ||
+                   t.tagName === 'SELECT' || t.isContentEditable);
+    }
+
     document.addEventListener('keydown', function (e) {
+      if (typingIntoField(e)) return;
       var bit = keyMap[e.key];
       if (bit === undefined) return;
       e.preventDefault();
       if (!e.repeat) updateButtons(bit, true);
     });
     document.addEventListener('keyup', function (e) {
+      if (typingIntoField(e)) return;
       var bit = keyMap[e.key];
       if (bit === undefined) return;
       e.preventDefault();
