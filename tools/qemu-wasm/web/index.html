@@ -488,66 +488,50 @@
     // ================================================================
     var serialPos = 0;
 
-    function pollSerial() {
-      if (!qemu) return;
+    // The PULSE client (module script) pulls new UART2 bytes from here.
+    window.__readUart2 = function () {
+      if (!qemu) return null;
       try {
         var stat = qemu.FS.stat('/tmp/uart2.log');
-        if (stat.size <= serialPos) return;
+        if (stat.size <= serialPos) return null;
         var stream = qemu.FS.open('/tmp/uart2.log', 'r');
         var chunk = new Uint8Array(stat.size - serialPos);
         qemu.FS.read(stream, chunk, 0, chunk.length, serialPos);
         qemu.FS.close(stream);
         serialPos = stat.size;
-        var text = '';
-        for (var i = 0; i < chunk.length; i++) {
-          var b = chunk[i];
-          if ((b >= 32 && b <= 126) || b === 9 || b === 10 || b === 13) {
-            text += String.fromCharCode(b);
-          }
-        }
-        if (text) log(text.replace(/\r/g, ''));
+        return chunk;
       } catch (e) {
-        // File doesn't exist until QEMU opens the chardev.
+        return null; // file doesn't exist until QEMU opens the chardev
       }
-    }
-    setInterval(pollSerial, 200);
+    };
 
     // ================================================================
     // Console input: pebble_simple_uart exports a browser->guest ring
     // for the dbgserial prompt (UART2). Enter sends the line + CRLF.
     // ================================================================
     var consoleCtrlAddr = 0;
-    var consoleInput = document.getElementById('console-input');
 
-    function consoleSend(text) {
-      if (!qemu) return;
+    // Raw byte writer into the dbgserial RX ring; the PULSE client in
+    // the module script frames its traffic through this.
+    window.__consoleWriteBytes = function (bytes) {
+      if (!qemu) return false;
       if (!consoleCtrlAddr) {
-        if (typeof qemu._pebble_wasm_console_ctrl !== 'function') return;
+        if (typeof qemu._pebble_wasm_console_ctrl !== 'function') return false;
         consoleCtrlAddr = Number(qemu._pebble_wasm_console_ctrl());
-        if (!consoleCtrlAddr) return;
+        if (!consoleCtrlAddr) return false;
       }
       var base = consoleCtrlAddr >> 2;
       var u32 = qemu.HEAPU32;
       var buf = u32[base], size = u32[base + 1];
       var head = Atomics.load(u32, base + 2);
       var tail = Atomics.load(u32, base + 3);
-      var bytes = [];
-      for (var i = 0; i < text.length; i++) bytes.push(text.charCodeAt(i) & 0xff);
-      bytes.push(13, 10);
-      if (size - (head - tail) < bytes.length) return; // ring full
+      if (size - (head - tail) < bytes.length) return false;
       for (var j = 0; j < bytes.length; j++) {
         qemu.HEAPU8[buf + ((head + j) % size)] = bytes[j];
       }
       Atomics.store(u32, base + 2, (head + bytes.length) >>> 0);
-    }
-
-    consoleInput.addEventListener('keydown', function (e) {
-      if (e.key !== 'Enter') return;
-      var text = consoleInput.value;
-      consoleInput.value = '';
-      log('> ' + text);
-      consoleSend(text);
-    });
+      return true;
+    };
 
     // ================================================================
     // Persistence: the 32 MB SPI flash (apps, settings) is saved to
@@ -712,6 +696,8 @@
     import { fetchPbwFromStore } from './store.js';
     import { AppMessageClient } from './appmessage.js';
     import { PkjsRuntime, makeIframeSandbox } from './pkjs-runtime.js';
+    import { PulseConsole } from './pulse-console.js';
+    import { NotificationSender, VoiceService } from './phone-extras.js';
 
     const input = document.getElementById('install-input');
     const btn = document.getElementById('btn-install');
@@ -871,8 +857,107 @@
       setInterval(() => phone.poll(), 20);
       wireSensors();
       restorePkjsApps();
+      wireConsole();
+      wireNotifications();
+      wireVoice();
       clearInterval(attach);
     }, 500);
+
+    // ---- PULSE console: readable logs + interactive dbgserial prompt ----
+    let pulse = null;
+    function wireConsole() {
+      const pad = (n, w) => String(n).padStart(w, '0');
+      pulse = new PulseConsole((bytes) => window.__consoleWriteBytes(bytes), {
+        onLog: (r) => {
+          const d = new Date(r.timeMs);
+          const lvl = r.levelName ? ' <' + r.levelName + '>' : '';
+          window.log(`[${pad(d.getHours(),2)}:${pad(d.getMinutes(),2)}:${pad(d.getSeconds(),2)}.${pad(d.getMilliseconds(),3)}]${lvl} ${r.file}:${r.line}: ${r.message}`);
+        },
+        onPrompt: (text, done) => { if (text) window.log('  ' + text); },
+        onRaw: (text) => window.log(text),
+        log: (m) => console.log('[pulse] ' + m),
+      });
+      setInterval(() => {
+        const bytes = window.__readUart2();
+        if (bytes) pulse.feed(bytes);
+      }, 100);
+
+      const input = document.getElementById('console-input');
+      input.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        const text = input.value.trim();
+        input.value = '';
+        if (!text) return;
+        window.log('> ' + text);
+        if (!pulse.promptReady) window.log('  (prompt still connecting — command queued)');
+        pulse.command(text);
+      });
+    }
+
+    // ---- notifications ----
+    function wireNotifications() {
+      const sender = new NotificationSender(phone, (m) => say(m));
+      const btn2 = document.getElementById('btn-notify');
+      btn2.disabled = false;
+      btn2.addEventListener('click', async () => {
+        btn2.disabled = true;
+        try {
+          await sender.send({
+            title: document.getElementById('notif-title').value || 'Claude',
+            body: document.getElementById('notif-body').value || 'Hello!',
+          });
+          say('Notification sent — check the watch (Reply → Voice tests dictation).');
+        } catch (e) {
+          say('Notification failed: ' + e.message);
+        } finally {
+          btn2.disabled = false;
+        }
+      });
+    }
+
+    // ---- voice dictation: browser speech recognition, typed fallback ----
+    function wireVoice() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      let recog = null;
+      let transcript = '';
+      let recogDone = null;
+
+      const voice = new VoiceService(phone, async () => {
+        if (recog) {
+          try { recog.stop(); } catch (e) { /* already stopped */ }
+          // give the recognizer a beat to finalize
+          const settled = await new Promise((res) => {
+            recogDone = res;
+            setTimeout(() => res(transcript), 3000);
+          });
+          recog = null;
+          if (settled && settled.trim()) return settled;
+        }
+        return window.prompt('Dictation: say what the watch heard', transcript || 'Hello from the browser');
+      }, (m) => { console.log('[voice] ' + m); if (window.log) window.log('[voice] ' + m); });
+
+      voice.onSessionStart = () => {
+        transcript = '';
+        if (!SR) { say('Dictation started — no speech recognition in this browser, you\'ll get a text box.'); return; }
+        try {
+          recog = new SR();
+          recog.continuous = true;
+          recog.interimResults = true;
+          recog.lang = navigator.language || 'en-US';
+          recog.onresult = (e) => {
+            let t = '';
+            for (const res of e.results) t += res[0].transcript;
+            transcript = t;
+          };
+          recog.onend = () => { if (recogDone) recogDone(transcript); };
+          recog.onerror = (e) => { console.log('[voice] recognition error: ' + e.error); };
+          recog.start();
+          say('Dictation: speak into your microphone now…');
+        } catch (e) {
+          recog = null;
+        }
+      };
+    }
 
     // ---- sensors & phone panel: QemuProtocol injections ----
     function wireSensors() {
