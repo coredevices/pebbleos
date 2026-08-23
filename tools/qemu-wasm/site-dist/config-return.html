@@ -8,8 +8,9 @@ Returning settings to the watch&hellip;
   // response payload in the fragment (Rebble convention). Hand it to the
   // opener and close.
   var payload = location.hash ? location.hash.slice(1) : '';
-  if (window.opener) {
-    window.opener.postMessage({ type: 'pkjs-config-closed', response: payload }, location.origin);
+  var target = window.opener || (window.parent !== window ? window.parent : null);
+  if (target) {
+    target.postMessage({ type: 'pkjs-config-closed', response: payload }, location.origin);
     document.body.textContent = 'Settings saved - you can close this tab.';
     setTimeout(function () { window.close(); }, 300);
   } else {

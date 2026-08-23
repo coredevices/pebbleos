@@ -498,20 +498,75 @@
       };
     }
 
-    // Config pages: open in a popup with return_to pointing at our
-    // return page, which posts the response fragment back.
-    function openConfigUrl(url, onClosed) {
-      const ret = new URL('config-return.html', window.location.href).href;
-      const sep = url.includes('?') ? '&' : '?';
-      const full = url + sep + 'return_to=' + encodeURIComponent(ret + '#');
+    // Config pages. Hosted (http/https) pages open in a popup with the
+    // Rebble return_to convention. Clay-style data: pages cannot be
+    // window.open()ed (browsers block top-level data: navigation), so
+    // they render in an in-page modal iframe instead: the HTML is
+    // decoded and Clay's default close target (pebblejs://close) is
+    // rewritten to our same-origin return page, which posts the
+    // response fragment back via postMessage.
+    function listenForConfigClose(onClosed, cleanup) {
       const handler = (e) => {
         if (e.origin !== window.location.origin) return;
         if (e.data && e.data.type === 'pkjs-config-closed') {
           window.removeEventListener('message', handler);
+          if (cleanup) cleanup();
           onClosed(e.data.response);
         }
       };
       window.addEventListener('message', handler);
+      return handler;
+    }
+
+    function decodeDataUrl(url) {
+      const m = /^data:[^,]*?(;base64)?,(.*)$/s.exec(url);
+      if (!m) return null;
+      return m[1] ? atob(m[2]) : decodeURIComponent(m[2]);
+    }
+
+    function openConfigUrl(url, onClosed) {
+      const ret = new URL('config-return.html', window.location.href).href;
+
+      if (url.startsWith('data:')) {
+        let html = decodeDataUrl(url);
+        if (html === null) { say('Could not decode the settings page.'); return; }
+        // Clay falls back to pebblejs://close when no return_to query
+        // parameter reaches it (data: URLs have no query string).
+        html = html.split('pebblejs://close').join(ret);
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);' +
+          'z-index:1000;display:flex;align-items:center;justify-content:center;';
+        const box = document.createElement('div');
+        box.style.cssText = 'position:relative;width:min(440px,94vw);height:min(720px,92vh);' +
+          'background:#fff;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;';
+        const bar = document.createElement('div');
+        bar.style.cssText = 'background:#1e1e30;color:#d8d8e0;font-size:12px;' +
+          'padding:6px 10px;display:flex;justify-content:space-between;align-items:center;';
+        bar.innerHTML = '<span>App settings</span>';
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Cancel';
+        closeBtn.style.cssText = 'font-size:12px;padding:2px 10px;';
+        bar.appendChild(closeBtn);
+        const frame = document.createElement('iframe');
+        frame.style.cssText = 'border:0;flex:1;width:100%;background:#fff;';
+        frame.srcdoc = html;
+        box.appendChild(bar); box.appendChild(frame);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        const handler = listenForConfigClose(onClosed, () => overlay.remove());
+        closeBtn.addEventListener('click', () => {
+          window.removeEventListener('message', handler);
+          overlay.remove();
+          onClosed('');  // empty response = user cancelled
+        });
+        return;
+      }
+
+      const sep = url.includes('?') ? '&' : '?';
+      const full = url + sep + 'return_to=' + encodeURIComponent(ret + '#');
+      listenForConfigClose(onClosed);
       window.open(full, 'pkjs-config', 'width=420,height=680');
     }
 
@@ -612,8 +667,9 @@
       await installBytes(new Uint8Array(await f.arrayBuffer()), f.name);
     });
 
-    // Debug/testing hook: install from raw bytes without the store.
+    // Debug/testing hooks.
     window.__installPbw = installBytes;
+    window.__openConfig = openConfigUrl;
 
     // Drag-drop a .pbw anywhere on the page.
     document.addEventListener('dragover', (e) => {
