@@ -4,6 +4,7 @@
 import {
   genAppinfoJson, genAppinfoC, genResourceIdsH, genResourceIdsC,
   genMessageKeysC, genMessageKeysH, genLdScript, PLATFORM_DEFINES, PLATFORMS,
+  messageKeysFor,
 } from './codegen.js';
 import { buildResources, findTaggedFile } from './resources.js';
 import { objcopyToBin, injectMetadata, makePbw, makeManifest } from './elfpack.js';
@@ -22,6 +23,8 @@ const CFLAGS = [
   '-isystem', '/newlib', '-I', '/sdk/include',
   '-I', '/proj/build', '-I', '/proj/build/include', '-I', '/proj/build/plat',
   '-I', '/proj/build/src', '-I', '/proj/src', '-I', '/proj',
+  // setup_pebble_c also puts the project's own include/ on the path
+  '-I', '/proj/include',
 ];
 
 const LDFLAGS = ['--gc-sections', '--warn-common', '--build-id=sha1',
@@ -130,6 +133,8 @@ export async function buildApp(opts) {
       'can be built here');
   }
   const appinfo = genAppinfoJson(pkg);
+  // Block keys stay out of appinfo.json but still need C declarations.
+  const allKeys = messageKeysFor(pkg.pebble && pkg.pebble.messageKeys).all;
   if (!appinfo.uuid) throw new Error('package.json pebble section has no uuid');
   const name = appinfo.shortName;
   log(`project: ${name} (${appinfo.versionLabel}) by ${appinfo.companyName}`);
@@ -174,6 +179,7 @@ export async function buildApp(opts) {
     log(`--- ${platform} ---`);
     // ---- resources ----
     const media = (appinfo.resources && appinfo.resources.media) || [];
+    const publishedMedia = (appinfo.resources && appinfo.resources.publishedMedia) || [];
     const resourceFiles = Object.keys(repoFiles)
       .filter((p) => p.startsWith(prefix + 'resources/'))
       .map((p) => p.slice((prefix + 'resources/').length));
@@ -191,10 +197,10 @@ export async function buildApp(opts) {
     // ---- codegen ----
     const generated = {
       'build/appinfo.auto.c': te.encode(genAppinfoC(appinfo, platform)),
-      'build/src/resource_ids.auto.h': te.encode(genResourceIdsH(resourceNames)),
-      'build/src/resource_ids.auto.c': te.encode(genResourceIdsC(resourceNames)),
-      'build/include/message_keys.auto.h': te.encode(genMessageKeysH(appinfo.appKeys)),
-      'build/message_keys.auto.c': te.encode(genMessageKeysC(appinfo.appKeys)),
+      'build/src/resource_ids.auto.h': te.encode(genResourceIdsH(resourceNames, publishedMedia)),
+      'build/src/resource_ids.auto.c': te.encode(genResourceIdsC(resourceNames, publishedMedia)),
+      'build/include/message_keys.auto.h': te.encode(genMessageKeysH(allKeys)),
+      'build/message_keys.auto.c': te.encode(genMessageKeysC(allKeys)),
     };
     const ldscript = te.encode(genLdScript(platform));
 
@@ -203,7 +209,7 @@ export async function buildApp(opts) {
     for (const [p, data] of Object.entries(repoFiles)) {
       if (!p.startsWith(prefix)) continue;
       const q = p.slice(prefix.length);
-      if (q.startsWith('src/') && /\.(c|h)$/.test(q)) projFiles[q] = data;
+      if (/^(src|include)\//.test(q) && /\.(c|h)$/.test(q)) projFiles[q] = data;
     }
     Object.assign(projFiles, generated);
     // resource_ids.auto.h is included as "src/resource_ids.auto.h" by

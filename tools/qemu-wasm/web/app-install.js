@@ -15,6 +15,12 @@ const PB_OBJ_APP_RESOURCES = 0x04;
 const PB_OBJ_WATCH_APP = 0x05;
 const PB_OBJ_WATCH_WORKER = 0x07;
 const PB_MAX_CHUNK = 2044;
+// The watch acks a chunk when it arrives but writes it to flash from a
+// system task, so acks alone do not throttle us: on a large resource pack
+// the queue fills, the firmware panics ("System task queue full") and
+// resets mid-install. Pause between chunks to let that queue drain --
+// 15 ms costs about a second over a 150 KB pack.
+const PB_CHUNK_PACING_MS = 15;
 
 const PROCESS_INFO_HAS_WORKER = 0x10;
 
@@ -206,6 +212,7 @@ export class AppInstaller {
       resp = await p;
       if (!resp.ack) throw new Error(`putbytes PUT nacked at ${off} (${label})`);
       this.onProgress({ phase: 'transfer', detail: label, sent: Math.min(off + chunk.length, data.length), total: data.length });
+      if (off + PB_MAX_CHUNK < data.length) await delay(PB_CHUNK_PACING_MS);
     }
 
     // COMMIT with legacy CRC

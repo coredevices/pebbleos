@@ -142,15 +142,35 @@ export function genAppinfoJson(pkg) {
 }
 
 // messageKeys may be an object {NAME: n} or an array of names.
-export function normalizeMessageKeys(mk) {
-  if (!mk) return {};
-  if (Array.isArray(mk)) {
-    const out = {};
-    let next = 10000;
-    for (const name of mk) out[name] = next++;
-    return out;
+// An array of message keys is numbered from 10000. A key written
+// NAME[n] is a "block" key: it reserves n consecutive ids under the bare
+// name, and blocks are numbered before the single keys. Blocks are also
+// kept out of appinfo.json, so PebbleKit JS never sees them
+// (process_message_keys.py, and _write_appinfo_json_file).
+export function messageKeysFor(mk) {
+  if (!mk) return { all: {}, appKeys: {} };
+  if (!Array.isArray(mk)) return { all: { ...mk }, appKeys: { ...mk } };
+  const all = {};
+  const blocks = [];
+  let next = 10000;
+  for (const entry of mk) {
+    const m = /^(\w+)\[(\d+)\]$/.exec(entry);
+    if (!m) continue;
+    all[m[1]] = next;
+    next += parseInt(m[2], 10);
+    blocks.push(m[1]);
   }
-  return mk;
+  for (const entry of mk) {
+    if (/\]$/.test(entry)) continue;
+    all[entry] = next++;
+  }
+  const appKeys = { ...all };
+  for (const b of blocks) delete appKeys[b];
+  return { all, appKeys };
+}
+
+export function normalizeMessageKeys(mk) {
+  return messageKeysFor(mk).appKeys;
 }
 
 export function genAppinfoC(appinfo, platform) {
@@ -193,15 +213,35 @@ const PebbleProcessInfo __pbl_app_info __attribute__ ((section (".pbl_header")))
 `;
 }
 
-export function genResourceIdsH(resourceNames) {
+// resourceNames may be plain names or {name, aliases}. An alias is a
+// second RESOURCE_ID for the same resource; publishedMedia adds
+// PUBLISHED_ID_<name> constants used by app glances and the timeline
+// (generate_resource_id_header.py).
+function eachResourceId(resourceNames, publishedMedia, emit, emitPublished) {
+  resourceNames.forEach((entry, i) => {
+    const name = typeof entry === 'string' ? entry : entry.name;
+    emit(name, i + 1);
+    const aliases = (typeof entry === 'string' ? null : entry.aliases) || [];
+    for (const a of aliases) emit(a, i + 1, true);
+  });
+  for (const item of publishedMedia || []) {
+    if (item && item.name) emitPublished(item.name, item.id || 0);
+  }
+}
+
+export function genResourceIdsH(resourceNames, publishedMedia) {
   let s = '#pragma once\n' + AUTOGEN + '\n#define  DEFAULT_MENU_ICON  0\n\n';
-  resourceNames.forEach((n, i) => { s += `#define  RESOURCE_ID_${n}  ${i + 1}\n`; });
+  eachResourceId(resourceNames, publishedMedia,
+    (n, i, alias) => { s += `#define  RESOURCE_ID_${n}  ${i}` + (alias ? ' // alias\n' : '\n'); },
+    (n, id) => { s += `#define  PUBLISHED_ID_${n}  ${id}\n`; });
   return s;
 }
 
-export function genResourceIdsC(resourceNames) {
+export function genResourceIdsC(resourceNames, publishedMedia) {
   let s = '#include <stdint.h>\n' + AUTOGEN + '\n';
-  resourceNames.forEach((n, i) => { s += `uint32_t RESOURCE_ID_${n} = ${i + 1};\n`; });
+  eachResourceId(resourceNames, publishedMedia,
+    (n, i, alias) => { s += `uint32_t RESOURCE_ID_${n} = ${i};` + (alias ? ' // alias\n' : '\n'); },
+    (n, id) => { s += `uint32_t PUBLISHED_ID_${n} = ${id};\n`; });
   return s;
 }
 

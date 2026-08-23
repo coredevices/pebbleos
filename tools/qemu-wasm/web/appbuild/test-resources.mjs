@@ -112,7 +112,10 @@ check('pbpack container byte-exact', Buffer.compare(Buffer.from(rebuilt), Buffer
 
 // 2. full pipeline from the original sources
 const readFile = async (p) => u8(`${APP}/resources/${p}`);
-const { pbpack, resourceNames } = await buildResources(media, readFile, 'emery', rasterizeGlyph);
+const { pbpack, resourceNames: rawNames } =
+  await buildResources(media, readFile, 'emery', rasterizeGlyph);
+// entries carry their aliases now; the ids are what this check is about
+const resourceNames = rawNames.map((r) => (typeof r === 'string' ? r : r.name));
 
 // 3. resource id order
 const expectNames = Object.keys(goldenFor);

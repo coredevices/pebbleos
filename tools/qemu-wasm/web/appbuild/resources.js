@@ -758,34 +758,35 @@ export async function buildResources(media, readFile, platform, rasterizeGlyph, 
     const data = await readFile(def.file);
     const type = def.type;
 
+    const push = (n) => resourceNames.push({ name: n, aliases: def.aliases || [] });
     if (type === 'raw') {
-      resourceNames.push(def.name);
+      push(def.name);
       contents.push(data);
     } else if (type === 'font') {
       if (/\.pbf$/i.test(def.file)) {
-        resourceNames.push(def.name);
+        push(def.name);
         contents.push(data);
       } else {
-        resourceNames.push(def.name);
+        push(def.name);
         contents.push(await makeFont(data, def.name, def, rasterizeGlyph));
       }
     } else if (type === 'png-trans') {
       // Two 1-bit bitmaps: the white pixels, then the black ones.
       const image = await decodePng(data);
       for (const [suffix, colorMap] of [['_WHITE', WHITE_COLOR_MAP], ['_BLACK', BLACK_COLOR_MAP]]) {
-        resourceNames.push(def.name + suffix);
+        resourceNames.push({ name: def.name + suffix, aliases: (def.aliases || []).map((a) => a + suffix) });
         contents.push(makePbi(image, { format: 'bw', colorMap }));
       }
     } else if (type === 'pbi' || type === 'pbi8') {
       const image = await decodePng(data);
       const format = (type === 'pbi8' && isColor) ? 'color' : 'bw';
-      resourceNames.push(def.name);
+      push(def.name);
       contents.push(makePbi(image, { format, paletteName }));
     } else if (type === 'bitmap') {
-      resourceNames.push(def.name);
+      push(def.name);
       contents.push(await makeBitmap(data, def, isColor, paletteName));
     } else if (type === 'png') {
-      resourceNames.push(def.name);
+      push(def.name);
       contents.push(await pebblePng(await decodePng(data), paletteName));
     } else {
       throw new Error(`unsupported resource type "${type}" (${def.name})`);
