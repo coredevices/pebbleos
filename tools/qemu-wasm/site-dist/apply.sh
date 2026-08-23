@@ -23,6 +23,16 @@ rm -f "$dst"/appbuild/test-*.mjs
 rm -f "$dst/qemu-system-arm.worker.js"
 gunzip -c "$src/qemu-system-arm.js.gz" > "$dst/qemu-system-arm.js"
 gunzip -c "$src/qemu-system-arm.wasm.gz" > "$dst/qemu-system-arm.wasm"
+
+# The classic boards (aplite/basalt/chalk/diorite) run on a separate TCI
+# build of QEMU that carries their machines, tracked raw under web/.
+rm -rf "$dst/qemu-classic"
+cp -r "$src/../web/qemu-classic" "$dst/"
+for plat in aplite basalt chalk diorite; do
+    mkdir -p "$dst/firmware/$plat"
+    cp "$src/../web/firmware/$plat/qemu_micro_flash.bin" \
+       "$src/../web/firmware/$plat/qemu_spi_flash.bin" "$dst/firmware/$plat/"
+done
 gunzip -c "$src/qemu_micro_flash.bin.gz" > "$dst/firmware/emery/qemu_micro_flash.bin"
 gunzip -c "$src/qemu_spi_flash.bin.gz" > "$dst/firmware/emery/qemu_spi_flash.bin"
 mkdir -p "$dst/firmware/gabbro"

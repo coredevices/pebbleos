@@ -207,10 +207,14 @@
       emery:  { machine: 'pebble-emery',  width: 200, height: 228, audio: true },
       flint:  { machine: 'pebble-flint',  width: 144, height: 168, audio: true },
       gabbro: { machine: 'pebble-gabbro', width: 260, height: 260, audio: false },
-      aplite:  { machine: 'pebble-bb2',      width: 144, height: 168, audio: false, classicButtons: true },
-      basalt:  { machine: 'pebble-snowy-bb', width: 144, height: 168, audio: false, classicButtons: true },
-      chalk:   { machine: 'pebble-s4-bb',    width: 180, height: 180, audio: false, classicButtons: true },
-      diorite: { machine: 'pebble-silk-bb',  width: 144, height: 168, audio: false, classicButtons: true },
+      // dir: the classic machines live in a separate TCI build of QEMU
+      // (qemu-classic/); the default build is the faster JIT one, which
+      // only carries the current boards. spiIf: the snowy and s4 machines
+      // attach their SPI flash as pflash, the others as an mtd drive.
+      aplite:  { machine: 'pebble-bb2',      width: 144, height: 168, audio: false, classicButtons: true, dir: 'qemu-classic/' },
+      basalt:  { machine: 'pebble-snowy-bb', width: 144, height: 168, audio: false, classicButtons: true, dir: 'qemu-classic/', spiIf: 'pflash' },
+      chalk:   { machine: 'pebble-s4-bb',    width: 180, height: 180, audio: false, classicButtons: true, dir: 'qemu-classic/', spiIf: 'pflash' },
+      diorite: { machine: 'pebble-silk-bb',  width: 144, height: 168, audio: false, classicButtons: true, dir: 'qemu-classic/' },
     };
     var currentBoard = null;
 
@@ -644,7 +648,7 @@
       var args = [
         '-machine', board.machine,
         '-kernel', '/firmware/qemu_micro_flash.bin',
-        '-drive', 'if=mtd,format=raw,file=/firmware/qemu_spi_flash.bin',
+        '-drive', 'if=' + (board.spiIf || 'mtd') + ',format=raw,file=/firmware/qemu_spi_flash.bin',
         '-display', 'none',
         '-monitor', 'none',
         '-parallel', 'none',
@@ -683,7 +687,8 @@
         }
 
         setStatus('Loading QEMU WASM module...');
-        var factory = (await import('./qemu-system-arm.js')).default;
+        var qemuDir = './' + (board.dir || '');
+        var factory = (await import(qemuDir + 'qemu-system-arm.js')).default;
 
         var args = buildArgs(board);
         log('[qemu] args: ' + args.join(' '));
@@ -703,7 +708,7 @@
             setStatus('QEMU running — booting PebbleOS (this takes a few minutes)...');
           },
           onAbort: function (why) { setStatus('QEMU aborted: ' + why); },
-          locateFile: function (p) { return './' + p; },
+          locateFile: function (p) { return qemuDir + p; },
         };
         qemu = await factory(cfg);
         setInterval(function () { persistSpi(name); }, 15000);

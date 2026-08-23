@@ -121,6 +121,10 @@
       <option value="emery" selected>emery / obelix (Pebble Time 2)</option>
       <option value="gabbro">gabbro / getafix_dvt (Pebble Round 2)</option>
       <option value="flint">flint / asterix (Pebble 2 Duo)</option>
+      <option value="aplite">aplite (Pebble Classic)</option>
+      <option value="basalt">basalt (Pebble Time)</option>
+      <option value="chalk">chalk (Pebble Time Round)</option>
+      <option value="diorite">diorite (Pebble 2)</option>
     </select>
     <button id="btn-boot" style="display:none">Boot</button>
     <button id="btn-reset" title="Wipe the saved watch storage and reload">Factory reset</button>
@@ -196,11 +200,23 @@
     'use strict';
 
     // Board configs mirror hw/arm/pebble_generic.c in coredevices/qemu.
+    // classicButtons: the classic machines take button input as
+    // QemuProtocol_Button frames on the control channel (what pebble-tool
+    // sends); the newer boards poll a shared-memory GPIO mask instead.
     var BOARDS = {
       emery:  { machine: 'pebble-emery',  width: 200, height: 228, audio: true },
       flint:  { machine: 'pebble-flint',  width: 144, height: 168, audio: true },
       gabbro: { machine: 'pebble-gabbro', width: 260, height: 260, audio: false },
+      // dir: the classic machines live in a separate TCI build of QEMU
+      // (qemu-classic/); the default build is the faster JIT one, which
+      // only carries the current boards. spiIf: the snowy and s4 machines
+      // attach their SPI flash as pflash, the others as an mtd drive.
+      aplite:  { machine: 'pebble-bb2',      width: 144, height: 168, audio: false, classicButtons: true, dir: 'qemu-classic/' },
+      basalt:  { machine: 'pebble-snowy-bb', width: 144, height: 168, audio: false, classicButtons: true, dir: 'qemu-classic/', spiIf: 'pflash' },
+      chalk:   { machine: 'pebble-s4-bb',    width: 180, height: 180, audio: false, classicButtons: true, dir: 'qemu-classic/', spiIf: 'pflash' },
+      diorite: { machine: 'pebble-silk-bb',  width: 144, height: 168, audio: false, classicButtons: true, dir: 'qemu-classic/' },
     };
+    var currentBoard = null;
 
     var params = new URLSearchParams(window.location.search);
     var statusEl = document.getElementById('status');
@@ -340,6 +356,12 @@
     function updateButtons(bit, pressed) {
       buttonMask = pressed ? (buttonMask | bit) : (buttonMask & ~bit);
       if (!qemu) return;
+      if (currentBoard && currentBoard.classicButtons) {
+        // QemuProtocol_Button: one byte, bit per ButtonId, same order as
+        // the mask kept here (back, up, select, down).
+        if (phone) phone.sendQemuFrame(8, Uint8Array.of(buttonMask));
+        return;
+      }
       if (!buttonAddr) {
         buttonAddr = Number(qemu._pebble_wasm_button_state_addr());
         if (!buttonAddr) return;
@@ -626,7 +648,7 @@
       var args = [
         '-machine', board.machine,
         '-kernel', '/firmware/qemu_micro_flash.bin',
-        '-drive', 'if=mtd,format=raw,file=/firmware/qemu_spi_flash.bin',
+        '-drive', 'if=' + (board.spiIf || 'mtd') + ',format=raw,file=/firmware/qemu_spi_flash.bin',
         '-display', 'none',
         '-monitor', 'none',
         '-parallel', 'none',
@@ -645,6 +667,7 @@
     async function boot() {
       var name = boardSel.value;
       var board = BOARDS[name];
+      currentBoard = board;
       bootBtn.disabled = true;
       // The board selector stays active: changing it reloads the page
       // onto the chosen machine (the only way to restart the emulator).
@@ -664,7 +687,8 @@
         }
 
         setStatus('Loading QEMU WASM module...');
-        var factory = (await import('./qemu-system-arm.js')).default;
+        var qemuDir = './' + (board.dir || '');
+        var factory = (await import(qemuDir + 'qemu-system-arm.js')).default;
 
         var args = buildArgs(board);
         log('[qemu] args: ' + args.join(' '));
@@ -684,7 +708,7 @@
             setStatus('QEMU running — booting PebbleOS (this takes a few minutes)...');
           },
           onAbort: function (why) { setStatus('QEMU aborted: ' + why); },
-          locateFile: function (p) { return './' + p; },
+          locateFile: function (p) { return qemuDir + p; },
         };
         qemu = await factory(cfg);
         setInterval(function () { persistSpi(name); }, 15000);
@@ -1181,7 +1205,7 @@
           buildWorker.postMessage({
             cmd: 'build', zipUrls, platform: boardSel.value, proxy: PKJS_PROXY,
             // bundle the other boards the app targets, like the SDK does
-            alsoPlatforms: ['emery', 'flint', 'gabbro'],
+            alsoPlatforms: ['emery', 'flint', 'gabbro', 'aplite', 'basalt', 'chalk', 'diorite'],
           });
         });
         // The build saturates every core, which starves the emulator; give

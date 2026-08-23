@@ -1,0 +1,515 @@
+diff --git a/configs/meson/emscripten.txt b/configs/meson/emscripten.txt
+index 4230e88..144f045 100644
+--- a/configs/meson/emscripten.txt
++++ b/configs/meson/emscripten.txt
+@@ -4,5 +4,5 @@ cpp_args = ['-pthread']
+ objc_args = ['-pthread']
+ # -sPROXY_TO_PTHREAD link time flag always requires -pthread even during
+ # configuration so explicitly add the flag here.
+-c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
+-cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
++c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
++cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
+diff --git a/hw/arm/Kconfig b/hw/arm/Kconfig
+index cb1fed5..1004a13 100644
+--- a/hw/arm/Kconfig
++++ b/hw/arm/Kconfig
+@@ -699,6 +699,7 @@ config PEBBLE
+     depends on TCG && ARM
+     imply ARM_V7M
+     select ARM_V7M
++    select I2C
+     select PFLASH_CFI02
+     select SSI
+     select SSI_M25P80
+diff --git a/hw/arm/pebble_control.c b/hw/arm/pebble_control.c
+index 00c7bf2..727505f 100644
+--- a/hw/arm/pebble_control.c
++++ b/hw/arm/pebble_control.c
+@@ -33,6 +33,9 @@
+ #include "hw/arm/pebble.h"
+ #include "hw/arm/pebble_simple_uart.h"
+ #include "hw/arm/pebble_gpio.h"
++#ifdef __EMSCRIPTEN__
++#include <emscripten/emscripten.h>
++#endif
+ 
+ //#define DEBUG_PEBBLE_CONTROL
+ #ifdef DEBUG_PEBBLE_CONTROL
+@@ -184,6 +187,10 @@ struct PebbleControl {
+ 
+     // Timer used to wake us up to pump more data to the target
+     struct QEMUTimer *target_send_timer;
++#ifdef __EMSCRIPTEN__
++    // Timer that drains the browser->guest ring buffer
++    struct QEMUTimer *wasm_poll_timer;
++#endif
+ 
+     // We buffer the characters the UART from the target wants to send out here.
+     // We only send it to the front end once we have a complete packet. This insures
+@@ -199,6 +206,70 @@ struct PebbleControl {
+     DeviceState *generic_uart;
+ };
+ 
++#ifdef __EMSCRIPTEN__
++/* Shared-memory serial bridge for the browser build.
++ *
++ * The page cannot open a TCP connection to the emulated pebble-tool
++ * channel, so it exchanges QemuProtocol frames through two ring buffers
++ * in wasm memory instead. JS writes host->guest bytes at rx_head and
++ * publishes the new head with Atomics.store; a virtual-clock timer in
++ * the QEMU thread consumes them through the normal chardev receive
++ * path. Guest->host bytes are mirrored into the tx ring, which JS
++ * drains by advancing tx_tail. Head/tail are free-running u32 counters
++ * (index = counter % size). */
++#define WASM_SER_RX_SIZE 131072
++#define WASM_SER_TX_SIZE 32768
++
++static uint8_t s_wasm_ser_rx[WASM_SER_RX_SIZE];
++static uint8_t s_wasm_ser_tx[WASM_SER_TX_SIZE];
++
++static struct {
++    uint32_t rx_buf, rx_size, tx_buf, tx_size;
++    uint32_t rx_head, rx_tail;   /* JS produces, QEMU consumes */
++    uint32_t tx_head, tx_tail;   /* QEMU produces, JS consumes */
++} s_wasm_ser_ctrl;
++
++EMSCRIPTEN_KEEPALIVE void *pebble_wasm_serial_ctrl(void)
++{
++    s_wasm_ser_ctrl.rx_buf = (uint32_t)(uintptr_t)s_wasm_ser_rx;
++    s_wasm_ser_ctrl.rx_size = WASM_SER_RX_SIZE;
++    s_wasm_ser_ctrl.tx_buf = (uint32_t)(uintptr_t)s_wasm_ser_tx;
++    s_wasm_ser_ctrl.tx_size = WASM_SER_TX_SIZE;
++    return &s_wasm_ser_ctrl;
++}
++
++static void pebble_control_wasm_tx(const uint8_t *buf, int len)
++{
++    uint32_t head = s_wasm_ser_ctrl.tx_head;
++    uint32_t used = head - qatomic_load_acquire(&s_wasm_ser_ctrl.tx_tail);
++
++    if (len <= 0) {
++        return;
++    }
++    if (used + (uint32_t)len > WASM_SER_TX_SIZE) {
++        /* JS is not draining (page gone?) - drop, never block the guest */
++        return;
++    }
++    for (int i = 0; i < len; i++) {
++        s_wasm_ser_tx[(head + i) % WASM_SER_TX_SIZE] = buf[i];
++    }
++    qatomic_store_release(&s_wasm_ser_ctrl.tx_head, head + len);
++}
++#endif
++
++/* Write host-bound bytes: the chardev if one is connected, plus the
++ * browser ring under emscripten. */
++static int pc_host_write(PebbleControl *s, const uint8_t *buf, int len)
++{
++#ifdef __EMSCRIPTEN__
++    pebble_control_wasm_tx(buf, len);
++#endif
++    if (qemu_chr_fe_backend_connected(&s->chr)) {
++        return qemu_chr_fe_write_all(&s->chr, buf, len);
++    }
++    return len;
++}
++
+ 
+ // Control channel handlers are defined using this structure
+ typedef void (*PebbleControlMessageCallback)(PebbleControl *s, const uint8_t* data,
+@@ -483,7 +554,7 @@ static int pebble_control_write(void *opaque, const uint8_t *buf, int len) {
+         DPRINTF("%s: Sending packet of %d bytes to host (proto=0x%04x)\n",
+                __func__, total_size, ntohs(hdr->protocol));
+         while (total_size) {
+-            bytes_sent = qemu_chr_fe_write_all(&s->chr, s->send_char_buf, total_size);
++            bytes_sent = pc_host_write(s, s->send_char_buf, total_size);
+             if (bytes_sent <= 0) {
+                 // Write error (e.g. TCP client disconnected), discard packet
+                 pebble_control_consume_send_bytes(s, total_size);
+@@ -495,7 +566,7 @@ static int pebble_control_write(void *opaque, const uint8_t *buf, int len) {
+ 
+     }
+ 
+-    return qemu_chr_fe_write_all(&s->chr, buf, len);
++    return pc_host_write(s, buf, len);
+ }
+ 
+ 
+@@ -509,17 +580,17 @@ static void pebble_control_send_packet(PebbleControl *s, QemuProtocol protocol,
+     .protocol = htons(protocol),
+     .len = htons(len)
+   };
+-  qemu_chr_fe_write_all(&s->chr, (uint8_t *)&hdr, sizeof(hdr));
++  pc_host_write(s, (uint8_t *)&hdr, sizeof(hdr));
+ 
+   // Send the data
+-  qemu_chr_fe_write_all(&s->chr, data, len);
++  pc_host_write(s, data, len);
+ 
+   // Send the footer
+   QemuCommChannelFooter footer = (QemuCommChannelFooter) {
+     .signature = htons(QEMU_FOOTER_SIGNATURE)
+   };
+ 
+-  qemu_chr_fe_write_all(&s->chr, (uint8_t *)&footer, sizeof(footer));
++  pc_host_write(s, (uint8_t *)&footer, sizeof(footer));
+ }
+ 
+ // -----------------------------------------------------------------------------------
+@@ -535,6 +606,32 @@ void pebble_control_send_vibe_notification(PebbleControl *s, bool on)
+ }
+ 
+ // -----------------------------------------------------------------------------------
++#ifdef __EMSCRIPTEN__
++// -----------------------------------------------------------------------------------
++// Drain the browser->guest ring through the normal receive path.
++static void pebble_control_wasm_poll(void *opaque)
++{
++    PebbleControl *s = (PebbleControl *)opaque;
++    uint32_t head = qatomic_load_acquire(&s_wasm_ser_ctrl.rx_head);
++    uint32_t tail = s_wasm_ser_ctrl.rx_tail;
++
++    while (tail != head) {
++        int space = pebble_control_can_receive(s);
++        if (space <= 0) {
++            break;
++        }
++        uint32_t off = tail % WASM_SER_RX_SIZE;
++        uint32_t n = MIN(head - tail, WASM_SER_RX_SIZE - off);
++        n = MIN(n, (uint32_t)space);
++        pebble_control_receive(s, &s_wasm_ser_rx[off], n);
++        tail += n;
++        qatomic_store_release(&s_wasm_ser_ctrl.rx_tail, tail);
++    }
++    timer_mod(s->wasm_poll_timer,
++              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 2);
++}
++#endif
++
+ PebbleControl *pebble_control_create(Chardev *chr, Stm32Uart *uart)
+ {
+     PebbleControl *s = g_malloc0(sizeof(PebbleControl));
+@@ -565,6 +662,13 @@ PebbleControl *pebble_control_create(Chardev *chr, Stm32Uart *uart)
+                         true);
+     }
+ 
++#ifdef __EMSCRIPTEN__
++    s->wasm_poll_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
++                                      pebble_control_wasm_poll, s);
++    timer_mod(s->wasm_poll_timer,
++              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 2);
++#endif
++
+     return s;
+ }
+ 
+@@ -603,6 +707,13 @@ PebbleControl *pebble_control_create_generic(Chardev *chr, DeviceState *uart)
+                         true);
+     }
+ 
++#ifdef __EMSCRIPTEN__
++    s->wasm_poll_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
++                                      pebble_control_wasm_poll, s);
++    timer_mod(s->wasm_poll_timer,
++              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 2);
++#endif
++
+     return s;
+ }
+ 
+diff --git a/hw/display/pebble_display.c b/hw/display/pebble_display.c
+index 34f4d9c..2cef34a 100644
+--- a/hw/display/pebble_display.c
++++ b/hw/display/pebble_display.c
+@@ -39,6 +39,7 @@
+ #include "hw/sysbus.h"
+ #include "hw/qdev-properties.h"
+ #include "ui/console.h"
++#include "system/system.h"
+ #include "ui/pixel_ops.h"
+ 
+ #define TYPE_PEBBLE_DISPLAY "pebble-display"
+@@ -140,6 +141,95 @@ static bool pixel_in_round_mask(int x, int y, int w, int h)
+     return (dx * dx + dy * dy) <= (r * r);
+ }
+ 
++static PblDisplay *s_display_instance;
++
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++
++/* Browser bridge: no host display backend runs under -display none, so a
++ * virtual-clock timer drives console updates and the rendered surface is
++ * exposed for the web shell to blit. JS reads race harmlessly with updates. */
++static uint32_t s_wasm_frame_count;
++static QEMUTimer *s_wasm_refresh_timer;
++
++/* The classic boards (snowy, s4, bb2, silk) bring their own display
++ * devices, so this one never realizes there. The bridge then adopts
++ * whatever console the board's display registered: every display device
++ * ends up in the console list, and a Pebble has exactly one. */
++static QemuConsole *s_wasm_fallback_con;
++
++static QemuConsole *pbl_wasm_console(void)
++{
++    if (s_display_instance) {
++        return s_display_instance->con;
++    }
++    return s_wasm_fallback_con;
++}
++
++static void pbl_display_wasm_refresh(void *opaque)
++{
++    QemuConsole *con = pbl_wasm_console();
++
++    if (con) {
++        graphic_hw_update(con);
++    }
++    timer_mod(s_wasm_refresh_timer,
++              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 33);
++}
++
++static void pbl_display_wasm_machine_done(Notifier *notifier, void *data)
++{
++    if (s_display_instance) {
++        return;     /* the generic display armed the timer in realize */
++    }
++    s_wasm_fallback_con = qemu_console_lookup_by_index(0);
++    if (!s_wasm_fallback_con) {
++        return;     /* headless machine; nothing to expose */
++    }
++    s_wasm_refresh_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
++                                        pbl_display_wasm_refresh, NULL);
++    timer_mod(s_wasm_refresh_timer,
++              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 33);
++}
++
++static Notifier s_wasm_machine_done_notifier = {
++    .notify = pbl_display_wasm_machine_done,
++};
++
++EMSCRIPTEN_KEEPALIVE int pebble_wasm_display_width(void)
++{
++    DisplaySurface *sur = pbl_wasm_console() ?
++        qemu_console_surface(pbl_wasm_console()) : NULL;
++    return sur ? surface_width(sur) : 0;
++}
++
++EMSCRIPTEN_KEEPALIVE int pebble_wasm_display_height(void)
++{
++    DisplaySurface *sur = pbl_wasm_console() ?
++        qemu_console_surface(pbl_wasm_console()) : NULL;
++    return sur ? surface_height(sur) : 0;
++}
++
++EMSCRIPTEN_KEEPALIVE int pebble_wasm_display_stride(void)
++{
++    DisplaySurface *sur = pbl_wasm_console() ?
++        qemu_console_surface(pbl_wasm_console()) : NULL;
++    return sur ? surface_stride(sur) : 0;
++}
++
++EMSCRIPTEN_KEEPALIVE uint8_t *pebble_wasm_display_data(void)
++{
++    DisplaySurface *sur = pbl_wasm_console() ?
++        qemu_console_surface(pbl_wasm_console()) : NULL;
++    return sur ? surface_data(sur) : NULL;
++}
++
++EMSCRIPTEN_KEEPALIVE uint32_t pebble_wasm_display_frame_count(void)
++{
++    return s_wasm_frame_count;
++}
++#endif
++
+ static void pbl_display_update(void *opaque)
+ {
+     PblDisplay *s = opaque;
+@@ -258,6 +348,9 @@ static void pbl_display_update(void *opaque)
+     }
+ 
+     dpy_gfx_update(s->con, 0, 0, s->width, s->height);
++#ifdef __EMSCRIPTEN__
++    s_wasm_frame_count++;
++#endif
+ }
+ 
+ static void pbl_display_invalidate(void *opaque)
+@@ -369,61 +462,8 @@ static const MemoryRegionOps pbl_display_regs_ops = {
+ 
+ /* === Framebuffer memory access === */
+ 
+-static uint64_t pbl_display_fb_read(void *opaque, hwaddr offset,
+-                                     unsigned size)
+-{
+-    PblDisplay *s = opaque;
+-
+-    if (offset + size <= s->fb_size) {
+-        switch (size) {
+-        case 1:
+-            return s->fb[offset];
+-        case 2:
+-            return lduw_le_p(&s->fb[offset]);
+-        case 4:
+-            return ldl_le_p(&s->fb[offset]);
+-        default:
+-            break;
+-        }
+-    }
+-    return 0;
+-}
+-
+-static void pbl_display_fb_write(void *opaque, hwaddr offset,
+-                                  uint64_t value, unsigned size)
+-{
+-    PblDisplay *s = opaque;
+-
+-    if (offset + size <= s->fb_size) {
+-        switch (size) {
+-        case 1:
+-            s->fb[offset] = value;
+-            break;
+-        case 2:
+-            stw_le_p(&s->fb[offset], value);
+-            break;
+-        case 4:
+-            stl_le_p(&s->fb[offset], value);
+-            break;
+-        default:
+-            break;
+-        }
+-    }
+-}
+-
+-static const MemoryRegionOps pbl_display_fb_ops = {
+-    .read = pbl_display_fb_read,
+-    .write = pbl_display_fb_write,
+-    .endianness = DEVICE_LITTLE_ENDIAN,
+-    .valid.min_access_size = 1,
+-    .valid.max_access_size = 4,
+-};
+-
+ /* === Device lifecycle === */
+ 
+-/* Global instance for external access */
+-static PblDisplay *s_display_instance;
+-
+ #define VIBE_FRAME_MS 30
+ 
+ static void pbl_display_vibe_tick(void *opaque)
+@@ -447,7 +487,7 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
+     s_display_instance = s;
+     s->vibe_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL, pbl_display_vibe_tick, s);
+ 
+-    /* Calculate framebuffer size */
++    /* Calculate framebuffer size (backing RAM is allocated in init) */
+     if (s->format == FMT_1BPP) {
+         uint32_t row_bytes = ((s->width + 31) / 32) * 4;
+         s->fb_size = row_bytes * s->height;
+@@ -455,8 +495,6 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
+         s->fb_size = s->width * s->height;  /* 8bpp = 1 byte per pixel */
+     }
+ 
+-    s->fb = g_malloc0(s->fb_size);
+-
+     /* Create QemuConsole */
+     s->con = graphic_console_init(dev, 0, &pbl_display_ops, s);
+     qemu_console_resize(s->con, s->width, s->height);
+@@ -466,6 +504,13 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
+     s->bl_g = 0xFF;
+     s->bl_b = 0xFF;
+     s->redraw = true;
++
++#ifdef __EMSCRIPTEN__
++    s_wasm_refresh_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
++                                        pbl_display_wasm_refresh, NULL);
++    timer_mod(s_wasm_refresh_timer,
++              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 33);
++#endif
+ }
+ 
+ static void pbl_display_init(Object *obj)
+@@ -477,9 +522,13 @@ static void pbl_display_init(Object *obj)
+                           "pebble-display-regs", 0x1000);
+     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem_regs);
+ 
+-    /* Region 1: framebuffer (sized to max, actual usage depends on format) */
+-    memory_region_init_io(&s->iomem_fb, obj, &pbl_display_fb_ops, s,
+-                          "pebble-display-fb", 128 * 1024);
++    /* Region 1: framebuffer. Plain RAM: guest pixel writes must not take
++     * the MMIO slow path (tens of thousands of trapped accesses per frame
++     * under TCI). The CTRL_UPDATE doorbell is the only sync point the
++     * firmware relies on, so nothing needs to trap here. */
++    s->fb = g_malloc0(128 * 1024);
++    memory_region_init_ram_ptr(&s->iomem_fb, obj, "pebble-display-fb",
++                               128 * 1024, s->fb);
+     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem_fb);
+ 
+     sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq);
+@@ -530,6 +579,9 @@ static const TypeInfo pbl_display_info = {
+ static void pbl_display_register_types(void)
+ {
+     type_register_static(&pbl_display_info);
++#ifdef __EMSCRIPTEN__
++    qemu_add_machine_init_done_notifier(&s_wasm_machine_done_notifier);
++#endif
+ }
+ 
+ type_init(pbl_display_register_types)
+diff --git a/hw/gpio/pebble_gpio.c b/hw/gpio/pebble_gpio.c
+index eefbcd0..4614cd7 100644
+--- a/hw/gpio/pebble_gpio.c
++++ b/hw/gpio/pebble_gpio.c
+@@ -148,6 +148,39 @@ static const QemuInputHandler pbl_gpio_input_handler = {
+     .event = pbl_gpio_input_event,
+ };
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++
++/* Browser bridge: the web shell writes a button bitmask into shared memory
++ * (Atomics.store) and a virtual-clock timer applies the press/release edges,
++ * avoiding cross-thread calls into QEMU under PROXY_TO_PTHREAD. Unlike the
++ * keyboard path there is no auto-release, so holds work. */
++static uint32_t s_wasm_btn_state;
++static uint32_t s_wasm_btn_last;
++static QEMUTimer *s_wasm_btn_timer;
++
++EMSCRIPTEN_KEEPALIVE uint32_t pebble_wasm_button_state_addr(void)
++{
++    return (uint32_t)(uintptr_t)&s_wasm_btn_state;
++}
++
++static void pbl_gpio_wasm_poll(void *opaque)
++{
++    PblGpio *s = opaque;
++    uint32_t state = __atomic_load_n(&s_wasm_btn_state,
++                                     __ATOMIC_SEQ_CST) & BTN_ALL;
++
++    if (state != s_wasm_btn_last) {
++        s->pending_release = 0;
++        s->btn_edge |= state ^ s_wasm_btn_last;
++        s->btn_state = state;
++        s_wasm_btn_last = state;
++        pbl_gpio_update_irq(s);
++    }
++    timer_mod(s_wasm_btn_timer, qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 16);
++}
++#endif
++
+ /* === Register access === */
+ 
+ static uint64_t pbl_gpio_read(void *opaque, hwaddr offset, unsigned size)
+@@ -219,6 +252,11 @@ static void pbl_gpio_realize(DeviceState *dev, Error **errp)
+     qemu_input_handler_activate(s->input_handler);
+ 
+     s_pbl_gpio_instance = s;
++
++#ifdef __EMSCRIPTEN__
++    s_wasm_btn_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL, pbl_gpio_wasm_poll, s);
++    timer_mod(s_wasm_btn_timer, qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 16);
++#endif
+ }
+ 
+ static void pbl_gpio_init(Object *obj)
