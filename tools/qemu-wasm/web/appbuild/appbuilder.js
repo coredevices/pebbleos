@@ -23,7 +23,9 @@ const CFLAGS = [
   // firmware structs like Tuplet depend on it, so match the ABI
   '-std=c99', '-fshort-enums',
   '-ffunction-sections', '-fdata-sections', '-fcommon',
-  '-g', '-fPIE', '-Os', '-D_TIME_H_', '-Dtime_t=long',
+  // the SDK's era of newlib exposed BSD names (uint, strcasecmp, …) even
+  // under -std=c99; today's headers want _DEFAULT_SOURCE asked for
+  '-g', '-fPIE', '-Os', '-D_TIME_H_', '-Dtime_t=long', '-D_DEFAULT_SOURCE',
   '-Wall', '-Wno-typedef-redefinition', '-Wno-missing-field-initializers',
   '-resource-dir', '/clang-res',
   '-isystem', '/newlib', '-I', '/sdk/include',
