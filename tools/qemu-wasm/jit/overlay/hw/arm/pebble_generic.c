@@ -154,6 +154,10 @@ static void pbl_generic_init(MachineState *machine)
         if (i != 1) {
             qdev_prop_set_chr(dev, "chardev", serial_hd(i));
         }
+        if (i == 2) {
+            /* dbgserial: enable browser console input on wasm builds */
+            qdev_prop_set_bit(dev, "wasm-console", true);
+        }
         sysbus_realize_and_unref(sbd, &error_fatal);
         sysbus_mmio_map(sbd, 0, uart_base[i]);
         sysbus_connect_irq(sbd, 0, qdev_get_gpio_in(armv7m, uart_irq[i]));

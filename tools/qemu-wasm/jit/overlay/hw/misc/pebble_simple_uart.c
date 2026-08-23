@@ -17,11 +17,17 @@
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
+#include "qemu/timer.h"
 #include "hw/core/irq.h"
 #include "hw/core/sysbus.h"
+#include "hw/core/qdev-properties.h"
 #include "hw/core/qdev-properties-system.h"
 #include "hw/arm/pebble_simple_uart.h"
 #include "chardev/char-fe.h"
+
+#ifdef EMSCRIPTEN
+#include <emscripten/emscripten.h>
+#endif
 
 #define TYPE_PEBBLE_SIMPLE_UART "pebble-simple-uart"
 OBJECT_DECLARE_SIMPLE_TYPE(PblSimpleUart, PEBBLE_SIMPLE_UART)
@@ -68,7 +74,32 @@ struct PblSimpleUart {
     /* Optional write interceptor (for pebble_control) */
     PblUartWriteHandler write_handler;
     void *write_handler_opaque;
+
+    /* Browser console input (UART2 on the wasm build) */
+    bool wasm_console;
+#ifdef EMSCRIPTEN
+    QEMUTimer *wasm_poll_timer;
+#endif
 };
+
+#ifdef EMSCRIPTEN
+/* Ring for browser -> guest console bytes. The page appends at head
+ * (Atomics); an 8 ms virtual-clock poll feeds the RX FIFO. Enabled on
+ * the UART the machine marks wasm-console (the dbgserial prompt). */
+#define WASM_CON_RING 4096
+static uint8_t s_wasm_con_buf[WASM_CON_RING];
+static struct {
+    uint32_t buf, size;
+    uint32_t head, tail;
+} s_wasm_con_ctrl;
+
+EMSCRIPTEN_KEEPALIVE void *pebble_wasm_console_ctrl(void)
+{
+    s_wasm_con_ctrl.buf = (uint32_t)(uintptr_t)s_wasm_con_buf;
+    s_wasm_con_ctrl.size = WASM_CON_RING;
+    return &s_wasm_con_ctrl;
+}
+#endif
 
 static void pbl_uart_update_irq(PblSimpleUart *s)
 {
@@ -235,6 +266,30 @@ static void pbl_uart_receive(void *opaque, const uint8_t *buf, int size)
     }
 }
 
+#ifdef EMSCRIPTEN
+static void pbl_uart_wasm_poll(void *opaque)
+{
+    PblSimpleUart *s = opaque;
+    uint32_t head = qatomic_load_acquire(&s_wasm_con_ctrl.head);
+    uint32_t tail = s_wasm_con_ctrl.tail;
+
+    while (tail != head) {
+        int space = pbl_uart_can_receive(s);
+        if (space <= 0) {
+            break;
+        }
+        uint32_t off = tail % WASM_CON_RING;
+        uint32_t n = MIN(head - tail, WASM_CON_RING - off);
+        n = MIN(n, (uint32_t)space);
+        pbl_uart_receive(s, &s_wasm_con_buf[off], n);
+        tail += n;
+        qatomic_store_release(&s_wasm_con_ctrl.tail, tail);
+    }
+    timer_mod(s->wasm_poll_timer,
+              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 8);
+}
+#endif
+
 static void pbl_uart_realize(DeviceState *dev, Error **errp)
 {
     PblSimpleUart *s = PEBBLE_SIMPLE_UART(dev);
@@ -242,6 +297,15 @@ static void pbl_uart_realize(DeviceState *dev, Error **errp)
     qemu_chr_fe_set_handlers(&s->chr, pbl_uart_can_receive,
                               pbl_uart_receive, NULL, NULL,
                               s, NULL, true);
+
+#ifdef EMSCRIPTEN
+    if (s->wasm_console) {
+        s->wasm_poll_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
+                                          pbl_uart_wasm_poll, s);
+        timer_mod(s->wasm_poll_timer,
+                  qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 8);
+    }
+#endif
 }
 
 static void pbl_uart_init(Object *obj)
@@ -269,6 +333,7 @@ static void pbl_uart_reset(DeviceState *dev)
 
 static const Property pbl_uart_properties[] = {
     DEFINE_PROP_CHR("chardev", PblSimpleUart, chr),
+    DEFINE_PROP_BOOL("wasm-console", PblSimpleUart, wasm_console, false),
 };
 
 static void pbl_uart_class_init(ObjectClass *klass, const void *data)

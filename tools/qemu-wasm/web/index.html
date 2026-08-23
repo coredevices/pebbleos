@@ -87,6 +87,24 @@
       overflow: hidden; margin-top: 6px; display: none; }
     #install-progress-fill { height: 100%; width: 0; background: #2f8f4b; transition: width 0.15s; }
     body.dragging #screen-frame { outline: 3px dashed #2f8f4b; outline-offset: 4px; }
+    #sensors-panel { width: min(640px, 100%); margin-bottom: 8px; }
+    #sensors-panel summary { font-size: 12px; color: #8a8a99; cursor: pointer; margin-bottom: 4px; }
+    .sensor-row {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      font-size: 12px; padding: 4px 0;
+    }
+    .sensor-row input[type=range] { flex: 1; min-width: 120px; }
+    .sensor-row input[type=text] {
+      flex: 1; background: #0f0f1a; color: #d8d8e0;
+      border: 1px solid #3a3a50; border-radius: 4px;
+      font-family: inherit; font-size: 12px; padding: 5px 8px;
+    }
+    #console-input-row { margin-top: 4px; }
+    #console-input {
+      width: 100%; background: #0a0a10; color: #7fd97f;
+      border: 1px solid #2a2a3a; border-radius: 4px;
+      font-family: inherit; font-size: 12px; padding: 6px 8px;
+    }
   </style>
 </head>
 <body>
@@ -100,14 +118,15 @@
   <div id="controls">
     <label for="board">Board:</label>
     <select id="board">
-      <option value="emery" selected>emery (Pebble Time 2)</option>
-      <option value="flint">flint (untested)</option>
-      <option value="gabbro">gabbro (untested)</option>
+      <option value="emery" selected>emery / obelix (Pebble Time 2)</option>
+      <option value="gabbro">gabbro / getafix_dvt (Pebble Round 2)</option>
+      <option value="flint">flint / asterix (untested)</option>
     </select>
-    <button id="btn-boot">Boot</button>
+    <button id="btn-boot" style="display:none">Boot</button>
+    <button id="btn-reset" title="Wipe the saved watch storage and reload">Factory reset</button>
   </div>
 
-  <div id="status">Select a board and click Boot</div>
+  <div id="status">Booting…</div>
   <div id="progress"><div id="progress-fill"></div></div>
 
   <div id="fps">FPS: --</div>
@@ -134,9 +153,33 @@
     <div id="install-progress"><div id="install-progress-fill"></div></div>
   </div>
 
+  <details id="sensors-panel">
+    <summary>Sensors &amp; phone</summary>
+    <div class="sensor-row">
+      <label>Battery <span id="batt-val">80%</span></label>
+      <input id="batt-slider" type="range" min="0" max="100" value="80">
+      <label><input id="batt-charger" type="checkbox"> charging</label>
+    </div>
+    <div class="sensor-row">
+      <label>Compass <span id="compass-val">0&deg;</span></label>
+      <input id="compass-slider" type="range" min="0" max="359" value="0">
+      <button id="btn-tap">Shake / tap</button>
+      <button id="btn-24h">Toggle 12/24h</button>
+    </div>
+    <div class="sensor-row">
+      <input id="notif-title" type="text" placeholder="Notification title" value="Claude">
+      <input id="notif-body" type="text" placeholder="Body" value="Hello from the browser!">
+      <button id="btn-notify" disabled>Send notification</button>
+    </div>
+  </details>
+
   <details open>
     <summary>Serial console (UART2)</summary>
     <div id="console"></div>
+    <div id="console-input-row">
+      <input id="console-input" type="text" spellcheck="false"
+             placeholder="dbgserial command (press Enter) — try: help">
+    </div>
   </details>
 
   <footer>
@@ -470,6 +513,106 @@
     setInterval(pollSerial, 200);
 
     // ================================================================
+    // Console input: pebble_simple_uart exports a browser->guest ring
+    // for the dbgserial prompt (UART2). Enter sends the line + CRLF.
+    // ================================================================
+    var consoleCtrlAddr = 0;
+    var consoleInput = document.getElementById('console-input');
+
+    function consoleSend(text) {
+      if (!qemu) return;
+      if (!consoleCtrlAddr) {
+        if (typeof qemu._pebble_wasm_console_ctrl !== 'function') return;
+        consoleCtrlAddr = Number(qemu._pebble_wasm_console_ctrl());
+        if (!consoleCtrlAddr) return;
+      }
+      var base = consoleCtrlAddr >> 2;
+      var u32 = qemu.HEAPU32;
+      var buf = u32[base], size = u32[base + 1];
+      var head = Atomics.load(u32, base + 2);
+      var tail = Atomics.load(u32, base + 3);
+      var bytes = [];
+      for (var i = 0; i < text.length; i++) bytes.push(text.charCodeAt(i) & 0xff);
+      bytes.push(13, 10);
+      if (size - (head - tail) < bytes.length) return; // ring full
+      for (var j = 0; j < bytes.length; j++) {
+        qemu.HEAPU8[buf + ((head + j) % size)] = bytes[j];
+      }
+      Atomics.store(u32, base + 2, (head + bytes.length) >>> 0);
+    }
+
+    consoleInput.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      var text = consoleInput.value;
+      consoleInput.value = '';
+      log('> ' + text);
+      consoleSend(text);
+    });
+
+    // ================================================================
+    // Persistence: the 32 MB SPI flash (apps, settings) is saved to
+    // OPFS every 15 s when dirty and restored on the next boot, so the
+    // watch survives page reloads. Factory reset deletes it.
+    // ================================================================
+    function spiFileName(boardName) { return 'spi-' + boardName + '.bin'; }
+
+    async function loadSavedSpi(boardName) {
+      try {
+        var root = await navigator.storage.getDirectory();
+        var fh = await root.getFileHandle(spiFileName(boardName));
+        var f = await fh.getFile();
+        if (f.size !== 32 * 1024 * 1024) return null;
+        return new Uint8Array(await f.arrayBuffer());
+      } catch (e) { return null; }
+    }
+
+    var spiDirtyHash = 0;
+
+    function quickHash(data) {
+      // FNV-1a over a 1-in-64 byte stride: fast, catches real changes.
+      var h = 0x811c9dc5;
+      for (var i = 0; i < data.length; i += 64) {
+        h = ((h ^ data[i]) * 0x01000193) >>> 0;
+      }
+      return h;
+    }
+
+    async function persistSpi(boardName) {
+      if (!qemu) return;
+      var data;
+      try {
+        data = qemu.FS.readFile('/firmware/qemu_spi_flash.bin');
+      } catch (e) { return; }
+      var h = quickHash(data);
+      if (h === spiDirtyHash) return;
+      try {
+        var root = await navigator.storage.getDirectory();
+        var fh = await root.getFileHandle(spiFileName(boardName), { create: true });
+        var w = await fh.createWritable();
+        await w.write(data);
+        await w.close();
+        spiDirtyHash = h;
+        console.log('[persist] watch storage saved (' + (data.length >> 20) + ' MB)');
+      } catch (e) {
+        console.log('[persist] save failed: ' + e.message);
+      }
+    }
+
+    document.getElementById('btn-reset').addEventListener('click', async function () {
+      if (!confirm('Wipe the saved watch storage (installed apps, settings) and reload?')) return;
+      try {
+        var root = await navigator.storage.getDirectory();
+        await root.removeEntry(spiFileName(boardSel.value));
+      } catch (e) { /* nothing saved */ }
+      try {
+        Object.keys(window.localStorage)
+          .filter(function (k) { return k.indexOf('pkjs-') === 0; })
+          .forEach(function (k) { window.localStorage.removeItem(k); });
+      } catch (e) { /* storage unavailable */ }
+      location.reload();
+    });
+
+    // ================================================================
     // Boot
     // ================================================================
     function buildArgs(board) {
@@ -503,8 +646,14 @@
       try {
         setStatus('Fetching micro flash (' + name + ')...');
         var micro = await fetchWithProgress('firmware/' + name + '/qemu_micro_flash.bin', 'Micro flash');
-        setStatus('Fetching SPI flash (32 MB)...');
-        var spi = await fetchWithProgress('firmware/' + name + '/qemu_spi_flash.bin', 'SPI flash');
+        var spi = await loadSavedSpi(name);
+        if (spi) {
+          setStatus('Restored saved watch storage (installed apps kept)');
+          spiDirtyHash = quickHash(spi);
+        } else {
+          setStatus('Fetching SPI flash (32 MB)...');
+          spi = await fetchWithProgress('firmware/' + name + '/qemu_spi_flash.bin', 'SPI flash');
+        }
 
         setStatus('Loading QEMU WASM module...');
         var factory = (await import('./qemu-system-arm.js')).default;
@@ -530,6 +679,7 @@
           locateFile: function (p) { return './' + p; },
         };
         qemu = await factory(cfg);
+        setInterval(function () { persistSpi(name); }, 15000);
       } catch (e) {
         setStatus('Error: ' + e.message);
         log(e.stack || String(e));
@@ -539,7 +689,19 @@
     }
 
     bootBtn.addEventListener('click', boot);
-    if (params.has('auto')) boot();
+    // Switching boards restarts the emulator on the chosen machine.
+    boardSel.addEventListener('change', function () {
+      var p = new URLSearchParams(window.location.search);
+      p.set('board', boardSel.value);
+      window.location.search = p.toString();
+    });
+    // Auto-boot on load (add ?noauto to get the manual Boot button).
+    if (params.has('noauto')) {
+      bootBtn.style.display = '';
+      setStatus('Select a board and click Boot');
+    } else {
+      boot();
+    }
   </script>
 
   <script type="module">
@@ -680,9 +842,11 @@
     }
 
     // Attach once QEMU is up and the serial bridge export exists.
+    let attaching = false;
     const attach = setInterval(() => {
       const q = window.qemu;
-      if (!q || phone) return;
+      if (!q || phone || attaching) return;
+      attaching = true;
       if (typeof q._pebble_wasm_serial_ctrl !== 'function') {
         say('This QEMU build has no serial bridge — app install unavailable.');
         clearInterval(attach);
@@ -705,8 +869,73 @@
         log: jsLog,
       });
       setInterval(() => phone.poll(), 20);
+      wireSensors();
+      restorePkjsApps();
       clearInterval(attach);
     }, 500);
+
+    // ---- sensors & phone panel: QemuProtocol injections ----
+    function wireSensors() {
+      const battSlider = document.getElementById('batt-slider');
+      const battVal = document.getElementById('batt-val');
+      const battCharger = document.getElementById('batt-charger');
+      const sendBattery = () => {
+        battVal.textContent = battSlider.value + '%';
+        phone.sendQemuFrame(5 /* Battery */, new Uint8Array([
+          Number(battSlider.value), battCharger.checked ? 1 : 0,
+        ]));
+      };
+      battSlider.addEventListener('input', sendBattery);
+      battCharger.addEventListener('change', sendBattery);
+
+      const compSlider = document.getElementById('compass-slider');
+      const compVal = document.getElementById('compass-val');
+      compSlider.addEventListener('input', () => {
+        const deg = Number(compSlider.value);
+        compVal.textContent = deg + '°';
+        const p = new Uint8Array(5);
+        new DataView(p.buffer).setUint32(0, Math.round(deg * 0x10000 / 360), false);
+        p[4] = 2; // calibrated
+        phone.sendQemuFrame(4 /* Compass */, p);
+      });
+
+      document.getElementById('btn-tap').addEventListener('click', () => {
+        phone.sendQemuFrame(2 /* Tap */, new Uint8Array([0, 1])); // x-axis, +1
+      });
+
+      let is24h = true;
+      document.getElementById('btn-24h').addEventListener('click', () => {
+        is24h = !is24h;
+        phone.sendQemuFrame(9 /* TimeFormat */, new Uint8Array([is24h ? 1 : 0]));
+        say('Time format: ' + (is24h ? '24h' : '12h'));
+      });
+    }
+
+    // ---- PKJS registry persistence: installed apps' JS survives
+    // reloads alongside the persisted SPI flash. ----
+    function persistPkjsApp(uuid, entry) {
+      try {
+        const key = 'pkjs-app-' + [...uuid].map((b) => b.toString(16).padStart(2, '0')).join('');
+        window.localStorage.setItem(key, JSON.stringify({
+          js: entry.js, appKeys: entry.appKeys, name: entry.name,
+        }));
+      } catch (e) { console.log('[pkjs] persist failed (quota?): ' + e.message); }
+    }
+
+    function restorePkjsApps() {
+      let n = 0;
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (!key || !key.startsWith('pkjs-app-')) continue;
+        try {
+          const hex = key.slice('pkjs-app-'.length);
+          const uuid = new Uint8Array(hex.match(/../g).map((h) => parseInt(h, 16)));
+          const e = JSON.parse(window.localStorage.getItem(key));
+          if (e && e.js) { pkjs.registerApp(uuid, e); n++; }
+        } catch (err) { /* corrupt entry */ }
+      }
+      if (n) jsLog(`restored JS for ${n} installed app(s)`);
+    }
 
     function onProgress(p) {
       if (p.phase === 'transfer') {
@@ -727,11 +956,13 @@
         const pbw = await parsePbw(bytes, boardSel.value);
         const info = await installer.install(pbw);
         if (pbw.js && pkjs) {
-          pkjs.registerApp(info.uuid, {
+          const entry = {
             js: pbw.js,
             appKeys: (pbw.appinfo && (pbw.appinfo.appKeys || pbw.appinfo.messageKeys)) || {},
             name: info.name,
-          });
+          };
+          pkjs.registerApp(info.uuid, entry);
+          persistPkjsApp(info.uuid, entry);
           say('Installed and launching: ' + info.name + ' ✓ (with PebbleKit JS)');
         } else {
           say('Installed and launching: ' + info.name + ' ✓');
