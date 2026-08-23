@@ -5,6 +5,7 @@
 // in:  {cmd:'build', zipUrl | zipBytes, platform, proxy, base}
 // out: {type:'log'|'error'|'done', ...}
 import { unzip } from '../pbw.js';
+import { sfntFont } from './resources.js';
 import { buildApp } from './appbuilder.js';
 import { bundlePkjs } from './jsbundle.js';
 import * as esbuild from '../vendor/esbuild/browser.min.js';
@@ -69,8 +70,9 @@ let fontCounter = 0;
 async function fontFamilyFor(fontData) {
   if (fontFaces.has(fontData)) return fontFaces.get(fontData);
   const family = 'PblAppFont' + (fontCounter++);
-  const face = new FontFace(family, fontData.buffer.slice(
-    fontData.byteOffset, fontData.byteOffset + fontData.byteLength));
+  const sfnt = sfntFont(fontData);
+  const face = new FontFace(family, sfnt.buffer.slice(
+    sfnt.byteOffset, sfnt.byteOffset + sfnt.byteLength));
   await face.load();
   self.fonts.add(face);
   fontFaces.set(fontData, family);
@@ -127,8 +129,11 @@ async function rasterizeGlyph(fontData, codepoint, pxSize) {
 }
 
 self.onmessage = async (e) => {
-  const { cmd, zipUrl, zipUrls, zipBytes, platform = 'emery', proxy, base = './' } = e.data;
+  const { cmd, zipUrl, zipUrls, zipBytes, platform = 'emery', proxy } = e.data;
   if (cmd !== 'build') return;
+  // Tools live at the site root; this module sits one level down in
+  // appbuild/, so resolve against that rather than the page's URL.
+  const base = new URL(e.data.base || '../', import.meta.url).href;
   try {
     let repoZip = zipBytes ? new Uint8Array(zipBytes) : null;
     if (!repoZip) {

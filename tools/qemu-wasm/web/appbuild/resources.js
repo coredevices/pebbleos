@@ -460,6 +460,15 @@ function sfntBase(dv, font) {
   throw new Error('no sfnt header found — not a TrueType/OpenType font?');
 }
 
+// The font as a browser FontFace will accept it: table offsets are
+// relative to the sfnt header, so dropping anything before it yields a
+// valid font. FreeType tolerates the prefix; Chromium does not.
+export function sfntFont(font) {
+  const dv = new DataView(font.buffer, font.byteOffset, font.byteLength);
+  const base = sfntBase(dv, font);
+  return base ? font.subarray(base) : font;
+}
+
 // Codepoints a TrueType/OpenType font's cmap can render. Handles the two
 // formats that matter in practice: 4 (BMP) and 12 (full range).
 export function cmapCodepoints(font) {

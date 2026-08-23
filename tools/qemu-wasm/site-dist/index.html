@@ -75,8 +75,8 @@
       background: #1a1a2a; border: 1px solid #2a2a3a; border-radius: 6px;
       padding: 10px;
     }
-    #install-row { display: flex; gap: 8px; }
-    #install-input {
+    #install-row, .install-row { display: flex; gap: 8px; }
+    #install-input, #build-input {
       flex: 1; background: #0f0f1a; color: #d8d8e0;
       border: 1px solid #3a3a50; border-radius: 4px;
       font-family: inherit; font-size: 12px; padding: 6px 8px;
@@ -148,6 +148,11 @@
       <button id="btn-upload" disabled title="Install a .pbw from your computer">Upload .pbw</button>
       <button id="btn-settings" disabled title="Open the running app's settings page">&#9881;</button>
       <input id="upload-file" type="file" accept=".pbw" style="display:none">
+    </div>
+    <div class="install-row" style="margin-top:8px">
+      <input id="build-input" type="text" spellcheck="false"
+             placeholder="Or paste a GitHub repo with a Pebble app (e.g. github.com/coredevices/pebble-timer) — compiles in your browser">
+      <button id="btn-build" disabled title="Compile the app with clang.wasm and install it">Build &amp; run</button>
     </div>
     <div id="install-status">Boot the watch first — then install apps from the store, upload a .pbw, or drag one onto the screen.</div>
     <div id="install-progress"><div id="install-progress-fill"></div></div>
@@ -869,6 +874,7 @@
       phone.onPhoneVersionRequest = () => {
         btn.disabled = false;
         uploadBtn.disabled = false;
+        buildBtn.disabled = false;
         document.getElementById('btn-settings').disabled = false;
         say('Connected to the watch — paste a store link, upload a .pbw, or drag one onto the screen.');
       };
@@ -1119,9 +1125,80 @@
       await installBytes(new Uint8Array(await f.arrayBuffer()), f.name);
     });
 
+    // ---- in-browser app compiler ----
+    const buildInput = document.getElementById('build-input');
+    const buildBtn = document.getElementById('btn-build');
+    let buildWorker = null;
+    let building = false;
+
+    // GitHub repo URL (optionally /tree/<ref>) -> candidate zip URLs.
+    function repoZipCandidates(text) {
+      const m = text.match(
+        /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/\s]+)\/([^\/\s]+?)(?:\.git)?(?:\/tree\/([^\s]+?))?\/?$/);
+      if (m) {
+        const [, owner, repo, ref] = m;
+        const cl = `https://codeload.github.com/${owner}/${repo}/zip/`;
+        return ref ? [cl + 'refs/heads/' + ref, cl + ref] : [cl + 'HEAD'];
+      }
+      if (/\.zip($|\?)/i.test(text)) return [text];
+      return null;
+    }
+
+    const buildLog = (msg) => {
+      if (window.log) window.log('[build] ' + msg);
+      else console.log('[build] ' + msg);
+    };
+
+    async function buildFromRepo() {
+      const text = buildInput.value.trim();
+      if (!text) { say('Paste a GitHub repo URL first.'); return; }
+      const zipUrls = repoZipCandidates(text);
+      if (!zipUrls) { say('That does not look like a GitHub repo (or .zip) URL.'); return; }
+      if (building) { say('A build is already running.'); return; }
+      if (boardSel.value !== 'emery') {
+        say('In-browser builds currently target the emery board — switch the board to emery first.');
+        return;
+      }
+      building = true; buildBtn.disabled = true;
+      say('Building from ' + text + '… (first build downloads the ~39 MB toolchain once)');
+      try {
+        const pbw = await new Promise((resolve, reject) => {
+          if (!buildWorker) {
+            buildWorker = new Worker(new URL('./appbuild/appbuild-worker.js', location.href),
+                                     { type: 'module' });
+          }
+          buildWorker.onmessage = (e) => {
+            const d = e.data;
+            if (d.type === 'log') { buildLog(d.msg); say(d.msg); }
+            else if (d.type === 'done') resolve({ bytes: new Uint8Array(d.pbw), name: d.name });
+            else if (d.type === 'error') reject(new Error(d.msg));
+          };
+          buildWorker.onerror = (e) => reject(new Error('build worker failed: ' + e.message));
+          buildWorker.postMessage({
+            cmd: 'build', zipUrls, platform: 'emery', proxy: PKJS_PROXY,
+          });
+        });
+        // The build saturates every core, which starves the emulator; give
+        // it a moment to catch up or the install times out mid-handshake.
+        say('Built ' + pbw.name + ' (' + (pbw.bytes.length >> 10) + ' KB) — installing…');
+        await new Promise((r) => setTimeout(r, 2500));
+        await installBytes(pbw.bytes, pbw.name);
+      } catch (e) {
+        say('Build failed: ' + e.message);
+        buildLog('build failed: ' + e.message);
+        console.error(e);
+      } finally {
+        building = false; buildBtn.disabled = false;
+      }
+    }
+
+    buildBtn.addEventListener('click', buildFromRepo);
+    buildInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') buildFromRepo(); });
+
     // Debug/testing hooks.
     window.__installPbw = installBytes;
     window.__openConfig = openConfigUrl;
+    window.__buildRepo = (url) => { buildInput.value = url; return buildFromRepo(); };
 
     // Drag-drop a .pbw anywhere on the page.
     document.addEventListener('dragover', (e) => {

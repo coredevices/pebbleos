@@ -113,6 +113,16 @@ reports the board's resolution with an advancing frame counter.
   platform directory; `web/store.js` resolves apps.repebble.com /
   apps.rebble.io links through the CORS-enabled appstore API. The page
   offers a paste-a-link box and drag-drop of .pbw files.
+- **In-browser app builds**: paste a GitHub repo holding an SDK app and
+  the page compiles it client-side, then installs the .pbw it produced.
+  `web/appbuild/` hosts an LLVM toolchain built for wasm32-wasi-threads
+  (`clang.wasm`, `lld.wasm`, from `tools/wasm-toolchain/`) on an
+  in-memory filesystem, generates the files waf normally would
+  (`codegen.js`), compiles the app's resources (`resources.js`), bundles
+  its PebbleKit JS with esbuild in place of webpack (`jsbundle.js`) and
+  packages the result (`elfpack.js`). It all runs in a worker; the
+  ~39 MB of tools in `web/tools/` is fetched once and kept in the Cache
+  API. See `web/appbuild/README.md`.
 
 ## Controls
 
@@ -138,6 +148,12 @@ On-screen buttons track pointer down/up, so press-and-hold works.
 - flint and gabbro machines exist but are untested in the browser; the
   board selector will boot them if firmware is fetched.
 - Audio is off by default (`?audio` to try the SDL backend).
+- In-browser builds target emery only, and need the SDK pack for that
+  platform; other boards need their own `sdkpack-<platform>.zip`.
+- Glyphs are rasterised with canvas rather than FreeType, so text in a
+  browser-built app can differ by a pixel from a waf-built one.
+- GitHub's codeload does not send CORS headers, so fetching a repo zip
+  goes through the pkjs proxy (`?pkjs_proxy=` to point at your own).
 
 For the native QEMU workflow (`./pbl qemu`, buttons via monitor `sendkey`,
 touch via QMP, gdb, screenshots) see `docs/development/qemu.md`.
@@ -145,6 +161,9 @@ touch via QMP, gdb, screenshots) see `docs/development/qemu.md`.
 ## Files
 
 - `web/index.html` — emulator page
+- `web/appbuild/` — in-browser app compiler (see its README)
+- `web/tools/` — wasm toolchain + SDK pack the compiler downloads
+- `make-sdkpack.sh` — build `web/tools/sdkpack-<platform>.zip`
 - `web/coi-serviceworker.min.js` — COOP/COEP fallback for static hosts
 - `serve.py` — dev server with COOP/COEP headers
 - `build-qemu-wasm.sh` — reproducible emsdk + deps + QEMU build

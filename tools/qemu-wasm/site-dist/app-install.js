@@ -155,7 +155,18 @@ export class AppInstaller {
       msg.set(value, 23);
       const p = this._wait('_blobDbWaiter', 5000, 'blobdb response');
       this.phone.sendPP(EP_BLOB_DB, msg);
-      const resp = await p;
+      let resp;
+      try {
+        resp = await p;
+      } catch (e) {
+        // A silent watch usually means the emulator is starved rather than
+        // wedged — an in-browser app build saturates every core — so give
+        // it another go before failing the install.
+        if (attempt >= 5) throw e;
+        this.log('no blobdb response yet, the watch may be catching up…');
+        await delay(2000);
+        continue;
+      }
       if (resp.status === BLOB_DB_SUCCESS) return;
       if (resp.status === BLOB_DB_TRY_LATER) {
         this.log('blobdb not ready yet, retrying…');
