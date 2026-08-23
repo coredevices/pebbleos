@@ -129,6 +129,12 @@ function wscriptCflags(wscript) {
     if (!near) continue;
     for (const m of line.matchAll(ANY_FLAG)) {
       near = 3;
+      // A literal the wscript formats ('-DX={}'.format(...), f-strings,
+      // '%'-interpolation) gets its real value at build time, usually from
+      // the environment; the placeholder text would poison the compile.
+      const after = line.slice(m.index + m[0].length);
+      if (/^\s*\.\s*format\s*\(/.test(after) || /^\s*%/.test(after) ||
+          line[m.index - 1] === 'f') continue;
       if (!/^-(std=|f|D)/.test(m[2])) continue;
       if (!flags.includes(m[2])) flags.push(m[2]);
     }
