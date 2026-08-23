@@ -83,8 +83,26 @@ reports the board's resolution with an advancing frame counter.
   `Atomics.store` the mask; a 16 ms virtual-clock poll inside the device
   applies press and release edges, so held buttons work.
 - **Serial**: UART2 (debug console) is routed to a MEMFS file the page
-  polls; UART1 (pebble-tool control protocol) is unconnected in the
-  browser.
+  polls. UART1 (pebble-tool control protocol) is bridged to the page
+  through two ring buffers in wasm memory (`pebble_wasm_serial_ctrl()`
+  in `pebble_control.c`, JIT overlay): the page writes QemuProtocol
+  frames into the rx ring with Atomics and drains watch-bound bytes from
+  the tx ring; a 2 ms virtual-clock timer feeds the existing chardev
+  receive path.
+- **App install**: `web/pebble-transport.js` implements the phone side of
+  the QEMU serial framing (0xFEED/0xBEEF), Pebble Protocol reassembly,
+  and the endpoint-17 phone-version handshake (a V3 response that
+  re-asserts capabilities 0xA3 — the firmware replaces, not ORs, session
+  capabilities). `web/app-install.js` drives the 4.x install flow:
+  BlobDB INSERT of a 126-byte AppDBEntry into the app db (retrying on
+  TRY_LATER), `app_run_state` RUN to trigger the watch's AppFetch
+  request, then one PutBytes session per object (app binary, resources,
+  worker) with the legacy STM32 CRC (`legacyDefectiveCrc`, verified
+  against `tests/fw/util/test_legacy_checksum.c` vectors). `web/pbw.js`
+  unzips the .pbw with the native DecompressionStream and picks the best
+  platform directory; `web/store.js` resolves apps.repebble.com /
+  apps.rebble.io links through the CORS-enabled appstore API. The page
+  offers a paste-a-link box and drag-drop of .pbw files.
 
 ## Controls
 
@@ -100,9 +118,11 @@ On-screen buttons track pointer down/up, so press-and-hold works.
 ## Known limitations
 
 - TCI interpreter: roughly 1-2 orders of magnitude slower than native
-  TCG. Expect multi-minute boots and single-digit FPS.
-- No app install: pebble-tool speaks TCP to UART1, which has no transport
-  in the browser build.
+  TCG. Expect multi-minute boots and single-digit FPS. (The `jit/` build
+  the site ships does not have this problem.)
+- App install requires the `jit/` build — the serial bridge lives in the
+  JIT overlay's `pebble_control.c`; the TCI patch set does not carry it
+  yet.
 - No touch yet on emery/gabbro: natively `./pbl touch` injects pointer
   events over QMP, which the browser build doesn't run (see NOTES.md).
 - flint and gabbro machines exist but are untested in the browser; the

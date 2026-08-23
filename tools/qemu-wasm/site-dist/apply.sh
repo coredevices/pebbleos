@@ -8,6 +8,7 @@ src="$(cd "$(dirname "$0")" && pwd)"
 
 mkdir -p "$dst/firmware/emery"
 cp "$src/index.html" "$src/coi-serviceworker.min.js" "$dst/"
+cp "$src/pebble-transport.js" "$src/pbw.js" "$src/app-install.js" "$src/store.js" "$dst/"
 rm -f "$dst/qemu-system-arm.worker.js"
 gunzip -c "$src/qemu-system-arm.js.gz" > "$dst/qemu-system-arm.js"
 gunzip -c "$src/qemu-system-arm.wasm.gz" > "$dst/qemu-system-arm.wasm"
