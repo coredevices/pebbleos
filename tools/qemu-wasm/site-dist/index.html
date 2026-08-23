@@ -126,8 +126,10 @@
       <input id="install-input" type="text" spellcheck="false"
              placeholder="Paste an apps.repebble.com link (or .pbw URL) and press Install">
       <button id="btn-install" disabled>Install</button>
+      <button id="btn-upload" disabled title="Install a .pbw from your computer">Upload .pbw</button>
+      <input id="upload-file" type="file" accept=".pbw" style="display:none">
     </div>
-    <div id="install-status">Boot the watch first — then install apps from the store, or drag a .pbw onto the screen.</div>
+    <div id="install-status">Boot the watch first — then install apps from the store, upload a .pbw, or drag one onto the screen.</div>
     <div id="install-progress"><div id="install-progress-fill"></div></div>
   </div>
 
@@ -453,6 +455,8 @@
 
     const input = document.getElementById('install-input');
     const btn = document.getElementById('btn-install');
+    const uploadBtn = document.getElementById('btn-upload');
+    const uploadFile = document.getElementById('upload-file');
     const statusEl = document.getElementById('install-status');
     const barEl = document.getElementById('install-progress');
     const fillEl = document.getElementById('install-progress-fill');
@@ -476,7 +480,8 @@
       phone = new PebblePhone(q, (m) => console.log('[phone] ' + m));
       phone.onPhoneVersionRequest = () => {
         btn.disabled = false;
-        say('Connected to the watch — paste a store link or drag a .pbw onto the screen.');
+        uploadBtn.disabled = false;
+        say('Connected to the watch — paste a store link, upload a .pbw, or drag one onto the screen.');
       };
       installer = new AppInstaller(phone, onProgress, (m) => say(m));
       setInterval(() => phone.poll(), 20);
@@ -525,6 +530,16 @@
 
     btn.addEventListener('click', installFromInput);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') installFromInput(); });
+
+    uploadBtn.addEventListener('click', () => uploadFile.click());
+    uploadFile.addEventListener('change', async () => {
+      const f = uploadFile.files && uploadFile.files[0];
+      uploadFile.value = '';
+      if (!f) return;
+      say('Installing ' + f.name + '…');
+      await installBytes(new Uint8Array(await f.arrayBuffer()), f.name);
+    });
+
     // Debug/testing hook: install from raw bytes without the store.
     window.__installPbw = installBytes;
 
