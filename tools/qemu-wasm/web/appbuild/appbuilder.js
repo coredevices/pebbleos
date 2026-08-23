@@ -457,6 +457,17 @@ export async function buildApp(opts) {
   }
 
   // ---- package ----
+  // The manifest's sdk_version has to match the firmware the platform's
+  // SDK was exported from: the classic platforms are on 5.78 while the
+  // current ones are on 5.106, and the constants live in each pack's own
+  // pebble_process_info.h.
+  const sdkVersionOf = (pack) => {
+    const src = td.decode(pack['sdk/include/pebble_process_info.h'] || new Uint8Array());
+    const major = src.match(/CURRENT_SDK_VERSION_MAJOR\s+(0x[0-9a-fA-F]+|\d+)/);
+    const minor = src.match(/CURRENT_SDK_VERSION_MINOR\s+(0x[0-9a-fA-F]+|\d+)/);
+    return { major: major ? Number(major[1]) : 5, minor: minor ? Number(minor[1]) : 106 };
+  };
+
   const entries = { 'appinfo.json': te.encode(JSON.stringify(appinfo, null, 4)) };
   for (const plat of platforms) {
     const { pbpack, elf, workerBin } = perPlatform[plat];
@@ -465,7 +476,7 @@ export async function buildApp(opts) {
     entries[`${plat}/pebble-app.bin`] = appBin;
     entries[`${plat}/app_resources.pbpack`] = pbpack;
     entries[`${plat}/manifest.json`] = te.encode(JSON.stringify(makeManifest({
-      appBin, pbpack, timestamp, sdkVersion: { major: 5, minor: 106 },
+      appBin, pbpack, timestamp, sdkVersion: sdkVersionOf(sdkPacks[plat]),
       jsPresent: !!jsText,
     })));
     if (workerBin) entries[`${plat}/pebble-worker.bin`] = workerBin;
