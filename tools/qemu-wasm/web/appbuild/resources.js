@@ -560,6 +560,49 @@ function packGlyph(glyph) {
   return out;
 }
 
+// A BDF is a bitmap font: the glyphs are already rendered at one fixed
+// size, so there is nothing to rasterize. The canvas font API only accepts
+// sfnt outlines and rejects these outright, which is why they need their
+// own reader — the rows come out in exactly the layout packGlyph wants.
+export function isBdf(data) {
+  return data.length > 9 && String.fromCharCode(...data.subarray(0, 9)) === 'STARTFONT';
+}
+
+export function parseBdf(data) {
+  const glyphs = new Map();
+  const lines = new TextDecoder('latin1').decode(data).split(/\r?\n/);
+  let cp = -1, advance = 0, box = null, rows = null;
+  for (const line of lines) {
+    if (rows) {
+      if (line.startsWith('ENDCHAR')) {
+        const [w, h, xoff, yoff] = box;
+        const stride = Math.ceil(w / 8);
+        const bitmap = new Uint8Array(stride * h);
+        for (let y = 0; y < Math.min(h, rows.length); y++) {
+          const hex = rows[y].trim();
+          for (let b = 0; b < stride && b * 2 < hex.length; b++) {
+            bitmap[y * stride + b] = parseInt(hex.substr(b * 2, 2), 16) || 0;
+          }
+        }
+        // yoff places the bottom row relative to the baseline; the PFO
+        // wants the distance from the baseline up to the first row.
+        if (cp >= 0) glyphs.set(cp, { bitmap, width: w, height: h,
+                                      left: xoff, top: yoff + h, advance });
+        rows = null; box = null; cp = -1;
+      } else {
+        rows.push(line);
+      }
+      continue;
+    }
+    const [key, ...rest] = line.trim().split(/\s+/);
+    if (key === 'ENCODING') cp = parseInt(rest[0], 10);
+    else if (key === 'DWIDTH') advance = parseInt(rest[0], 10) || 0;
+    else if (key === 'BBX') box = rest.slice(0, 4).map((n) => parseInt(n, 10) || 0);
+    else if (key === 'BITMAP') rows = [];
+  }
+  return glyphs;
+}
+
 async function makeFont(fontData, name, def, rasterizeGlyph) {
   const height = def.pixelHeight || fontHeightFromName(name);
   const baseline = def.extended ? fontHeightFromName(name) : height;
@@ -568,6 +611,11 @@ async function makeFont(fontData, name, def, rasterizeGlyph) {
     ? new RegExp(def.characterRegex) : null;
   const allowed = def.characterList ? new Set(def.characterList) : null;
   const tracking = def.trackingAdjust || 0;
+  // A bitmap font carries its own glyphs and its own character set.
+  const bdf = isBdf(fontData) ? parseBdf(fontData) : null;
+  const rasterize = bdf ? async (d, cp) => bdf.get(cp) || null : rasterizeGlyph;
+  const codepoints = bdf ? [...bdf.keys()].sort((a, b) => a - b)
+                         : cmapCodepoints(fontData);
 
   const inSubset = (cp) => {
     if (cp === WILDCARD_CODEPOINT || cp === ELLIPSIS_CODEPOINT) return true;
@@ -583,7 +631,7 @@ async function makeFont(fontData, name, def, rasterizeGlyph) {
   let codepointBytes = 2;
 
   const addGlyph = async (cp) => {
-    const g = await rasterizeGlyph(fontData, cp, height);
+    const g = await rasterize(fontData, cp, height);
     const packed = (g && g.width && g.height) ? packGlyph(g) : new Uint8Array(0);
     const head = new Uint8Array(5);
     const dv = new DataView(head.buffer);
@@ -603,7 +651,7 @@ async function makeFont(fontData, name, def, rasterizeGlyph) {
   };
 
   entries.push([WILDCARD_CODEPOINT, await addGlyph(WILDCARD_CODEPOINT)]);
-  for (const cp of cmapCodepoints(fontData)) {
+  for (const cp of codepoints) {
     if (numGlyphs > maxGlyphs) break;
     if (cp === WILDCARD_CODEPOINT || !inSubset(cp)) continue;
     entries.push([cp, await addGlyph(cp)]);

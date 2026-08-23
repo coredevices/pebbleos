@@ -279,8 +279,16 @@ export async function buildApp(opts) {
     });
 
     // ---- compile ----
-      const sources = Object.keys(projFiles).filter((p) => p.endsWith('.c') &&
+    const cFiles = Object.keys(projFiles).filter((p) => p.endsWith('.c') &&
       !p.startsWith('src/js/') && !p.startsWith('src/pkjs/'));
+    // An SDK 4 project keeps its C under src/c; older ones put it straight
+    // in src. A repo that has lived through both layouts still carries the
+    // old copy, and building the two together gives duplicate symbols, so
+    // src/c wins wherever it exists — which is what such a project's own
+    // wscript globs.
+    const sources = cFiles.some((p) => p.startsWith('src/c/'))
+      ? cFiles.filter((p) => !p.startsWith('src/') || p.startsWith('src/c/'))
+      : cFiles;
     // Nothing but the generated files means the app is not written in C.
     if (!sources.some((p) => p.startsWith('src/'))) {
       const langs = new Set();
