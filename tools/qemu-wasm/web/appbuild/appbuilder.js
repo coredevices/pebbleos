@@ -108,13 +108,24 @@ function findProject(files, hint) {
 function wscriptCflags(wscript) {
   if (!wscript) return [];
   const flags = [];
+  // Flags follow the line that names cflags, one per line. The window has
+  // to travel with the list — these lists run long, and the warning options
+  // we skip would otherwise end it before the defines at the bottom.
+  //
+  // A -D value can hold spaces and quotes of its own
+  // (-DNAME="Home Assistant WS"), so a flag runs to its matching quote. waf
+  // hands these to the compiler without a shell and so do we, which keeps
+  // the inner quotes as part of the macro body.
+  const ANY_FLAG = /(['"])(-(?:(?!\1).)+)\1/g;
   let near = 0;
   for (const line of wscript.split('\n')) {
-    if (/cflags/i.test(line)) near = 6;
+    if (/cflags/i.test(line)) near = 3;
     else if (near) near--;
     if (!near) continue;
-    for (const m of line.matchAll(/['"](-(?:std=|f|D)[A-Za-z0-9_=+.,-]+)['"]/g)) {
-      if (!flags.includes(m[1])) flags.push(m[1]);
+    for (const m of line.matchAll(ANY_FLAG)) {
+      near = 3;
+      if (!/^-(std=|f|D)/.test(m[2])) continue;
+      if (!flags.includes(m[2])) flags.push(m[2]);
     }
   }
   return flags;

@@ -56,7 +56,10 @@ export async function bundlePkjs(esbuild, opts) {
     setup(build) {
       build.onResolve({ filter: /^(message_keys|app_package\.json)$/ }, (a) => virtual(a.path));
       build.onResolve({ filter: /.*/ }, (args) => {
-        if (args.namespace === 'virtual') return null;
+        // This runs for every namespace, so it has to stand aside for the
+        // ones with a resolver of their own further down. Without that, a
+        // package's own './lib/decoder' was looked for in the repo.
+        if (args.namespace === 'virtual' || args.namespace === 'pkg') return null;
         let base;
         if (args.path.startsWith('./') || args.path.startsWith('../')) {
           const dir = args.importer.includes('/')
