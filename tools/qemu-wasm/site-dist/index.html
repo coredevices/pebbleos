@@ -209,11 +209,12 @@
       gabbro: { machine: 'pebble-gabbro', width: 260, height: 260, audio: false },
       // dir: the classic machines live in a separate TCI build of QEMU
       // (qemu-classic/); the default build is the faster JIT one, which
-      // only carries the current boards. spiIf: the snowy and s4 machines
-      // attach their SPI flash as pflash, the others as an mtd drive.
+      // only carries the current boards. spiById: the snowy and s4 machines
+      // look their SPI flash up by drive id (see hw/arm/pebble.c), the
+      // others take an mtd drive.
       aplite:  { machine: 'pebble-bb2',      width: 144, height: 168, audio: false, classicButtons: true, dir: 'qemu-classic/' },
-      basalt:  { machine: 'pebble-snowy-bb', width: 144, height: 168, audio: false, classicButtons: true, dir: 'qemu-classic/', spiIf: 'pflash' },
-      chalk:   { machine: 'pebble-s4-bb',    width: 180, height: 180, audio: false, classicButtons: true, dir: 'qemu-classic/', spiIf: 'pflash' },
+      basalt:  { machine: 'pebble-snowy-bb', width: 144, height: 168, audio: false, classicButtons: true, dir: 'qemu-classic/', spiById: true },
+      chalk:   { machine: 'pebble-s4-bb',    width: 180, height: 180, audio: false, classicButtons: true, dir: 'qemu-classic/', spiById: true },
       diorite: { machine: 'pebble-silk-bb',  width: 144, height: 168, audio: false, classicButtons: true, dir: 'qemu-classic/' },
     };
     var currentBoard = null;
@@ -648,7 +649,9 @@
       var args = [
         '-machine', board.machine,
         '-kernel', '/firmware/qemu_micro_flash.bin',
-        '-drive', 'if=' + (board.spiIf || 'mtd') + ',format=raw,file=/firmware/qemu_spi_flash.bin',
+        '-drive', (board.spiById
+            ? 'if=none,id=spi-flash,format=raw,file=/firmware/qemu_spi_flash.bin'
+            : 'if=mtd,format=raw,file=/firmware/qemu_spi_flash.bin'),
         '-display', 'none',
         '-monitor', 'none',
         '-parallel', 'none',
