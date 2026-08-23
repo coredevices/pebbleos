@@ -726,6 +726,15 @@
     const fillEl = document.getElementById('install-progress-fill');
     const boardSel = document.getElementById('board');
 
+    // A failed module import (e.g. a file missing from a deploy) kills
+    // this whole script silently; surface it in the status line.
+    window.addEventListener('error', (e) => {
+      if (e.message && /import|module|fetch/i.test(e.message)) {
+        document.getElementById('install-status').textContent =
+          'Page module failed to load (' + e.message + ') — redeploy with the full bundle.';
+      }
+    });
+
     let phone = null;
     let installer = null;
     let pkjs = null;

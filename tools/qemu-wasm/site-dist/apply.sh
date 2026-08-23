@@ -7,9 +7,10 @@ dst="${1:?usage: apply.sh <pebble-qemu-wasm checkout>}"
 src="$(cd "$(dirname "$0")" && pwd)"
 
 mkdir -p "$dst/firmware/emery"
-cp "$src/index.html" "$src/coi-serviceworker.min.js" "$dst/"
-cp "$src/pebble-transport.js" "$src/pbw.js" "$src/app-install.js" "$src/store.js" "$dst/"
-cp "$src/appmessage.js" "$src/pkjs-runtime.js" "$src/config-return.html" "$dst/"
+# Copy the page and every JS module wholesale so a newly added module
+# can never be missed (a missing import kills the whole module script).
+cp "$src/index.html" "$src/config-return.html" "$dst/"
+cp "$src"/*.js "$dst/"
 mkdir -p "$dst/pkjs-proxy"
 cp "$src/../pkjs-proxy/worker.js" "$src/../pkjs-proxy/README.md" "$dst/pkjs-proxy/"
 rm -f "$dst/qemu-system-arm.worker.js"
