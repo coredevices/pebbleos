@@ -127,6 +127,7 @@
              placeholder="Paste an apps.repebble.com link (or .pbw URL) and press Install">
       <button id="btn-install" disabled>Install</button>
       <button id="btn-upload" disabled title="Install a .pbw from your computer">Upload .pbw</button>
+      <button id="btn-settings" disabled title="Open the running app's settings page">&#9881;</button>
       <input id="upload-file" type="file" accept=".pbw" style="display:none">
     </div>
     <div id="install-status">Boot the watch first — then install apps from the store, upload a .pbw, or drag one onto the screen.</div>
@@ -452,6 +453,8 @@
     import { parsePbw } from './pbw.js';
     import { AppInstaller } from './app-install.js';
     import { fetchPbwFromStore } from './store.js';
+    import { AppMessageClient } from './appmessage.js';
+    import { PkjsRuntime, makeIframeSandbox } from './pkjs-runtime.js';
 
     const input = document.getElementById('install-input');
     const btn = document.getElementById('btn-install');
@@ -464,9 +467,52 @@
 
     let phone = null;
     let installer = null;
+    let pkjs = null;
     let busy = false;
 
     const say = (msg) => { statusEl.textContent = msg; console.log('[install] ' + msg); };
+    const jsLog = (msg) => { console.log('[pkjs] ' + msg); };
+
+    // CORS-proxy fallback for the JS apps' web requests. Override with
+    // ?pkjs_proxy=<url-prefix>; the target URL is appended URI-encoded.
+    const params2 = new URLSearchParams(window.location.search);
+    const PKJS_PROXY = params2.get('pkjs_proxy') ||
+      'https://pkjs-proxy.repebble.com/?url=';
+
+    // Per-app persistent storage, scoped into the page's localStorage.
+    function scopedStorage(prefix) {
+      const p = 'pkjs-' + prefix + '-';
+      return {
+        getItem: (k) => window.localStorage.getItem(p + k),
+        setItem: (k, v) => window.localStorage.setItem(p + k, v),
+        removeItem: (k) => window.localStorage.removeItem(p + k),
+        clear: () => {
+          for (let i = window.localStorage.length - 1; i >= 0; i--) {
+            const k = window.localStorage.key(i);
+            if (k && k.startsWith(p)) window.localStorage.removeItem(k);
+          }
+        },
+        key: (i) => null,
+        get length() { return 0; },
+      };
+    }
+
+    // Config pages: open in a popup with return_to pointing at our
+    // return page, which posts the response fragment back.
+    function openConfigUrl(url, onClosed) {
+      const ret = new URL('config-return.html', window.location.href).href;
+      const sep = url.includes('?') ? '&' : '?';
+      const full = url + sep + 'return_to=' + encodeURIComponent(ret + '#');
+      const handler = (e) => {
+        if (e.origin !== window.location.origin) return;
+        if (e.data && e.data.type === 'pkjs-config-closed') {
+          window.removeEventListener('message', handler);
+          onClosed(e.data.response);
+        }
+      };
+      window.addEventListener('message', handler);
+      window.open(full, 'pkjs-config', 'width=420,height=680');
+    }
 
     // Attach once QEMU is up and the serial bridge export exists.
     const attach = setInterval(() => {
@@ -481,9 +527,18 @@
       phone.onPhoneVersionRequest = () => {
         btn.disabled = false;
         uploadBtn.disabled = false;
+        document.getElementById('btn-settings').disabled = false;
         say('Connected to the watch — paste a store link, upload a .pbw, or drag one onto the screen.');
       };
       installer = new AppInstaller(phone, onProgress, (m) => say(m));
+      const am = new AppMessageClient(phone, jsLog);
+      pkjs = new PkjsRuntime(phone, am, {
+        createSandbox: makeIframeSandbox(PKJS_PROXY),
+        storage: scopedStorage,
+        tokenStore: window.localStorage,
+        openUrl: openConfigUrl,
+        log: jsLog,
+      });
       setInterval(() => phone.poll(), 20);
       clearInterval(attach);
     }, 500);
@@ -506,7 +561,16 @@
       try {
         const pbw = await parsePbw(bytes, boardSel.value);
         const info = await installer.install(pbw);
-        say('Installed and launching: ' + info.name + ' ✓');
+        if (pbw.js && pkjs) {
+          pkjs.registerApp(info.uuid, {
+            js: pbw.js,
+            appKeys: (pbw.appinfo && pbw.appinfo.appKeys) || {},
+            name: info.name,
+          });
+          say('Installed and launching: ' + info.name + ' ✓ (with PebbleKit JS)');
+        } else {
+          say('Installed and launching: ' + info.name + ' ✓');
+        }
       } catch (e) {
         say('Install failed: ' + e.message);
         console.error(e);
@@ -530,6 +594,13 @@
 
     btn.addEventListener('click', installFromInput);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') installFromInput(); });
+
+    const settingsBtn = document.getElementById('btn-settings');
+    settingsBtn.addEventListener('click', () => {
+      if (!pkjs || !pkjs.showConfiguration()) {
+        say('The running app has no settings page (or no JS is running).');
+      }
+    });
 
     uploadBtn.addEventListener('click', () => uploadFile.click());
     uploadFile.addEventListener('change', async () => {
