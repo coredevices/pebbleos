@@ -95,6 +95,31 @@ function findProject(files, hint) {
 }
 
 
+// Some projects change the compiler flags in their wscript. Pebble.js is
+// the common case: its menu types are built from anonymous members of a
+// named struct type, which is a Microsoft extension, so it compiles with
+// -std=c11 -fms-extensions and nothing else will do. waf runs that file as
+// Python; lifting the flag literals out of it covers what these projects
+// actually do without running anything.
+//
+// Only -std, -f and -D are taken. Warning options are left alone because a
+// project's -Werror would fail this build over warnings its own toolchain
+// never emitted.
+function wscriptCflags(wscript) {
+  if (!wscript) return [];
+  const flags = [];
+  let near = 0;
+  for (const line of wscript.split('\n')) {
+    if (/cflags/i.test(line)) near = 6;
+    else if (near) near--;
+    if (!near) continue;
+    for (const m of line.matchAll(/['"](-(?:std=|f|D)[A-Za-z0-9_=+.,-]+)['"]/g)) {
+      if (!flags.includes(m[1])) flags.push(m[1]);
+    }
+  }
+  return flags;
+}
+
 // The PebbleKit JS entry point is declared in the project's wscript
 // (js_entry_file=), so read it from there and fall back to the two
 // conventional layouts.
@@ -303,6 +328,13 @@ export async function buildApp(opts) {
     }
     const defines = (PLATFORM_DEFINES[platform] || [])
       .concat(['PBL_SDK_3', 'RELEASE']).map((d) => '-D' + d);
+    // A project's own flags win over ours, and a -std of its own replaces
+    // the one the SDK would otherwise pick.
+    const extraCflags = wscriptCflags(
+      rel('wscript') ? td.decode(rel('wscript')) : null);
+    const baseCflags = extraCflags.some((f) => f.startsWith('-std='))
+      ? CFLAGS.filter((f) => !f.startsWith('-std=')) : CFLAGS;
+    if (extraCflags.length) log(`wscript flags: ${extraCflags.join(' ')}`);
     // The SDK puts a package's include root and its per-platform directory
     // on the search path (setup_pebble_c).
     const depIncludes = [];
@@ -317,7 +349,8 @@ export async function buildApp(opts) {
       const objName = src.replace(/[\/]/g, '_') + '.o';
       log(`clang.wasm: ${src}`);
       const { code, stderr } = await runTool(clang, 'clang',
-        [...CFLAGS, ...defines, ...depIncludes, '-c', '/proj/' + src, '-o', '/obj/' + objName],
+        [...baseCflags, ...extraCflags, ...defines, ...depIncludes,
+         '-c', '/proj/' + src, '-o', '/obj/' + objName],
         { '/sdk': sdkTree, '/newlib': newlibTree, '/clang-res': clangResTree,
           '/proj': projTree, '/obj': objTree, '/deps': depIncludeTree }, log);
       if (code !== 0) throw new Error(`compile failed: ${src}\n${stderr.slice(0, 2000)}`);
@@ -364,7 +397,8 @@ export async function buildApp(opts) {
       for (const src of workerSources) {
         const objName = src.replace(/[\/]/g, '_') + '.o';
         const { code, stderr } = await runTool(clang, 'clang',
-          [...CFLAGS, ...defines, ...depIncludes, '-c', '/proj/' + src, '-o', '/obj/' + objName],
+          [...baseCflags, ...extraCflags, ...defines, ...depIncludes,
+         '-c', '/proj/' + src, '-o', '/obj/' + objName],
           { '/sdk': sdkTree, '/newlib': newlibTree, '/clang-res': clangResTree,
             '/proj': workerTree, '/obj': wObjTree, '/deps': depIncludeTree }, log);
         if (code !== 0) throw new Error(`worker compile failed: ${src}\n${stderr.slice(0, 2000)}`);
