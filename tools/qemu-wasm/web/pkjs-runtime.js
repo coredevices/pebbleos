@@ -16,7 +16,7 @@ const uuidKey = (u) => [...u].map((b) => b.toString(16).padStart(2, '0')).join('
 // fallback: requests are tried direct first; on a network failure
 // (typically CORS) the same request is retried through proxyUrl.
 // Covers the subset PebbleKit JS apps use.
-export function makeXhrOverFetch(fetchFn, proxyUrl) {
+export function makeXhrOverFetch(fetchFn, proxyUrl, log = () => {}) {
   const proxied = (url) => proxyUrl ? proxyUrl + encodeURIComponent(url) : null;
 
   async function robustFetch(url, opts) {
@@ -25,6 +25,7 @@ export function makeXhrOverFetch(fetchFn, proxyUrl) {
     } catch (e) {
       const p = /^https?:/i.test(url) && proxied(url);
       if (!p) throw e;
+      log(`direct fetch blocked (${String(url).slice(0, 80)}), retrying via proxy`);
       return fetchFn(p, opts);
     }
   }
@@ -81,6 +82,7 @@ export function makeXhrOverFetch(fetchFn, proxyUrl) {
         if (timer) clearTimeout(timer);
         if (this._aborted && !this._timedOut) return;
         this.readyState = 4;
+        log(`XHR ${this._timedOut ? 'timeout' : 'failed'}: ${String(this._url).slice(0, 80)} (${e.message})`);
         if (this._timedOut && this.ontimeout) this.ontimeout(e);
         else if (this.onerror) this.onerror(e);
       });
@@ -248,7 +250,7 @@ export function makeMemoryStorage() {
 
 // Browser sandbox: hidden same-origin iframe. The app JS gets the page's
 // real fetch/XHR (patched with the proxy fallback), geolocation, etc.
-export function makeIframeSandbox(proxyUrl) {
+export function makeIframeSandbox(proxyUrl, log = () => {}) {
   return (globals) => {
     const frame = document.createElement('iframe');
     frame.style.display = 'none';
@@ -260,15 +262,39 @@ export function makeIframeSandbox(proxyUrl) {
     for (const [k, v] of Object.entries(globals)) {
       Object.defineProperty(w, k, { value: v, configurable: true, writable: true });
     }
-    const XHR = makeXhrOverFetch(w.fetch.bind(w), proxyUrl);
+    const XHR = makeXhrOverFetch(w.fetch.bind(w), proxyUrl, log);
     w.XMLHttpRequest = XHR;
     const nativeFetch = w.fetch.bind(w);
     w.fetch = (url, opts) => nativeFetch(url, opts).catch((e) => {
       if (proxyUrl && typeof url === 'string' && /^https?:/i.test(url)) {
+        log(`direct fetch blocked (${url.slice(0, 80)}), retrying via proxy`);
         return nativeFetch(proxyUrl + encodeURIComponent(url), opts);
       }
       throw e;
     });
+    // Log geolocation outcomes — a silent OS-level denial otherwise
+    // looks identical to an app that never asked.
+    try {
+      const geo = w.navigator.geolocation;
+      const origGet = geo.getCurrentPosition.bind(geo);
+      geo.getCurrentPosition = (ok, err, opts) => {
+        log('app requested geolocation…');
+        origGet(
+          (pos) => { log(`geolocation ok (±${Math.round(pos.coords.accuracy)}m)`); ok(pos); },
+          (e) => { log(`geolocation DENIED/failed: ${e.message} (code ${e.code})`); if (err) err(e); },
+          opts,
+        );
+      };
+      const origWatch = geo.watchPosition.bind(geo);
+      geo.watchPosition = (ok, err, opts) => {
+        log('app watching geolocation…');
+        return origWatch(
+          (pos) => { log('geolocation update'); ok(pos); },
+          (e) => { log(`geolocation DENIED/failed: ${e.message} (code ${e.code})`); if (err) err(e); },
+          opts,
+        );
+      };
+    } catch (e) { /* geolocation unavailable in this context */ }
     return {
       run: (code) => w.eval(code),
       dispose: () => frame.remove(),

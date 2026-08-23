@@ -594,7 +594,7 @@
       installer = new AppInstaller(phone, onProgress, (m) => say(m));
       const am = new AppMessageClient(phone, jsLog);
       pkjs = new PkjsRuntime(phone, am, {
-        createSandbox: makeIframeSandbox(PKJS_PROXY),
+        createSandbox: makeIframeSandbox(PKJS_PROXY, jsLog),
         storage: scopedStorage,
         tokenStore: window.localStorage,
         openUrl: openConfigUrl,
