@@ -322,7 +322,8 @@ export async function buildApp(opts) {
     for (const [p, data] of Object.entries(repoFiles)) {
       if (!p.startsWith(prefix)) continue;
       const q = p.slice(prefix.length);
-      if (/^(src|include)\//.test(q) && /\.(c|h)$/.test(q)) projFiles[q] = data;
+      // .inc/.def are #included data tables; keep them visible to cpp.
+      if (/^(src|include)\//.test(q) && /\.(c|h|inc|def)$/.test(q)) projFiles[q] = data;
     }
     Object.assign(projFiles, generated);
     // resource_ids.auto.h is included as "src/resource_ids.auto.h" by
