@@ -31,6 +31,63 @@ const REQUIRE_SHIM = `var require = typeof require !== 'undefined' ? require : f
 };
 `;
 
+// True when the source requires `spec` only from inside try {} blocks.
+// Node lets a try/catch absorb a missing module, and pkjs authors use
+// that for optional dev-only files (which are often gitignored); such a
+// require must not fail the build, it fails at runtime into the catch.
+export function requiredOnlyInTry(src, spec) {
+  const needles = [`'${spec}'`, `"${spec}"`];
+  const hits = [];
+  for (const n of needles) {
+    for (let i = src.indexOf(n); i !== -1; i = src.indexOf(n, i + 1)) hits.push(i);
+  }
+  if (!hits.length) return false;
+  hits.sort((a, b) => a - b);
+  // One pass over the source, tracking whether each brace opened a try
+  // block. Strings and comments are skipped so their braces don't count.
+  const stack = [];
+  let h = 0, lastWord = '';
+  for (let i = 0; i < src.length && h < hits.length; i++) {
+    while (h < hits.length && hits[h] <= i) {
+      if (!stack.some(Boolean)) return false;
+      h++;
+    }
+    const c = src[i];
+    if (c === '/' && src[i + 1] === '/') {
+      i = src.indexOf('\n', i);
+      if (i === -1) break;
+    } else if (c === '/' && src[i + 1] === '*') {
+      i = src.indexOf('*/', i + 2);
+      if (i === -1) break;
+      i++;
+    } else if (c === "'" || c === '"' || c === '`') {
+      const start = i;
+      for (i++; i < src.length && src[i] !== c; i++) {
+        if (src[i] === '\\') i++;
+      }
+      // A string can be the spec itself; let the hit check above see it.
+      while (h < hits.length && hits[h] >= start && hits[h] <= i) {
+        if (!stack.some(Boolean)) return false;
+        h++;
+      }
+    } else if (c === '{') {
+      stack.push(lastWord === 'try');
+      lastWord = '';
+    } else if (c === '}') {
+      stack.pop();
+      lastWord = '';
+    } else if (/[A-Za-z_$]/.test(c)) {
+      let j = i;
+      while (j < src.length && /[A-Za-z0-9_$]/.test(src[j])) j++;
+      lastWord = src.slice(i, j);
+      i = j - 1;
+    } else if (!/\s/.test(c)) {
+      lastWord = '';
+    }
+  }
+  return h >= hits.length;
+}
+
 export async function bundlePkjs(esbuild, opts) {
   const { entryPath, prefix, files, pkg, appKeys, sharedAdditions, packages = {} } = opts;
   const read = (p) => files[prefix + p];
@@ -106,6 +163,10 @@ export async function bundlePkjs(esbuild, opts) {
         }
         const found = resolveFile(base);
         if (!found) {
+          const src = read(args.importer);
+          if (src && requiredOnlyInTry(td.decode(src), args.path)) {
+            return { path: args.path, namespace: 'missing' };
+          }
           return { errors: [{ text: `cannot resolve "${args.path}" from ${args.importer}` }] };
         }
         return { path: found, namespace: 'repo' };
@@ -116,6 +177,7 @@ export async function bundlePkjs(esbuild, opts) {
         // Relative import inside a package stays inside it.
         const owner = args.importer.split('\u0000')[0];
         const dir = args.importer.split('\u0000')[1] || '';
+        let hit;
         if (args.path.startsWith('.')) {
           const base = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : '';
           const out = [];
@@ -124,9 +186,17 @@ export async function bundlePkjs(esbuild, opts) {
             if (part === '..') out.pop();
             else out.push(part);
           }
-          return resolveInPackage(owner, out.join('/'));
+          hit = resolveInPackage(owner, out.join('/'));
+        } else {
+          hit = resolvePackage(args.path);
         }
-        return resolvePackage(args.path);
+        if (!hit) {
+          const src = packages[owner] && packages[owner].files[dir];
+          if (src && requiredOnlyInTry(td.decode(src), args.path)) {
+            return { path: args.path, namespace: 'missing' };
+          }
+        }
+        return hit;
       });
       build.onLoad({ filter: /.*/, namespace: 'pkg' }, (args) => {
         const [name, rel] = args.path.split('\u0000');
@@ -135,6 +205,13 @@ export async function bundlePkjs(esbuild, opts) {
           loader: rel.endsWith('.json') ? 'json' : 'js',
         };
       });
+      // A module only ever required inside try {}: fail at runtime, into
+      // the catch, the way node would for a genuinely absent file.
+      build.onLoad({ filter: /.*/, namespace: 'missing' }, (args) => ({
+        contents: `throw new Error(${JSON.stringify(
+          `Cannot find module '${args.path}'`)});`,
+        loader: 'js',
+      }));
       build.onLoad({ filter: /.*/, namespace: 'repo' }, (args) => ({
         contents: td.decode(read(args.path)),
         loader: args.path.endsWith('.json') ? 'json' : 'js',
