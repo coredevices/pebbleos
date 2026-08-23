@@ -92,5 +92,7 @@ export async function parsePbw(data, platform = 'emery') {
     binary: binary.data,
     resources: resources && resources.dir === binary.dir ? resources.data : (resources?.data ?? null),
     worker: worker && worker.dir === binary.dir ? worker.data : null,
+    // PebbleKit JS lives at the pbw root (both single-JS and multiJS builds)
+    js: files['pebble-js-app.js'] ? td.decode(files['pebble-js-app.js']) : null,
   };
 }

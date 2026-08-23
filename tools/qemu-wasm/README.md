@@ -89,6 +89,16 @@ reports the board's resolution with an advancing frame counter.
   frames into the rx ring with Atomics and drains watch-bound bytes from
   the tx ring; a 2 ms virtual-clock timer feeds the existing chardev
   receive path.
+- **PebbleKit JS**: apps with a `pebble-js-app.js` get their JS run in a
+  hidden same-origin iframe with a `Pebble` shim (`web/pkjs-runtime.js`),
+  started/stopped by the watch's app_run_state notifications on endpoint
+  52. `web/appmessage.js` speaks AppMessage (endpoint 0x30): PUSH with
+  the app uuid + little-endian tuple dictionary, 2-byte ACK/NACK with
+  echoed transaction id; sends are serialized and pushes that arrive
+  during JS startup are queued. The app JS gets real fetch/XHR (with a
+  CORS-proxy fallback, `pkjs-proxy/`), geolocation, per-app-scoped
+  localStorage, and config pages via `openURL` + the `return_to`
+  convention (`web/config-return.html`). Timeline APIs are stubbed.
 - **App install**: `web/pebble-transport.js` implements the phone side of
   the QEMU serial framing (0xFEED/0xBEEF), Pebble Protocol reassembly,
   and the endpoint-17 phone-version handshake (a V3 response that

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Settings saved</title></head>
+<body style="background:#14141f;color:#d8d8e0;font-family:monospace;padding:2em">
+Returning settings to the watch&hellip;
+<script>
+  // Config pages navigate here via the return_to parameter with the
+  // response payload in the fragment (Rebble convention). Hand it to the
+  // opener and close.
+  var payload = location.hash ? location.hash.slice(1) : '';
+  if (window.opener) {
+    window.opener.postMessage({ type: 'pkjs-config-closed', response: payload }, location.origin);
+    document.body.textContent = 'Settings saved - you can close this tab.';
+    setTimeout(function () { window.close(); }, 300);
+  } else {
+    document.body.textContent = 'No emulator window found to return settings to.';
+  }
+</script>
+</body>
+</html>
