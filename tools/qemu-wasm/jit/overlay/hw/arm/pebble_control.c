@@ -34,6 +34,10 @@
 #include "hw/arm/pebble_simple_uart.h"
 #include "hw/arm/pebble_gpio.h"
 
+#ifdef EMSCRIPTEN
+#include <emscripten/emscripten.h>
+#endif
+
 //#define DEBUG_PEBBLE_CONTROL
 #ifdef DEBUG_PEBBLE_CONTROL
 #define DPRINTF(fmt, ...)                                 \
@@ -197,7 +201,87 @@ struct PebbleControl {
 
     // For generic UART: the DeviceState pointer (PblSimpleUart)
     DeviceState *generic_uart;
+
+#ifdef EMSCRIPTEN
+    // Timer that drains the browser->guest ring buffer
+    struct QEMUTimer *wasm_poll_timer;
+#endif
 };
+
+#ifdef EMSCRIPTEN
+/* Shared-memory serial bridge for the browser build.
+ *
+ * The page cannot open a TCP connection to the emulated pebble-tool
+ * channel, so it exchanges QemuProtocol frames through two ring buffers
+ * in wasm memory instead. JS writes host->guest bytes at rx_head and
+ * publishes the new head with Atomics.store; a virtual-clock timer in
+ * the QEMU thread consumes them through the normal chardev receive
+ * path. Guest->host bytes are mirrored into the tx ring, which JS
+ * drains by advancing tx_tail. Head/tail are free-running u32 counters
+ * (index = counter % size); buffer addresses are u32 because the build
+ * caps the address space at 4GB (--enable-wasm64-32bit-address-limit).
+ */
+#define WASM_SER_RX_SIZE 131072
+#define WASM_SER_TX_SIZE 32768
+
+static uint8_t s_wasm_ser_rx[WASM_SER_RX_SIZE];
+static uint8_t s_wasm_ser_tx[WASM_SER_TX_SIZE];
+
+static struct {
+    uint32_t rx_buf, rx_size, tx_buf, tx_size;
+    uint32_t rx_head, rx_tail;   /* JS produces, QEMU consumes */
+    uint32_t tx_head, tx_tail;   /* QEMU produces, JS consumes */
+} s_wasm_ser_ctrl;
+
+EMSCRIPTEN_KEEPALIVE void *pebble_wasm_serial_ctrl(void)
+{
+    s_wasm_ser_ctrl.rx_buf = (uint32_t)(uintptr_t)s_wasm_ser_rx;
+    s_wasm_ser_ctrl.rx_size = WASM_SER_RX_SIZE;
+    s_wasm_ser_ctrl.tx_buf = (uint32_t)(uintptr_t)s_wasm_ser_tx;
+    s_wasm_ser_ctrl.tx_size = WASM_SER_TX_SIZE;
+    return &s_wasm_ser_ctrl;
+}
+
+static void pebble_control_wasm_tx(const uint8_t *buf, int len)
+{
+    uint32_t head = s_wasm_ser_ctrl.tx_head;
+    uint32_t used = head - qatomic_load_acquire(&s_wasm_ser_ctrl.tx_tail);
+
+    if (len <= 0) {
+        return;
+    }
+    if (used + (uint32_t)len > WASM_SER_TX_SIZE) {
+        /* JS is not draining (page gone?) — drop, never block the guest */
+        return;
+    }
+    for (int i = 0; i < len; i++) {
+        s_wasm_ser_tx[(head + i) % WASM_SER_TX_SIZE] = buf[i];
+    }
+    qatomic_store_release(&s_wasm_ser_ctrl.tx_head, head + len);
+}
+#endif
+
+static inline bool pebble_control_wasm_bridge_enabled(void)
+{
+#ifdef EMSCRIPTEN
+    return true;
+#else
+    return false;
+#endif
+}
+
+/* Write host-bound bytes: the chardev if one is connected, plus the
+ * browser ring under emscripten. */
+static int pc_host_write(PebbleControl *s, const uint8_t *buf, int len)
+{
+#ifdef EMSCRIPTEN
+    pebble_control_wasm_tx(buf, len);
+#endif
+    if (qemu_chr_fe_backend_connected(&s->chr)) {
+        return qemu_chr_fe_write_all(&s->chr, buf, len);
+    }
+    return len;
+}
 
 
 // Control channel handlers are defined using this structure
@@ -483,7 +567,7 @@ static int pebble_control_write(void *opaque, const uint8_t *buf, int len) {
         DPRINTF("%s: Sending packet of %d bytes to host (proto=0x%04x)\n",
                __func__, total_size, ntohs(hdr->protocol));
         while (total_size) {
-            bytes_sent = qemu_chr_fe_write_all(&s->chr, s->send_char_buf, total_size);
+            bytes_sent = pc_host_write(s, s->send_char_buf, total_size);
             if (bytes_sent <= 0) {
                 // Write error (e.g. TCP client disconnected), discard packet
                 pebble_control_consume_send_bytes(s, total_size);
@@ -495,7 +579,7 @@ static int pebble_control_write(void *opaque, const uint8_t *buf, int len) {
 
     }
 
-    return qemu_chr_fe_write_all(&s->chr, buf, len);
+    return len;
 }
 
 
@@ -509,17 +593,17 @@ static void pebble_control_send_packet(PebbleControl *s, QemuProtocol protocol, 
     .protocol = htons(protocol),
     .len = htons(len)
   };
-  qemu_chr_fe_write_all(&s->chr, (uint8_t *)&hdr, sizeof(hdr));
+  pc_host_write(s, (uint8_t *)&hdr, sizeof(hdr));
 
   // Send the data
-  qemu_chr_fe_write_all(&s->chr, data, len);
+  pc_host_write(s, data, len);
 
   // Send the footer
   QemuCommChannelFooter footer = (QemuCommChannelFooter) {
     .signature = htons(QEMU_FOOTER_SIGNATURE)
   };
 
-  qemu_chr_fe_write_all(&s->chr, (uint8_t *)&footer, sizeof(footer));
+  pc_host_write(s, (uint8_t *)&footer, sizeof(footer));
 }
 
 // -----------------------------------------------------------------------------------
@@ -533,6 +617,32 @@ void pebble_control_send_vibe_notification(PebbleControl *s, bool on)
     };
     pebble_control_send_packet(s, QemuProtocol_Vibration, &hdr, sizeof(hdr));
 }
+
+#ifdef EMSCRIPTEN
+// -----------------------------------------------------------------------------------
+// Drain the browser->guest ring through the normal receive path.
+static void pebble_control_wasm_poll(void *opaque)
+{
+    PebbleControl *s = (PebbleControl *)opaque;
+    uint32_t head = qatomic_load_acquire(&s_wasm_ser_ctrl.rx_head);
+    uint32_t tail = s_wasm_ser_ctrl.rx_tail;
+
+    while (tail != head) {
+        int space = pebble_control_can_receive(s);
+        if (space <= 0) {
+            break;
+        }
+        uint32_t off = tail % WASM_SER_RX_SIZE;
+        uint32_t n = MIN(head - tail, WASM_SER_RX_SIZE - off);
+        n = MIN(n, (uint32_t)space);
+        pebble_control_receive(s, &s_wasm_ser_rx[off], n);
+        tail += n;
+        qatomic_store_release(&s_wasm_ser_ctrl.rx_tail, tail);
+    }
+    timer_mod(s->wasm_poll_timer,
+              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 2);
+}
+#endif
 
 // -----------------------------------------------------------------------------------
 #if 0 /* legacy STM32 machines are not in this build */
@@ -576,12 +686,14 @@ PebbleControl *pebble_control_create_generic(Chardev *chr, DeviceState *uart)
 {
     PebbleControl *s = g_malloc0(sizeof(PebbleControl));
 
-    if (chr && uart) {
+    if (uart && (chr || pebble_control_wasm_bridge_enabled())) {
         s->is_generic = true;
         s->generic_uart = uart;
 
         // Initialize our own CharFrontend with the chardev
-        qemu_chr_fe_init(&s->chr, chr, &error_abort);
+        if (chr) {
+            qemu_chr_fe_init(&s->chr, chr, &error_abort);
+        }
 
         // The timer we use to pump more data to the uart
         s->target_send_timer = timer_new_ms(QEMU_CLOCK_HOST,
@@ -596,14 +708,23 @@ PebbleControl *pebble_control_create_generic(Chardev *chr, DeviceState *uart)
         s->uart = uart;
 
         // Install our own receive handlers into the CharFrontend
-        qemu_chr_fe_set_handlers(&s->chr,
-                        pebble_control_can_receive,
-                        pebble_control_receive,
-                        pebble_control_event,
-                        NULL,
-                        (void *)s,
-                        NULL,
-                        true);
+        if (chr) {
+            qemu_chr_fe_set_handlers(&s->chr,
+                            pebble_control_can_receive,
+                            pebble_control_receive,
+                            pebble_control_event,
+                            NULL,
+                            (void *)s,
+                            NULL,
+                            true);
+        }
+
+#ifdef EMSCRIPTEN
+        s->wasm_poll_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
+                                          pebble_control_wasm_poll, s);
+        timer_mod(s->wasm_poll_timer,
+                  qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 2);
+#endif
     }
 
     return s;

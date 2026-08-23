@@ -166,7 +166,9 @@ static void pbl_generic_init(MachineState *machine)
     /* === Pebble Control Protocol on UART1 === */
     {
         Chardev *chr = serial_hd(1);
-        if (chr && uart1_dev) {
+        if (uart1_dev) {
+            /* chr may be NULL in the browser build; the wasm ring
+             * bridge inside pebble_control still needs the hookup. */
             pebble_control_create_generic(chr, uart1_dev);
         }
     }

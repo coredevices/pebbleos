@@ -26,7 +26,9 @@ launcher scroll):
   registry (`machines-qom.h`) — without it `-machine help` lists nothing.
   `pebble_gpio.c` gains `pebble_set_button_state()` (pebble.c provided it
   on the legacy machines); the legacy STM32 path in `pebble_control.c`
-  is compiled out.
+  is compiled out. `pebble_control.c` also carries the browser serial
+  bridge (`pebble_wasm_serial_ctrl()` ring buffers, emscripten-only)
+  that `web/pebble-transport.js` uses for app installs.
 - `0001-ktock-tree-build-wiring.patch` — meson/Kconfig/devices-config
   wiring plus the browser-glue link flags for the ktock tree.
 - `build-deps64.sh` — emsdk 4.0.23 and the MEMORY64=2 dependency chain
