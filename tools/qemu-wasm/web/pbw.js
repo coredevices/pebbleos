@@ -59,12 +59,18 @@ export async function unzip(data) {
 // Pick the best platform directory in a pbw for a given watch platform.
 // Emery runs emery-native apps first, then falls back through compatible
 // older platforms (basalt bezel mode, then legacy root/aplite layout).
+// Which platform directories a board will accept, best first. A board's
+// own directory has to come first: store apps predate flint and gabbro so
+// they only ever carry the older ones, but an app built here does have a
+// matching directory. Round boards fall back to chalk, rect ones to the
+// 144x168 platforms.
 const PLATFORM_PREFERENCE = {
   emery: ['emery', 'basalt', 'diorite', 'aplite'],
   basalt: ['basalt', 'aplite'],
   chalk: ['chalk'],
   diorite: ['diorite', 'aplite'],
-  flint: ['diorite', 'aplite', 'basalt'],
+  flint: ['flint', 'diorite', 'aplite', 'basalt'],
+  gabbro: ['gabbro', 'chalk'],
 };
 
 export async function parsePbw(data, platform = 'emery') {

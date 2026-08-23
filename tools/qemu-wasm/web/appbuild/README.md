@@ -29,8 +29,17 @@ tools download.
 
 The toolchain binaries come from `tools/wasm-toolchain/` (LLVM 19.1.7,
 ARM backend only, built for wasm32-wasi-threads); `web/tools/` holds them
-gzipped alongside `sdkpack-emery.zip`, which `make-sdkpack.sh` assembles
-from an exported SDK.
+gzipped alongside one `sdkpack-<platform>.zip` per board, which
+`make-sdkpack.sh` assembles from an exported SDK. The build follows the
+page's board selector; emery, flint and gabbro are supported, and the
+compiler itself is shared between them so switching boards only fetches
+that board's ~2.7 MB SDK.
+
+Per-board build parameters (defines, app memory, colour vs black and
+white) are transcribed into `codegen.js` from the SDK's own
+`pebble_sdk_platform.py`. They are not worth hand-maintaining: an app
+built without `PBL_ROUND` compiles its rectangular layout without
+complaining.
 
 ## What differs from a waf build
 

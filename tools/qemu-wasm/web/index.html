@@ -120,7 +120,7 @@
     <select id="board">
       <option value="emery" selected>emery / obelix (Pebble Time 2)</option>
       <option value="gabbro">gabbro / getafix_dvt (Pebble Round 2)</option>
-      <option value="flint">flint / asterix (untested)</option>
+      <option value="flint">flint / asterix (Pebble 2 Duo)</option>
     </select>
     <button id="btn-boot" style="display:none">Boot</button>
     <button id="btn-reset" title="Wipe the saved watch storage and reload">Factory reset</button>
@@ -1155,12 +1155,9 @@
       const zipUrls = repoZipCandidates(text);
       if (!zipUrls) { say('That does not look like a GitHub repo (or .zip) URL.'); return; }
       if (building) { say('A build is already running.'); return; }
-      if (boardSel.value !== 'emery') {
-        say('In-browser builds currently target the emery board — switch the board to emery first.');
-        return;
-      }
       building = true; buildBtn.disabled = true;
-      say('Building from ' + text + '… (first build downloads the ~39 MB toolchain once)');
+      say(`Building from ${text} for ${boardSel.value}… `
+            + '(the first build downloads the toolchain once)');
       try {
         const pbw = await new Promise((resolve, reject) => {
           if (!buildWorker) {
@@ -1175,7 +1172,7 @@
           };
           buildWorker.onerror = (e) => reject(new Error('build worker failed: ' + e.message));
           buildWorker.postMessage({
-            cmd: 'build', zipUrls, platform: 'emery', proxy: PKJS_PROXY,
+            cmd: 'build', zipUrls, platform: boardSel.value, proxy: PKJS_PROXY,
           });
         });
         // The build saturates every core, which starves the emulator; give

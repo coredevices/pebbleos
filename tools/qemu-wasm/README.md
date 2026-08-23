@@ -145,11 +145,9 @@ On-screen buttons track pointer down/up, so press-and-hold works.
   yet.
 - No touch yet on emery/gabbro: natively `./pbl touch` injects pointer
   events over QMP, which the browser build doesn't run (see NOTES.md).
-- flint and gabbro machines exist but are untested in the browser; the
-  board selector will boot them if firmware is fetched.
 - Audio is off by default (`?audio` to try the SDL backend).
-- In-browser builds target emery only, and need the SDK pack for that
-  platform; other boards need their own `sdkpack-<platform>.zip`.
+- In-browser builds cover emery, flint and gabbro; another board needs
+  its own `sdkpack-<platform>.zip` from `make-sdkpack.sh`.
 - Glyphs are rasterised with canvas rather than FreeType, so text in a
   browser-built app can differ by a pixel from a waf-built one.
 - GitHub's codeload does not send CORS headers, so fetching a repo zip

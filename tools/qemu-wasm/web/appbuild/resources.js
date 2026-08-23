@@ -6,6 +6,7 @@
 // font/fontgen.py (PFO v3). Font rasterisation is delegated to the host
 // via rasterizeGlyph, since FreeType is not available here.
 import { legacyDefectiveCrc } from '../app-install.js';
+import { PLATFORMS } from './codegen.js';
 
 const te = new TextEncoder();
 
@@ -716,13 +717,13 @@ function keyOf(data) {
 
 // --- driver ---------------------------------------------------------------
 
-const COLOR_PLATFORMS = new Set(['basalt', 'chalk', 'emery', 'gabbro', 'diorite2']);
-
 // media:    the package.json pebble.resources.media array
 // readFile: async (path) => Uint8Array, relative to the project's resources/
 // returns {pbpack, resourceNames} — names in resource_ids.auto.h order.
 export async function buildResources(media, readFile, platform, rasterizeGlyph, log = () => {}) {
-  const isColor = COLOR_PLATFORMS.has(platform);
+  const plat = PLATFORMS[platform];
+  if (!plat) throw new Error(`unknown platform "${platform}"`);
+  const isColor = plat.color;
   const paletteName = isColor ? 'pebble64' : 'pebble2';
   const contents = [];
   const resourceNames = [];

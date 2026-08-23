@@ -14,6 +14,7 @@ const post = (m) => self.postMessage(m);
 const log = (msg) => post({ type: 'log', msg });
 
 let toolsPromise = null;
+const sdkPacks = new Map();          // platform -> Promise<{path: bytes}>
 let esbuildReady = null;
 
 async function fetchCached(url) {
@@ -36,17 +37,18 @@ async function gunzip(bytes) {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
+// The compiler is the same whatever the board is; only the SDK pack
+// differs, so switching boards does not re-fetch the 33 MB of tools.
 async function loadTools(base) {
   if (!toolsPromise) {
     toolsPromise = (async () => {
-      log('downloading toolchain (one-time, ~39 MB — cached after this)…');
-      const [clangGz, lldGz, esbuildGz, packBytes] = await Promise.all([
+      log('downloading the toolchain (one-time, ~36 MB — cached after this)…');
+      const [clangGz, lldGz, esbuildGz] = await Promise.all([
         fetchCached(base + 'tools/clang.wasm.gz'),
         fetchCached(base + 'tools/lld.wasm.gz'),
         fetchCached(base + 'tools/esbuild.wasm.gz'),
-        fetchCached(base + 'tools/sdkpack-emery.zip'),
       ]);
-      log('decompressing + compiling toolchain…');
+      log('decompressing + compiling the toolchain…');
       const [clangBytes, lldBytes, esbuildBytes] =
         await Promise.all([gunzip(clangGz), gunzip(lldGz), gunzip(esbuildGz)]);
       const [clang, lld, esbuildMod] = await Promise.all([
@@ -54,13 +56,31 @@ async function loadTools(base) {
         WebAssembly.compile(lldBytes.buffer),
         WebAssembly.compile(esbuildBytes.buffer),
       ]);
-      const sdkPack = await unzip(packBytes);
       log('toolchain ready');
-      return { clang, lld, esbuildMod, sdkPack };
+      return { clang, lld, esbuildMod };
     })();
     toolsPromise.catch(() => { toolsPromise = null; });
   }
   return toolsPromise;
+}
+
+async function loadSdkPack(base, platform) {
+  if (!sdkPacks.has(platform)) {
+    const p = (async () => {
+      log(`downloading the ${platform} SDK…`);
+      const url = `${base}tools/sdkpack-${platform}.zip`;
+      let bytes;
+      try {
+        bytes = await fetchCached(url);
+      } catch (e) {
+        throw new Error(`no SDK available for ${platform} (${url})`);
+      }
+      return unzip(bytes);
+    })();
+    p.catch(() => sdkPacks.delete(platform));
+    sdkPacks.set(platform, p);
+  }
+  return sdkPacks.get(platform);
 }
 
 // ---- canvas font rasterizer ----
@@ -154,7 +174,9 @@ self.onmessage = async (e) => {
     log(`repository: ${(repoZip.length / 1024).toFixed(0)} KB — unpacking…`);
     const repoFiles = await unzip(repoZip);
 
-    const { clang, lld, esbuildMod, sdkPack } = await loadTools(base);
+    const [{ clang, lld, esbuildMod }, sdkPack] = await Promise.all([
+      loadTools(base), loadSdkPack(base, platform),
+    ]);
 
     if (!esbuildReady) {
       esbuildReady = esbuild.initialize({ wasmModule: esbuildMod, worker: false })
