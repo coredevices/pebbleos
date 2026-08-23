@@ -30,6 +30,10 @@
 #include "hw/core/qdev-properties.h"
 #include "hw/core/qdev-properties-system.h"
 
+#ifdef EMSCRIPTEN
+#include <emscripten/emscripten.h>
+#endif
+
 #define TYPE_PEBBLE_AUDIO "pebble-audio"
 OBJECT_DECLARE_SIMPLE_TYPE(PblAudio, PEBBLE_AUDIO)
 
@@ -67,6 +71,39 @@ struct PblAudio {
 
     char *audiodev; /* accepted and ignored */
 };
+
+#ifdef EMSCRIPTEN
+/* Browser playback: every sample the firmware pushes via DATA is also
+ * appended to this ring; the page drains it into WebAudio. Head/tail
+ * are free-running sample counters (index = counter % size). rate,
+ * volume and playing mirror the device registers so the page can
+ * (re)configure its AudioContext. */
+#define WASM_AUDIO_RING 32768
+
+static int16_t s_wasm_audio_buf[WASM_AUDIO_RING];
+static struct {
+    uint32_t buf, size;
+    uint32_t head, tail;
+    uint32_t rate, volume, playing;
+} s_wasm_audio_ctrl;
+
+EMSCRIPTEN_KEEPALIVE void *pebble_wasm_audio_ctrl(void)
+{
+    s_wasm_audio_ctrl.buf = (uint32_t)(uintptr_t)s_wasm_audio_buf;
+    s_wasm_audio_ctrl.size = WASM_AUDIO_RING;
+    return &s_wasm_audio_ctrl;
+}
+
+static void pbl_audio_wasm_push(int16_t sample)
+{
+    uint32_t head = s_wasm_audio_ctrl.head;
+    if (head - qatomic_load_acquire(&s_wasm_audio_ctrl.tail) >= WASM_AUDIO_RING) {
+        return; /* page not draining — drop */
+    }
+    s_wasm_audio_buf[head % WASM_AUDIO_RING] = sample;
+    qatomic_store_release(&s_wasm_audio_ctrl.head, head + 1);
+}
+#endif
 
 static void pbl_audio_update_irq(PblAudio *s)
 {
@@ -160,14 +197,23 @@ static void pbl_audio_write(void *opaque, hwaddr offset,
         } else {
             pbl_audio_stop(s);
         }
+#ifdef EMSCRIPTEN
+        s_wasm_audio_ctrl.playing = s->ctrl & 1;
+#endif
         break;
     case AUDIO_SAMPLERATE:
         s->samplerate = value;
+#ifdef EMSCRIPTEN
+        s_wasm_audio_ctrl.rate = s->samplerate;
+#endif
         break;
     case AUDIO_DATA:
         if (s->ring_count < RING_BUF_SAMPLES) {
             s->ring_count++;
         }
+#ifdef EMSCRIPTEN
+        pbl_audio_wasm_push((int16_t)(value & 0xffff));
+#endif
         break;
     case AUDIO_INTCTRL:
         s->intctrl = value & INT_BUFAVAIL;
@@ -179,6 +225,9 @@ static void pbl_audio_write(void *opaque, hwaddr offset,
         break;
     case AUDIO_VOLUME:
         s->volume = value & 0x7F;
+#ifdef EMSCRIPTEN
+        s_wasm_audio_ctrl.volume = s->volume;
+#endif
         break;
     default:
         qemu_log_mask(LOG_GUEST_ERROR,
@@ -206,6 +255,11 @@ static void pbl_audio_reset(DeviceState *dev)
     s->intctrl = 0;
     s->intstat = 0;
     s->volume = 100;
+#ifdef EMSCRIPTEN
+    s_wasm_audio_ctrl.rate = s->samplerate;
+    s_wasm_audio_ctrl.volume = s->volume;
+    s_wasm_audio_ctrl.playing = 0;
+#endif
     pbl_audio_update_irq(s);
 }
 

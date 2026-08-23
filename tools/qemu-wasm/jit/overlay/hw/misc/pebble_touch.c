@@ -17,11 +17,16 @@
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
+#include "qemu/timer.h"
 #include "hw/core/irq.h"
 #include "hw/core/sysbus.h"
 #include "hw/core/qdev-properties.h"
 #include "ui/console.h"
 #include "ui/input.h"
+
+#ifdef EMSCRIPTEN
+#include <emscripten/emscripten.h>
+#endif
 
 #define TYPE_PEBBLE_TOUCH "pebble-touch"
 OBJECT_DECLARE_SIMPLE_TYPE(PblTouch, PEBBLE_TOUCH)
@@ -51,7 +56,29 @@ struct PblTouch {
     uint32_t display_h;
 
     QemuInputHandlerState *input_handler;
+
+#ifdef EMSCRIPTEN
+    QEMUTimer *wasm_poll_timer;
+    uint32_t wasm_last_seq;
+#endif
 };
+
+#ifdef EMSCRIPTEN
+/* Browser touch injection: the page writes display-pixel coordinates
+ * and the finger state, then bumps seq with Atomics; an 8 ms
+ * virtual-clock poll applies changes exactly like input-layer events. */
+static struct {
+    uint32_t seq;
+    uint32_t down;
+    uint32_t x;
+    uint32_t y;
+} s_wasm_touch;
+
+EMSCRIPTEN_KEEPALIVE void *pebble_wasm_touch_ctrl(void)
+{
+    return &s_wasm_touch;
+}
+#endif
 
 static void pbl_touch_update_irq(PblTouch *s)
 {
@@ -94,6 +121,32 @@ static const QemuInputHandler pbl_touch_input_handler = {
     .mask  = INPUT_EVENT_MASK_BTN | INPUT_EVENT_MASK_ABS,
     .event = pbl_touch_input_event,
 };
+
+#ifdef EMSCRIPTEN
+static void pbl_touch_wasm_poll(void *opaque)
+{
+    PblTouch *s = opaque;
+    uint32_t seq = qatomic_load_acquire(&s_wasm_touch.seq);
+
+    if (seq != s->wasm_last_seq) {
+        s->wasm_last_seq = seq;
+        uint32_t down = s_wasm_touch.down ? 1 : 0;
+        uint32_t x = MIN(s_wasm_touch.x, s->display_w - 1);
+        uint32_t y = MIN(s_wasm_touch.y, s->display_h - 1);
+        bool changed = (down != s->state) ||
+                       (down && (x != s->x || y != s->y));
+        s->x = x;
+        s->y = y;
+        s->state = down;
+        if (changed) {
+            s->intstat |= INT_TOUCH_EVENT;
+            pbl_touch_update_irq(s);
+        }
+    }
+    timer_mod(s->wasm_poll_timer,
+              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 8);
+}
+#endif
 
 /* === Register access === */
 
@@ -157,6 +210,13 @@ static void pbl_touch_realize(DeviceState *dev, Error **errp)
     s->input_handler = qemu_input_handler_register(dev,
                                                     &pbl_touch_input_handler);
     qemu_input_handler_activate(s->input_handler);
+
+#ifdef EMSCRIPTEN
+    s->wasm_poll_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
+                                      pbl_touch_wasm_poll, s);
+    timer_mod(s->wasm_poll_timer,
+              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 8);
+#endif
 }
 
 static void pbl_touch_init(Object *obj)

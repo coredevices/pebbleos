@@ -119,7 +119,7 @@
     <button id="btn-select" title="Select (Right / Enter)">Select</button>
     <button id="btn-down" title="Down (Arrow Down)">Down</button>
   </div>
-  <div class="hint">Keys: &larr; Back &middot; &uarr;/&darr; Navigate &middot; &rarr;/Enter Select &middot; buttons can be held</div>
+  <div class="hint">Keys: &larr; Back &middot; &uarr;/&darr; Navigate &middot; &rarr;/Enter Select &middot; buttons can be held &middot; the screen is a touchscreen (click/drag)</div>
 
   <div id="install-panel">
     <div id="install-row">
@@ -343,6 +343,101 @@
       el.addEventListener('pointerup', release);
       el.addEventListener('pointercancel', release);
     });
+
+    // ================================================================
+    // Touch: pebble_touch.c polls a shared {seq, down, x, y} struct at
+    // 8 ms (display-pixel coordinates). Pointer events on the canvas
+    // write it with Atomics. Emery/gabbro only; harmless elsewhere.
+    // ================================================================
+    var touchAddr = 0;
+
+    function sendTouch(down, ev) {
+      if (!qemu) return;
+      if (!touchAddr) {
+        if (typeof qemu._pebble_wasm_touch_ctrl !== 'function') return;
+        touchAddr = Number(qemu._pebble_wasm_touch_ctrl());
+        if (!touchAddr) return;
+      }
+      var r = canvas.getBoundingClientRect();
+      var x = Math.max(0, Math.min(canvas.width - 1,
+        Math.round((ev.clientX - r.left) * canvas.width / r.width)));
+      var y = Math.max(0, Math.min(canvas.height - 1,
+        Math.round((ev.clientY - r.top) * canvas.height / r.height)));
+      var base = touchAddr >> 2;
+      Atomics.store(qemu.HEAPU32, base + 1, down ? 1 : 0);
+      Atomics.store(qemu.HEAPU32, base + 2, x);
+      Atomics.store(qemu.HEAPU32, base + 3, y);
+      Atomics.add(qemu.HEAPU32, base, 1);  // seq++ publishes the update
+    }
+
+    var touchActive = false;
+    canvas.style.touchAction = 'none';
+    canvas.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      touchActive = true;
+      startAudio();  // user gesture: safe moment to unlock WebAudio
+      sendTouch(true, e);
+    });
+    canvas.addEventListener('pointermove', function (e) {
+      if (touchActive) sendTouch(true, e);
+    });
+    function touchEnd(e) {
+      if (!touchActive) return;
+      touchActive = false;
+      sendTouch(false, e);
+    }
+    canvas.addEventListener('pointerup', touchEnd);
+    canvas.addEventListener('pointercancel', touchEnd);
+
+    // ================================================================
+    // Audio: pebble_audio.c mirrors every PCM sample the firmware
+    // plays into a shared int16 ring; drain it into WebAudio on a
+    // 60 ms poll, scheduling chunks at a running playhead.
+    // ================================================================
+    var audioCtx = null;
+    var audioPlayhead = 0;
+    var audioAddr = 0;
+
+    function startAudio() {
+      if (audioCtx || !qemu) return;
+      if (typeof qemu._pebble_wasm_audio_ctrl !== 'function') return;
+      audioAddr = Number(qemu._pebble_wasm_audio_ctrl());
+      if (!audioAddr) return;
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) { return; }
+      setInterval(drainAudio, 60);
+      log('[audio] output enabled');
+    }
+
+    function drainAudio() {
+      if (!audioCtx || audioCtx.state === 'suspended') { if (audioCtx) audioCtx.resume(); }
+      var base = audioAddr >> 2;
+      var u32 = qemu.HEAPU32;
+      var buf = u32[base], size = u32[base + 1];
+      var head = Atomics.load(u32, base + 2);
+      var tail = Atomics.load(u32, base + 3);
+      if (head === tail) return;
+      var n = (head - tail) >>> 0;
+      if (n > size) { tail = head - size; n = size; }
+      var rate = u32[base + 4] || 16000;
+      var vol = (u32[base + 5] || 100) / 100;
+      var pcm = audioCtx.createBuffer(1, n, Math.max(3000, rate));
+      var ch = pcm.getChannelData(0);
+      var heap16 = new Int16Array(qemu.HEAPU8.buffer);
+      for (var i = 0; i < n; i++) {
+        ch[i] = (heap16[(buf >> 1) + ((tail + i) % size)] / 32768) * vol;
+      }
+      Atomics.store(u32, base + 3, head);
+      var src = audioCtx.createBufferSource();
+      src.buffer = pcm;
+      src.connect(audioCtx.destination);
+      var now = audioCtx.currentTime;
+      if (audioPlayhead < now + 0.02) audioPlayhead = now + 0.02;
+      src.start(audioPlayhead);
+      audioPlayhead += n / Math.max(3000, rate);
+    }
 
     // ================================================================
     // Serial console: UART2 (debug console) is routed to a file in the
