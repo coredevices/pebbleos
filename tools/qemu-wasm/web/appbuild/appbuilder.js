@@ -120,6 +120,8 @@ function findJsEntry(rel, wscript) {
 //     linker as WebAssembly.Modules plus the SDK files a manifest may
 //     include (unzipped modpack.zip). Called only for a Moddable project,
 //     so an ordinary build never fetches them,
+//   transpileTs: async (source, path) => js, for Moddable modules written
+//     in TypeScript (mcrun shells out to tsc for these),
 //   mods: {platform: Uint8Array}, prebuilt XS archives, if the caller has
 //     them already and wants to skip the xsc/xsl step,
 //   log: (msg) => void,
@@ -202,7 +204,8 @@ export async function buildApp(opts) {
       const manifestPath = findModManifest(
         Object.keys(repoFiles).filter((p) => p.startsWith(prefix)).map((p) => '/proj/' + p));
       if (!manifestPath) throw new Error('Moddable project has no manifest.json');
-      modBytes = await buildMod({ manifestPath, files, xsc, xsl, log });
+      modBytes = await buildMod({ manifestPath, files, xsc, xsl,
+                                  transpile: opts.transpileTs, log });
     }
     if (!modBytes) {
       throw new Error('this is a Moddable project; building it needs xsc and xsl');

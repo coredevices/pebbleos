@@ -235,6 +235,11 @@ self.onmessage = async (e) => {
     const { pbw, name } = await buildApp({
       repoFiles, clang, lld, sdkPacks: packs, appHint, fetchUrl,
       rasterizeGlyph, xsTools: () => loadXsTools(base),
+      // mcrun runs tsc over a Moddable project's TypeScript modules; esbuild
+      // strips the types just as well and is already loaded for PebbleKit JS.
+      transpileTs: async (source, path) =>
+        (await esbuild.transform(source, { loader: 'ts', target: 'esnext',
+                                           sourcefile: path })).code,
       bundleJs: (args) => bundlePkjs(esbuild, args),
       log,
     });

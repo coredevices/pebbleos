@@ -195,12 +195,27 @@ function mkdirp(root, path) {
   return dir;
 }
 
+// A tool that cannot parse its input reports one error per token, which is
+// thousands of lines for a single file of the wrong language. Enough gets
+// through to diagnose it; the rest would only drown the build log.
+function cappedLog(log, limit = 40) {
+  let seen = 0;
+  return (line) => {
+    if (seen < limit) log(line);
+    else if (seen === limit) log(`  … further output suppressed`);
+    seen++;
+  };
+}
+
 // files: Map of absolute virtual path -> Uint8Array, covering both the
 // project (rooted wherever manifestPath lives) and the Moddable SDK files
 // the manifest may include, rooted at moddableRoot ($(MODDABLE)).
+//
+// transpile: async (source, path) => js — TypeScript modules go through it
+// first, the way mcrun shells out to tsc. xsc parses JavaScript only.
 export async function buildMod(opts) {
   const { manifestPath, files, xsc, xsl, platform = 'pebble',
-          moddableRoot = '/mod', log = () => {} } = opts;
+          moddableRoot = '/mod', transpile, log = () => {} } = opts;
 
   const { modules, resources, data, config } =
     collectManifest(manifestPath, files, platform, { MODDABLE: moddableRoot },
@@ -227,12 +242,19 @@ export async function buildMod(opts) {
 
   log(`moddable: ${modules.size} modules, ${resources.size + data.size} resources`);
   for (const [target, source] of modules) {
+    let input = source;
+    if (source.endsWith('.ts')) {
+      if (!transpile) throw new Error(`${source} is TypeScript; no transpiler was supplied`);
+      input = source.slice(0, -3) + '.js';
+      const js = await transpile(new TextDecoder().decode(files.get(source)), source);
+      mkdirp(root, dirname(input)).set(basename(input), new File(enc.encode(js)));
+    }
     mkdirp(root, '/files/' + (target.includes('/') ? dirname(target) : ''));
     const outDir = '/w/files' + (target.includes('/') ? '/' + dirname(target) : '');
     const { code, stderr } = await runTool(
-      xsc, 'xsc', ['/w' + source, '-e', '-o', outDir, '-r', basename(target)],
-      mounts, (l) => log('  ' + l));
-    if (code) throw new Error(`xsc failed on ${source}\n${stderr}`);
+      xsc, 'xsc', ['/w' + input, '-e', '-o', outDir, '-r', basename(target)],
+      mounts, cappedLog((l) => log('  ' + l)));
+    if (code) throw new Error(`xsc failed on ${source}\n${stderr.split('\n').slice(0, 20).join('\n')}`);
   }
 
   // Resources and data are stored in the archive untouched.
@@ -249,7 +271,7 @@ export async function buildMod(opts) {
   }
   for (const target of resources.keys()) args.push('/w/files/' + target);
 
-  const { code, stderr } = await runTool(xsl, 'xsl', args, mounts, (l) => log('  ' + l));
+  const { code, stderr } = await runTool(xsl, 'xsl', args, mounts, cappedLog((l) => log('  ' + l)));
   if (code) throw new Error(`xsl failed\n${stderr}`);
   const xsa = readTree(root, 'bin/mc.xsa');
   if (!xsa) throw new Error('xsl produced no mc.xsa');
