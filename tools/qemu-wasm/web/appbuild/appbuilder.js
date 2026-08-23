@@ -142,6 +142,27 @@ function wscriptCflags(wscript) {
   return flags;
 }
 
+// A project's wscript can glob more than the default src/c/**/*.c —
+// extra trees like src/modules are real, and waf honours them. Lift the
+// literal .c glob patterns; a wscript that builds its list dynamically
+// yields nothing and the caller falls back to the layout heuristic.
+function wscriptSourceGlobs(wscript) {
+  if (!wscript) return null;
+  const globs = [];
+  for (const m of wscript.matchAll(/['"]([^'"\n]*\*[^'"\n]*\.c)['"]/g)) {
+    if (!m[1].startsWith('worker_src')) globs.push(m[1]);
+  }
+  return globs.length ? globs : null;
+}
+
+function globToRegExp(glob) {
+  return new RegExp('^' + glob
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*\//g, '\u0000')
+    .replace(/\*/g, '[^/]*')
+    .replace(/\u0000/g, '(?:[^/]+/)*') + '$');
+}
+
 // The PebbleKit JS entry point is declared in the project's wscript
 // (js_entry_file=), so read it from there and fall back to the two
 // conventional layouts.
@@ -328,14 +349,26 @@ export async function buildApp(opts) {
     // ---- compile ----
     const cFiles = Object.keys(projFiles).filter((p) => p.endsWith('.c') &&
       !p.startsWith('src/js/') && !p.startsWith('src/pkjs/'));
+    // The project's own wscript names its source trees; follow it when it
+    // holds literal globs (src/modules next to src/c is real).
+    const wscriptText = rel('wscript') ? td.decode(rel('wscript')) : null;
+    const srcGlobs = wscriptSourceGlobs(wscriptText);
+    let sources = null;
+    if (srcGlobs) {
+      const res = srcGlobs.map(globToRegExp);
+      const picked = cFiles.filter((p) => res.some((r) => r.test(p)));
+      if (picked.length) sources = picked;
+    }
     // An SDK 4 project keeps its C under src/c; older ones put it straight
     // in src. A repo that has lived through both layouts still carries the
     // old copy, and building the two together gives duplicate symbols, so
     // src/c wins wherever it exists — which is what such a project's own
     // wscript globs.
-    const sources = cFiles.some((p) => p.startsWith('src/c/'))
-      ? cFiles.filter((p) => !p.startsWith('src/') || p.startsWith('src/c/'))
-      : cFiles;
+    if (!sources) {
+      sources = cFiles.some((p) => p.startsWith('src/c/'))
+        ? cFiles.filter((p) => !p.startsWith('src/') || p.startsWith('src/c/'))
+        : cFiles;
+    }
     // Nothing but the generated files means the app is not written in C.
     if (!sources.some((p) => p.startsWith('src/'))) {
       const langs = new Set();
@@ -352,8 +385,7 @@ export async function buildApp(opts) {
       .concat(['PBL_SDK_3', 'RELEASE']).map((d) => '-D' + d);
     // A project's own flags win over ours, and a -std of its own replaces
     // the one the SDK would otherwise pick.
-    const extraCflags = wscriptCflags(
-      rel('wscript') ? td.decode(rel('wscript')) : null);
+    const extraCflags = wscriptCflags(wscriptText);
     const baseCflags = extraCflags.some((f) => f.startsWith('-std='))
       ? CFLAGS.filter((f) => !f.startsWith('-std=')) : CFLAGS;
     if (extraCflags.length) log(`wscript flags: ${extraCflags.join(' ')}`);
