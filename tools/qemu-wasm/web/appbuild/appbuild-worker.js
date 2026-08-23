@@ -14,6 +14,7 @@ const post = (m) => self.postMessage(m);
 const log = (msg) => post({ type: 'log', msg });
 
 let toolsPromise = null;
+let xsPromise = null;
 const sdkPacks = new Map();          // platform -> Promise<{path: bytes}>
 let esbuildReady = null;
 
@@ -62,6 +63,30 @@ async function loadTools(base) {
     toolsPromise.catch(() => { toolsPromise = null; });
   }
   return toolsPromise;
+}
+
+// Moddable's compiler and linker, plus the SDK manifests and typings a
+// project's manifest may include. Only a Moddable project needs them, so
+// they are fetched the first time one is built rather than up front.
+async function loadXsTools(base) {
+  if (!xsPromise) {
+    xsPromise = (async () => {
+      log('this is a Moddable project — downloading xsc and xsl…');
+      const [xscGz, xslGz, packZip] = await Promise.all([
+        fetchCached(base + 'tools/xsc.wasm.gz'),
+        fetchCached(base + 'tools/xsl.wasm.gz'),
+        fetchCached(base + 'tools/modpack.zip'),
+      ]);
+      const [xscBytes, xslBytes] = await Promise.all([gunzip(xscGz), gunzip(xslGz)]);
+      const [xsc, xsl] = await Promise.all([
+        WebAssembly.compile(xscBytes.buffer),
+        WebAssembly.compile(xslBytes.buffer),
+      ]);
+      return { xsc, xsl, modFiles: await unzip(packZip) };
+    })();
+    xsPromise.catch(() => { xsPromise = null; });
+  }
+  return xsPromise;
 }
 
 async function loadSdkPack(base, platform) {
@@ -209,7 +234,7 @@ self.onmessage = async (e) => {
     const t0 = performance.now();
     const { pbw, name } = await buildApp({
       repoFiles, clang, lld, sdkPacks: packs, appHint, fetchUrl,
-      rasterizeGlyph,
+      rasterizeGlyph, xsTools: () => loadXsTools(base),
       bundleJs: (args) => bundlePkjs(esbuild, args),
       log,
     });

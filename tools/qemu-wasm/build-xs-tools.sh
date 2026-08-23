@@ -39,14 +39,65 @@ typedef struct { const char *dli_fname, *dli_sname; void *dli_fbase, *dli_saddr;
 static inline int dladdr(const void *addr, Dl_info *info) { (void)addr; (void)info; return 0; }
 EOH
 
-# fxCStackLimit's Linux branch measures the thread stack through a glibc
-# extension wasi-libc does not carry. Failing the call makes XS fall back to
-# no C-stack limit, which is what the other single-stack platforms do.
+# Two libc calls the tools rely on that wasi-libc does not provide:
+#
+#   pthread_getattr_np - fxCStackLimit's Linux branch measures the thread
+#   stack through a glibc extension. Failing it makes XS fall back to no
+#   C-stack limit, which is what the other single-stack platforms do.
+#
+#   realpath - every file the tools open goes through it first, and
+#   wasi-libc's version always fails, so nothing would ever be found. There
+#   are no symlinks in the in-memory filesystem the browser hands us, so
+#   normalising the path textually and confirming it exists is exact.
 cat > "$work/shim/stubs.c" <<'EOC'
+#include <errno.h>
+#include <limits.h>
 #include <pthread.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr);
 int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
   (void)thread; (void)attr; return -1;
+}
+
+char *realpath(const char *path, char *resolved) {
+  char work[PATH_MAX], *out = resolved ? resolved : malloc(PATH_MAX);
+  struct stat st;
+  size_t len = 0;
+
+  if (!path || !*path) { errno = ENOENT; goto fail; }
+  if (!out) return NULL;
+  if (*path == '/') work[0] = 0;
+  else if (!getcwd(work, sizeof work)) { errno = ENOENT; goto fail; }
+  if (strlen(work) + strlen(path) + 2 > PATH_MAX) { errno = ENAMETOOLONG; goto fail; }
+  strcat(work, "/");
+  strcat(work, path);
+
+  // rebuild the path one component at a time, dropping "." and popping on ".."
+  for (char *p = work, *next; p; p = next) {
+    next = strchr(p, '/');
+    if (next) *next++ = 0;
+    if (!*p || !strcmp(p, ".")) continue;
+    if (!strcmp(p, "..")) {
+      char *slash = strrchr(out, '/');
+      if (slash) { *slash = 0; len = slash - out; }
+      continue;
+    }
+    out[len++] = '/';
+    strcpy(out + len, p);
+    len += strlen(p);
+  }
+  if (!len) { out[0] = '/'; out[1] = 0; }
+
+  if (stat(out, &st) != 0) goto fail;
+  return out;
+
+fail:
+  if (!resolved) free(out);
+  return NULL;
 }
 EOC
 
@@ -84,7 +135,7 @@ build_tool() {
   done
   echo "linking $name.wasm..."
   "$CC" --target=wasm32-wasi -mllvm -wasm-enable-sjlj \
-    -o "$OUT/$name.wasm" "${objs[@]}" -lm -lwasi-emulated-signal
+    -o "$OUT/$name.wasm" "${objs[@]}" -lm -lwasi-emulated-signal -lsetjmp
 }
 
 # xsc: the JavaScript front end only. It parses, builds a syntax tree and
@@ -93,7 +144,7 @@ build_tool xsc '-DmxCompile=1' \
   sources/xsBigInt.c sources/xsCode.c sources/xsCommon.c sources/xsdtoa.c \
   sources/xsLexical.c sources/xsre.c sources/xsScope.c sources/xsScript.c \
   sources/xsSourceMap.c sources/xsSyntaxical.c sources/xsTree.c \
-  tools/xsc.c
+  tools/xsc.c "$work/shim/stubs.c"
 
 # xsl: the linker runs a real XS machine to preload modules, so it pulls in
 # the whole runtime. xslOpt.h stands in for the platform header (that is where

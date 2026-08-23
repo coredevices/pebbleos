@@ -10,6 +10,7 @@ import { buildResources, findTaggedFile } from './resources.js';
 import { objcopyToBin, injectMetadata, makePbw, makeManifest } from './elfpack.js';
 import { makeTree, readTree, runTool } from './wasi-run.js';
 import { fetchDependencies } from './deps.js';
+import { buildMod, findModManifest } from './moddable.js';
 
 const te = new TextEncoder();
 // stands in for a file path when the resource comes from memory
@@ -115,12 +116,17 @@ function findJsEntry(rel, wscript) {
 //   rasterizeGlyph: async (fontData, cp, px) => glyph,   // see resources.js
 //   bundleJs: async ({entryPath, files, appinfo}) => string | null,
 //   appHint: name to disambiguate a repo holding several apps,
-//   mods: {platform: Uint8Array}, XS archives for a Moddable project,
+//   xsTools: async () => ({xsc, xsl, modFiles}), Moddable's compiler and
+//     linker as WebAssembly.Modules plus the SDK files a manifest may
+//     include (unzipped modpack.zip). Called only for a Moddable project,
+//     so an ordinary build never fetches them,
+//   mods: {platform: Uint8Array}, prebuilt XS archives, if the caller has
+//     them already and wants to skip the xsc/xsl step,
 //   log: (msg) => void,
 //   timestamp: unix seconds,
 // }
 export async function buildApp(opts) {
-  const { repoFiles, clang, lld, mods, log = () => {} } = opts;
+  const { repoFiles, clang, lld, mods, xsTools, log = () => {} } = opts;
   const timestamp = opts.timestamp || Math.floor(Date.now() / 1000);
   // sdkPacks maps platform -> unzipped pack. The SDK builds every target
   // platform into one bundle; we build every one we hold an SDK for.
@@ -170,6 +176,32 @@ export async function buildApp(opts) {
     }
   }
 
+  // ---- Moddable archive ----
+  // A Moddable project's JavaScript is compiled to an XS archive and carried
+  // as a raw resource named MOD, appended after the app's own resources
+  // (process_sdk_resources.py). The archive holds no native code, so one
+  // build covers every platform in the bundle.
+  let modBytes = null;
+  if (projectType === 'moddable') {
+    if (mods) {
+      modBytes = mods[primary];
+    } else if (xsTools) {
+      const { xsc, xsl, modFiles } = await xsTools();
+      const files = new Map();
+      for (const [path, data] of Object.entries(modFiles || {})) {
+        files.set('/mod/' + path, data);
+      }
+      for (const [path, data] of Object.entries(repoFiles)) files.set('/proj/' + path, data);
+      const manifestPath = findModManifest(
+        Object.keys(repoFiles).filter((p) => p.startsWith(prefix)).map((p) => '/proj/' + p));
+      if (!manifestPath) throw new Error('Moddable project has no manifest.json');
+      modBytes = await buildMod({ manifestPath, files, xsc, xsl, log });
+    }
+    if (!modBytes) {
+      throw new Error('this is a Moddable project; building it needs xsc and xsl');
+    }
+  }
+
   // Everything from resources to the linked binary depends on the
   // board, so it runs once per platform being bundled.
   const perPlatform = {};
@@ -179,16 +211,7 @@ export async function buildApp(opts) {
     // ---- resources ----
     let media = (appinfo.resources && appinfo.resources.media) || [];
     const publishedMedia = (appinfo.resources && appinfo.resources.publishedMedia) || [];
-    // A Moddable project's JavaScript is compiled to an XS archive and
-    // carried as a raw resource named MOD, appended after the app's own
-    // (process_sdk_resources.py).
-    let modBytes = null;
     if (projectType === 'moddable') {
-      modBytes = mods && mods[platform];
-      if (!modBytes) {
-        throw new Error(`no XS archive for ${platform}; a Moddable project ` +
-          'needs its JavaScript compiled to mc.xsa first');
-      }
       media = media.concat([{ type: 'raw', name: 'MOD', file: MOD_SENTINEL }]);
     }
     const resourceFiles = Object.keys(repoFiles)
