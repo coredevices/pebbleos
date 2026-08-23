@@ -471,7 +471,12 @@
     let busy = false;
 
     const say = (msg) => { statusEl.textContent = msg; console.log('[install] ' + msg); };
-    const jsLog = (msg) => { console.log('[pkjs] ' + msg); };
+    // pkjs activity goes to the on-page console too, so JS-side issues
+    // (fetch failures, geolocation denials) are visible without devtools.
+    const jsLog = (msg) => {
+      console.log('[pkjs] ' + msg);
+      if (window.log) window.log('[pkjs] ' + msg);
+    };
 
     // CORS-proxy fallback for the JS apps' web requests and store
     // downloads. Override with ?pkjs_proxy=<url-prefix>; the target URL
