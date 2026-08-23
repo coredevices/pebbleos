@@ -70,13 +70,31 @@
     }
     footer { margin-top: 14px; font-size: 11px; color: #6a6a7a; }
     footer a { color: #4cc9f0; text-decoration: none; }
+    #install-panel {
+      width: min(640px, 100%); margin-bottom: 14px;
+      background: #1a1a2a; border: 1px solid #2a2a3a; border-radius: 6px;
+      padding: 10px;
+    }
+    #install-row { display: flex; gap: 8px; }
+    #install-input {
+      flex: 1; background: #0f0f1a; color: #d8d8e0;
+      border: 1px solid #3a3a50; border-radius: 4px;
+      font-family: inherit; font-size: 12px; padding: 6px 8px;
+    }
+    #btn-install { background: #2f8f4b; border-color: #2f8f4b; color: #fff; }
+    #install-status { font-size: 11px; color: #8a8a99; margin-top: 6px; }
+    #install-progress { height: 4px; background: #0f0f1a; border-radius: 2px;
+      overflow: hidden; margin-top: 6px; display: none; }
+    #install-progress-fill { height: 100%; width: 0; background: #2f8f4b; transition: width 0.15s; }
+    body.dragging #screen-frame { outline: 3px dashed #2f8f4b; outline-offset: 4px; }
   </style>
 </head>
 <body>
   <h1>PebbleOS Emulator</h1>
   <p class="subtitle">
     QEMU compiled to WebAssembly boots real PebbleOS firmware entirely in your
-    browser. Emulation uses the TCG interpreter, so booting takes a while.
+    browser, JIT-compiling ARM code to wasm. Paste an apps.repebble.com link
+    below to install real apps onto the emulated watch.
   </p>
 
   <div id="controls">
@@ -102,6 +120,16 @@
     <button id="btn-down" title="Down (Arrow Down)">Down</button>
   </div>
   <div class="hint">Keys: &larr; Back &middot; &uarr;/&darr; Navigate &middot; &rarr;/Enter Select &middot; buttons can be held</div>
+
+  <div id="install-panel">
+    <div id="install-row">
+      <input id="install-input" type="text" spellcheck="false"
+             placeholder="Paste an apps.repebble.com link (or .pbw URL) and press Install">
+      <button id="btn-install" disabled>Install</button>
+    </div>
+    <div id="install-status">Boot the watch first — then install apps from the store, or drag a .pbw onto the screen.</div>
+    <div id="install-progress"><div id="install-progress-fill"></div></div>
+  </div>
 
   <details open>
     <summary>Serial console (UART2)</summary>
@@ -414,6 +442,109 @@
 
     bootBtn.addEventListener('click', boot);
     if (params.has('auto')) boot();
+  </script>
+
+  <script type="module">
+    // App install: JS "phone" over the shared-memory serial bridge.
+    import { PebblePhone } from './pebble-transport.js';
+    import { parsePbw } from './pbw.js';
+    import { AppInstaller } from './app-install.js';
+    import { fetchPbwFromStore } from './store.js';
+
+    const input = document.getElementById('install-input');
+    const btn = document.getElementById('btn-install');
+    const statusEl = document.getElementById('install-status');
+    const barEl = document.getElementById('install-progress');
+    const fillEl = document.getElementById('install-progress-fill');
+    const boardSel = document.getElementById('board');
+
+    let phone = null;
+    let installer = null;
+    let busy = false;
+
+    const say = (msg) => { statusEl.textContent = msg; console.log('[install] ' + msg); };
+
+    // Attach once QEMU is up and the serial bridge export exists.
+    const attach = setInterval(() => {
+      const q = window.qemu;
+      if (!q || phone) return;
+      if (typeof q._pebble_wasm_serial_ctrl !== 'function') {
+        say('This QEMU build has no serial bridge — app install unavailable.');
+        clearInterval(attach);
+        return;
+      }
+      phone = new PebblePhone(q, (m) => console.log('[phone] ' + m));
+      phone.onPhoneVersionRequest = () => {
+        btn.disabled = false;
+        say('Connected to the watch — paste a store link or drag a .pbw onto the screen.');
+      };
+      installer = new AppInstaller(phone, onProgress, (m) => say(m));
+      setInterval(() => phone.poll(), 20);
+      clearInterval(attach);
+    }, 500);
+
+    function onProgress(p) {
+      if (p.phase === 'transfer') {
+        barEl.style.display = 'block';
+        fillEl.style.width = Math.round((p.sent / p.total) * 100) + '%';
+        say('Transferring ' + p.detail + ': ' +
+            (p.sent >> 10) + ' / ' + (p.total >> 10) + ' KB');
+      } else if (p.phase === 'done') {
+        barEl.style.display = 'none';
+      }
+    }
+
+    async function installBytes(bytes, label) {
+      if (!installer) { say('Boot the watch first.'); return; }
+      if (busy) { say('An install is already running.'); return; }
+      busy = true; btn.disabled = true;
+      try {
+        const pbw = await parsePbw(bytes, boardSel.value);
+        const info = await installer.install(pbw);
+        say('Installed and launching: ' + info.name + ' ✓');
+      } catch (e) {
+        say('Install failed: ' + e.message);
+        console.error(e);
+      } finally {
+        busy = false; btn.disabled = false; barEl.style.display = 'none';
+      }
+    }
+
+    async function installFromInput() {
+      const text = input.value.trim();
+      if (!text) { say('Paste an apps.repebble.com link first.'); return; }
+      if (busy) { say('An install is already running.'); return; }
+      try {
+        const { name, pbw } = await fetchPbwFromStore(text, boardSel.value, say);
+        say('Downloaded "' + name + '" (' + (pbw.length >> 10) + ' KB)');
+        await installBytes(pbw, name);
+      } catch (e) {
+        say(e.message);
+      }
+    }
+
+    btn.addEventListener('click', installFromInput);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') installFromInput(); });
+    // Debug/testing hook: install from raw bytes without the store.
+    window.__installPbw = installBytes;
+
+    // Drag-drop a .pbw anywhere on the page.
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      document.body.classList.add('dragging');
+    });
+    document.addEventListener('dragleave', (e) => {
+      if (e.relatedTarget === null) document.body.classList.remove('dragging');
+    });
+    document.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      document.body.classList.remove('dragging');
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f) return;
+      if (!/\.pbw$/i.test(f.name)) { say(f.name + ' is not a .pbw'); return; }
+      say('Installing ' + f.name + '…');
+      await installBytes(new Uint8Array(await f.arrayBuffer()), f.name);
+    });
   </script>
 </body>
 </html>
