@@ -12,6 +12,8 @@ import { makeTree, readTree, runTool } from './wasi-run.js';
 import { fetchDependencies } from './deps.js';
 
 const te = new TextEncoder();
+// stands in for a file path when the resource comes from memory
+const MOD_SENTINEL = '\u0000mod';
 const td = new TextDecoder();
 
 const CFLAGS = [
@@ -113,11 +115,12 @@ function findJsEntry(rel, wscript) {
 //   rasterizeGlyph: async (fontData, cp, px) => glyph,   // see resources.js
 //   bundleJs: async ({entryPath, files, appinfo}) => string | null,
 //   appHint: name to disambiguate a repo holding several apps,
+//   mods: {platform: Uint8Array}, XS archives for a Moddable project,
 //   log: (msg) => void,
 //   timestamp: unix seconds,
 // }
 export async function buildApp(opts) {
-  const { repoFiles, clang, lld, log = () => {} } = opts;
+  const { repoFiles, clang, lld, mods, log = () => {} } = opts;
   const timestamp = opts.timestamp || Math.floor(Date.now() / 1000);
   // sdkPacks maps platform -> unzipped pack. The SDK builds every target
   // platform into one bundle; we build every one we hold an SDK for.
@@ -128,10 +131,6 @@ export async function buildApp(opts) {
   const { prefix, pkg, others } = findProject(repoFiles, opts.appHint);
   const rel = (p) => repoFiles[prefix + p];
   const projectType = (pkg.pebble && pkg.pebble.projectType) || 'native';
-  if (projectType !== 'native') {
-    throw new Error(`this is a "${projectType}" project; only native (C) apps ` +
-      'can be built here');
-  }
   const appinfo = genAppinfoJson(pkg);
   // Block keys stay out of appinfo.json but still need C declarations.
   const allKeys = messageKeysFor(pkg.pebble && pkg.pebble.messageKeys).all;
@@ -178,12 +177,25 @@ export async function buildApp(opts) {
     const sdkPack = sdkPacks[platform];
     log(`--- ${platform} ---`);
     // ---- resources ----
-    const media = (appinfo.resources && appinfo.resources.media) || [];
+    let media = (appinfo.resources && appinfo.resources.media) || [];
     const publishedMedia = (appinfo.resources && appinfo.resources.publishedMedia) || [];
+    // A Moddable project's JavaScript is compiled to an XS archive and
+    // carried as a raw resource named MOD, appended after the app's own
+    // (process_sdk_resources.py).
+    let modBytes = null;
+    if (projectType === 'moddable') {
+      modBytes = mods && mods[platform];
+      if (!modBytes) {
+        throw new Error(`no XS archive for ${platform}; a Moddable project ` +
+          'needs its JavaScript compiled to mc.xsa first');
+      }
+      media = media.concat([{ type: 'raw', name: 'MOD', file: MOD_SENTINEL }]);
+    }
     const resourceFiles = Object.keys(repoFiles)
       .filter((p) => p.startsWith(prefix + 'resources/'))
       .map((p) => p.slice((prefix + 'resources/').length));
     const readResource = async (path) => {
+      if (path === MOD_SENTINEL) return modBytes;
       // A resource may only exist as ~tagged variants (menu-icon~color.png).
       const pick = findTaggedFile(path, resourceFiles, PLATFORMS[platform].tags);
       const data = pick ? rel('resources/' + pick) : null;
@@ -373,5 +385,5 @@ export async function buildApp(opts) {
     name, data, date: new Date(timestamp * 1000),
   })));
   log(`pbw ready: ${pbw.length} bytes for ${platforms.join(', ')}`);
-  return { pbw, appinfo, name };
+  return { pbw, appinfo, name, platforms: perPlatform };
 }

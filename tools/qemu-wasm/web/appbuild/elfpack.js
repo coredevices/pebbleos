@@ -124,14 +124,18 @@ function relocateEntries(elf) {
   return entries;
 }
 
-// Static memory usage: end of .bss (or of .data when there is no .bss).
+// Static memory usage: the highest address any allocated section reaches.
+// inject_metadata.py takes the end of .bss because GNU ld folds .got into
+// .data and leaves .bss last; lld gives .got its own section after .bss,
+// so stopping at .bss understates the footprint and the firmware then
+// refuses to launch ("App image exceeds virtual size").
 function virtualSize(elf) {
   let end = 0;
   for (const s of elf.sections) {
-    if (s.name === '.bss') end = s.addr + s.size;
-    else if (s.name === '.data' && end === 0) end = s.addr + s.size;
+    if (!(s.flags & SHF_ALLOC)) continue;
+    end = Math.max(end, s.addr + s.size);
   }
-  if (end === 0) throw new Error('failed to find .data/.bss for virtual size');
+  if (end === 0) throw new Error('no allocated sections; cannot size the app');
   return end;
 }
 
