@@ -17,18 +17,32 @@ export function extractAppId(input) {
   return matches ? matches[matches.length - 1] : null;
 }
 
-async function fetchJson(url) {
-  const r = await fetch(url, { mode: 'cors' });
+// Fetch with a CORS-proxy fallback: direct first, then through the
+// proxy prefix (target URL appended URI-encoded) when the direct
+// request is CORS-blocked — e.g. the store's pbw asset bucket.
+async function robustFetch(url, proxy) {
+  try {
+    const r = await fetch(url, { mode: 'cors' });
+    if (r.ok || !proxy) return r;
+    throw new Error(`HTTP ${r.status}`);
+  } catch (e) {
+    if (!proxy) throw e;
+    return fetch(proxy + encodeURIComponent(url), { mode: 'cors' });
+  }
+}
+
+async function fetchJson(url, proxy) {
+  const r = await robustFetch(url, proxy);
   if (!r.ok) throw new Error(`HTTP ${r.status} from ${new URL(url).host}`);
   return r.json();
 }
 
 // Returns {name, pbw: Uint8Array}
-export async function fetchPbwFromStore(input, hardware = 'emery', onStatus = () => {}) {
+export async function fetchPbwFromStore(input, hardware = 'emery', onStatus = () => {}, proxy = null) {
   const direct = input.trim();
   if (/\.pbw($|\?)/i.test(direct)) {
     onStatus('downloading .pbw…');
-    const r = await fetch(direct, { mode: 'cors' });
+    const r = await robustFetch(direct, proxy);
     if (!r.ok) throw new Error(`HTTP ${r.status} downloading pbw`);
     return { name: direct.split('/').pop(), pbw: new Uint8Array(await r.arrayBuffer()) };
   }
@@ -43,13 +57,13 @@ export async function fetchPbwFromStore(input, hardware = 'emery', onStatus = ()
   for (const base of API_BASES) {
     try {
       onStatus(`looking up app on ${new URL(base).host}…`);
-      const json = await fetchJson(`${base}/api/v1/apps/id/${id}?hardware=${hardware}`);
+      const json = await fetchJson(`${base}/api/v1/apps/id/${id}?hardware=${hardware}`, proxy);
       const app = json.data && json.data[0];
       if (!app) throw new Error('app not found in store');
       const pbwUrl = app.latest_release && app.latest_release.pbw_file;
       if (!pbwUrl) throw new Error(`"${app.title}" has no downloadable release`);
       onStatus(`downloading "${app.title}"…`);
-      const r = await fetch(pbwUrl, { mode: 'cors' });
+      const r = await robustFetch(pbwUrl, proxy);
       if (!r.ok) throw new Error(`HTTP ${r.status} downloading pbw`);
       return { name: app.title, pbw: new Uint8Array(await r.arrayBuffer()) };
     } catch (e) {

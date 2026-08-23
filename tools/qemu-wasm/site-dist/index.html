@@ -473,11 +473,12 @@
     const say = (msg) => { statusEl.textContent = msg; console.log('[install] ' + msg); };
     const jsLog = (msg) => { console.log('[pkjs] ' + msg); };
 
-    // CORS-proxy fallback for the JS apps' web requests. Override with
-    // ?pkjs_proxy=<url-prefix>; the target URL is appended URI-encoded.
+    // CORS-proxy fallback for the JS apps' web requests and store
+    // downloads. Override with ?pkjs_proxy=<url-prefix>; the target URL
+    // is appended URI-encoded.
     const params2 = new URLSearchParams(window.location.search);
     const PKJS_PROXY = params2.get('pkjs_proxy') ||
-      'https://pkjs-proxy.repebble.com/?url=';
+      'https://pkjs-proxy.ericmigi.workers.dev/?url=';
 
     // Per-app persistent storage, scoped into the page's localStorage.
     function scopedStorage(prefix) {
@@ -564,7 +565,7 @@
         if (pbw.js && pkjs) {
           pkjs.registerApp(info.uuid, {
             js: pbw.js,
-            appKeys: (pbw.appinfo && pbw.appinfo.appKeys) || {},
+            appKeys: (pbw.appinfo && (pbw.appinfo.appKeys || pbw.appinfo.messageKeys)) || {},
             name: info.name,
           });
           say('Installed and launching: ' + info.name + ' ✓ (with PebbleKit JS)');
@@ -584,7 +585,7 @@
       if (!text) { say('Paste an apps.repebble.com link first.'); return; }
       if (busy) { say('An install is already running.'); return; }
       try {
-        const { name, pbw } = await fetchPbwFromStore(text, boardSel.value, say);
+        const { name, pbw } = await fetchPbwFromStore(text, boardSel.value, say, PKJS_PROXY);
         say('Downloaded "' + name + '" (' + (pbw.length >> 10) + ' KB)');
         await installBytes(pbw, name);
       } catch (e) {
