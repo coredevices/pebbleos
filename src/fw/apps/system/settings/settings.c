@@ -101,8 +101,7 @@ static int16_t prv_get_cell_height_callback(MenuLayer *menu_layer,
   return menu_layer_is_index_selected(menu_layer, cell_index) ? focused_cell_height :
                                                                 unfocused_cell_height;
 #else
-  // FIXME: hardcoding as settings menu is "special"
-  return 37;
+  return menu_cell_basic_cell_height();
 #endif
 }
 
