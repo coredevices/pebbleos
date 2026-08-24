@@ -31,6 +31,7 @@ jobs:
               - 'third_party/**'
               - 'tools/waf/**'
               - 'waf'
+              - 'pbl'
               - 'wscript'
 
   build-qemu-sdkshell:
@@ -71,10 +72,12 @@ jobs:
         run: echo "dir=$(npm config get cache)" >> ${GITHUB_OUTPUT}
 
       - name: Configure
-        run: ./waf configure --board ${{ matrix.board }} -DCONFIG_SHELL_SDK=y
+        run: ./pbl configure --board ${{ matrix.board }} -DCONFIG_SHELL_SDK=y
 
       - name: Build
-        run: ./waf build qemu_image_micro qemu_image_spi
+        run: |
+          ./pbl build
+          ./pbl qemu_images
 
       - name: Store
         uses: actions/upload-artifact@v6

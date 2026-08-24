@@ -31,13 +31,10 @@ sys.path.append(os.path.join(waf_dir, 'tools/log_hashing'))
 sys.path.append(os.path.join(waf_dir, 'sdk/tools/'))
 sys.path.append(os.path.join(waf_dir, 'tools/waf'))
 
-import tools.waf.generate_log_strings_json
 import tools.waf.generate_timezone_data
 import tools.waf.gitinfo
 import tools.waf.boards
 import tools.waf.ldscript
-import tools.waf.objcopy
-import tools.waf.pblboot
 import tools.waf.pebble_sdk_gcc as pebble_sdk_gcc
 import tools.runners as pebble_runners
 from tools.waf.pebble_sdk_locator import activate_sdk
@@ -50,13 +47,6 @@ from pebble_sdk_version import set_env_sdk_version
 activate_sdk(waflib.Context.run_dir or os.getcwd())
 
 LOGHASH_OUT_PATH = 'src/fw/loghash_dict.json'
-
-
-@conf
-def get_pbz_node(ctx, fw_type, board_type, version_string, slot=None):
-    return ctx.path.get_bld().make_node('{}_{}_{}{}.pbz'.format(
-        fw_type, board_type, version_string, "" if slot is None else f"_slot{slot}"
-    ))
 
 
 @conf
@@ -226,8 +216,6 @@ def configure(conf):
 
     conf.load('protoc')
 
-    conf.load('binary_header')
-
     platform = pebble_platforms[conf.env.PLATFORM_NAME]
     define = 'MAX_FONT_GLYPH_SIZE={}'.format(platform['MAX_FONT_GLYPH_SIZE'])
     conf.env.append_value('DEFINES', [define])
@@ -326,6 +314,46 @@ def configure(conf):
     import tool_check
     tool_check.tool_check()
 
+    _write_build_info(conf)
+
+
+def _write_build_info(conf):
+    """Describe the configured build in build/build-info.json, the neutral
+    interface the standalone tooling (fw_image, bundling, pbl) consumes."""
+    import tools.build_info
+
+    env = conf.all_envs['']
+    config = {k: v for k, v in env.get_merged_dict().items()
+              if k.startswith('CONFIG_')}
+    is_prf = env.VARIANT == 'prf'
+    log_hashed = bool(env.CONFIG_LOG_HASHED)
+
+    tools.build_info.write_build_info(conf.bldnode.abspath(), {
+        'board': env.BOARD,
+        'board_name': env.BOARD_NAME,
+        'board_revision': env.BOARD_REVISION or None,
+        'board_normalized': env.BOARD_NORMALIZED,
+        'platform': env.PLATFORM_NAME,
+        'min_sdk_version': env.MIN_SDK_VERSION,
+        'variant': env.VARIANT,
+        'js_engine': env.JS_ENGINE,
+        'slot': None if env.SLOT == -1 else env.SLOT,
+        'runners': env.SUPPORTED_RUNNERS or [],
+        'runner': env.RUNNER or None,
+        # Paths are relative to the build directory.
+        'artifacts': {
+            'elf': 'pebbleos.elf',
+            'bin': 'pebbleos.bin',
+            'hex': 'pebbleos.hex',
+            'map': 'pebbleos.map',
+            'pbpack': None if is_prf else 'system_resources.pbpack',
+            'fw_loghash_dict': 'pebbleos_loghash_dict.json' if log_hashed else None,
+            'loghash_dict': LOGHASH_OUT_PATH if log_hashed else None,
+            'pot': None if is_prf else 'pebbleos.pot',
+        },
+        'config': config,
+    })
+
 
 def stop_build_timer(ctx):
     t = datetime.datetime.utcnow() - ctx.pbl_build_start_time
@@ -398,8 +426,7 @@ def _link_firmware(bld, sources):
         fw_linkflags.append('-Wl,--require-defined=g_memfault_build_id')
         uses.append('memfault')
 
-    # Used by pblboot image tools; the C define mirrors the historical name.
-    bld.env.FIRMWARE_OFFSET = bld.env.CONFIG_FIRMWARE_OFFSET
+    # The C define mirrors the historical name.
     bld.env.append_value('DEFINES', [f'FIRMWARE_OFFSET={bld.env.CONFIG_FIRMWARE_OFFSET}'])
 
     # Build and link the firmware ELF
@@ -415,30 +442,24 @@ def _link_firmware(bld, sources):
 
     x.env.append_value('LINKFLAGS', fw_linkflags)
 
-    if bld.env.CONFIG_PBLBOOT:
-        git_revision = tools.waf.gitinfo.get_git_revision(bld)
-        bld.env.PBLBOOT_PRIORITY = str(tools.waf.pblboot.boot_priority(
-            git_revision['TAG'], int(git_revision['TIMESTAMP'])))
-        nohdr_hex_node = elf_node.change_ext('.nohdr.hex')
-        bld(rule=tools.waf.objcopy.objcopy_hex, source=elf_node, target=nohdr_hex_node)
-        hex_node = elf_node.change_ext('.hex')
-        bld(rule=tools.waf.pblboot.insert_header_hex, source=nohdr_hex_node, target=hex_node)
-        nohdr_bin_node = elf_node.change_ext('.nohdr.bin')
-        bld(rule=tools.waf.objcopy.objcopy_bin, source=elf_node, target=nohdr_bin_node)
-        bin_node = elf_node.change_ext('.bin')
-        bld(rule=tools.waf.pblboot.insert_header_bin, source=nohdr_bin_node, target=bin_node)
-    else:
-        hex_node = elf_node.change_ext('.hex')
-        bld(rule=tools.waf.objcopy.objcopy_hex, source=elf_node, target=hex_node)
-        bin_node = elf_node.change_ext('.bin')
-        bld(rule=tools.waf.objcopy.objcopy_bin, source=elf_node, target=bin_node)
-
-    # Create the log_strings .elf and check the format specifier rules
+    # Post-link image pipeline: hex/bin (+ pblboot header) and the loghash
+    # dictionaries, all handled by the standalone tools/fw_image.py driven
+    # from build-info.json.
+    targets = [elf_node.change_ext('.hex'), elf_node.change_ext('.bin')]
     if bld.env.CONFIG_LOG_HASHED:
-        fw_loghash_node = bld.path.get_bld().make_node('pebbleos_loghash_dict.json')
-        bld(rule=tools.waf.generate_log_strings_json.wafrule,
-            source=elf_node, target=fw_loghash_node, path=bld.path)
-        bld.LOGHASH_DICTS.append(fw_loghash_node)
+        targets.append(bld.path.get_bld().make_node('pebbleos_loghash_dict.json'))
+        targets.append(bld.path.get_bld().make_node(LOGHASH_OUT_PATH))
+    bld(rule=_fw_image_rule, source=elf_node, target=targets)
+
+
+def _fw_image_rule(task):
+    bld = task.generator.bld
+    return task.exec_command([
+        sys.executable,
+        os.path.join(bld.srcnode.abspath(), 'tools', 'fw_image.py'),
+        '--build-dir', bld.bldnode.abspath(),
+        '--elf', task.inputs[0].abspath(),
+    ])
 
 
 def _build_recovery(bld):
@@ -558,7 +579,6 @@ def _build_fw(bld):
 
 def build(bld):
     bld.DYNAMIC_RESOURCES = []
-    bld.LOGHASH_DICTS = []
 
     # Start this timer here to include the time to generate tasks.
     bld.pbl_build_start_time = datetime.datetime.utcnow()
@@ -623,15 +643,6 @@ def build(bld):
     bld.recurse('resources')
 
     bld.add_post_fun(size_resources)
-    if bld.env.CONFIG_LOG_HASHED:
-        bld.add_post_fun(merge_loghash_dicts)
-
-
-def merge_loghash_dicts(bld):
-    loghash_dict = bld.path.get_bld().make_node(LOGHASH_OUT_PATH)
-
-    import log_hashing.newlogging
-    log_hashing.newlogging.merge_loghash_dict_json_files(loghash_dict, bld.LOGHASH_DICTS)
 
 
 class SizeResources(BuildContext):
@@ -649,14 +660,9 @@ def size_resources(ctx):
     if pbpack_path is None:
         ctx.fatal('No resource pbpack found')
 
-    if ctx.env.CONFIG_SOC_NRF52:
-        max_size = 1024 * 1024
-    elif ctx.env.CONFIG_SOC_SF32LB52:
-        max_size = 2048 * 1024
-    elif ctx.env.CONFIG_QEMU:
-        max_size = 2048 * 1024
-    else:
-        max_size = 256 * 1024
+    max_size = ctx.env.CONFIG_SYSTEM_RESOURCES_MAX_SIZE
+    if not max_size:
+        ctx.fatal('CONFIG_SYSTEM_RESOURCES_MAX_SIZE not set, cannot check resources size')
 
     pbpack_actual_size = os.path.getsize(pbpack_path.path_from(ctx.path))
 
@@ -705,135 +711,6 @@ def docs_all(ctx):
     """builds the documentation with all dependency graphs out to build/doxygen"""
     ctx.exec_command('doxygen Doxyfile-all-graphs', stdout=None, stderr=None)
 
-# Bundle commands
-#################################################
-
-
-def _get_version_info(ctx):
-    # FIXME: it's probably a better idea to lift board + version info from the .bin file... this can get out of sync!
-    git_revision = tools.waf.gitinfo.get_git_revision(ctx)
-    if git_revision['TAG'] != '?':
-        version_string = git_revision['TAG']
-        version_ts = int(git_revision['TIMESTAMP'])
-        version_commit = git_revision['COMMIT']
-    else:
-        version_string = 'dev'
-        version_ts = 0
-        version_commit = ''
-    return version_string, version_ts, version_commit
-
-
-def _make_bundle(ctx, fw_bin_path, fw_type='normal', board=None, resource_path=None, write=True):
-    import mkbundle
-
-    if board is None:
-        board = ctx.env.BOARD_NORMALIZED
-
-    b = mkbundle.PebbleBundle()
-
-    version_string, version_ts, version_commit = _get_version_info(ctx)
-    slot = ctx.env.SLOT if fw_type == 'normal' and ctx.env.SLOT != -1 else None
-    out_file = ctx.get_pbz_node(fw_type, ctx.env.BOARD_NORMALIZED, version_string, slot).path_from(ctx.path)
-
-    try:
-        _check_firmware_image_size(ctx, fw_bin_path)
-        b.add_firmware(fw_bin_path, fw_type, version_ts, version_commit, board, version_string, slot)
-    except FirmwareTooLargeException as e:
-        ctx.fatal(str(e))
-    except mkbundle.MissingFileException as e:
-        ctx.fatal('Error: Missing file ' + e.filename + ', have you run ./waf build yet?')
-
-    if resource_path is not None:
-        b.add_resources(resource_path, version_ts)
-    if not ctx.env.CONFIG_RELEASE and ctx.env.CONFIG_LOG_HASHED:
-        loghash_dict = ctx.path.get_bld().make_node(LOGHASH_OUT_PATH).abspath()
-        b.add_loghash(loghash_dict)
-
-    # Add a LICENSE.txt file
-    b.add_license('LICENSE')
-
-    if fw_type == 'normal':
-        layouts_node = ctx.path.get_bld().find_node('resources/layouts.json.auto')
-        if layouts_node is not None:
-            b.add_layouts(layouts_node.path_from(ctx.path))
-
-    if write:
-        b.write(out_file)
-        waflib.Logs.pprint('CYAN', 'Writing bundle to: %s' % out_file)
-
-    return b
-
-
-class BundleCommand(BuildContext):
-    cmd = 'bundle'
-    fun = 'bundle'
-
-
-def bundle(ctx):
-    """bundles a firmware"""
-
-    if ctx.env.VARIANT == 'prf':
-        _make_bundle(ctx, ctx.get_pebbleos_node().path_from(ctx.path), fw_type='recovery')
-    else:
-        _make_bundle(ctx, ctx.get_pebbleos_node().path_from(ctx.path),
-                     resource_path=ctx.get_pbpack_node().path_from(ctx.path))
-
-
-# QEMU flash image commands
-#################################################
-
-class QemuImageMicroCommand(BuildContext):
-    cmd = 'qemu_image_micro'
-    fun = 'qemu_image_micro'
-
-
-class QemuImageSpiCommand(BuildContext):
-    cmd = 'qemu_image_spi'
-    fun = 'qemu_image_spi'
-
-
-def qemu_image_micro(ctx):
-    """creates the micro-flash image for qemu"""
-    from intelhex import IntelHex
-
-    fw_hex = ctx.get_pebbleos_node().change_ext('.hex')
-    micro_flash_node = ctx.path.get_bld().make_node('qemu_micro_flash.bin')
-    micro_flash_path = micro_flash_node.path_from(ctx.path)
-    Logs.pprint('CYAN', 'Writing micro flash image to {}'.format(micro_flash_path))
-
-    img = IntelHex(fw_hex.path_from(ctx.path))
-    img.padding = 0xff
-    flash_end = ((img.maxaddr() + 511) // 512) * 512
-    img.tobinfile(micro_flash_path, start=0x00000000, end=flash_end - 1)
-
-
-def qemu_image_spi(ctx):
-    """creates a SPI flash image for qemu"""
-    if ctx.env.CONFIG_QEMU:
-        # QEMU generic boards: resources at offset 0x620000 in 32MB flash
-        resources_begin = 0x620000
-        image_size = 0x2000000
-    else:
-        resources_begin = 0x280000
-        image_size = 0x400000
-
-    spi_flash_node = ctx.path.get_bld().make_node('qemu_spi_flash.bin')
-    spi_flash_path = spi_flash_node.path_from(ctx.path)
-    Logs.pprint('CYAN', 'Writing SPI flash image to {}'.format(spi_flash_path))
-    with open(spi_flash_path, 'wb') as qemu_spi_img_file:
-        # Pad the first section before system resources with FF's
-        qemu_spi_img_file.write(bytes([0xff]) * resources_begin)
-
-        # Write system resources:
-        pbpack = ctx.get_pbpack_node()
-        res_img = open(pbpack.path_from(ctx.path), 'rb').read()
-        qemu_spi_img_file.write(res_img)
-
-        # Pad with 0xFF up to image size
-        tail_padding_size = image_size - resources_begin - len(res_img)
-        qemu_spi_img_file.write(bytes([0xff]) * tail_padding_size)
-
-
 # Flash commands
 #################################################
 
@@ -842,25 +719,10 @@ class FirmwareTooLargeException(Exception):
 
 
 def _check_firmware_image_size(ctx, path):
-    BYTES_PER_K = 1024
     firmware_size = os.path.getsize(path)
-    # Determine flash and bootloader size so we can calculate the max firmware size
-    if ctx.env.CONFIG_SOC_NRF52:
-        if ctx.env.VARIANT == 'prf' and not ctx.env.CONFIG_MFG:
-            max_firmware_size = 512 * BYTES_PER_K
-        else:
-            # 1024k of flash and 32k bootloader
-            max_firmware_size = (1024 - 32) * BYTES_PER_K
-    elif ctx.env.CONFIG_SOC_SF32LB52:
-        if ctx.env.VARIANT == 'prf' and not ctx.env.CONFIG_MFG:
-            max_firmware_size = 576 * BYTES_PER_K
-        else:
-            # 3072k of flash
-            max_firmware_size = 3072 * BYTES_PER_K
-    elif ctx.env.CONFIG_QEMU:
-        max_firmware_size = 4096 * BYTES_PER_K
-    else:
-        ctx.fatal('Cannot check firmware size against unknown micro family')
+    max_firmware_size = ctx.env.CONFIG_FW_MAX_SIZE
+    if not max_firmware_size:
+        ctx.fatal('CONFIG_FW_MAX_SIZE not set, cannot check firmware size')
 
     if firmware_size > max_firmware_size:
         raise FirmwareTooLargeException('Firmware is too large! Size is 0x%x should be less than 0x%x' \

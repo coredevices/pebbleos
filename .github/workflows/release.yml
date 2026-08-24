@@ -48,13 +48,13 @@ jobs:
           BOARD: ${{ matrix.board }}
 
       - name: Configure
-        run: ./waf configure --board '${{ matrix.board }}' --variant=prf -DCONFIG_RELEASE=y
+        run: ./pbl configure --board '${{ matrix.board }}' --variant=prf -DCONFIG_RELEASE=y
 
       - name: Build PRF
-        run: ./waf build
+        run: ./pbl build
 
       - name: Bundle PRF
-        run: ./waf bundle
+        run: ./pbl bundle
 
       - name: Copy PRF artifacts
         run: |
@@ -83,10 +83,10 @@ jobs:
             --endpoint-url "${{ vars.LOG_HASH_BUCKET_ENDPOINT }}"
 
       - name: Configure PRF MFG
-        run: ./waf configure --board '${{ matrix.board }}' --variant=prf -DCONFIG_MFG=y -DCONFIG_LOG_HASHED=n -DCONFIG_RELEASE=y
+        run: ./pbl configure --board '${{ matrix.board }}' --variant=prf -DCONFIG_MFG=y -DCONFIG_LOG_HASHED=n -DCONFIG_RELEASE=y
 
       - name: Build MFG PRF
-        run: ./waf build
+        run: ./pbl build
 
       - name: Copy MFG PRF artifacts
         run: |
@@ -166,13 +166,13 @@ jobs:
           fi
 
       - name: Configure
-        run: ./waf configure --board '${{ matrix.board }}' -DCONFIG_FIRMWARE_SLOT=${{ matrix.slot }} -DCONFIG_RELEASE=y
+        run: ./pbl configure --board '${{ matrix.board }}' -DCONFIG_FIRMWARE_SLOT=${{ matrix.slot }} -DCONFIG_RELEASE=y
 
       - name: Build firmware
-        run: ./waf build
+        run: ./pbl build
 
       - name: Bundle firmware
-        run: ./waf bundle
+        run: ./pbl bundle
 
       - name: Copy firmware artifacts
         run: |
@@ -239,10 +239,12 @@ jobs:
           pip install -r requirements.txt
 
       - name: Configure
-        run: ./waf configure --board '${{ matrix.board }}'
+        run: ./pbl configure --board '${{ matrix.board }}'
 
       - name: Build QEMU images
-        run: ./waf build qemu_image_micro qemu_image_spi
+        run: |
+          ./pbl build
+          ./pbl qemu_images
 
       - name: Copy QEMU artifacts
         run: |
@@ -251,10 +253,12 @@ jobs:
           cp build/qemu_spi_flash.bin artifacts/${{ matrix.board }}_${{ github.ref_name }}_spi_flash.bin
 
       - name: Configure SDK shell
-        run: ./waf configure --board '${{ matrix.board }}' -DCONFIG_SHELL_SDK=y
+        run: ./pbl configure --board '${{ matrix.board }}' -DCONFIG_SHELL_SDK=y
 
       - name: Build SDK shell QEMU images
-        run: ./waf build qemu_image_micro qemu_image_spi
+        run: |
+          ./pbl build
+          ./pbl qemu_images
 
       - name: Copy SDK shell QEMU artifacts
         run: |

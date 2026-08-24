@@ -51,7 +51,7 @@ def boot_priority(tag=None, commit_timestamp=None):
     return (PRIORITY_BAND_DEV << 56) | (int(now.timestamp()) & 0xFFFFFFFF)
 
 
-def _insert_header_hex(fin, fout, offset, priority):
+def insert_header_hex(fin, fout, offset, priority):
     # Load the hex file
     ih = IntelHex(fin)
 
@@ -85,7 +85,7 @@ def _insert_header_hex(fin, fout, offset, priority):
     out_ih.write_hex_file(fout)
 
 
-def _insert_header_bin(fin, fout, offset, priority):
+def insert_header_bin(fin, fout, offset, priority):
     # Read the input binary file
     with open(fin, "rb") as f:
         content = f.read()
@@ -100,32 +100,6 @@ def _insert_header_bin(fin, fout, offset, priority):
         f.write(fwdesc)
         f.write(b"\xff" * (offset - len(fwdesc)))
         f.write(content)
-
-
-def _env_priority(bld):
-    if bld.env.PBLBOOT_PRIORITY:
-        return int(bld.env.PBLBOOT_PRIORITY)
-    return boot_priority()
-
-
-def insert_header_hex(task):
-    bld = task.generator.bld
-    _insert_header_hex(
-        task.inputs[0].abspath(),
-        task.outputs[0].abspath(),
-        bld.env.FIRMWARE_OFFSET,
-        _env_priority(bld),
-    )
-
-
-def insert_header_bin(task):
-    bld = task.generator.bld
-    _insert_header_bin(
-        task.inputs[0].abspath(),
-        task.outputs[0].abspath(),
-        bld.env.FIRMWARE_OFFSET,
-        _env_priority(bld),
-    )
 
 
 if __name__ == "__main__":
@@ -148,6 +122,6 @@ if __name__ == "__main__":
     priority = boot_priority(args.tag, args.commit_timestamp)
 
     if args.input.endswith(".bin"):
-        _insert_header_bin(args.input, args.output, args.offset, priority)
+        insert_header_bin(args.input, args.output, args.offset, priority)
     else:
-        _insert_header_hex(args.input, args.output, args.offset, priority)
+        insert_header_hex(args.input, args.output, args.offset, priority)

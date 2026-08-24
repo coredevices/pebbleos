@@ -34,6 +34,26 @@ config PBLBOOT
       layout with direct XIP. Disable for boards whose SoC bootloader
       consumes a raw image and uses a single firmware slot.
 
+config FW_MAX_SIZE
+    hex
+    default 0xf8000 if SOC_NRF52 && (!RECOVERY_FW || MFG)
+    default FW_FLASH_SIZE
+    help
+      Maximum size of the firmware image binary, enforced when
+      bundling and flashing. Defaults to the firmware flash bank
+      size; the nRF52 normal-firmware bank keeps 32 KiB reserved for
+      the bootloader.
+
+config SYSTEM_RESOURCES_MAX_SIZE
+    hex
+    default 0x100000 if SOC_NRF52
+    default 0x200000 if SOC_SF32LB52
+    default 0x200000 if SOC_QEMU
+    default 0x40000
+    help
+      Maximum size of the system resources pbpack, enforced after the
+      resource build.
+
 menu "Compiler options"
 
 config LTO

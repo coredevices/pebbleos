@@ -30,6 +30,7 @@ jobs:
               - 'third_party/**'
               - 'tools/waf/**'
               - 'waf'
+              - 'pbl'
               - 'wscript'
 
   build-prf:
@@ -90,13 +91,13 @@ jobs:
             OPTS="-DCONFIG_MFG=y -DCONFIG_LOG_HASHED=n"
           fi
 
-          ./waf configure --board '${{ matrix.board }}' --variant=prf $OPTS
+          ./pbl configure --board '${{ matrix.board }}' --variant=prf $OPTS
 
       - name: Build
-        run: ./waf build
+        run: ./pbl build
 
       - name: Bundle
-        run: ./waf bundle
+        run: ./pbl bundle
 
       - name: Store
         uses: actions/upload-artifact@v6

@@ -34,10 +34,10 @@ jobs:
           pip install -r requirements.txt
 
       - name: Configure
-        run: ./waf configure --board ${{ env.BOARD_NAME }}
+        run: ./pbl configure --board ${{ env.BOARD_NAME }}
 
       - name: Build
-        run: ./waf build
+        run: ./pbl build
 
       - name: Copy POT template
         run: cp build/pebbleos.pot resources/normal/base/lang/tintin.pot

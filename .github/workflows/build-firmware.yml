@@ -32,6 +32,7 @@ jobs:
               - 'third_party/**'
               - 'tools/waf/**'
               - 'waf'
+              - 'pbl'
               - 'wscript'
 
   build-firmware:
@@ -84,13 +85,13 @@ jobs:
           BOARD: ${{ matrix.board }}
 
       - name: Configure
-        run: ./waf configure --board '${{ matrix.board }}'
+        run: ./pbl configure --board '${{ matrix.board }}'
 
       - name: Build
-        run: ./waf build
+        run: ./pbl build
 
       - name: Bundle
-        run: ./waf bundle
+        run: ./pbl bundle
 
       - name: Store
         uses: actions/upload-artifact@v6

@@ -14,7 +14,7 @@ Tests are built and run with waf. Configure first (any board works; CI uses
 ./pbl test
 ```
 
-Useful options (see `./waf --help` for the full list):
+Useful options (see `./pbl test --help` for the full list):
 
 - `-M REGEX` / `--match REGEX`: only build/run test files matching the regex,
   e.g. `./pbl test -M test_animation`

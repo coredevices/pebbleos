@@ -2,9 +2,8 @@
 
 SLE is a small run-length encoding tuned for binary blobs that mix long
 zero runs with otherwise incompressible data. The encoder is
-`tools/waf/sparse_length_encoding.py` (used by the `binary_header` waf
-feature in `tools/waf/binary_header.py` to embed compressed blobs as C
-arrays); the firmware-side decoder is `src/fw/util/sle.c`.
+`tools/waf/sparse_length_encoding.py`; the firmware-side decoder is
+`src/fw/util/sle.c`.
 
 The encoded stream is:
 

@@ -9,13 +9,12 @@ openocd, reset, bork, image_*, make_lang, pack_lang, pack_all_langs) that used
 to live in the root ``wscript``but are not build steps, and provides thin 
 pass-through wrappers for the everyday ``./waf`` commands so there is a single entry point.
 
-Build state is read directly from the configured build dir
-(``build/c4che/_cache.py``); no waf process is spawned for operational
-commands. Run ``./waf configure --board BOARD`` first.
+Build state is read from ``build/build-info.json``, written at configure
+time; no waf process is spawned for operational commands. Run
+``./pbl configure --board BOARD`` first.
 """
 
 import argparse
-import importlib.util
 import os
 import platform
 import shlex
@@ -28,7 +27,7 @@ BUILD_DIR = os.path.join(REPO_ROOT, "build")
 LANG_DIR_REL = "resources/normal/base/lang"
 
 # Commands forwarded verbatim to ./waf (no build env / waflib needed).
-WAF_PASSTHROUGH = ("configure", "menuconfig", "build", "bundle", "clean", "test", "waf")
+WAF_PASSTHROUGH = ("configure", "menuconfig", "build", "clean", "test", "waf")
 
 # QEMU SDL decorations per board. The first entry is used as the default.
 QEMU_DECORATIONS = {
@@ -62,15 +61,6 @@ def _run_shell(cmd):
     return subprocess.call(cmd, shell=True)
 
 
-def _run_waf(*args):
-    """Run a ./waf subcommand for build steps that pbl orchestrates but does
-    not perform itself (e.g. the QEMU flash images)."""
-    if _DRY_RUN:
-        _pprint("YELLOW", "[dry-run] ./waf " + " ".join(args))
-        return 0
-    return subprocess.call([sys.executable, "waf"] + list(args), cwd=REPO_ROOT)
-
-
 # --- Configured build env -------------------------------------------------
 
 class Env:
@@ -91,13 +81,27 @@ class Env:
 
 
 def load_env():
-    cache = os.path.join(BUILD_DIR, "c4che", "_cache.py")
-    if not os.path.isfile(cache):
-        _fatal("Build not configured -- run ./waf configure --board BOARD first.")
-    spec = importlib.util.spec_from_file_location("_waf_cache", cache)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    data = {k: v for k, v in vars(mod).items() if not k.startswith("__")}
+    from tools.build_info import load_build_info
+
+    try:
+        info = load_build_info(BUILD_DIR)
+    except (FileNotFoundError, ValueError) as e:
+        _fatal(str(e))
+
+    data = dict(info["config"])
+    data.update({
+        "BOARD": info["board"],
+        "BOARD_NAME": info["board_name"],
+        "BOARD_REVISION": info["board_revision"] or "",
+        "BOARD_NORMALIZED": info["board_normalized"],
+        "PLATFORM_NAME": info["platform"],
+        "MIN_SDK_VERSION": info["min_sdk_version"],
+        "VARIANT": info["variant"],
+        "JS_ENGINE": info["js_engine"],
+        "SLOT": -1 if info["slot"] is None else info["slot"],
+        "SUPPORTED_RUNNERS": info["runners"],
+        "RUNNER": info["runner"],
+    })
     return Env(data)
 
 
@@ -199,22 +203,10 @@ class FirmwareTooLargeException(Exception):
 
 
 def _check_firmware_image_size(env, path):
-    BYTES_PER_K = 1024
     firmware_size = os.path.getsize(path)
-    if env.CONFIG_SOC_NRF52:
-        if env.VARIANT == "prf" and not env.CONFIG_MFG:
-            max_firmware_size = 512 * BYTES_PER_K
-        else:
-            max_firmware_size = (1024 - 32) * BYTES_PER_K
-    elif env.CONFIG_SOC_SF32LB52:
-        if env.VARIANT == "prf" and not env.CONFIG_MFG:
-            max_firmware_size = 576 * BYTES_PER_K
-        else:
-            max_firmware_size = 3072 * BYTES_PER_K
-    elif env.CONFIG_QEMU:
-        max_firmware_size = 4096 * BYTES_PER_K
-    else:
-        _fatal("Cannot check firmware size against unknown micro family")
+    max_firmware_size = env.CONFIG_FW_MAX_SIZE
+    if not max_firmware_size:
+        _fatal("CONFIG_FW_MAX_SIZE not set, cannot check firmware size")
 
     if firmware_size > max_firmware_size:
         raise FirmwareTooLargeException(
@@ -345,15 +337,28 @@ def _qemu_launch(env, options):
     _run_shell(cmd_line)
 
 
+def _make_qemu_images(*images):
+    if _DRY_RUN:
+        _pprint("YELLOW", "[dry-run] make_qemu_images " + " ".join(images))
+        return 0
+    return subprocess.call([sys.executable, "tools/make_qemu_images.py",
+                            "--build-dir", BUILD_DIR] + list(images))
+
+
+def cmd_qemu_images(env, options):
+    """Build the QEMU micro + SPI flash images from the built firmware."""
+    if _make_qemu_images() != 0:
+        _fatal("Failed to build QEMU flash images")
+
+
 def cmd_qemu(env, options):
-    # The flash images are build artifacts, so let waf produce them. Always
-    # rebuild the micro-flash image; by default rebuild the SPI flash too
-    # (--keep-flash-image keeps the stored apps/data from a previous run).
-    if _run_waf("qemu_image_micro") != 0:
+    # Always rebuild the micro-flash image; by default rebuild the SPI flash
+    # too (--keep-flash-image keeps the stored apps/data from a previous run).
+    if _make_qemu_images("micro") != 0:
         _fatal("Failed to build QEMU micro flash image")
     spi_flash = os.path.join(BUILD_DIR, "qemu_spi_flash.bin")
     if not options.keep_flash_image or not os.path.isfile(spi_flash):
-        if _run_waf("qemu_image_spi") != 0:
+        if _make_qemu_images("spi") != 0:
             _fatal("Failed to build QEMU SPI flash image")
     _qemu_launch(env, options)
 
@@ -511,6 +516,14 @@ def cmd_run(env, options):
 def cmd_bork(env, options):
     """Resets and wipes a connected device."""
     _run_runner(env, options, "erase")
+
+
+def cmd_bundle(env, options):
+    """Bundle the built firmware into a .pbz (no waf involved)."""
+    ret = subprocess.call([sys.executable, "tools/make_fw_bundle.py",
+                           "--build-dir", BUILD_DIR])
+    if ret != 0:
+        _fatal("bundle failed")
 
 
 def cmd_image_resources(env, options):
@@ -757,10 +770,12 @@ def cmd_pack_all_langs(env, options):
 
 
 OPERATIONAL = {
+    "bundle": cmd_bundle,
     "flash": cmd_flash,
     "console": cmd_console,
     "debug": cmd_debug,
     "qemu": cmd_qemu,
+    "qemu_images": cmd_qemu_images,
     "screenshot": cmd_screenshot,
     "touch": cmd_touch,
     "swipe": cmd_swipe,
@@ -817,6 +832,9 @@ def build_parser():
     p.add_argument("--qemu-decoration", default=None, choices=QEMU_DECORATION_CHOICES,
                    help="SDL decoration for QEMU (defaults to the per-board default)")
 
+    sub.add_parser("qemu_images",
+                   help="Build the QEMU micro + SPI flash images")
+
     p = sub.add_parser("touch", help="Inject a touch tap into running QEMU (pixels)")
     p.add_argument("x", type=int, help="x coordinate in screen pixels")
     p.add_argument("y", type=int, help="y coordinate in screen pixels")
@@ -842,6 +860,8 @@ def build_parser():
                    help="Start or resume a connected device")
     sub.add_parser("bork", parents=[dry, runner, runner_args],
                    help="Reset and wipe a connected device")
+
+    sub.add_parser("bundle", help="Bundle the built firmware into a .pbz")
 
     p = sub.add_parser("image_resources", parents=[dry],
                        help="UART-image system resources")

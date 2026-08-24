@@ -3,63 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from binascii import crc32
 import os
-import struct
-from functools import reduce
 
-import stm32_crc
+from pebble.commander.util.fw_binary_info import (
+    PebbleFirmwareBinaryInfo as _PebbleFirmwareBinaryInfo,
+)
 
 
-class PebbleFirmwareBinaryInfo(object):
-    V1_STRUCT_VERSION = 1
-    V1_STRUCT_DEFINTION = [
-        ("20s", "build_id"),
-        ("L", "version_timestamp"),
-        ("32s", "version_tag"),
-        ("8s", "version_short"),
-        ("?", "is_recovery_firmware"),
-        ("B", "hw_platform"),
-        ("B", "metadata_version"),
-    ]
-    # The platforms which use a legacy defective crc32
-    LEGACY_CRC_PLATFORMS = [
-        0,  # unknown (assume legacy)
-        1,  # OneEV1
-        2,  # OneEV2
-        3,  # OneEV2_3
-        4,  # OneEV2_4
-        5,  # OnePointFive
-        6,  # TwoPointFive
-        7,  # SnowyEVT2
-        8,  # SnowyDVT
-        9,  # SpaldingEVT
-        10,  # BobbyDVT
-        11,  # Spalding
-        0xFF,  # OneBigboard
-        0xFE,  # OneBigboard2
-        0xFD,  # SnowyBigboard
-        0xFC,  # SnowyBigboard2
-        0xFB,  # SpaldingBigboard
-    ]
-
-    def get_crc(self):
-        _, ext = os.path.splitext(self.path)
-        assert ext == ".bin", "Can only calculate crc for .bin files"
-        with open(self.path, "rb") as f:
-            image = f.read()
-        if self.hw_platform in self.LEGACY_CRC_PLATFORMS:
-            # use the legacy defective crc
-            return stm32_crc.crc32(image)
-        else:
-            # use a regular crc
-            return crc32(image) & 0xFFFFFFFF
-
-    def _get_footer_struct(self):
-        fmt = "<" + reduce(
-            lambda s, t: s + t[0], PebbleFirmwareBinaryInfo.V1_STRUCT_DEFINTION, ""
-        )
-        return struct.Struct(fmt)
+class PebbleFirmwareBinaryInfo(_PebbleFirmwareBinaryInfo):
+    """Extends the pebble-commander implementation with .elf input support,
+    which needs the repo-local binutils helper."""
 
     def _get_footer_data_from_elf(self, path):
         import binutils
@@ -69,46 +22,13 @@ class PebbleFirmwareBinaryInfo(object):
         build_id_data = binutils.section_bytes(path, ".note.gnu.build-id")[16:]
         return build_id_data + fw_version_data
 
-    def _get_footer_data_from_bin(self, path):
-        with open(path, "rb") as f:
-            struct_size = self.struct.size
-            f.seek(-struct_size, 2)
-            footer_data = f.read()
-            return footer_data
-
-    def _parse_footer_data(self, footer_data):
-        z = zip(
-            PebbleFirmwareBinaryInfo.V1_STRUCT_DEFINTION,
-            self.struct.unpack(footer_data),
-        )
-        return {entry[1]: data for entry, data in z}
-
-    def __init__(self, elf_or_bin_path):
-        self.path = elf_or_bin_path
-        self.struct = self._get_footer_struct()
-        _, ext = os.path.splitext(elf_or_bin_path)
+    def _get_footer_data(self, path):
+        _, ext = os.path.splitext(path)
         if ext == ".elf":
-            footer_data = self._get_footer_data_from_elf(elf_or_bin_path)
-        elif ext == ".bin":
-            footer_data = self._get_footer_data_from_bin(elf_or_bin_path)
-        else:
-            raise ValueError('Unexpected extension. Must be ".bin" or ".elf"')
-        self.info = self._parse_footer_data(footer_data)
-
-        # Trim leading NULLS on the strings:
-        for k in ["version_tag", "version_short"]:
-            self.info[k] = self.info[k].rstrip(b"\x00")
-
-    def __str__(self):
-        return str(self.info)
-
-    def __repr__(self):
-        return self.info.__repr__()
-
-    def __getattr__(self, name):
-        if name in self.info:
-            return self.info[name]
-        raise AttributeError
+            return self._get_footer_data_from_elf(path)
+        if ext == ".bin":
+            return self._get_footer_data_from_bin(path)
+        raise ValueError('Unexpected extension. Must be ".bin" or ".elf"')
 
 
 if __name__ == "__main__":
