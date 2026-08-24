@@ -30,15 +30,34 @@
 #include "fake_rtc.h"
 
 HRMSessionRef s_hrm_next_session_ref = 1;
+int s_hrm_live_subscriptions = 0;
+uint16_t s_hrm_last_expire_s = 0;
+bool s_hrm_activity_tracking_enabled = true;
+
 HRMSessionRef hrm_manager_subscribe_with_callback(AppInstallId app_id, uint32_t update_interval_s,
                                                   uint16_t expire_s, HRMFeature features,
                                                   HRMSubscriberCallback callback, void *context) {
+  s_hrm_live_subscriptions++;
+  s_hrm_last_expire_s = expire_s;
   return s_hrm_next_session_ref++;
 }
 
 bool sys_hrm_manager_unsubscribe(HRMSessionRef session) {
   cl_assert(session < s_hrm_next_session_ref);
+  cl_assert(s_hrm_live_subscriptions > 0);
+  s_hrm_live_subscriptions--;
   return true;
+}
+
+bool sys_hrm_manager_set_update_interval(HRMSessionRef session, uint32_t update_interval_s,
+                                         uint16_t expire_s) {
+  cl_assert(session < s_hrm_next_session_ref);
+  s_hrm_last_expire_s = expire_s;
+  return true;
+}
+
+bool activity_prefs_hrm_activity_tracking_is_enabled(void) {
+  return s_hrm_activity_tracking_enabled;
 }
 
 #include <dirent.h>
@@ -2208,3 +2227,87 @@ void test_kraepelin_algorithm__sleep_stats(void) {
 }
 
 
+
+// ---------------------------------------------------------------------------------------
+// Feed active walking minutes, leaving the walk activity in progress.
+static void prv_feed_walk_minutes(int num_minutes) {
+  time_t now = rtc_get_time();
+  for (int i = 0; i < num_minutes; i++) {
+    kalg_activities_update(s_kalg_state, now, 80 /*steps*/, 7000 /*vmc*/, 0 /*orientation*/,
+                           true /*definitely_not_worn*/, 100 /*resting_calories*/,
+                           200 /*active_calories*/, 1000 /*distance_mm*/, false /*shutting_down*/,
+                           prv_activity_session_callback, NULL);
+    now += SECONDS_PER_MINUTE;
+    rtc_set_time(now);
+  }
+}
+
+// ---------------------------------------------------------------------------------------
+// The HRM subscription taken by an auto-detected activity must be released when activity
+// tracking is disabled, even though the activity itself stays in progress. Otherwise starting a
+// workout leaves a never-expiring 1-second subscription behind that pins the sensor on.
+void test_kraepelin_algorithm__hrm_released_when_tracking_disabled(void) {
+  s_kalg_state = kernel_zalloc(kalg_state_size());
+  kalg_init(s_kalg_state, prv_stats_cb);
+  s_hrm_live_subscriptions = 0;
+  s_num_captured_activity_sessions = 0;
+
+  // Walk long enough to pass the 3 minute threshold that arms the HRM
+  prv_feed_walk_minutes(5);
+  cl_assert_equal_i(s_hrm_live_subscriptions, 1);
+
+  // Starting a workout disables activity tracking while the walk is still in progress
+  kalg_enable_activity_tracking(s_kalg_state, false);
+  cl_assert_equal_i(s_hrm_live_subscriptions, 0);
+
+  kalg_deinit(s_kalg_state);
+  kernel_free(s_kalg_state);
+  s_kalg_state = NULL;
+}
+
+// ---------------------------------------------------------------------------------------
+// kalg_deinit must release a subscription held by an in-progress activity. The caller frees the
+// state right after, so anything left subscribed is orphaned in the manager until reboot.
+void test_kraepelin_algorithm__hrm_released_on_deinit(void) {
+  s_kalg_state = kernel_zalloc(kalg_state_size());
+  kalg_init(s_kalg_state, prv_stats_cb);
+  s_hrm_live_subscriptions = 0;
+  s_num_captured_activity_sessions = 0;
+
+  prv_feed_walk_minutes(5);
+  cl_assert_equal_i(s_hrm_live_subscriptions, 1);
+
+  kalg_deinit(s_kalg_state);
+  cl_assert_equal_i(s_hrm_live_subscriptions, 0);
+
+  kernel_free(s_kalg_state);
+  s_kalg_state = NULL;
+}
+
+// ---------------------------------------------------------------------------------------
+// The subscription is bounded and re-armed each active minute, so it lapses on its own if the
+// state machine ever stops running.
+void test_kraepelin_algorithm__hrm_subscription_is_bounded(void) {
+  s_kalg_state = kernel_zalloc(kalg_state_size());
+  kalg_init(s_kalg_state, prv_stats_cb);
+  s_hrm_live_subscriptions = 0;
+  s_hrm_last_expire_s = 0;
+  s_num_captured_activity_sessions = 0;
+
+  prv_feed_walk_minutes(5);
+  cl_assert_equal_i(s_hrm_live_subscriptions, 1);
+
+  // The window has to outlast the inactive-minute grace period, or an ongoing activity would
+  // lose its subscription mid-walk
+  cl_assert(s_hrm_last_expire_s > 7 * SECONDS_PER_MINUTE);
+
+  // Each further active minute re-arms it rather than subscribing again
+  s_hrm_last_expire_s = 0;
+  prv_feed_walk_minutes(1);
+  cl_assert_equal_i(s_hrm_live_subscriptions, 1);
+  cl_assert(s_hrm_last_expire_s > 7 * SECONDS_PER_MINUTE);
+
+  kalg_deinit(s_kalg_state);
+  kernel_free(s_kalg_state);
+  s_kalg_state = NULL;
+}
