@@ -5,6 +5,7 @@
 
 #include "system/passert.h"
 
+#include "pbl/util/misc.h"
 #include "portmacro.h"
 
 // NOTE: The s_bt_lock is the global Bluetooth lock that is used by the firmware
@@ -30,8 +31,7 @@ PebbleRecursiveMutex *bt_lock_get(void) {
 }
 
 void bt_lock(void) {
-  register uint32_t LR __asm ("lr");
-  uint32_t myLR = LR;
+  uint32_t myLR = PBL_RETURN_ADDRESS();
   mutex_lock_recursive_with_timeout_and_lr(s_bt_lock, portMAX_DELAY, myLR);
 }
 

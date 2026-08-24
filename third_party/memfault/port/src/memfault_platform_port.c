@@ -14,6 +14,7 @@
 #include "pbl/os/mutex.h"
 #include "pbl/services/clock.h"
 #include "pbl/services/new_timer/new_timer.h"
+#include "pbl/util/misc.h"
 #include <pbl/logging/logging.h>
 #include "system/version.h"
 
@@ -125,8 +126,7 @@ void memfault_lock(void) {
     return;
   }
 
-  register uint32_t LR __asm ("lr");
-  uint32_t myLR = LR;
+  uint32_t myLR = PBL_RETURN_ADDRESS();
   mutex_lock_recursive_with_timeout_and_lr(s_memfault_lock, portMAX_DELAY, myLR);
 }
 

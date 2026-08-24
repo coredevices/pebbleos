@@ -14,6 +14,7 @@
 #include "syscall/syscall.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
+#include "pbl/util/misc.h"
 #include "pbl/util/size.h"
 
 #include "FreeRTOS.h"
@@ -249,8 +250,7 @@ void mcu_call_unprivileged_resume(void) {
 }
 
 NORETURN syscall_failed(void) {
-  register uint32_t lr __asm("lr");
-  uint32_t saved_lr = lr;
+  uint32_t saved_lr = PBL_RETURN_ADDRESS();
 
   PBL_ASSERT(mcu_state_is_privileged(), "Insufficient Privileges!");
 

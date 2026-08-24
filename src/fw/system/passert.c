@@ -11,6 +11,7 @@
 #include "syscall/syscall.h"
 #include <pbl/logging/logging.h>
 #include "pbl/util/heap.h"
+#include "pbl/util/misc.h"
 
 #include <string.h>
 #include <stdarg.h>
@@ -130,8 +131,7 @@ void passert_check_not_task(PebbleTask unexpected_task) {
 //! Assert function called by the STM peripheral library's
 //! 'assert_param' method. See stm32f2xx_conf.h for more information.
 void assert_failed(uint8_t* file, uint32_t line) {
-  register uintptr_t lr __asm("lr");
-  uintptr_t saved_lr = lr;
+  uintptr_t saved_lr = PBL_RETURN_ADDRESS();
 
   handle_passert_failed((const char*) file, line, saved_lr, "STM32", "STM32 peripheral library tripped an assert");
 }
