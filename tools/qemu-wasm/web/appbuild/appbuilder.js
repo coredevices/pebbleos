@@ -23,9 +23,13 @@ const CFLAGS = [
   // firmware structs like Tuplet depend on it, so match the ABI
   '-std=c99', '-fshort-enums',
   '-ffunction-sections', '-fdata-sections', '-fcommon',
-  // the SDK's era of newlib exposed BSD names (uint, strcasecmp, …) even
-  // under -std=c99; today's headers want _DEFAULT_SOURCE asked for
+  // the SDK's era of newlib declared the System V types (uint, ushort, …)
+  // through stdio.h; today's stdio.h no longer pulls sys/types.h, so
+  // include it up front — with the time_t typedef silenced, since time_t
+  // is already a macro here — and ask for the BSD/misc visibility the old
+  // headers had by default
   '-g', '-fPIE', '-Os', '-D_TIME_H_', '-Dtime_t=long', '-D_DEFAULT_SOURCE',
+  '-D__time_t_defined', '-D_TIME_T_DECLARED', '-include', 'sys/types.h',
   '-Wall', '-Wno-typedef-redefinition', '-Wno-missing-field-initializers',
   '-resource-dir', '/clang-res',
   '-isystem', '/newlib', '-I', '/sdk/include',
