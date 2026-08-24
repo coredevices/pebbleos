@@ -28,7 +28,7 @@ const CFLAGS = [
   // include it up front — with the time_t typedef silenced, since time_t
   // is already a macro here — and ask for the BSD/misc visibility the old
   // headers had by default
-  '-g', '-fPIE', '-Os', '-D_TIME_H_', '-Dtime_t=long', '-D_DEFAULT_SOURCE',
+  '-g', '-fPIE', '-Oz', '-D_TIME_H_', '-Dtime_t=long', '-D_DEFAULT_SOURCE',
   '-D__time_t_defined', '-D_TIME_T_DECLARED', '-include', 'sys/types.h',
   '-Wall', '-Wno-typedef-redefinition', '-Wno-missing-field-initializers',
   '-resource-dir', '/clang-res',
