@@ -47,10 +47,9 @@ static const MenuCellDimensions s_menu_cell_dimensions[NumPreferredContentSizes]
     .horizontal_inset = 10,
     .title_subtitle_left_margin = 34,
   },
-  //! @note these are the same as Large until ExtraLarge is designed
   [PreferredContentSizeExtraLarge] = {
-    .basic_cell_height = 61,
-    .small_cell_height = 42,
+    .basic_cell_height = 85,
+    .small_cell_height = 52,
     .horizontal_inset = 10,
     .title_subtitle_left_margin = 34,
   },
