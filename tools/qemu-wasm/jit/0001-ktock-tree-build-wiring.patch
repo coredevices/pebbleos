@@ -1,5 +1,5 @@
 diff --git a/configs/meson/emscripten.txt b/configs/meson/emscripten.txt
-index 4230e88..144f045 100644
+index 4230e88..271f162 100644
 --- a/configs/meson/emscripten.txt
 +++ b/configs/meson/emscripten.txt
 @@ -4,5 +4,5 @@ cpp_args = ['-pthread']
@@ -8,13 +8,53 @@ index 4230e88..144f045 100644
  # configuration so explicitly add the flag here.
 -c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
 -cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
-+c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
-+cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
++c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain','-sASYNCIFY_STACK_SIZE=1048576']
++cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain','-sASYNCIFY_STACK_SIZE=1048576']
 diff --git a/hw/arm/Kconfig b/hw/arm/Kconfig
-index 97d747e..50b1aa4 100644
+index 97d747e..7174d76 100644
 --- a/hw/arm/Kconfig
 +++ b/hw/arm/Kconfig
-@@ -694,3 +694,9 @@ config ARMSSE
+@@ -213,6 +213,7 @@ config SABRELITE
+     depends on TCG && ARM
+     select FSL_IMX6
+     select SSI_M25P80
++    select UNIMP
+ 
+ config STELLARIS
+     bool
+@@ -300,6 +301,7 @@ config ZYNQ
+     select PL330
+     select SDHCI
+     select SSI_M25P80
++    select UNIMP
+     select USB_CHIPIDEA
+     select XILINX # UART
+     select XILINX_AXI
+@@ -437,6 +439,7 @@ config XLNX_ZYNQMP_ARM
+     select SDHCI
+     select SSI
+     select SSI_M25P80
++    select UNIMP
+     select XILINX_AXI
+     select XILINX_SPIPS
+     select XLNX_CSU_DMA
+@@ -553,6 +556,7 @@ config ASPEED_SOC
+     select PCA954X
+     select SSI
+     select SSI_M25P80
++    select UNIMP
+     select TMP105
+     select TMP421
+     select EMC141X
+@@ -663,6 +667,7 @@ config EMCRAFT_SF2
+     depends on TCG && ARM
+     select MSF2
+     select SSI_M25P80
++    select UNIMP
+ 
+ config MSF2
+     bool
+@@ -694,3 +699,14 @@ config ARMSSE
      select UNIMP
      select SSE_COUNTER
      select SSE_TIMER
@@ -24,11 +64,16 @@ index 97d747e..50b1aa4 100644
 +    default y
 +    depends on TCG && ARM
 +    select ARM_V7M
++    select I2C
++    select PFLASH_CFI02
++    select SSI
++    select SSI_M25P80
++    select UNIMP
 diff --git a/hw/arm/meson.build b/hw/arm/meson.build
-index aeaf654..72e1c2f 100644
+index aeaf654..c022a9a 100644
 --- a/hw/arm/meson.build
 +++ b/hw/arm/meson.build
-@@ -106,5 +106,11 @@ arm_common_ss.add(when: 'CONFIG_VEXPRESS', if_true: files('vexpress.c'))
+@@ -106,5 +106,15 @@ arm_common_ss.add(when: 'CONFIG_VEXPRESS', if_true: files('vexpress.c'))
  
  arm_common_ss.add(files('boot.c'))
  
@@ -36,39 +81,348 @@ index aeaf654..72e1c2f 100644
 +arm_common_ss.add(when: 'CONFIG_PEBBLE', if_true: files(
 +  'pebble_generic.c',
 +  'pebble_control.c',
++  'pebble.c',
++  'pebble_silk.c',
++  'pebble_stm32f2xx_soc.c',
++  'pebble_stm32f4xx_soc.c',
 +))
 +
  hw_arch += {'arm': arm_ss}
  hw_common_arch += {'arm': arm_common_ss}
+diff --git a/hw/block/meson.build b/hw/block/meson.build
+index 43ed296..95e66ed 100644
+--- a/hw/block/meson.build
++++ b/hw/block/meson.build
+@@ -19,3 +19,4 @@ specific_ss.add(when: 'CONFIG_VHOST_USER_BLK', if_true: files('vhost-user-blk.c'
+ system_ss.add(when: 'CONFIG_VHOST_USER_BLK', if_true: files('virtio-blk-common.c'))
+ 
+ subdir('dataplane')
++system_ss.add(when: 'CONFIG_PEBBLE', if_true: files('pebble_mx25u.c'))
+diff --git a/hw/block/pflash_cfi02.c b/hw/block/pflash_cfi02.c
+index 6f952fe..d437f32 100644
+--- a/hw/block/pflash_cfi02.c
++++ b/hw/block/pflash_cfi02.c
+@@ -61,6 +61,10 @@
+ enum {
+     WCYCLE_CFI              = 7,
+     WCYCLE_AUTOSELECT_CFI   = 8,
++    /* Macronix-specific states for Write-to-Buffer and sector protection. */
++    WCYCLE_MX_WRITE_BUF_WC  = 9,
++    WCYCLE_MX_WRITE_BUF_DATA = 10,
++    WCYCLE_MX_PROTECT        = 11,
+ };
+ 
+ struct PFlashCFI02 {
+@@ -83,6 +87,10 @@ struct PFlashCFI02 {
+     int ro;
+     uint8_t cmd;
+     uint8_t status;
++    /* Macronix write-buffer state */
++    uint32_t mx_wb_sector;
++    uint32_t mx_wb_words;
++    uint32_t mx_wb_pos;
+     /* FIXME: implement array device properties */
+     uint16_t ident0;
+     uint16_t ident1;
+@@ -107,6 +115,12 @@ struct PFlashCFI02 {
+     unsigned long *sector_erase_map;
+     char *name;
+     void *storage;
++#ifdef __EMSCRIPTEN__
++    /* Coalesced persistence for the wasm build (see pflash_wasm_flush) */
++    int64_t wasm_dirty_start;
++    int64_t wasm_dirty_end;
++    QEMUTimer *wasm_flush_timer;
++#endif
+ };
+ 
+ /*
+@@ -376,6 +390,11 @@ static uint64_t pflash_read(void *opaque, hwaddr offset, unsigned int width)
+         ret = pfl->status;
+         trace_pflash_read_status(pfl->name, ret);
+         break;
++    case 0x70:
++        /* Macronix Read Status Register - bit 7 = device ready */
++        ret = 0x80;
++        pflash_reset_state_machine(pfl);
++        break;
+     case 0x98:
+         /* CFI query mode */
+         if (boff < sizeof(pfl->cfi_table)) {
+@@ -390,22 +409,66 @@ static uint64_t pflash_read(void *opaque, hwaddr offset, unsigned int width)
+     return ret;
+ }
+ 
++#ifdef __EMSCRIPTEN__
++/*
++ * Synchronous blk_pwrite() from the vCPU thread polls the main AioContext
++ * from outside its home thread, which the wasm fiber/asyncify runtime
++ * cannot support (aio_poll home-thread assertion). Instead, accumulate a
++ * dirty range and persist it from a main-loop timer, where the sync write
++ * is legal. pfl->storage stays authoritative in between.
++ */
++static void pflash_wasm_flush(void *opaque)
++{
++    PFlashCFI02 *pfl = opaque;
++    int64_t start = pfl->wasm_dirty_start;
++    int64_t end = pfl->wasm_dirty_end;
++    int ret;
++
++    pfl->wasm_dirty_start = -1;
++    pfl->wasm_dirty_end = -1;
++    if (start < 0 || !pfl->blk) {
++        return;
++    }
++    ret = blk_pwrite(pfl->blk, start, end - start,
++                     (uint8_t *)pfl->storage + start, 0);
++    if (ret < 0) {
++        error_report("Could not update PFLASH: %s", strerror(-ret));
++    }
++}
++#endif
++
+ /* update flash content on disk */
+ static void pflash_update(PFlashCFI02 *pfl, int offset, int size)
+ {
+     int offset_end;
++#ifndef __EMSCRIPTEN__
+     int ret;
++#endif
+     if (pfl->blk) {
+         offset_end = offset + size;
+         /* widen to sector boundaries */
+         offset = QEMU_ALIGN_DOWN(offset, BDRV_SECTOR_SIZE);
+         offset_end = QEMU_ALIGN_UP(offset_end, BDRV_SECTOR_SIZE);
++#ifdef __EMSCRIPTEN__
++        if (pfl->wasm_dirty_start < 0) {
++            timer_mod(pfl->wasm_flush_timer,
++                      qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + 100);
++            pfl->wasm_dirty_start = offset;
++            pfl->wasm_dirty_end = offset_end;
++        } else {
++            pfl->wasm_dirty_start = MIN(pfl->wasm_dirty_start,
++                                        (int64_t)offset);
++            pfl->wasm_dirty_end = MAX(pfl->wasm_dirty_end,
++                                      (int64_t)offset_end);
++        }
++#else
+         ret = blk_pwrite(pfl->blk, offset, offset_end - offset,
+                          pfl->storage + offset, 0);
+         if (ret < 0) {
+             /* TODO set error bit in status */
+             error_report("Could not update PFLASH: %s", strerror(-ret));
+         }
++#endif
+     }
+ }
+ 
+@@ -438,8 +501,9 @@ static void pflash_write(void *opaque, hwaddr offset, uint64_t value,
+ 
+     trace_pflash_io_write(pfl->name, offset, width, value, pfl->wcycle);
+     cmd = value;
+-    if (pfl->cmd != 0xA0) {
+-        /* Reset does nothing during chip erase and sector erase. */
++    if (pfl->cmd != 0xA0 &&
++        pfl->wcycle != WCYCLE_MX_WRITE_BUF_DATA) {
++        /* Reset does nothing during chip erase, sector erase, or WTB data. */
+         if (cmd == 0xF0 && pfl->cmd != 0x10 && pfl->cmd != 0x30) {
+             if (pfl->wcycle == WCYCLE_AUTOSELECT_CFI) {
+                 /* Return to autoselect mode. */
+@@ -470,8 +534,8 @@ static void pflash_write(void *opaque, hwaddr offset, uint64_t value,
+         pfl->read_counter = 0;
+         /* We're in read mode */
+     check_unlock0:
+-        if (boff == 0x55 && cmd == 0x98) {
+-            /* Enter CFI query mode */
++        if ((boff == 0x55 || boff == 0x555) && cmd == 0x98) {
++            /* Enter CFI query mode (accept 0x555 for Macronix parts) */
+             pfl->wcycle = WCYCLE_CFI;
+             pfl->cmd = 0x98;
+             return;
+@@ -495,6 +559,38 @@ static void pflash_write(void *opaque, hwaddr offset, uint64_t value,
+         if (cmd == 0xB0) { /* Erase Suspend */
+             return;
+         }
++        /* Macronix Read Status Register (0x70) - no unlock needed */
++        if (cmd == 0x70) {
++            pfl->cmd = 0x70;
++            return;
++        }
++        /* Macronix Write-to-Buffer (0x25) - no unlock needed */
++        if (cmd == 0x25) {
++            pfl->wcycle = WCYCLE_MX_WRITE_BUF_WC;
++            pfl->cmd = 0x25;
++            pfl->mx_wb_sector = offset;
++            return;
++        }
++        /* Macronix Sector Protection Entry (0x60) */
++        if (cmd == 0x60) {
++            pfl->wcycle = WCYCLE_MX_PROTECT;
++            pfl->cmd = 0x60;
++            return;
++        }
++        /* Macronix resume/confirm (0xD0) - ignore */
++        if (cmd == 0xD0) {
++            goto reset_flash;
++        }
++        /* Macronix sector erase (0x33) - no unlock needed */
++        if (cmd == 0x33) {
++            pflash_sector_erase(pfl, offset);
++            pfl->cmd = 0x33;
++            return;
++        }
++        /* Macronix exit protection (0x71) - no-op at wcycle 0 */
++        if (cmd == 0x71) {
++            goto reset_flash;
++        }
+         if (boff != pfl->unlock_addr0 || cmd != 0xAA) {
+             trace_pflash_unlock0_failed(pfl->name, boff,
+                                         cmd, pfl->unlock_addr0);
+@@ -576,7 +672,7 @@ static void pflash_write(void *opaque, hwaddr offset, uint64_t value,
+              * We can enter CFI query mode from autoselect mode, but we must
+              * return to autoselect mode after a reset.
+              */
+-            if (boff == 0x55 && cmd == 0x98) {
++            if ((boff == 0x55 || boff == 0x555) && cmd == 0x98) {
+                 /* Enter autoselect CFI query mode */
+                 pfl->wcycle = WCYCLE_AUTOSELECT_CFI;
+                 pfl->cmd = 0x98;
+@@ -690,6 +786,71 @@ static void pflash_write(void *opaque, hwaddr offset, uint64_t value,
+         /* Should never happen */
+         trace_pflash_write(pfl->name, "invalid write state (wc 7)");
+         goto reset_flash;
++
++    /* === Macronix Write-to-Buffer states === */
++    case WCYCLE_MX_WRITE_BUF_WC:
++        /* Word count (number of words - 1) */
++        pfl->mx_wb_words = (value & 0xFFFF) + 1;
++        pfl->mx_wb_pos = 0;
++        pfl->wcycle = WCYCLE_MX_WRITE_BUF_DATA;
++        return;
++
++    case WCYCLE_MX_WRITE_BUF_DATA:
++        if (cmd == 0x29 && offset == pfl->mx_wb_sector) {
++            /* Write-to-Buffer Program Confirm (must target sector address) */
++            goto reset_flash;
++        }
++        /* Store data word (NOR flash: can only clear bits) */
++        if (!pfl->ro) {
++            p = (uint8_t *)pfl->storage + offset;
++            if (pfl->be) {
++                uint64_t current = ldn_be_p(p, width);
++                stn_be_p(p, width, current & value);
++            } else {
++                uint64_t current = ldn_le_p(p, width);
++                stn_le_p(p, width, current & value);
++            }
++            pflash_update(pfl, offset, width);
++        }
++        pfl->mx_wb_pos++;
++        return;
++
++    /* === Macronix Sector Protection states === */
++    case WCYCLE_MX_PROTECT:
++        if (cmd == 0x71 || cmd == 0xF0) {
++            /* Exit protection mode */
++            goto reset_flash;
++        }
++        if (cmd == 0x60 || cmd == 0x61) {
++            /* Protection entry / unprotect sector - accept */
++            return;
++        }
++        if (cmd == 0x25) {
++            /* Write-to-Buffer directly from protection mode */
++            pfl->wcycle = WCYCLE_MX_WRITE_BUF_WC;
++            pfl->cmd = 0x25;
++            pfl->mx_wb_sector = offset;
++            return;
++        }
++        if (cmd == 0x80) {
++            /* Erase setup within protection mode */
++            pfl->cmd = 0x80;
++            return;
++        }
++        if ((cmd == 0x30 || cmd == 0x33) && pfl->cmd == 0x80) {
++            /* Sector erase confirm */
++            pflash_sector_erase(pfl, offset);
++            pfl->cmd = cmd;
++            return;
++        }
++        if (cmd == 0x33) {
++            /* Sector erase directly from protection mode */
++            pflash_sector_erase(pfl, offset);
++            pfl->cmd = 0x33;
++            return;
++        }
++        /* Unknown - exit protection */
++        goto reset_flash;
+     }
+     pfl->wcycle++;
+ 
+@@ -925,6 +1086,12 @@ static void pflash_cfi02_realize(DeviceState *dev, Error **errp)
+     }
+ 
+     timer_init_ns(&pfl->timer, QEMU_CLOCK_VIRTUAL, pflash_timer, pfl);
++#ifdef __EMSCRIPTEN__
++    pfl->wasm_dirty_start = -1;
++    pfl->wasm_dirty_end = -1;
++    pfl->wasm_flush_timer = timer_new_ms(QEMU_CLOCK_REALTIME,
++                                         pflash_wasm_flush, pfl);
++#endif
+     pfl->status = 0;
+ 
+     pflash_cfi02_fill_cfi_table(pfl, nb_regions);
+diff --git a/hw/char/meson.build b/hw/char/meson.build
+index a9e1dc2..af5fb54 100644
+--- a/hw/char/meson.build
++++ b/hw/char/meson.build
+@@ -41,3 +41,5 @@ system_ss.add(when: 'CONFIG_GOLDFISH_TTY', if_true: files('goldfish_tty.c'))
+ specific_ss.add(when: 'CONFIG_TERMINAL3270', if_true: files('terminal3270.c'))
+ specific_ss.add(when: 'CONFIG_VIRTIO', if_true: files('virtio-serial-bus.c'))
+ specific_ss.add(when: 'CONFIG_PSERIES', if_true: files('spapr_vty.c'))
++
++system_ss.add(when: 'CONFIG_PEBBLE', if_true: files('stm32_pebble_uart.c'))
 diff --git a/hw/display/meson.build b/hw/display/meson.build
-index 90e6c04..c0dad63 100644
+index 90e6c04..e31b3a3 100644
 --- a/hw/display/meson.build
 +++ b/hw/display/meson.build
-@@ -145,3 +145,7 @@ endif
+@@ -145,3 +145,9 @@ endif
  system_ss.add(when: 'CONFIG_OMAP', if_true: files('omap_lcdc.c'))
  
  modules += { 'hw-display': hw_display_modules }
 +
 +system_ss.add(when: 'CONFIG_PEBBLE', if_true: files(
 +  'pebble_display.c',
++  'pebble_snowy_display.c',
++  'pebble_sm_lcd.c',
 +))
+diff --git a/hw/dma/meson.build b/hw/dma/meson.build
+index cc7810b..39aee2e 100644
+--- a/hw/dma/meson.build
++++ b/hw/dma/meson.build
+@@ -12,3 +12,4 @@ system_ss.add(when: 'CONFIG_OMAP', if_true: files('omap_dma.c', 'soc_dma.c'))
+ system_ss.add(when: 'CONFIG_RASPI', if_true: files('bcm2835_dma.c'))
+ system_ss.add(when: 'CONFIG_SIFIVE_PDMA', if_true: files('sifive_pdma.c'))
+ system_ss.add(when: 'CONFIG_XLNX_CSU_DMA', if_true: files('xlnx_csu_dma.c'))
++system_ss.add(when: 'CONFIG_PEBBLE', if_true: files('stm32_pebble_dma.c'))
 diff --git a/hw/gpio/meson.build b/hw/gpio/meson.build
-index 6a67ee9..b3d322d 100644
+index 6a67ee9..5a1f92a 100644
 --- a/hw/gpio/meson.build
 +++ b/hw/gpio/meson.build
-@@ -19,3 +19,7 @@ system_ss.add(when: 'CONFIG_ASPEED_SOC', if_true: files('aspeed_gpio.c'))
+@@ -19,3 +19,8 @@ system_ss.add(when: 'CONFIG_ASPEED_SOC', if_true: files('aspeed_gpio.c'))
  system_ss.add(when: 'CONFIG_ASPEED_SOC', if_true: files('aspeed_sgpio.c'))
  system_ss.add(when: 'CONFIG_SIFIVE_GPIO', if_true: files('sifive_gpio.c'))
  system_ss.add(when: 'CONFIG_PCF8574', if_true: files('pcf8574.c'))
 +
 +system_ss.add(when: 'CONFIG_PEBBLE', if_true: files(
 +  'pebble_gpio.c',
++  'stm32_pebble_gpio.c',
 +))
 diff --git a/hw/misc/meson.build b/hw/misc/meson.build
-index 32b878e..8ce27f6 100644
+index 32b878e..fa64584 100644
 --- a/hw/misc/meson.build
 +++ b/hw/misc/meson.build
-@@ -164,3 +164,14 @@ system_ss.add(when: 'CONFIG_SBSA_REF', if_true: files('sbsa_ec.c'))
+@@ -164,3 +164,28 @@ system_ss.add(when: 'CONFIG_SBSA_REF', if_true: files('sbsa_ec.c'))
  
  # HPPA devices
  system_ss.add(when: 'CONFIG_LASI', if_true: files('lasi.c'))
@@ -83,3 +437,68 @@ index 32b878e..8ce27f6 100644
 +  'pebble_audio.c',
 +  'pebble_null_input.c',
 +))
++
++system_ss.add(when: 'CONFIG_PEBBLE', if_true: files(
++  'stm32_pebble_rcc.c',
++  'stm32_pebble_clktree.c',
++  'stm32_pebble_common.c',
++  'stm32_pebble_exti.c',
++  'stm32_pebble_syscfg.c',
++  'stm32_pebble_adc.c',
++  'stm32_pebble_pwr.c',
++  'stm32_pebble_crc.c',
++  'stm32_pebble_flash.c',
++  'stm32_pebble_dummy.c',
++  'stm32_pebble_i2c.c',
++))
+diff --git a/hw/ssi/meson.build b/hw/ssi/meson.build
+index 6afb1ea..3181817 100644
+--- a/hw/ssi/meson.build
++++ b/hw/ssi/meson.build
+@@ -13,3 +13,8 @@ system_ss.add(when: 'CONFIG_IMX', if_true: files('imx_spi.c'))
+ system_ss.add(when: 'CONFIG_IBEX', if_true: files('ibex_spi_host.c'))
+ system_ss.add(when: 'CONFIG_BCM2835_SPI', if_true: files('bcm2835_spi.c'))
+ system_ss.add(when: 'CONFIG_PNV_SPI', if_true: files('pnv_spi.c'))
++
++system_ss.add(when: 'CONFIG_PEBBLE', if_true: files(
++  'stm32_pebble_spi.c',
++  'stm32_pebble_qspi.c',
++))
+diff --git a/hw/timer/meson.build b/hw/timer/meson.build
+index 178321c..fe2caee 100644
+--- a/hw/timer/meson.build
++++ b/hw/timer/meson.build
+@@ -34,3 +34,8 @@ specific_ss.add(when: 'CONFIG_IBEX', if_true: files('ibex_timer.c'))
+ system_ss.add(when: 'CONFIG_SIFIVE_PWM', if_true: files('sifive_pwm.c'))
+ 
+ specific_ss.add(when: 'CONFIG_AVR_TIMER16', if_true: files('avr_timer16.c'))
++
++system_ss.add(when: 'CONFIG_PEBBLE', if_true: files(
++  'stm32_pebble_tim.c',
++  'stm32_pebble_rtc.c',
++))
+diff --git a/tcg/wasm64.c b/tcg/wasm64.c
+index b947be3..0ad579b 100644
+--- a/tcg/wasm64.c
++++ b/tcg/wasm64.c
+@@ -710,7 +710,10 @@ static void add_instance(wasm_tb_func tb_func, void *tb_ptr)
+     set_info_local(tb_ptr, &(instances[instances_end]));
+     instances_end  = (instances_end + 1) % INSTANCES_BUF_MAX;
+ 
+-    qatomic_inc(&instances_global);
++    int g = qatomic_fetch_inc(&instances_global);
++    if ((g % 1000) == 0) {
++        fprintf(stderr, "wasm-tb-dbg: instances_global=%d\n", g);
++    }
+ }
+ 
+ static __thread int instance_pending_gc;
+@@ -729,6 +732,8 @@ static void remove_old_instances(void)
+     }
+     /* removes the half of the oldest instances in the buffer */
+     num /= 2;
++    fprintf(stderr, "wasm-tb-dbg: GC removing %d instances (global=%d)\n",
++            num, qatomic_read(&instances_global));
+     for (int i = 0; i < num; i++) {
+         EM_ASM({ removeFunction($0); }, instances[instances_begin].tb_func);
+         instances[instances_begin].tb_ptr = NULL;

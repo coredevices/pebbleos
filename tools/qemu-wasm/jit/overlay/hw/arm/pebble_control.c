@@ -645,7 +645,6 @@ static void pebble_control_wasm_poll(void *opaque)
 #endif
 
 // -----------------------------------------------------------------------------------
-#if 0 /* legacy STM32 machines are not in this build */
 PebbleControl *pebble_control_create(Chardev *chr, Stm32Uart *uart)
 {
     PebbleControl *s = g_malloc0(sizeof(PebbleControl));
@@ -676,11 +675,17 @@ PebbleControl *pebble_control_create(Chardev *chr, Stm32Uart *uart)
                         true);
     }
 
+#ifdef EMSCRIPTEN
+    s->wasm_poll_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
+                                      pebble_control_wasm_poll, s);
+    timer_mod(s->wasm_poll_timer,
+              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 2);
+#endif
+
     return s;
 }
 
 // -----------------------------------------------------------------------------------
-#endif /* legacy create */
 
 PebbleControl *pebble_control_create_generic(Chardev *chr, DeviceState *uart)
 {

@@ -39,6 +39,7 @@
 #include "hw/core/sysbus.h"
 #include "hw/core/qdev-properties.h"
 #include "ui/console.h"
+#include "system/system.h"
 #include "ui/pixel_ops.h"
 
 #define TYPE_PEBBLE_DISPLAY "pebble-display"
@@ -151,36 +152,81 @@ static PblDisplay *s_display_instance;
 static uint32_t s_wasm_frame_count;
 static QEMUTimer *s_wasm_refresh_timer;
 
+/* The classic boards (snowy, s4, bb2, silk) bring their own display
+ * devices, so this one never realizes there. The bridge then adopts
+ * whatever console the board's display registered: every display device
+ * ends up in the console list, and a Pebble has exactly one. */
+static QemuConsole *s_wasm_fallback_con;
+
+static QemuConsole *pbl_wasm_console(void)
+{
+    if (s_display_instance) {
+        return s_display_instance->con;
+    }
+    return s_wasm_fallback_con;
+}
+
 static void pbl_display_wasm_refresh(void *opaque)
 {
-    PblDisplay *s = opaque;
+    QemuConsole *con = pbl_wasm_console();
 
-    graphic_hw_update(s->con);
+    if (con) {
+        graphic_hw_update(con);
+        if (!s_display_instance) {
+            /* Classic boards render through the adopted console; their
+             * update hooks never bump the frame counter, so advance it
+             * here to tell the web shell to blit. */
+            s_wasm_frame_count++;
+        }
+    }
     timer_mod(s_wasm_refresh_timer,
               qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 33);
 }
 
+static void pbl_display_wasm_machine_done(Notifier *notifier, void *data)
+{
+    if (s_display_instance) {
+        return;     /* the generic display armed the timer in realize */
+    }
+    s_wasm_fallback_con = qemu_console_lookup_by_index(0);
+    if (!s_wasm_fallback_con) {
+        return;     /* headless machine; nothing to expose */
+    }
+    s_wasm_refresh_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
+                                        pbl_display_wasm_refresh, NULL);
+    timer_mod(s_wasm_refresh_timer,
+              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 33);
+}
+
+static Notifier s_wasm_machine_done_notifier = {
+    .notify = pbl_display_wasm_machine_done,
+};
+
 EMSCRIPTEN_KEEPALIVE int pebble_wasm_display_width(void)
 {
-    return s_display_instance ? (int)s_display_instance->width : 0;
+    DisplaySurface *sur = pbl_wasm_console() ?
+        qemu_console_surface(pbl_wasm_console()) : NULL;
+    return sur ? surface_width(sur) : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE int pebble_wasm_display_height(void)
 {
-    return s_display_instance ? (int)s_display_instance->height : 0;
+    DisplaySurface *sur = pbl_wasm_console() ?
+        qemu_console_surface(pbl_wasm_console()) : NULL;
+    return sur ? surface_height(sur) : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE int pebble_wasm_display_stride(void)
 {
-    DisplaySurface *sur = s_display_instance && s_display_instance->con ?
-        qemu_console_surface(s_display_instance->con) : NULL;
+    DisplaySurface *sur = pbl_wasm_console() ?
+        qemu_console_surface(pbl_wasm_console()) : NULL;
     return sur ? surface_stride(sur) : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE uint8_t *pebble_wasm_display_data(void)
 {
-    DisplaySurface *sur = s_display_instance && s_display_instance->con ?
-        qemu_console_surface(s_display_instance->con) : NULL;
+    DisplaySurface *sur = pbl_wasm_console() ?
+        qemu_console_surface(pbl_wasm_console()) : NULL;
     return sur ? surface_data(sur) : NULL;
 }
 
@@ -467,7 +513,7 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
 
 #ifdef __EMSCRIPTEN__
     s_wasm_refresh_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
-                                        pbl_display_wasm_refresh, s);
+                                        pbl_display_wasm_refresh, NULL);
     timer_mod(s_wasm_refresh_timer,
               qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 33);
 #endif
@@ -539,6 +585,9 @@ static const TypeInfo pbl_display_info = {
 static void pbl_display_register_types(void)
 {
     type_register_static(&pbl_display_info);
+#ifdef __EMSCRIPTEN__
+    qemu_add_machine_init_done_notifier(&s_wasm_machine_done_notifier);
+#endif
 }
 
 type_init(pbl_display_register_types)

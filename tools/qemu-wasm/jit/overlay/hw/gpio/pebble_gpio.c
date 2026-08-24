@@ -240,24 +240,6 @@ static const MemoryRegionOps pbl_gpio_ops = {
 /* Global instance pointer (set on realize, only one GPIO device per machine) */
 static PblGpio *s_pbl_gpio_instance;
 
-/* pebble-tool button messages arrive via pebble_control.c, which calls this
- * (implemented by pebble.c on the legacy machines). Apply the bitmask as
- * press/release edges; bit layout matches PBL_BUTTON_ID_*. */
-void pebble_set_button_state(uint32_t state);
-void pebble_set_button_state(uint32_t state)
-{
-    PblGpio *s = s_pbl_gpio_instance;
-
-    state &= BTN_ALL;
-    if (!s || s->btn_state == state) {
-        return;
-    }
-    s->pending_release = 0;
-    s->btn_edge |= s->btn_state ^ state;
-    s->btn_state = state;
-    pbl_gpio_update_irq(s);
-}
-
 static void pbl_gpio_realize(DeviceState *dev, Error **errp)
 {
     PblGpio *s = PEBBLE_GPIO(dev);
