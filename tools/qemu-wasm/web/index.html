@@ -360,7 +360,7 @@
       if (currentBoard && currentBoard.classicButtons) {
         // QemuProtocol_Button: one byte, bit per ButtonId, same order as
         // the mask kept here (back, up, select, down).
-        if (phone) phone.sendQemuFrame(8, Uint8Array.of(buttonMask));
+        if (window.__phone) window.__phone.sendQemuFrame(8, Uint8Array.of(buttonMask));
         return;
       }
       if (!buttonAddr) {
@@ -660,6 +660,18 @@
         '-serial', 'file:/tmp/uart2.log',  // UART2: debug console
         '-rtc', 'base=localtime',
       ];
+      if (board.classicButtons) {
+        // Decouple guest virtual time from wall clock so slow TCI
+        // emulation doesn't trip the KernelBG task watchdog. The RTC must
+        // then follow the virtual clock too, or the firmware sees wall
+        // time racing ahead of its timers.
+        var icount = params.get('icount') || 'shift=5,sleep=on';
+        if (icount !== 'off') {
+          args.push('-icount', icount);
+          var rtcIdx = args.indexOf('base=localtime');
+          if (rtcIdx > 0) args[rtcIdx] = 'base=localtime,clock=vm';
+        }
+      }
       if (board.audio && params.has('audio')) {
         args[1] = board.machine + ',audiodev=snd0';
         args.push('-audiodev', 'sdl,id=snd0');
@@ -905,6 +917,7 @@
         return;
       }
       phone = new PebblePhone(q, (m) => console.log('[phone] ' + m));
+      window.__phone = phone;
       phone.onPhoneVersionRequest = () => {
         btn.disabled = false;
         uploadBtn.disabled = false;
@@ -1106,7 +1119,19 @@
       busy = true; btn.disabled = true;
       try {
         const pbw = await parsePbw(bytes, boardSel.value);
-        const info = await installer.install(pbw);
+        // The slow interpreted classic boards occasionally nack or time out
+        // mid-transfer; a fresh attempt on the settled session succeeds.
+        let info = null;
+        for (let attempt = 1; ; attempt++) {
+          try {
+            info = await installer.install(pbw);
+            break;
+          } catch (e) {
+            if (attempt >= 3 || !/nacked|timeout/i.test(e.message)) throw e;
+            say('Install hiccup (' + e.message + '), retrying…');
+            await new Promise((r) => setTimeout(r, 3000));
+          }
+        }
         if (pbw.js && pkjs) {
           const entry = {
             js: pbw.js,
