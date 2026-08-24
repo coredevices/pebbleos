@@ -665,7 +665,7 @@
         // emulation doesn't trip the KernelBG task watchdog. The RTC must
         // then follow the virtual clock too, or the firmware sees wall
         // time racing ahead of its timers.
-        var icount = params.get('icount') || 'shift=5,sleep=on';
+        var icount = params.get('icount') || 'shift=4,sleep=on';
         if (icount !== 'off') {
           args.push('-icount', icount);
           var rtcIdx = args.indexOf('base=localtime');
