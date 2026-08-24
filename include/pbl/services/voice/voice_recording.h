@@ -39,42 +39,14 @@ typedef enum {
   VoiceRecordingError_MicStart,     //!< the microphone failed to start
 } VoiceRecordingError;
 
-typedef enum {
-  VoiceRecordingQuality_Low = 0,
-  VoiceRecordingQuality_Medium,
-  VoiceRecordingQuality_High,
-} VoiceRecordingQuality;
-
-#define VOICE_RECORDING_GAIN_MIN (50)
-#define VOICE_RECORDING_GAIN_MAX (200)
-#define VOICE_RECORDING_GAIN_DEFAULT (100)
-
 //! @return the reason the most recent start/stop failed (cleared on success).
 VoiceRecordingError voice_recording_last_error(void);
 
-//! Get the quality used for new recordings.
-//! TODO: Remove with the temporary Voice Memos settings UI.
-VoiceRecordingQuality voice_recording_get_quality(void);
-
-//! Set the quality used for new recordings.
-//! TODO: Remove with the temporary Voice Memos settings UI.
-void voice_recording_set_quality(VoiceRecordingQuality quality);
-
-//! Get the recording input gain percentage.
-//! TODO: Remove with the temporary Voice Memos settings UI.
-uint16_t voice_recording_get_record_gain(void);
-
-//! Set the recording input gain percentage.
-//! TODO: Remove with the temporary Voice Memos settings UI.
-void voice_recording_set_record_gain(uint16_t gain);
-
-//! Get the recording playback gain percentage.
-//! TODO: Remove with the temporary Voice Memos settings UI.
-uint16_t voice_recording_get_playback_gain(void);
-
-//! Set the recording playback gain percentage.
-//! TODO: Remove with the temporary Voice Memos settings UI.
-void voice_recording_set_playback_gain(uint16_t gain);
+//! Return the recording quota usage in bytes.
+//! Either output pointer may be NULL. Available space is the unused portion of
+//! the recording quota, not the total free space in PFS.
+void voice_recording_get_storage_usage(uint32_t *used_bytes_out,
+                                       uint32_t *available_bytes_out);
 
 //! Metadata describing a stored recording.
 typedef struct {
@@ -90,6 +62,7 @@ typedef struct {
 typedef struct {
   VoiceRecordingId id;
   uint32_t duration_ms;  //!< Captured duration
+  time_t created;        //!< Wall-clock time the recording started
 } VoiceRecordingSummary;
 
 //! Initialize the recording service. Cleans up any temporary files left by an
@@ -125,13 +98,19 @@ bool voice_recording_in_progress(void);
 //! @return true if the active or stored recording belongs to \a app_uuid.
 bool voice_recording_is_owned_by(VoiceRecordingId id, const Uuid *app_uuid);
 
+//! Reserve a stored recording against deletion while it is transcribed.
+bool voice_recording_transcription_reserve(VoiceRecordingId id);
+
+//! Release a transcription reservation.
+void voice_recording_transcription_release(VoiceRecordingId id);
+
 //! Enumerate stored recordings.
 //! @param out  caller-provided array to fill
 //! @param max  capacity of \a out
 //! @return number of recordings written to \a out
 uint32_t voice_recording_list(VoiceRecordingInfo *out, uint32_t max);
 
-//! Enumerate per-row summaries of stored recordings, in a single storage pass.
+//! Enumerate per-row summaries of stored recordings, newest first.
 //! @param out       caller-provided array to fill
 //! @param max       capacity of \a out
 //! @param has_more  if not NULL, set when more recordings exist than fit in \a out

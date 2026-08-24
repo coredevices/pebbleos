@@ -147,10 +147,10 @@ The recording service currently applies these limits:
 - IDs wrap after `UINT16_MAX`; the allocator probes for an unused ID and never
   overwrites a stored recording.
 
-On microphone-equipped builds, the settings application exposes a temporary
-**Voice Memos** module. It can create, list, play, transcribe, and delete system
-recordings. It also configures recording quality and recording/playback gain.
-These tuning controls are internal and are not part of the application SDK.
+On microphone-equipped builds, the settings application exposes a **Recordings**
+module showing the used and available recording quota. Recordings are created
+and managed by applications through the application API or by a compatible
+companion.
 
 ## Companion management protocol
 
@@ -207,12 +207,9 @@ List and command responses use the same one-byte result values:
 | `0x01` | Not found | The recording could not be found or used. |
 | `0x02` | Busy | Another recording, playback, or transcription operation conflicts. |
 | `0x03` | Invalid request | The message is too short or contains an invalid field. |
-| `0x04` | Unsupported | Reserved for an unsupported operation. |
-| `0x05` | Failed | Reserved for another operation failure. |
 
-`Unsupported` and `Failed` are defined for protocol evolution but are not
-currently emitted. Some non-busy playback or transcription start failures are
-reported as `Not found`, including an unreadable or unusable recording.
+Some non-busy playback or transcription start failures are reported as `Not
+found`, including an unreadable or unusable recording.
 
 ### List recordings
 

@@ -1,9 +1,9 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: 36.0\n"
+"Project-Id-Version: 35.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-18 20:46+0200\n"
+"POT-Creation-Date: 2026-07-17 13:14+0200\n"
 "PO-Revision-Date: 2026-05-15 00:00+0200\n"
 "Last-Translator: PebbleOS contributors\n"
 "Language-Team: Catalan\n"
@@ -108,37 +108,37 @@ msgid "December"
 msgstr "Desembre"
 
 #: ../src/fw/applib/pbl_std/timelocal.c:48
-#: ../src/fw/services/alarms/alarm.c:1308
+#: ../src/fw/services/alarms/alarm.c:1297
 msgid "Sun"
 msgstr "Dg"
 
 #: ../src/fw/applib/pbl_std/timelocal.c:48
-#: ../src/fw/services/alarms/alarm.c:1309
+#: ../src/fw/services/alarms/alarm.c:1298
 msgid "Mon"
 msgstr "Dl"
 
 #: ../src/fw/applib/pbl_std/timelocal.c:48
-#: ../src/fw/services/alarms/alarm.c:1310
+#: ../src/fw/services/alarms/alarm.c:1299
 msgid "Tue"
 msgstr "Dt"
 
 #: ../src/fw/applib/pbl_std/timelocal.c:48
-#: ../src/fw/services/alarms/alarm.c:1311
+#: ../src/fw/services/alarms/alarm.c:1300
 msgid "Wed"
 msgstr "Dc"
 
 #: ../src/fw/applib/pbl_std/timelocal.c:49
-#: ../src/fw/services/alarms/alarm.c:1312
+#: ../src/fw/services/alarms/alarm.c:1301
 msgid "Thu"
 msgstr "Dj"
 
 #: ../src/fw/applib/pbl_std/timelocal.c:49
-#: ../src/fw/services/alarms/alarm.c:1313
+#: ../src/fw/services/alarms/alarm.c:1302
 msgid "Fri"
 msgstr "Dv"
 
 #: ../src/fw/applib/pbl_std/timelocal.c:49
-#: ../src/fw/services/alarms/alarm.c:1314
+#: ../src/fw/services/alarms/alarm.c:1303
 msgid "Sat"
 msgstr "Ds"
 
@@ -258,6 +258,7 @@ msgctxt "TmplStringPlur"
 msgid ""
 msgstr ""
 
+#
 #: ../src/fw/applib/template_string.c:264
 #: ../src/fw/applib/template_string.c:279
 #: ../src/fw/applib/template_string.c:294
@@ -460,56 +461,6 @@ msgctxt "TmplStringMany"
 msgid " years"
 msgstr " anys"
 
-#. #-#-#-#-#  fw.pot (PACKAGE VERSION)  #-#-#-#-#
-#. / A frequency option for alarms, i.e. the alarm would go off every day. Respect
-#. / capitalization!
-#. #-#-#-#-#  services.pot (PACKAGE VERSION)  #-#-#-#-#
-#. / A frequency option for alarms, i.e. the alarm would go off every day. Respect
-#. / capitalization!
-#: ../src/fw/applib/ui/day_picker.c:47 ../src/fw/services/alarms/alarm.c:1257
-msgid "Every Day"
-msgstr "Cada dia"
-
-#. #-#-#-#-#  fw.pot (PACKAGE VERSION)  #-#-#-#-#
-#. / A frequency option for alarms, i.e. the alarm would only go off every weekday. Respect
-#. / capitalization!
-#. #-#-#-#-#  services.pot (PACKAGE VERSION)  #-#-#-#-#
-#. / A frequency option for alarms, i.e. the alarm would only go off every weekday. Respect
-#. / capitalization!
-#: ../src/fw/applib/ui/day_picker.c:48
-#: ../src/fw/apps/system/settings/quiet_time.c:271
-#: ../src/fw/services/alarms/alarm.c:1266
-msgid "Weekdays"
-msgstr "Dies feiners"
-
-#. #-#-#-#-#  fw.pot (PACKAGE VERSION)  #-#-#-#-#
-#. / A frequency option for alarms, i.e. the alarm would only go off each day on the weekend.
-#. / Respect capitalization!
-#. #-#-#-#-#  services.pot (PACKAGE VERSION)  #-#-#-#-#
-#. / A frequency option for alarms, i.e. the alarm would only go off each day on the weekend.
-#. / Respect capitalization!
-#: ../src/fw/applib/ui/day_picker.c:49
-#: ../src/fw/apps/system/settings/quiet_time.c:279
-#: ../src/fw/services/alarms/alarm.c:1275
-msgid "Weekends"
-msgstr "Caps de setmana"
-
-#. #-#-#-#-#  fw.pot (PACKAGE VERSION)  #-#-#-#-#
-#. / A frequency option for alarms, i.e. the alarm would only go off on a custom choice of
-#. / days. Respect capitalization!
-#. #-#-#-#-#  services.pot (PACKAGE VERSION)  #-#-#-#-#
-#. / A frequency option for alarms, i.e. the alarm would only go off on a custom choice of
-#. / days. Respect capitalization!
-#: ../src/fw/applib/ui/day_picker.c:50
-#: ../src/fw/apps/system/settings/display.c:46
-#: ../src/fw/services/alarms/alarm.c:1295
-msgid "Custom"
-msgstr "Personalitzat"
-
-#: ../src/fw/applib/ui/day_picker.c:51
-msgid "Just Once"
-msgstr "Només una vegada"
-
 #: ../src/fw/applib/ui/day_picker.c:240
 msgid "Check something first."
 msgstr "Comprova alguna cosa abans."
@@ -531,28 +482,28 @@ msgstr "Inici"
 msgid "End"
 msgstr "Fi"
 
-#: ../src/fw/applib/voice/voice_window.c:203
+#: ../src/fw/applib/voice/voice_window.c:200
 msgid "Dictation is not available."
 msgstr "El dictat no està disponible."
 
-#: ../src/fw/applib/voice/voice_window.c:223
+#: ../src/fw/applib/voice/voice_window.c:220
 msgid "Error occurred. Try again."
 msgstr "S'ha produït un error. Torna-ho a provar."
 
-#: ../src/fw/applib/voice/voice_window.c:230
+#: ../src/fw/applib/voice/voice_window.c:227
 #: ../src/fw/apps/system/app_fetch_ui.c:135
 msgid "No internet connection"
 msgstr "Sense connexió a Internet"
 
-#: ../src/fw/applib/voice/voice_window.c:332
+#: ../src/fw/applib/voice/voice_window.c:320
 msgid "Enable voice in the settings page of the Pebble app."
 msgstr "Activa la veu a la pàgina de configuració de l'app Pebble."
 
-#: ../src/fw/applib/voice/voice_window.c:382
+#: ../src/fw/applib/voice/voice_window.c:370
 msgid "Missed that. Try again."
 msgstr "No ho he entès. Torna-ho a provar."
 
-#: ../src/fw/applib/voice/voice_window.c:1138
+#: ../src/fw/applib/voice/voice_window.c:1105
 msgid "Listening"
 msgstr "Escoltant"
 
@@ -579,12 +530,11 @@ msgid "Snooze delay set to %d minutes"
 msgstr "Retard de posposició configurat a %d minuts"
 
 #: ../src/fw/apps/system/alarms/alarm_detail.c:277
-#: ../src/fw/apps/system/settings/recordings.c:66
 msgid "Delete"
 msgstr "Suprimeix"
 
 #: ../src/fw/apps/system/alarms/alarm_detail.c:282
-#: ../src/fw/apps/system/settings/quick_launch_app_menu.c:89
+#: ../src/fw/apps/system/settings/quick_launch_app_menu.c:91
 #: ../src/fw/apps/system/settings/quiet_time.c:213
 msgid "Disable"
 msgstr "Desactiva"
@@ -674,8 +624,8 @@ msgid "Basic Alarm"
 msgstr "Alarma bàsica"
 
 #: ../src/fw/apps/system/alarms/alarm_editor.c:262
-#: ../src/fw/apps/system/alarms/alarms.c:360
-#: ../src/fw/services/alarms/alarm.c:379
+#: ../src/fw/apps/system/alarms/alarms.c:353
+#: ../src/fw/services/alarms/alarm.c:375
 #: ../src/fw/services/alarms/alarm_pin.c:20
 msgid "Smart Alarm"
 msgstr "Alarma intel·ligent"
@@ -684,19 +634,19 @@ msgstr "Alarma intel·ligent"
 msgid "Alarm Deleted"
 msgstr "Alarma suprimida"
 
-#: ../src/fw/apps/system/alarms/alarms.c:243
+#: ../src/fw/apps/system/alarms/alarms.c:236
 msgid "Limit reached."
 msgstr "S'ha arribat al límit."
 
-#: ../src/fw/apps/system/alarms/alarms.c:287
+#: ../src/fw/apps/system/alarms/alarms.c:280
 msgid "ON"
 msgstr "ACTIU"
 
-#: ../src/fw/apps/system/alarms/alarms.c:287
+#: ../src/fw/apps/system/alarms/alarms.c:280
 msgid "OFF"
 msgstr "INACTIU"
 
-#: ../src/fw/apps/system/alarms/alarms.c:358
+#: ../src/fw/apps/system/alarms/alarms.c:351
 msgid ""
 "Let us wake you in your lightest sleep so you're fully refreshed! Smart "
 "Alarm wakes you up to 30min before your alarm."
@@ -704,7 +654,7 @@ msgstr ""
 "Deixa que et despertem en la fase de son més lleugera perquè et llevis "
 "renovat. L'alarma intel·ligent et desperta fins a 30 min abans de l'alarma."
 
-#: ../src/fw/apps/system/alarms/alarms.c:481
+#: ../src/fw/apps/system/alarms/alarms.c:474
 #: ../src/fw/apps/system/settings/vibe_patterns.c:92
 #: ../src/fw/services/timeline/timeline.c:951
 msgid "Alarms"
@@ -732,12 +682,12 @@ msgid "Failed"
 msgstr "Ha fallat"
 
 #: ../src/fw/apps/system/health/activity_detail_card.c:43
-#: ../src/fw/services/activity/activity_insights.c:1627
+#: ../src/fw/services/activity/activity_insights.c:1603
 msgid "mi"
 msgstr "mi"
 
 #: ../src/fw/apps/system/health/activity_detail_card.c:43
-#: ../src/fw/services/activity/activity_insights.c:1627
+#: ../src/fw/services/activity/activity_insights.c:1603
 msgid "km"
 msgstr "km"
 
@@ -760,7 +710,7 @@ msgstr "DISTÀNCIA"
 msgid "TOTAL"
 msgstr "TOTAL"
 
-#: ../src/fw/apps/system/health/detail_card.c:530
+#: ../src/fw/apps/system/health/detail_card.c:522
 #: ../src/fw/services/clock/service.c:537
 #: ../src/fw/services/clock/service.c:745
 msgid "Today"
@@ -807,17 +757,17 @@ msgid "Health"
 msgstr "Salut"
 
 #: ../src/fw/apps/system/health/hr_detail_card.c:67
-#: ../src/fw/services/activity/activity_insights.c:1733
+#: ../src/fw/services/activity/activity_insights.c:1709
 msgid "Fat Burn"
 msgstr "Crema greix"
 
 #: ../src/fw/apps/system/health/hr_detail_card.c:70
-#: ../src/fw/services/activity/activity_insights.c:1740
+#: ../src/fw/services/activity/activity_insights.c:1716
 msgid "Endurance"
 msgstr "Resistència"
 
 #: ../src/fw/apps/system/health/hr_detail_card.c:73
-#: ../src/fw/services/activity/activity_insights.c:1747
+#: ../src/fw/services/activity/activity_insights.c:1723
 msgid "Performance"
 msgstr "Rendiment"
 
@@ -863,7 +813,9 @@ msgid "TYPICAL %s"
 msgstr "HABITUAL %s"
 
 #. / Shown when the current temperature is unknown
+#. / Shown when today's current temperature is unknown
 #: ../src/fw/apps/system/launcher/default/app_glance_weather.c:119
+#: ../src/fw/apps/system/weather/layout.c:202
 msgid "--°"
 msgstr "--°"
 
@@ -875,11 +827,12 @@ msgstr "%i° - %s"
 
 #. / Today's current temperature (e.g. "68°")
 #: ../src/fw/apps/system/launcher/default/app_glance_weather.c:127
+#: ../src/fw/apps/system/weather/layout.c:207
 #, c-format
 msgid "%i°"
 msgstr "%i°"
 
-#: ../src/fw/apps/system/music.c:841
+#: ../src/fw/apps/system/music.c:745
 msgid ""
 "START PLAYBACK\n"
 "ON YOUR PHONE"
@@ -887,7 +840,7 @@ msgstr ""
 "INICIA LA REPRODUCCIÓ\n"
 "AL TELÈFON"
 
-#: ../src/fw/apps/system/music.c:1659
+#: ../src/fw/apps/system/music.c:1072
 msgid "Music"
 msgstr "Música"
 
@@ -899,16 +852,16 @@ msgstr "Fet"
 msgid "Clear history?"
 msgstr "Vols esborrar l'historial?"
 
-#: ../src/fw/apps/system/notifications.c:553
-#: ../src/fw/apps/system/notifications.c:559
+#: ../src/fw/apps/system/notifications.c:549
+#: ../src/fw/apps/system/notifications.c:555
 msgid "Clear All"
 msgstr "Esborra-ho tot"
 
-#: ../src/fw/apps/system/notifications.c:736
+#: ../src/fw/apps/system/notifications.c:732
 msgid "No notifications"
 msgstr "Sense notificacions"
 
-#: ../src/fw/apps/system/notifications.c:843
+#: ../src/fw/apps/system/notifications.c:839
 #: ../src/fw/apps/system/settings/notifications.c:454
 #: ../src/fw/apps/system/settings/quiet_time.c:448
 #: ../src/fw/apps/system/settings/vibe_patterns.c:82
@@ -916,7 +869,7 @@ msgstr "Sense notificacions"
 msgid "Notifications"
 msgstr "Notificacions"
 
-#: ../src/fw/apps/system/notifications.c:856
+#: ../src/fw/apps/system/notifications.c:852
 msgid "Clear Notification History"
 msgstr "Esborra l'historial de notificacions"
 
@@ -929,7 +882,7 @@ msgid "Postpone"
 msgstr "Posposa"
 
 #: ../src/fw/apps/system/reminders/reminder.c:61
-#: ../src/fw/services/activity/activity_insights.c:447
+#: ../src/fw/services/activity/activity_insights.c:438
 #: ../src/fw/services/timeline/timeline.c:659
 msgid "Remove"
 msgstr "Elimina"
@@ -1040,27 +993,35 @@ msgstr "Oblida aquest dispositiu per enllaçar-ne un de nou."
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
+#. #-#-#-#-#  fw.pot (PACKAGE VERSION)  #-#-#-#-#
+#. / A frequency option for alarms, i.e. the alarm would only go off on a custom choice of
+#. / days. Respect capitalization!
+#. #-#-#-#-#  services.pot (PACKAGE VERSION)  #-#-#-#-#
+#. / A frequency option for alarms, i.e. the alarm would only go off on a custom choice of
+#. / days. Respect capitalization!
+#: ../src/fw/apps/system/settings/display.c:46
+#: ../src/fw/services/alarms/alarm.c:1284
+msgid "Custom"
+msgstr "Personalitzat"
+
 #: ../src/fw/apps/system/settings/display.c:67
-#: ../src/fw/apps/system/settings/display.c:664
-#: ../src/fw/apps/system/settings/system.c:206
+#: ../src/fw/apps/system/settings/display.c:647
+#: ../src/fw/apps/system/settings/system.c:207
 msgid "Language"
 msgstr "Idioma"
 
 #: ../src/fw/apps/system/settings/display.c:79
-#: ../src/fw/apps/system/settings/recordings.c:71
-#: ../src/fw/apps/system/settings/system.c:445
+#: ../src/fw/apps/system/settings/system.c:446
 msgid "Low"
 msgstr "Baix"
 
 #: ../src/fw/apps/system/settings/display.c:80
-#: ../src/fw/apps/system/settings/recordings.c:72
-#: ../src/fw/apps/system/settings/system.c:447
+#: ../src/fw/apps/system/settings/system.c:448
 msgid "Medium"
 msgstr "Mitjà"
 
 #: ../src/fw/apps/system/settings/display.c:81
-#: ../src/fw/apps/system/settings/recordings.c:73
-#: ../src/fw/apps/system/settings/system.c:449
+#: ../src/fw/apps/system/settings/system.c:450
 msgid "High"
 msgstr "Alt"
 
@@ -1088,7 +1049,7 @@ msgid "Left-Handed"
 msgstr "Esquerrà"
 
 #: ../src/fw/apps/system/settings/display.c:153
-#: ../src/fw/apps/system/settings/display.c:659
+#: ../src/fw/apps/system/settings/display.c:642
 msgid "Orientation"
 msgstr "Orientació"
 
@@ -1185,7 +1146,7 @@ msgstr "RETROIL·LUMINACIÓ"
 #. / String within Settings->Notifications that describes backlight setting
 #: ../src/fw/apps/system/settings/display.c:277
 #: ../src/fw/apps/system/settings/display.c:403
-#: ../src/fw/apps/system/settings/display.c:640
+#: ../src/fw/apps/system/settings/display.c:627
 #: ../src/fw/apps/system/settings/notifications.c:349
 #: ../src/fw/apps/system/settings/quiet_time.c:413
 #: ../src/fw/apps/system/settings/quiet_time.c:453
@@ -1222,7 +1183,7 @@ msgstr "Activat"
 
 #: ../src/fw/apps/system/settings/display.c:418
 #: ../src/fw/apps/system/settings/display.c:439
-#: ../src/fw/apps/system/settings/display.c:642
+#: ../src/fw/apps/system/settings/display.c:629
 msgctxt "DeviceState"
 msgid "Off"
 msgstr "Desactivat"
@@ -1233,8 +1194,7 @@ msgstr "Activa amb moviment"
 
 #. / Shows up in the Timeline settings as the status under the "Quick View" toggle.
 #: ../src/fw/apps/system/settings/display.c:423
-#: ../src/fw/apps/system/settings/display.c:650
-#: ../src/fw/apps/system/settings/display.c:654
+#: ../src/fw/apps/system/settings/display.c:637
 #: ../src/fw/apps/system/settings/health.c:90
 #: ../src/fw/apps/system/settings/health.c:117
 #: ../src/fw/apps/system/settings/notifications.c:351
@@ -1243,7 +1203,7 @@ msgstr "Activa amb moviment"
 #: ../src/fw/apps/system/settings/quiet_time.c:438
 #: ../src/fw/apps/system/settings/quiet_time.c:459
 #: ../src/fw/apps/system/settings/quiet_time.c:466
-#: ../src/fw/apps/system/settings/system.c:1302
+#: ../src/fw/apps/system/settings/system.c:1334
 #: ../src/fw/apps/system/settings/timeline.c:188
 #: ../src/fw/apps/system/settings/vibe_patterns.c:67
 msgid "On"
@@ -1251,8 +1211,7 @@ msgstr "Activat"
 
 #. / Shows up in the Timeline settings as the status under the "Quick View" toggle.
 #: ../src/fw/apps/system/settings/display.c:423
-#: ../src/fw/apps/system/settings/display.c:650
-#: ../src/fw/apps/system/settings/display.c:654
+#: ../src/fw/apps/system/settings/display.c:637
 #: ../src/fw/apps/system/settings/health.c:90
 #: ../src/fw/apps/system/settings/health.c:117
 #: ../src/fw/apps/system/settings/notifications.c:351
@@ -1262,7 +1221,7 @@ msgstr "Activat"
 #: ../src/fw/apps/system/settings/quiet_time.c:438
 #: ../src/fw/apps/system/settings/quiet_time.c:459
 #: ../src/fw/apps/system/settings/quiet_time.c:466
-#: ../src/fw/apps/system/settings/system.c:1302
+#: ../src/fw/apps/system/settings/system.c:1334
 #: ../src/fw/apps/system/settings/timeline.c:190
 #: ../src/fw/apps/system/settings/vibe_patterns.c:67
 msgid "Off"
@@ -1282,24 +1241,20 @@ msgid "Max Intensity"
 msgstr "Intensitat màxima"
 
 #: ../src/fw/apps/system/settings/display.c:539
-#: ../src/fw/apps/system/settings/display.c:645
+#: ../src/fw/apps/system/settings/display.c:632
 msgid "Backlight Settings"
 msgstr "Configuració de la retroil·luminació"
 
-#: ../src/fw/apps/system/settings/display.c:649
+#: ../src/fw/apps/system/settings/display.c:636
 #: ../src/fw/apps/system/settings/quiet_time.c:375
 msgid "Touch"
 msgstr "Toc"
 
-#: ../src/fw/apps/system/settings/display.c:653
-msgid "Touch Navigation"
-msgstr "Navegació tàctil"
-
-#: ../src/fw/apps/system/settings/display.c:669
+#: ../src/fw/apps/system/settings/display.c:652
 msgid "Legacy Apps"
 msgstr "Apps antigues"
 
-#: ../src/fw/apps/system/settings/display.c:711
+#: ../src/fw/apps/system/settings/display.c:694
 msgid "Display"
 msgstr "Pantalla"
 
@@ -1332,9 +1287,9 @@ msgstr "1 hora"
 #. / Shown in Quick Launch Settings when the button is disabled.
 #: ../src/fw/apps/system/settings/health.c:33
 #: ../src/fw/apps/system/settings/quick_launch.c:63
-#: ../src/fw/apps/system/settings/system.c:525
-#: ../src/fw/apps/system/settings/system.c:540
-#: ../src/fw/apps/system/settings/system.c:544
+#: ../src/fw/apps/system/settings/system.c:552
+#: ../src/fw/apps/system/settings/system.c:569
+#: ../src/fw/apps/system/settings/system.c:573
 msgid "Disabled"
 msgstr "Desactivat"
 
@@ -1498,7 +1453,7 @@ msgstr "Mantén enrere"
 #. / Title of the Quick Launch Settings submenu in Settings
 #. / Title for the Quick Launch first use dialog.
 #: ../src/fw/apps/system/settings/quick_launch.c:194
-#: ../src/fw/apps/system/settings/quick_launch_app_menu.c:157
+#: ../src/fw/apps/system/settings/quick_launch_app_menu.c:159
 #: ../src/fw/apps/system/settings/quick_launch_setup_menu.c:54
 msgid "Quick Launch"
 msgstr "Inici ràpid"
@@ -1539,6 +1494,28 @@ msgctxt "QuietTime"
 msgid "Disabled"
 msgstr "Desactivat"
 
+#. #-#-#-#-#  fw.pot (PACKAGE VERSION)  #-#-#-#-#
+#. / A frequency option for alarms, i.e. the alarm would only go off every weekday. Respect
+#. / capitalization!
+#. #-#-#-#-#  services.pot (PACKAGE VERSION)  #-#-#-#-#
+#. / A frequency option for alarms, i.e. the alarm would only go off every weekday. Respect
+#. / capitalization!
+#: ../src/fw/apps/system/settings/quiet_time.c:271
+#: ../src/fw/services/alarms/alarm.c:1255
+msgid "Weekdays"
+msgstr "Dies feiners"
+
+#. #-#-#-#-#  fw.pot (PACKAGE VERSION)  #-#-#-#-#
+#. / A frequency option for alarms, i.e. the alarm would only go off each day on the weekend.
+#. / Respect capitalization!
+#. #-#-#-#-#  services.pot (PACKAGE VERSION)  #-#-#-#-#
+#. / A frequency option for alarms, i.e. the alarm would only go off each day on the weekend.
+#. / Respect capitalization!
+#: ../src/fw/apps/system/settings/quiet_time.c:279
+#: ../src/fw/services/alarms/alarm.c:1264
+msgid "Weekends"
+msgstr "Caps de setmana"
+
 #: ../src/fw/apps/system/settings/quiet_time.c:327
 #: ../src/fw/apps/system/settings/quiet_time.c:441
 msgid "Schedule"
@@ -1557,8 +1534,8 @@ msgid "Motion"
 msgstr "Movimiento"
 
 #: ../src/fw/apps/system/settings/quiet_time.c:436
-#: ../src/fw/apps/system/settings/time.c:368
-#: ../src/fw/apps/system/settings/time.c:397
+#: ../src/fw/apps/system/settings/time.c:358
+#: ../src/fw/apps/system/settings/time.c:386
 msgid "Manual"
 msgstr "Manual"
 
@@ -1581,141 +1558,6 @@ msgstr "Silencia l'altaveu"
 msgid "Quiet Time"
 msgstr "Mode silenci"
 
-#: ../src/fw/apps/system/settings/recordings.c:64
-msgid "Play / Stop"
-msgstr "Reprodueix / Atura"
-
-#: ../src/fw/apps/system/settings/recordings.c:65
-msgid "Transcribe"
-msgstr "Transcriu"
-
-#: ../src/fw/apps/system/settings/recordings.c:81
-msgid "Quality"
-msgstr "Qualitat"
-
-#: ../src/fw/apps/system/settings/recordings.c:85
-msgid "Record volume"
-msgstr "Volum de gravació"
-
-#: ../src/fw/apps/system/settings/recordings.c:88
-msgid "Playback volume"
-msgstr "Volum de reproducció"
-
-#: ../src/fw/apps/system/settings/recordings.c:94
-msgid "Another audio operation is active."
-msgstr "Hi ha una altra operació d'àudio activa."
-
-#: ../src/fw/apps/system/settings/recordings.c:96
-msgid "The microphone is busy."
-msgstr "El micròfon està ocupat."
-
-#: ../src/fw/apps/system/settings/recordings.c:98
-msgid "Recording storage is full."
-msgstr "L'emmagatzematge de gravacions és ple."
-
-#: ../src/fw/apps/system/settings/recordings.c:100
-msgid "The audio codec could not start."
-msgstr "El còdec d'àudio no s'ha pogut iniciar."
-
-#: ../src/fw/apps/system/settings/recordings.c:102
-msgid "Not enough flash space."
-msgstr "No hi ha prou espai flash."
-
-#: ../src/fw/apps/system/settings/recordings.c:104
-msgid "The recording file could not be opened."
-msgstr "No s'ha pogut obrir el fitxer de gravació."
-
-#: ../src/fw/apps/system/settings/recordings.c:106
-msgid "The recording could not be saved."
-msgstr "No s'ha pogut desar la gravació."
-
-#: ../src/fw/apps/system/settings/recordings.c:108
-msgid "The microphone could not start."
-msgstr "El micròfon no s'ha pogut iniciar."
-
-#: ../src/fw/apps/system/settings/recordings.c:111
-msgid "The operation could not be completed."
-msgstr "No s'ha pogut completar l'operació."
-
-#: ../src/fw/apps/system/settings/recordings.c:160
-msgid "Transcription"
-msgstr "Transcripció"
-
-#: ../src/fw/apps/system/settings/recordings.c:162
-msgid "Transcription failed"
-msgstr "Error de transcripció"
-
-#: ../src/fw/apps/system/settings/recordings.c:163
-msgid "Check the phone connection and try again."
-msgstr "Comprova la connexió amb el telèfon i torna-ho a provar."
-
-#: ../src/fw/apps/system/settings/recordings.c:187
-msgid "Delete failed"
-msgstr "Error en eliminar"
-
-#: ../src/fw/apps/system/settings/recordings.c:187
-msgid "The recording is currently in use."
-msgstr "La gravació s'està utilitzant."
-
-#: ../src/fw/apps/system/settings/recordings.c:201
-msgid "Delete this recording?"
-msgstr "Vols eliminar aquesta gravació?"
-
-#: ../src/fw/apps/system/settings/recordings.c:227
-msgid "Playback failed"
-msgstr "Error de reproducció"
-
-#: ../src/fw/apps/system/settings/recordings.c:228
-msgid "The recording could not be played."
-msgstr "No s'ha pogut reproduir la gravació."
-
-#: ../src/fw/apps/system/settings/recordings.c:234
-msgid "Transcription unavailable"
-msgstr "Transcripció no disponible"
-
-#: ../src/fw/apps/system/settings/recordings.c:235
-msgid "Connect a phone with voice support and try again."
-msgstr "Connecta un telèfon compatible amb veu i torna-ho a provar."
-
-#: ../src/fw/apps/system/settings/recordings.c:254
-msgid "Recording"
-msgstr "Gravació"
-
-#: ../src/fw/apps/system/settings/recordings.c:320
-#: ../src/fw/apps/system/settings/recordings.c:338
-msgid "Recording settings"
-msgstr "Configuració de gravació"
-
-#: ../src/fw/apps/system/settings/recordings.c:335
-msgid "Stop recording"
-msgstr "Atura la gravació"
-
-#: ../src/fw/apps/system/settings/recordings.c:336
-msgid "New recording"
-msgstr "Gravació nova"
-
-#: ../src/fw/apps/system/settings/recordings.c:340
-msgid "No recordings"
-msgstr "Cap gravació"
-
-#: ../src/fw/apps/system/settings/recordings.c:345
-#, c-format
-msgid "Recording %u  %u:%02u"
-msgstr "Gravació %u  %u:%02u"
-
-#: ../src/fw/apps/system/settings/recordings.c:364
-msgid "Recording failed"
-msgstr "Error de gravació"
-
-#: ../src/fw/apps/system/settings/recordings.c:371
-msgid "Recording unavailable"
-msgstr "Gravació no disponible"
-
-#: ../src/fw/apps/system/settings/recordings.c:423
-#: ../src/fw/apps/system/settings/recordings.c:439
-msgid "Recordings"
-msgstr "Gravacions"
-
 #: ../src/fw/apps/system/settings/remote.c:60
 msgid "You're all set"
 msgstr "Tot a punt"
@@ -1733,142 +1575,150 @@ msgstr "Deixa de compartir la freqüència cardíaca"
 msgid "Settings"
 msgstr "Configuració"
 
-#: ../src/fw/apps/system/settings/speaker_volume_window.c:55
-#: ../src/fw/apps/system/settings/vibe_patterns.c:73
-msgid "Volume"
-msgstr "Volum"
-
-#: ../src/fw/apps/system/settings/system.c:158
-#: ../src/fw/apps/system/settings/system.c:255
+#: ../src/fw/apps/system/settings/system.c:159
+#: ../src/fw/apps/system/settings/system.c:256
 msgid "Information"
 msgstr "Informació"
 
-#: ../src/fw/apps/system/settings/system.c:159
-#: ../src/fw/apps/system/settings/system.c:969
+#: ../src/fw/apps/system/settings/system.c:160
+#: ../src/fw/apps/system/settings/system.c:1001
 msgid "Certification"
 msgstr "Certificació"
 
-#: ../src/fw/apps/system/settings/system.c:160
+#: ../src/fw/apps/system/settings/system.c:161
 msgid "Stand-By Mode"
 msgstr "Mode espera"
 
-#: ../src/fw/apps/system/settings/system.c:161
-#: ../src/fw/apps/system/settings/system.c:602
+#: ../src/fw/apps/system/settings/system.c:162
+#: ../src/fw/apps/system/settings/system.c:634
 msgid "Debugging"
 msgstr "Depuració"
 
-#: ../src/fw/apps/system/settings/system.c:162
+#: ../src/fw/apps/system/settings/system.c:163
 msgid "Shut Down"
 msgstr "Apaga"
 
-#: ../src/fw/apps/system/settings/system.c:163
+#: ../src/fw/apps/system/settings/system.c:164
 msgid "Factory Reset"
 msgstr "Restabliment de fàbrica"
 
-#: ../src/fw/apps/system/settings/system.c:204
+#: ../src/fw/apps/system/settings/system.c:205
 msgid "BT Address"
 msgstr "Adreça BT"
 
-#: ../src/fw/apps/system/settings/system.c:205
+#: ../src/fw/apps/system/settings/system.c:206
 msgid "Firmware"
 msgstr "Firmware"
 
-#: ../src/fw/apps/system/settings/system.c:207
+#: ../src/fw/apps/system/settings/system.c:208
 msgid "Recovery"
 msgstr "Recuperació"
 
-#: ../src/fw/apps/system/settings/system.c:208
+#: ../src/fw/apps/system/settings/system.c:209
 msgid "Bootloader"
 msgstr "Carregador d'arrencada"
 
-#: ../src/fw/apps/system/settings/system.c:209
+#: ../src/fw/apps/system/settings/system.c:210
 msgid "Hardware"
 msgstr "Maquinari"
 
-#: ../src/fw/apps/system/settings/system.c:210
+#: ../src/fw/apps/system/settings/system.c:211
 msgid "Serial"
 msgstr "Sèrie"
 
-#: ../src/fw/apps/system/settings/system.c:211
+#: ../src/fw/apps/system/settings/system.c:212
 msgid "Uptime"
 msgstr "Temps actiu"
 
-#: ../src/fw/apps/system/settings/system.c:212
+#: ../src/fw/apps/system/settings/system.c:213
 msgid "Legal"
 msgstr "Legal"
 
-#: ../src/fw/apps/system/settings/system.c:350
+#: ../src/fw/apps/system/settings/system.c:351
 msgid "Core dump and reboot?"
 msgstr "Bolcar memòria i reiniciar?"
 
-#: ../src/fw/apps/system/settings/system.c:444
+#: ../src/fw/apps/system/settings/system.c:445
 msgid "Very Low"
 msgstr "Molt baix"
 
-#: ../src/fw/apps/system/settings/system.c:446
+#: ../src/fw/apps/system/settings/system.c:447
 msgid "Medium-Low"
 msgstr "Mitjà-baix"
 
-#: ../src/fw/apps/system/settings/system.c:448
+#: ../src/fw/apps/system/settings/system.c:449
 msgid "Medium-High"
 msgstr "Mitjà-alt"
 
-#: ../src/fw/apps/system/settings/system.c:450
+#: ../src/fw/apps/system/settings/system.c:451
 msgid "Very High"
 msgstr "Molt alt"
 
-#: ../src/fw/apps/system/settings/system.c:475
-#: ../src/fw/apps/system/settings/system.c:502
+#: ../src/fw/apps/system/settings/system.c:476
+#: ../src/fw/apps/system/settings/system.c:529
 msgid "Motion Sensitivity"
 msgstr "Sensibilitat al moviment"
 
-#: ../src/fw/apps/system/settings/system.c:498
+#: ../src/fw/apps/system/settings/system.c:488
+msgid "High performance"
+msgstr "Alt rendiment"
+
+#: ../src/fw/apps/system/settings/system.c:489
+msgid "Low power"
+msgstr "Baix consum"
+
+#: ../src/fw/apps/system/settings/system.c:502
+#: ../src/fw/apps/system/settings/system.c:526
+msgid "Power Mode"
+msgstr "Mode d'energia"
+
+#: ../src/fw/apps/system/settings/system.c:524
 msgid "CoreDump now"
 msgstr "Bolca memòria ara"
 
-#: ../src/fw/apps/system/settings/system.c:499
+#: ../src/fw/apps/system/settings/system.c:525
 msgid "CoreDump shortcut"
 msgstr "Drecera de bolcat"
 
-#: ../src/fw/apps/system/settings/system.c:500
+#: ../src/fw/apps/system/settings/system.c:527
 msgid "ALS Threshold"
 msgstr "Llindar d'ALS"
 
-#: ../src/fw/apps/system/settings/system.c:504
+#: ../src/fw/apps/system/settings/system.c:531
 msgid "Shake Log Info"
 msgstr "Registre info sacsejada"
 
-#: ../src/fw/apps/system/settings/system.c:505
+#: ../src/fw/apps/system/settings/system.c:532
 msgid "Vibe Log Info"
 msgstr "Registre info vibració"
 
-#: ../src/fw/apps/system/settings/system.c:506
+#: ../src/fw/apps/system/settings/system.c:533
 msgid "Compact Settings DBs"
 msgstr "Compacta BD de configuració"
 
-#: ../src/fw/apps/system/settings/system.c:525
+#: ../src/fw/apps/system/settings/system.c:552
 msgid "10 back-button presses"
 msgstr "10 pulsacions del botó enrere"
 
-#: ../src/fw/apps/system/settings/system.c:540
-#: ../src/fw/apps/system/settings/system.c:544
+#: ../src/fw/apps/system/settings/system.c:569
+#: ../src/fw/apps/system/settings/system.c:573
 msgid "Enabled"
 msgstr "Activat"
 
-#: ../src/fw/apps/system/settings/system.c:675
+#: ../src/fw/apps/system/settings/system.c:707
 msgid "PebbleOS developers only!"
 msgstr "Només desenvolupadors de PebbleOS!"
 
-#: ../src/fw/apps/system/settings/system.c:930
+#: ../src/fw/apps/system/settings/system.c:962
 msgid "See details..."
 msgstr "Mostra els detalls..."
 
-#: ../src/fw/apps/system/settings/system.c:1282
+#: ../src/fw/apps/system/settings/system.c:1314
 msgid "Do you want to shut down?"
 msgstr "Vols apagar?"
 
 #. / Refers to the class of all non-score vibes, e.g. 3rd party app vibes
-#: ../src/fw/apps/system/settings/system.c:1369
+#: ../src/fw/apps/system/settings/system.c:1401
 #: ../src/fw/apps/system/settings/vibe_patterns.c:108
 msgid "System"
 msgstr "Sistema"
@@ -1883,48 +1733,47 @@ msgid "Themes"
 msgstr "Temes"
 
 #. / Title of the menu for changing the watch's timezone.
-#: ../src/fw/apps/system/settings/time.c:169
-#: ../src/fw/apps/system/settings/time.c:410
+#: ../src/fw/apps/system/settings/time.c:163
+#: ../src/fw/apps/system/settings/time.c:391
 msgid "Timezone"
 msgstr "Zona horària"
 
-#: ../src/fw/apps/system/settings/time.c:269
-#: ../src/fw/apps/system/settings/time.c:373
+#: ../src/fw/apps/system/settings/time.c:263
+#: ../src/fw/apps/system/settings/time.c:363
 msgid "Set Time"
 msgstr "Configurar hora"
 
-#: ../src/fw/apps/system/settings/time.c:308
-#: ../src/fw/apps/system/settings/time.c:382
+#: ../src/fw/apps/system/settings/time.c:302
+#: ../src/fw/apps/system/settings/time.c:372
 msgid "Set Date"
 msgstr "Configurar fecha"
 
-#: ../src/fw/apps/system/settings/time.c:367
+#: ../src/fw/apps/system/settings/time.c:357
 msgid "Time Source"
 msgstr "Origen de l'hora"
 
-#: ../src/fw/apps/system/settings/time.c:369
-#: ../src/fw/apps/system/settings/time.c:402
-#: ../src/fw/apps/system/settings/time.c:405
+#: ../src/fw/apps/system/settings/time.c:359
+#: ../src/fw/apps/system/settings/time.c:387
 msgid "Automatic"
 msgstr "Automàtic"
 
-#: ../src/fw/apps/system/settings/time.c:390
+#: ../src/fw/apps/system/settings/time.c:380
 msgid "Time Format"
 msgstr "Format d'hora"
 
-#: ../src/fw/apps/system/settings/time.c:391
+#: ../src/fw/apps/system/settings/time.c:381
 msgid "24h"
 msgstr "24 h"
 
-#: ../src/fw/apps/system/settings/time.c:391
+#: ../src/fw/apps/system/settings/time.c:381
 msgid "12h"
 msgstr "12 h"
 
-#: ../src/fw/apps/system/settings/time.c:395
+#: ../src/fw/apps/system/settings/time.c:385
 msgid "Timezone Source"
 msgstr "Origen de la zona horària"
 
-#: ../src/fw/apps/system/settings/time.c:455
+#: ../src/fw/apps/system/settings/time.c:445
 msgid "Date & Time"
 msgstr "Data i hora"
 
@@ -2000,6 +1849,11 @@ msgstr "Apareix a la caràtula quan un esdeveniment és a punt de començar."
 msgid "Timeline"
 msgstr "Cronologia"
 
+#: ../src/fw/apps/system/settings/vibe_patterns.c:73
+#: ../src/fw/apps/system/settings/vibe_patterns.c:189
+msgid "Volume"
+msgstr "Volum"
+
 #: ../src/fw/apps/system/settings/vibe_patterns.c:87
 msgid "Incoming Calls"
 msgstr "Trucades entrants"
@@ -2012,11 +1866,11 @@ msgstr "Avís horari"
 msgid "On Disconnect"
 msgstr "En desconnectar"
 
-#: ../src/fw/apps/system/settings/vibe_patterns.c:284
+#: ../src/fw/apps/system/settings/vibe_patterns.c:312
 msgid "Sounds & Haptics"
 msgstr "Sons i vibracions"
 
-#: ../src/fw/apps/system/settings/vibe_patterns.c:286
+#: ../src/fw/apps/system/settings/vibe_patterns.c:314
 msgid "Vibrations"
 msgstr "Vibracions"
 
@@ -2106,8 +1960,36 @@ msgstr "Actiu"
 msgid "Watchfaces"
 msgstr "Caràtules"
 
+#. / Shown when neither high nor low temperature is known
+#: ../src/fw/apps/system/weather/layout.c:73
+msgid "--° / --°"
+msgstr "--° / --°"
+
+#. / Shown when only the day's high temperature is known, (e.g. "68° / --°")
+#: ../src/fw/apps/system/weather/layout.c:78
+#, c-format
+msgid "%i° / --°"
+msgstr "%i° / --°"
+
+#. / Shown when only the day's low temperature is known (e.g. "--° / 52°")
+#: ../src/fw/apps/system/weather/layout.c:81
+#, c-format
+msgid "--° / %i°"
+msgstr "--° / %i°"
+
+#. / A day's high and low temperature, separated by a foward slash (e.g. "68° / 52°")
+#: ../src/fw/apps/system/weather/layout.c:84
+#, c-format
+msgid "%i° / %i°"
+msgstr "%i° / %i°"
+
+#. / Refers to the weather conditions for tomorrow
+#: ../src/fw/apps/system/weather/layout.c:234
+msgid "TOMORROW"
+msgstr "DEMÀ"
+
 #. / Shown when there are no forecasts available to show the user
-#: ../src/fw/apps/system/weather/weather.c:342
+#: ../src/fw/apps/system/weather/weather.c:91
 msgid ""
 "No location information available. To see weather, add locations in your "
 "Pebble mobile app."
@@ -2115,7 +1997,16 @@ msgstr ""
 "No hi ha informació d'ubicació disponible. Per veure el temps, afegeix "
 "ubicacions a l'app Pebble del mòbil."
 
-#: ../src/fw/apps/system/weather/weather.c:752
+#. / Shown when there is no connection to the phone and the data that we have is not recent
+#: ../src/fw/apps/system/weather/weather.c:188
+msgid ""
+"Unable to connect. Your weather data may be out of date; try checking the "
+"connection on your phone."
+msgstr ""
+"No es pot connectar. Les dades del temps poden estar desactualitzades; "
+"comprova la connexió al telèfon."
+
+#: ../src/fw/apps/system/weather/weather.c:214
 #: ../src/fw/services/timeline/timeline.c:943
 msgid "Weather"
 msgstr "Temps"
@@ -2237,8 +2128,8 @@ msgstr ""
 
 #: ../src/fw/apps/system/workout/utils.c:28
 #: ../src/fw/popups/ble_hrm/ble_hrm_reminder_popup.c:27
-#: ../src/fw/services/activity/activity_insights.c:1211
-#: ../src/fw/services/notifications/ancs/ancs_item.c:158
+#: ../src/fw/services/activity/activity_insights.c:1187
+#: ../src/fw/services/notifications/ancs/ancs_item.c:152
 msgid "Dismiss"
 msgstr "Descarta"
 
@@ -2256,7 +2147,7 @@ msgstr "Obre entrenament"
 #. / Workout Label
 #: ../src/fw/apps/system/workout/utils.c:92
 #: ../src/fw/apps/system/workout/workout.c:261
-#: ../src/fw/services/activity/activity_insights.c:1651
+#: ../src/fw/services/activity/activity_insights.c:1627
 msgid "Workout"
 msgstr "Entrenament"
 
@@ -2265,7 +2156,7 @@ msgstr "Entrenament"
 #. #-#-#-#-#  apps.pot (PACKAGE VERSION)  #-#-#-#-#
 #. / Walk Label
 #: ../src/fw/apps/system/workout/utils.c:95
-#: ../src/fw/services/activity/activity_insights.c:1649
+#: ../src/fw/services/activity/activity_insights.c:1625
 msgid "Walk"
 msgstr "Caminar"
 
@@ -2274,7 +2165,7 @@ msgstr "Caminar"
 #. #-#-#-#-#  apps.pot (PACKAGE VERSION)  #-#-#-#-#
 #. / Run Label
 #: ../src/fw/apps/system/workout/utils.c:98
-#: ../src/fw/services/activity/activity_insights.c:1647
+#: ../src/fw/services/activity/activity_insights.c:1623
 msgid "Run"
 msgstr "Córrer"
 
@@ -2422,52 +2313,52 @@ msgstr ""
 "Aquesta funció requereix Pebble Health per funcionar. Activa Health a l'app "
 "Pebble del mòbil per continuar."
 
-#: ../src/fw/popups/notifications/notification_window.c:722
+#: ../src/fw/popups/notifications/notification_window.c:717
 msgid "Snoozed"
 msgstr "Posposada"
 
-#: ../src/fw/popups/notifications/notification_window.c:756
+#: ../src/fw/popups/notifications/notification_window.c:751
 msgid "Muted"
 msgstr "Silenciada"
 
-#: ../src/fw/popups/notifications/notification_window.c:931
+#: ../src/fw/popups/notifications/notification_window.c:926
 msgid "Snooze"
 msgstr "Posposa"
 
-#: ../src/fw/popups/notifications/notification_window.c:950
+#: ../src/fw/popups/notifications/notification_window.c:945
 #, c-format
 msgid "Mute %s"
 msgstr "Silencia %s"
 
-#: ../src/fw/popups/notifications/notification_window.c:973
+#: ../src/fw/popups/notifications/notification_window.c:968
 msgid "Mute 1 Hour"
 msgstr "Silencia 1 hora"
 
-#: ../src/fw/popups/notifications/notification_window.c:978
+#: ../src/fw/popups/notifications/notification_window.c:973
 msgid "Mute Today"
 msgstr "Silencia avui"
 
-#: ../src/fw/popups/notifications/notification_window.c:983
+#: ../src/fw/popups/notifications/notification_window.c:978
 msgid "Mute Always"
 msgstr "Silencia sempre"
 
-#: ../src/fw/popups/notifications/notification_window.c:988
+#: ../src/fw/popups/notifications/notification_window.c:983
 msgid "Mute Weekends"
 msgstr "Silencia els caps de setmana"
 
-#: ../src/fw/popups/notifications/notification_window.c:993
+#: ../src/fw/popups/notifications/notification_window.c:988
 msgid "Mute Weekdays"
 msgstr "Silencia entre setmana"
 
-#: ../src/fw/popups/notifications/notification_window.c:1003
+#: ../src/fw/popups/notifications/notification_window.c:998
 msgid "Dismiss All"
 msgstr "Descarta-ho tot"
 
-#: ../src/fw/popups/notifications/notification_window.c:1010
+#: ../src/fw/popups/notifications/notification_window.c:1005
 msgid "End Quiet Time"
 msgstr "Acaba el mode silenci"
 
-#: ../src/fw/popups/notifications/notification_window.c:1011
+#: ../src/fw/popups/notifications/notification_window.c:1006
 msgid "Start Quiet Time"
 msgstr "Inicia el mode silenci"
 
@@ -2498,20 +2389,20 @@ msgstr ""
 "Mentre el Pebble estava apagat hi ha hagut esdeveniments de despertador per "
 "a:\n"
 
-#: ../src/fw/process_management/app_manager.c:472
+#: ../src/fw/process_management/app_manager.c:515
 #, c-format
 msgid "%.*s is not responding"
 msgstr "%.*s no respon"
 
-#: ../src/fw/process_management/process_manager.c:208
+#: ../src/fw/process_management/process_manager.c:207
 msgid "This app requires a newer version of the Pebble firmware."
 msgstr "Aquesta app requereix una versió més nova del firmware de Pebble."
 
-#: ../src/fw/process_management/process_manager.c:335
+#: ../src/fw/process_management/process_manager.c:334
 msgid "This app uses RockyJS which is no longer supported."
 msgstr "Aquesta app utilitza RockyJS, que ja no és compatible."
 
-#: ../src/fw/services/activity/activity_insights.c:181
+#: ../src/fw/services/activity/activity_insights.c:172
 msgid ""
 "How are you feeling? Have you noticed extra focus, better mood or extra "
 "energy? You have been sleeping great this week! Keep it up!"
@@ -2519,34 +2410,34 @@ msgstr ""
 "Com et trobes? Has notat més concentració, millor humor o més energia? Has "
 "dormit molt bé aquesta setmana. Continua així!"
 
-#: ../src/fw/services/activity/activity_insights.c:183
+#: ../src/fw/services/activity/activity_insights.c:174
 msgid "I feel fabulous!"
 msgstr "Em trobo fantàstic!"
 
-#: ../src/fw/services/activity/activity_insights.c:184
+#: ../src/fw/services/activity/activity_insights.c:175
 msgid "About average"
 msgstr "Com sempre"
 
-#: ../src/fw/services/activity/activity_insights.c:185
+#: ../src/fw/services/activity/activity_insights.c:176
 msgid "I'm still tired"
 msgstr "Encara estic cansat"
 
-#: ../src/fw/services/activity/activity_insights.c:186
-#: ../src/fw/services/activity/activity_insights.c:204
+#: ../src/fw/services/activity/activity_insights.c:177
+#: ../src/fw/services/activity/activity_insights.c:195
 msgid "Awesome!"
 msgstr "Genial!"
 
-#: ../src/fw/services/activity/activity_insights.c:187
-#: ../src/fw/services/activity/activity_insights.c:205
+#: ../src/fw/services/activity/activity_insights.c:178
+#: ../src/fw/services/activity/activity_insights.c:196
 msgid "Keep it up!"
 msgstr "Continua així!"
 
-#: ../src/fw/services/activity/activity_insights.c:188
-#: ../src/fw/services/activity/activity_insights.c:206
+#: ../src/fw/services/activity/activity_insights.c:179
+#: ../src/fw/services/activity/activity_insights.c:197
 msgid "We'll get there!"
 msgstr "Hi arribarem!"
 
-#: ../src/fw/services/activity/activity_insights.c:199
+#: ../src/fw/services/activity/activity_insights.c:190
 msgid ""
 "Congratulations - you're having a super active day! Activity makes you more "
 "focused and creative. How do you feel?"
@@ -2554,149 +2445,149 @@ msgstr ""
 "Enhorabona, tens un dia molt actiu! L'activitat et fa estar més concentrat i "
 "creatiu. Com et sents?"
 
-#: ../src/fw/services/activity/activity_insights.c:201
-#: ../src/fw/services/activity/activity_insights.c:934
+#: ../src/fw/services/activity/activity_insights.c:192
+#: ../src/fw/services/activity/activity_insights.c:925
 msgid "I feel great!"
 msgstr "Em trobo molt bé!"
 
-#: ../src/fw/services/activity/activity_insights.c:202
+#: ../src/fw/services/activity/activity_insights.c:193
 msgid "About the same"
 msgstr "Més o menys igual"
 
-#: ../src/fw/services/activity/activity_insights.c:203
+#: ../src/fw/services/activity/activity_insights.c:194
 msgid "Not feeling it"
 msgstr "No ho noto"
 
-#: ../src/fw/services/activity/activity_insights.c:233
+#: ../src/fw/services/activity/activity_insights.c:224
 msgid "Activity Summary"
 msgstr "Resum d'activitat"
 
-#: ../src/fw/services/activity/activity_insights.c:240
+#: ../src/fw/services/activity/activity_insights.c:231
 msgid "Do you feel more energetic, sharper or optimistic? Being active helps!"
 msgstr "Et sents amb més energia, més àgil o més optimista? Estar actiu ajuda!"
 
-#: ../src/fw/services/activity/activity_insights.c:241
+#: ../src/fw/services/activity/activity_insights.c:232
 msgid "GREAT DAY TODAY"
 msgstr "GRAN DIA AVUI"
 
-#: ../src/fw/services/activity/activity_insights.c:244
+#: ../src/fw/services/activity/activity_insights.c:235
 msgid "You're being consistent and that's important, keep at it!"
 msgstr "Estàs sent constant i això és important. Continua així!"
 
-#: ../src/fw/services/activity/activity_insights.c:245
+#: ../src/fw/services/activity/activity_insights.c:236
 msgid "CONSISTENT!"
 msgstr "CONSTANT!"
 
-#: ../src/fw/services/activity/activity_insights.c:248
-#: ../src/fw/services/activity/activity_insights.c:252
+#: ../src/fw/services/activity/activity_insights.c:239
+#: ../src/fw/services/activity/activity_insights.c:243
 msgid "Resting is fine, but try to recover and step it up tomorrow!"
 msgstr "Descansar està bé, però prova de recuperar-te i fer més demà!"
 
-#: ../src/fw/services/activity/activity_insights.c:249
-#: ../src/fw/services/activity/activity_insights.c:253
+#: ../src/fw/services/activity/activity_insights.c:240
+#: ../src/fw/services/activity/activity_insights.c:244
 msgid "NOT VERY ACTIVE"
 msgstr "POC ACTIU"
 
-#: ../src/fw/services/activity/activity_insights.c:261
+#: ../src/fw/services/activity/activity_insights.c:252
 msgid "Sleep Summary"
 msgstr "Resum del son"
 
-#: ../src/fw/services/activity/activity_insights.c:269
+#: ../src/fw/services/activity/activity_insights.c:260
 msgid "You had a good night! Feel the energy 😃"
 msgstr "Has tingut una bona nit! Nota l'energia 😃"
 
-#: ../src/fw/services/activity/activity_insights.c:272
+#: ../src/fw/services/activity/activity_insights.c:263
 msgid "It's great that you're keeping a consistent sleep routine!"
 msgstr "És fantàstic que mantinguis una rutina de son constant!"
 
-#: ../src/fw/services/activity/activity_insights.c:275
-#: ../src/fw/services/activity/activity_insights.c:278
+#: ../src/fw/services/activity/activity_insights.c:266
+#: ../src/fw/services/activity/activity_insights.c:269
 msgid "A good night's sleep goes a long way! Try to get more hours tonight."
 msgstr "Dormir bé ajuda molt! Intenta dormir més hores aquesta nit."
 
-#: ../src/fw/services/activity/activity_insights.c:430
+#: ../src/fw/services/activity/activity_insights.c:421
 msgid "Open App"
 msgstr "Obre l'app"
 
-#: ../src/fw/services/activity/activity_insights.c:535
-#: ../src/fw/services/activity/activity_insights.c:540
+#: ../src/fw/services/activity/activity_insights.c:526
+#: ../src/fw/services/activity/activity_insights.c:531
 msgid "BELOW AVG"
 msgstr "SOTA MITJ."
 
-#: ../src/fw/services/activity/activity_insights.c:535
-#: ../src/fw/services/activity/activity_insights.c:540
+#: ../src/fw/services/activity/activity_insights.c:526
+#: ../src/fw/services/activity/activity_insights.c:531
 msgid "Below avg"
 msgstr "Sota mitj."
 
-#: ../src/fw/services/activity/activity_insights.c:545
+#: ../src/fw/services/activity/activity_insights.c:536
 msgid "ON AVG"
 msgstr "A LA MITJ."
 
-#: ../src/fw/services/activity/activity_insights.c:545
+#: ../src/fw/services/activity/activity_insights.c:536
 msgid "On avg"
 msgstr "A la mitj."
 
-#: ../src/fw/services/activity/activity_insights.c:550
+#: ../src/fw/services/activity/activity_insights.c:541
 msgid "ABOVE AVG"
 msgstr "SOBRE MITJ."
 
-#: ../src/fw/services/activity/activity_insights.c:550
+#: ../src/fw/services/activity/activity_insights.c:541
 msgid "Above avg"
 msgstr "Sobre mitj."
 
-#: ../src/fw/services/activity/activity_insights.c:838
+#: ../src/fw/services/activity/activity_insights.c:829
 msgid "%H:%M"
 msgstr "%H:%M"
 
-#: ../src/fw/services/activity/activity_insights.c:838
+#: ../src/fw/services/activity/activity_insights.c:829
 msgid "%l:%M%p"
 msgstr "%l:%M%p"
 
-#: ../src/fw/services/activity/activity_insights.c:863
+#: ../src/fw/services/activity/activity_insights.c:854
 #, c-format
 msgid "%uH %uM Sleep"
 msgstr "%u h %u min de son"
 
-#: ../src/fw/services/activity/activity_insights.c:894
+#: ../src/fw/services/activity/activity_insights.c:885
 msgid "Nap Time"
 msgstr "Hora de migdiada"
 
-#: ../src/fw/services/activity/activity_insights.c:902
+#: ../src/fw/services/activity/activity_insights.c:893
 #, c-format
 msgid "%s of sleep"
 msgstr "%s de son"
 
-#: ../src/fw/services/activity/activity_insights.c:907
+#: ../src/fw/services/activity/activity_insights.c:898
 msgid "YOU NAPPED"
 msgstr "HAS FET MIGDIADA"
 
-#: ../src/fw/services/activity/activity_insights.c:908
+#: ../src/fw/services/activity/activity_insights.c:899
 msgid "Of napping"
 msgstr "De migdiada"
 
-#: ../src/fw/services/activity/activity_insights.c:916
+#: ../src/fw/services/activity/activity_insights.c:907
 #, c-format
 msgid "%s - %s"
 msgstr "%s - %s"
 
-#: ../src/fw/services/activity/activity_insights.c:938
+#: ../src/fw/services/activity/activity_insights.c:929
 msgid "I need more"
 msgstr "En necessito més"
 
-#: ../src/fw/services/activity/activity_insights.c:968
+#: ../src/fw/services/activity/activity_insights.c:959
 #, c-format
 msgid "Aren't naps great? You knocked out for %dH %dM!"
 msgstr "Les migdiades són genials, oi? Has dormit %d h %d min!"
 
-#: ../src/fw/services/activity/activity_insights.c:984
+#: ../src/fw/services/activity/activity_insights.c:975
 msgid "I didn't nap!?"
 msgstr "No he fet migdiada!?"
 
-#: ../src/fw/services/activity/activity_insights.c:1219
+#: ../src/fw/services/activity/activity_insights.c:1195
 msgid "Open Pin"
 msgstr "Obre el pin"
 
-#: ../src/fw/services/activity/activity_insights.c:1303
+#: ../src/fw/services/activity/activity_insights.c:1279
 #, c-format
 msgid ""
 "Killer job! You've walked %d steps today which is %d%% above your typical. "
@@ -2705,7 +2596,7 @@ msgstr ""
 "Molt bona feina! Avui has fet %d passos, un %d%% per sobre del que és "
 "habitual. Repeteix-ho demà i estaràs al capdamunt!"
 
-#: ../src/fw/services/activity/activity_insights.c:1305
+#: ../src/fw/services/activity/activity_insights.c:1281
 #, c-format
 msgid ""
 "Nice moves! You've walked %d steps today which is %d%% above your typical. "
@@ -2714,7 +2605,7 @@ msgstr ""
 "Bona marxa! Avui has fet %d passos, un %d%% per sobre del que és habitual. "
 "Torna-hi demà 😀"
 
-#: ../src/fw/services/activity/activity_insights.c:1307
+#: ../src/fw/services/activity/activity_insights.c:1283
 #, c-format
 msgid ""
 "Hey rockstar 🎤 You've walked %d steps today which is %d%% above your "
@@ -2723,7 +2614,7 @@ msgstr ""
 "Ets una estrella 🎤 Avui has fet %d passos, un %d%% per sobre del que és "
 "habitual. Res no et pot aturar!"
 
-#: ../src/fw/services/activity/activity_insights.c:1309
+#: ../src/fw/services/activity/activity_insights.c:1285
 #, c-format
 msgid ""
 "We can barely keep up! You walked %d steps today which is %d%% above your "
@@ -2732,7 +2623,7 @@ msgstr ""
 "Gairebé no et podem seguir! Avui has fet %d passos, un %d%% per sobre del "
 "que és habitual. Estàs que cremes 🔥"
 
-#: ../src/fw/services/activity/activity_insights.c:1312
+#: ../src/fw/services/activity/activity_insights.c:1288
 #, c-format
 msgid ""
 "You walked %d steps today which is %d%% above your typical. You just "
@@ -2741,7 +2632,7 @@ msgstr ""
 "Avui has fet %d passos, un %d%% per sobre del que és habitual. T'has superat "
 "a TU mateix. Punt final."
 
-#: ../src/fw/services/activity/activity_insights.c:1319
+#: ../src/fw/services/activity/activity_insights.c:1295
 #, c-format
 msgid ""
 "You walked %d steps today; keep it up! Being active is the key to feeling "
@@ -2750,12 +2641,12 @@ msgstr ""
 "Avui has fet %d passos; continua així! Estar actiu és clau per sentir-te "
 "molt bé. Prova de superar el que és habitual demà."
 
-#: ../src/fw/services/activity/activity_insights.c:1322
+#: ../src/fw/services/activity/activity_insights.c:1298
 #, c-format
 msgid "Good job! You walked %d steps today–do it again tomorrow."
 msgstr "Bona feina! Avui has fet %d passos; repeteix-ho demà."
 
-#: ../src/fw/services/activity/activity_insights.c:1323
+#: ../src/fw/services/activity/activity_insights.c:1299
 #, c-format
 msgid ""
 "Someone's on the move 👊 You walked %d steps today; keep doing what you're "
@@ -2763,7 +2654,7 @@ msgid ""
 msgstr ""
 "Algú està en marxa 👊 Avui has fet %d passos; continua fent el que fas!"
 
-#: ../src/fw/services/activity/activity_insights.c:1325
+#: ../src/fw/services/activity/activity_insights.c:1301
 #, c-format
 msgid ""
 "You keep moving, we'll keep counting! You've clocked in %d steps today. Keep "
@@ -2772,7 +2663,7 @@ msgstr ""
 "Tu continua movent-te i nosaltres seguirem comptant! Avui has registrat %d "
 "passos. No paris."
 
-#: ../src/fw/services/activity/activity_insights.c:1332
+#: ../src/fw/services/activity/activity_insights.c:1308
 #, c-format
 msgid ""
 "You walked %d steps today which is %d%% below your typical. Try to be more "
@@ -2781,7 +2672,7 @@ msgstr ""
 "Avui has fet %d passos, un %d%% per sota del que és habitual. Intenta estar "
 "més actiu demà; pots fer-ho!"
 
-#: ../src/fw/services/activity/activity_insights.c:1334
+#: ../src/fw/services/activity/activity_insights.c:1310
 #, c-format
 msgid ""
 "You walked %d steps which is %d%% below your typical. Being active makes you "
@@ -2790,7 +2681,7 @@ msgstr ""
 "Has fet %d passos, un %d%% per sota del que és habitual. Estar actiu et fa "
 "sentir genial; prova de recuperar el ritme demà."
 
-#: ../src/fw/services/activity/activity_insights.c:1336
+#: ../src/fw/services/activity/activity_insights.c:1312
 #, c-format
 msgid ""
 "You walked %d steps today which is %d%% below your typical. Don't worry, "
@@ -2799,7 +2690,7 @@ msgstr ""
 "Avui has fet %d passos, un %d%% per sota del que és habitual. No et "
 "preocupis, demà ja és aquí 😀"
 
-#: ../src/fw/services/activity/activity_insights.c:1338
+#: ../src/fw/services/activity/activity_insights.c:1314
 #, c-format
 msgid ""
 "You walked %d steps which is %d%% below your typical, but don't stress. "
@@ -2808,7 +2699,7 @@ msgstr ""
 "Has fet %d passos, un %d%% per sota del que és habitual, però no t'amoïnis. "
 "Demà ho faràs molt bé 😉"
 
-#: ../src/fw/services/activity/activity_insights.c:1345
+#: ../src/fw/services/activity/activity_insights.c:1321
 #, c-format
 msgid ""
 "You walked %d steps today. Don't fret, you can get back on track in no time "
@@ -2817,12 +2708,12 @@ msgstr ""
 "Avui has fet %d passos. No pateixis, recuperaràs el ritme en un tres i no "
 "res 😉"
 
-#: ../src/fw/services/activity/activity_insights.c:1347
+#: ../src/fw/services/activity/activity_insights.c:1323
 #, c-format
 msgid "You walked %d steps today. Good news is the sky's the limit!"
 msgstr "Avui has fet %d passos. La bona notícia és que no hi ha límits!"
 
-#: ../src/fw/services/activity/activity_insights.c:1348
+#: ../src/fw/services/activity/activity_insights.c:1324
 #, c-format
 msgid ""
 "You walked %d steps today. Try to take even more steps tomorrow–show us what "
@@ -2832,7 +2723,7 @@ msgstr ""
 "capaç!"
 
 #. / Sleep notification on wake up, slept above their typical sleep duration
-#: ../src/fw/services/activity/activity_insights.c:1400
+#: ../src/fw/services/activity/activity_insights.c:1376
 #, c-format
 msgid ""
 "Refreshed? You slept for %dH %dM which is %d%% above your typical. Go tackle "
@@ -2841,7 +2732,7 @@ msgstr ""
 "Renovat? Has dormit %d h %d min, un %d%% per sobre del que és habitual. Ves "
 "a per totes avui 😃."
 
-#: ../src/fw/services/activity/activity_insights.c:1402
+#: ../src/fw/services/activity/activity_insights.c:1378
 #, c-format
 msgid ""
 "You caught some killer zzz’s! You slept for %dH %dM which is %d%% above your "
@@ -2850,7 +2741,7 @@ msgstr ""
 "Has dormit de meravella! Has dormit %d h %d min, un %d%% per sobre del que "
 "és habitual. Continua així."
 
-#: ../src/fw/services/activity/activity_insights.c:1404
+#: ../src/fw/services/activity/activity_insights.c:1380
 #, c-format
 msgid ""
 "Rise and shine! You slept for %dH %dM which is %d%% above your typical. Do "
@@ -2859,7 +2750,7 @@ msgstr ""
 "Bon dia! Has dormit %d h %d min, un %d%% per sobre del que és habitual. "
 "Repeteix-ho aquesta nit, mestre del son."
 
-#: ../src/fw/services/activity/activity_insights.c:1406
+#: ../src/fw/services/activity/activity_insights.c:1382
 #, c-format
 msgid ""
 "Mmmm...what a night. You slept for %dH %dM which is %d%% above your typical. "
@@ -2868,7 +2759,7 @@ msgstr ""
 "Mmmm... quina nit. Has dormit %d h %d min, un %d%% per sobre del que és "
 "habitual. Això s'ha de notar!"
 
-#: ../src/fw/services/activity/activity_insights.c:1408
+#: ../src/fw/services/activity/activity_insights.c:1384
 #, c-format
 msgid ""
 "That's a lot of sheep you just counted! You slept for %dH %dM which is %d%% "
@@ -2878,7 +2769,7 @@ msgstr ""
 "que és habitual. Boom shakalaka."
 
 #. / Sleep notification on wake up, slept similar to their typical sleep duration
-#: ../src/fw/services/activity/activity_insights.c:1416
+#: ../src/fw/services/activity/activity_insights.c:1392
 #, c-format
 msgid ""
 "Good mornin’. You slept for %dH %dM. Every good day begins with a solid "
@@ -2887,7 +2778,7 @@ msgstr ""
 "Bon dia. Has dormit %d h %d min. Tot bon dia comença amb una bona nit de "
 "son... com aquesta 😉 Continua així!"
 
-#: ../src/fw/services/activity/activity_insights.c:1419
+#: ../src/fw/services/activity/activity_insights.c:1395
 #, c-format
 msgid ""
 "Good morning! You slept for %dH %dM. Consistency is key; keep doing what "
@@ -2896,7 +2787,7 @@ msgstr ""
 "Bon dia! Has dormit %d h %d min. La constància és clau; continua fent el que "
 "fas 😃."
 
-#: ../src/fw/services/activity/activity_insights.c:1421
+#: ../src/fw/services/activity/activity_insights.c:1397
 #, c-format
 msgid ""
 "You're rockin' the shut eye! You slept for %dH %dM. Make it a nightly "
@@ -2905,13 +2796,13 @@ msgstr ""
 "Ho estàs fent molt bé amb el son! Has dormit %d h %d min. Fes-ne un ritual "
 "nocturn. T'ho mereixes."
 
-#: ../src/fw/services/activity/activity_insights.c:1423
+#: ../src/fw/services/activity/activity_insights.c:1399
 #, c-format
 msgid "Feelin' good? You slept for %dH %dM. Nothing can stop you now 👊"
 msgstr "Et trobes bé? Has dormit %d h %d min. Ara res no et pot aturar 👊"
 
 #. / Sleep notification on wake up, slept below their typical sleep duration
-#: ../src/fw/services/activity/activity_insights.c:1430
+#: ../src/fw/services/activity/activity_insights.c:1406
 #, c-format
 msgid ""
 "Hey sleepy head. You slept for %dH %dM which is %d%% below your typical. Try "
@@ -2920,7 +2811,7 @@ msgstr ""
 "Ei, dormilega. Has dormit %d h %d min, un %d%% per sota del que és habitual. "
 "Intenta dormir més aquesta nit!"
 
-#: ../src/fw/services/activity/activity_insights.c:1432
+#: ../src/fw/services/activity/activity_insights.c:1408
 #, c-format
 msgid ""
 "Groggy? You slept for %dH %dM which is %d%% below your typical. Sleep is "
@@ -2929,7 +2820,7 @@ msgstr ""
 "Adormit? Has dormit %d h %d min, un %d%% per sota del que és habitual. "
 "Dormir és important per a tot; intenta dormir més aquesta nit!"
 
-#: ../src/fw/services/activity/activity_insights.c:1434
+#: ../src/fw/services/activity/activity_insights.c:1410
 #, c-format
 msgid ""
 "It's a new day! You slept for %dH %dM which is %d%% below your typical. It's "
@@ -2938,7 +2829,7 @@ msgstr ""
 "És un nou dia! Has dormit %d h %d min, un %d%% per sota del que és habitual. "
 "No és el millor, però aquesta nit tens una altra oportunitat."
 
-#: ../src/fw/services/activity/activity_insights.c:1436
+#: ../src/fw/services/activity/activity_insights.c:1412
 #, c-format
 msgid ""
 "Goooood morning! You slept for %dH %dM which is %d%% below your typical. Go "
@@ -2947,7 +2838,7 @@ msgstr ""
 "Boooon dia! Has dormit %d h %d min, un %d%% per sota del que és habitual. "
 "Dona-ho tot avui i després torna al llit 😉"
 
-#: ../src/fw/services/activity/activity_insights.c:1443
+#: ../src/fw/services/activity/activity_insights.c:1419
 #, c-format
 msgid ""
 "You slept for %dH %dM which is %d%% below your typical. Sleep is vital for "
@@ -2956,7 +2847,7 @@ msgstr ""
 "Has dormit %d h %d min, un %d%% per sota del que és habitual. Dormir és "
 "vital per a les teves grans idees; què et sembla dormir més aquesta nit?"
 
-#: ../src/fw/services/activity/activity_insights.c:1445
+#: ../src/fw/services/activity/activity_insights.c:1421
 #, c-format
 msgid ""
 "You only slept for %dH %dM which is %d%% below your typical. We know you're "
@@ -2965,7 +2856,7 @@ msgstr ""
 "Només has dormit %d h %d min, un %d%% per sota del que és habitual. Sabem "
 "que tens feina, però intenta dormir més aquesta nit. Confiem en tu 😉"
 
-#: ../src/fw/services/activity/activity_insights.c:1447
+#: ../src/fw/services/activity/activity_insights.c:1423
 #, c-format
 msgid ""
 "You slept for %dH %dM which is %d%% below your typical. We know stuff "
@@ -2974,92 +2865,92 @@ msgstr ""
 "Has dormit %d h %d min, un %d%% per sota del que és habitual. Aquestes coses "
 "passen; torna-ho a provar aquesta nit."
 
-#: ../src/fw/services/activity/activity_insights.c:1499
+#: ../src/fw/services/activity/activity_insights.c:1475
 #, c-format
 msgid "%u Steps"
 msgstr "%u passos"
 
-#: ../src/fw/services/activity/activity_insights.c:1580
+#: ../src/fw/services/activity/activity_insights.c:1556
 msgid "Didn’t that walk feel good?"
 msgstr "Oi que aquesta caminada ha anat bé?"
 
-#: ../src/fw/services/activity/activity_insights.c:1581
+#: ../src/fw/services/activity/activity_insights.c:1557
 msgid "Way to keep it active!"
 msgstr "Així es manté l'activitat!"
 
-#: ../src/fw/services/activity/activity_insights.c:1582
+#: ../src/fw/services/activity/activity_insights.c:1558
 msgid "You got the moves!"
 msgstr "Tens ritme!"
 
-#: ../src/fw/services/activity/activity_insights.c:1583
+#: ../src/fw/services/activity/activity_insights.c:1559
 msgid "Gettin' your step on?"
 msgstr "Fent passos?"
 
-#: ../src/fw/services/activity/activity_insights.c:1593
+#: ../src/fw/services/activity/activity_insights.c:1569
 msgid "Feelin' hot? Cause you're on 🔥"
 msgstr "Et notes en forma? Estàs que cremes 🔥"
 
-#: ../src/fw/services/activity/activity_insights.c:1594
+#: ../src/fw/services/activity/activity_insights.c:1570
 msgid "Hey lightning bolt, way to go!"
 msgstr "Ei, llampec, molt bé!"
 
-#: ../src/fw/services/activity/activity_insights.c:1595
+#: ../src/fw/services/activity/activity_insights.c:1571
 msgid "You're a machine!"
 msgstr "Ets una màquina!"
 
-#: ../src/fw/services/activity/activity_insights.c:1596
+#: ../src/fw/services/activity/activity_insights.c:1572
 msgid "Hey speedster, we can barely keep up!"
 msgstr "Ei, ràpid, gairebé no et podem seguir!"
 
-#: ../src/fw/services/activity/activity_insights.c:1597
+#: ../src/fw/services/activity/activity_insights.c:1573
 msgid "Way to show us what you're made of 👊"
 msgstr "Així ens ensenyes de què ets capaç 👊"
 
-#: ../src/fw/services/activity/activity_insights.c:1607
+#: ../src/fw/services/activity/activity_insights.c:1583
 msgid "Workin' up a sweat?"
 msgstr "Suant de valent?"
 
-#: ../src/fw/services/activity/activity_insights.c:1608
+#: ../src/fw/services/activity/activity_insights.c:1584
 msgid "Well done 💪"
 msgstr "Ben fet 💪"
 
-#: ../src/fw/services/activity/activity_insights.c:1609
+#: ../src/fw/services/activity/activity_insights.c:1585
 msgid "Endorphin rush?"
 msgstr "Pujada d'endorfines?"
 
-#: ../src/fw/services/activity/activity_insights.c:1610
+#: ../src/fw/services/activity/activity_insights.c:1586
 msgid "Can't stop, won't stop 👊"
 msgstr "No pots parar, no pararàs 👊"
 
-#: ../src/fw/services/activity/activity_insights.c:1611
+#: ../src/fw/services/activity/activity_insights.c:1587
 msgid "Keepin' that heart healthy! ❤"
 msgstr "Mantenint el cor sa! ❤"
 
-#: ../src/fw/services/activity/activity_insights.c:1639
-#: ../src/fw/services/activity/activity_insights.c:1731
-#: ../src/fw/services/activity/activity_insights.c:1738
-#: ../src/fw/services/activity/activity_insights.c:1745
+#: ../src/fw/services/activity/activity_insights.c:1615
+#: ../src/fw/services/activity/activity_insights.c:1707
+#: ../src/fw/services/activity/activity_insights.c:1714
+#: ../src/fw/services/activity/activity_insights.c:1721
 #, c-format
 msgid "%d Min"
 msgstr "%d min"
 
-#: ../src/fw/services/activity/activity_insights.c:1670
+#: ../src/fw/services/activity/activity_insights.c:1646
 msgid "Avg Pace"
 msgstr "Ritme mitjà"
 
-#: ../src/fw/services/activity/activity_insights.c:1686
+#: ../src/fw/services/activity/activity_insights.c:1662
 msgid "Distance"
 msgstr "Distància"
 
-#: ../src/fw/services/activity/activity_insights.c:1698
+#: ../src/fw/services/activity/activity_insights.c:1674
 msgid "Steps"
 msgstr "Passos"
 
-#: ../src/fw/services/activity/activity_insights.c:1711
+#: ../src/fw/services/activity/activity_insights.c:1687
 msgid "Active Calories"
 msgstr "Calories actives"
 
-#: ../src/fw/services/activity/activity_insights.c:1724
+#: ../src/fw/services/activity/activity_insights.c:1700
 msgid "Avg HR"
 msgstr "FC mitjana"
 
@@ -3095,72 +2986,82 @@ msgstr "min"
 msgid "%d.%d"
 msgstr "%d,%d"
 
-#: ../src/fw/services/alarms/alarm.c:379
+#: ../src/fw/services/alarms/alarm.c:375
 #: ../src/fw/services/alarms/alarm_pin.c:20
 msgid "Alarm"
 msgstr "Alarma"
 
+#: ../src/fw/applib/ui/day_picker.c:51
+msgid "Just Once"
+msgstr ""
+
 #. / A frequency option for alarms, i.e. the alarm would go off every day. Respect
 #. / capitalization!
-#: ../src/fw/services/alarms/alarm.c:1254
+#: ../src/fw/services/alarms/alarm.c:1243
 msgid "EVERY DAY"
 msgstr "CADA DIA"
 
+#. / A frequency option for alarms, i.e. the alarm would go off every day. Respect
+#. / capitalization!
+#: ../src/fw/services/alarms/alarm.c:1246
+msgid "Every Day"
+msgstr "Cada dia"
+
 #. / A frequency option for alarms, i.e. the alarm would only go off every weekday. Respect
 #. / capitalization!
-#: ../src/fw/services/alarms/alarm.c:1263
+#: ../src/fw/services/alarms/alarm.c:1252
 msgid "WEEKDAYS"
 msgstr "DIES FEINERS"
 
 #. / A frequency option for alarms, i.e. the alarm would only go off each day on the weekend.
 #. / Respect capitalization!
-#: ../src/fw/services/alarms/alarm.c:1272
+#: ../src/fw/services/alarms/alarm.c:1261
 msgid "WEEKENDS"
 msgstr "CAPS DE SETMANA"
 
 #. / A frequency option for alarms, i.e. the alarm would only go off one time ever. Respect
 #. / capitalization!
-#: ../src/fw/services/alarms/alarm.c:1282
+#: ../src/fw/services/alarms/alarm.c:1271
 msgid "ONCE"
 msgstr "UN COP"
 
 #. / A frequency option for alarms, i.e. the alarm would only go off one time ever. Respect
 #. / capitalization!
-#: ../src/fw/services/alarms/alarm.c:1285
+#: ../src/fw/services/alarms/alarm.c:1274
 msgid "Once"
 msgstr "Un cop"
 
 #. / A frequency option for alarms, i.e. the alarm would only go off on a custom choice of
 #. / days. Respect capitalization!
-#: ../src/fw/services/alarms/alarm.c:1292
+#: ../src/fw/services/alarms/alarm.c:1281
 msgid "CUSTOM"
 msgstr "PERSONALITZAT"
 
-#: ../src/fw/services/alarms/alarm.c:1317
+#: ../src/fw/services/alarms/alarm.c:1306
 msgid "Sundays"
 msgstr "Diumenges"
 
-#: ../src/fw/services/alarms/alarm.c:1318
+#: ../src/fw/services/alarms/alarm.c:1307
 msgid "Mondays"
 msgstr "Dilluns"
 
-#: ../src/fw/services/alarms/alarm.c:1319
+#: ../src/fw/services/alarms/alarm.c:1308
 msgid "Tuesdays"
 msgstr "Dimarts"
 
-#: ../src/fw/services/alarms/alarm.c:1320
+#: ../src/fw/services/alarms/alarm.c:1309
 msgid "Wednesdays"
 msgstr "Dimecres"
 
-#: ../src/fw/services/alarms/alarm.c:1321
+#: ../src/fw/services/alarms/alarm.c:1310
 msgid "Thursdays"
 msgstr "Dijous"
 
-#: ../src/fw/services/alarms/alarm.c:1322
+#: ../src/fw/services/alarms/alarm.c:1311
 msgid "Fridays"
 msgstr "Divendres"
 
-#: ../src/fw/services/alarms/alarm.c:1323
+#: ../src/fw/services/alarms/alarm.c:1312
 msgid "Saturdays"
 msgstr "Dissabtes"
 
@@ -3387,11 +3288,11 @@ msgstr "demà passat"
 msgid "the foreseeable future"
 msgstr "el futur previsible"
 
-#: ../src/fw/services/notifications/ancs/ancs_item.c:114
+#: ../src/fw/services/notifications/ancs/ancs_item.c:113
 msgid "sent an attachment"
 msgstr "ha enviat un fitxer adjunt"
 
-#: ../src/fw/services/notifications/ancs/ancs_item.c:166
+#: ../src/fw/services/notifications/ancs/ancs_item.c:160
 msgid "Call Back"
 msgstr "Torna la trucada"
 
@@ -3599,42 +3500,20 @@ msgstr "Martell pneumàtic"
 msgid "Gentle"
 msgstr "Suau"
 
-#~ msgid "On (nav)"
-#~ msgstr "Activat (nav)"
-
-#~ msgid "--° / --°"
-#~ msgstr "--° / --°"
-
+#: ../src/fw/apps/system/settings/recordings.c:24
 #, c-format
-#~ msgid "%i° / --°"
-#~ msgstr "%i° / --°"
+msgid "Used %u KB"
+msgstr ""
 
+#: ../src/fw/apps/system/settings/recordings.c:26
 #, c-format
-#~ msgid "--° / %i°"
-#~ msgstr "--° / %i°"
+msgid "Free %u KB"
+msgstr ""
 
-#, c-format
-#~ msgid "%i° / %i°"
-#~ msgstr "%i° / %i°"
-
-#~ msgid "TOMORROW"
-#~ msgstr "DEMÀ"
-
-#~ msgid ""
-#~ "Unable to connect. Your weather data may be out of date; try checking the "
-#~ "connection on your phone."
-#~ msgstr ""
-#~ "No es pot connectar. Les dades del temps poden estar desactualitzades; "
-#~ "comprova la connexió al telèfon."
-
-#~ msgid "High performance"
-#~ msgstr "Alt rendiment"
-
-#~ msgid "Low power"
-#~ msgstr "Baix consum"
-
-#~ msgid "Power Mode"
-#~ msgstr "Mode d'energia"
+#: ../src/fw/apps/system/settings/recordings.c:33
+#: ../src/fw/apps/system/settings/recordings.c:41
+msgid "Recordings"
+msgstr "Gravacions"
 
 #~ msgid "Default"
 #~ msgstr "Per defecte"
@@ -3874,6 +3753,9 @@ msgstr "Suau"
 
 #~ msgid "Shake to light"
 #~ msgstr "Agitar para iluminar"
+
+#~ msgid "Reset to factory settings?"
+#~ msgstr "¿Restaurar?"
 
 #~ msgid "Notifications On"
 #~ msgstr "Notificaciones On"
@@ -4167,6 +4049,9 @@ msgstr "Suau"
 
 #~ msgid "Voice reply is not available."
 #~ msgstr "Respuestas de voz no disponible."
+
+#~ msgid "Check phone internet connection"
+#~ msgstr "Comprueba la conexión a Internet de tu móvil"
 
 #~ msgid "Stationary Mode"
 #~ msgstr "Modo inmóvil"

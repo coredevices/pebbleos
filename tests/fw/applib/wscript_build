@@ -1,6 +1,12 @@
 from tools.waf.pebble_test import clar
 
 clar(ctx,
+    sources_ant_glob = " src/fw/applib/voice/dictation_session.c",
+    defines=["CONFIG_MIC"],
+    test_sources_ant_glob = "test_dictation_session.c",
+    override_includes=['dummy_board'])
+
+clar(ctx,
      sources_ant_glob=" src/fw/applib/app_message/app_message.c"
                       " src/fw/applib/app_message/app_message_outbox.c"
                       " src/fw/applib/app_message/app_message_inbox.c"

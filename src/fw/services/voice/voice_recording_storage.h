@@ -44,6 +44,9 @@ bool voice_recording_storage_finalize(VoiceRecordingId id,
 //! @return an owned PFS descriptor, or a negative value on failure.
 int voice_recording_storage_open_payload(VoiceRecordingId id, uint32_t *data_bytes_out);
 
+//! Close a payload descriptor returned by voice_recording_storage_open_payload().
+void voice_recording_storage_close_payload(int fd);
+
 //! Read the next length-prefixed encoded frame from an open payload descriptor and
 //! decrement \a remaining_bytes by the bytes consumed.
 //! @return the frame length in bytes, or 0 at end of payload or on a corrupt/truncated frame.
@@ -59,11 +62,13 @@ bool voice_recording_storage_get_metadata(VoiceRecordingId id,
 //! @return number of entries written to @p out.
 uint32_t voice_recording_storage_list(VoiceRecordingInfo *out, uint32_t max);
 
-//! Fill an array with per-row summaries of valid stored recordings, in a single storage pass.
+//! Fill an array with per-row summaries of valid stored recordings, newest first.
 //! Listing UIs use this instead of voice_recording_storage_list() so they need not hold a full
 //! VoiceRecordingInfo (which is dominated by the 16-byte creator UUID) for every recording.
-//! @param has_more if not NULL, set to true when more recordings exist than fit in \a out.
-//! @return number of entries written to \a out.
+//! @param out array receiving the summaries.
+//! @param max maximum number of summaries to write to @p out.
+//! @param has_more if not NULL, set to true when more recordings exist than fit in @p out.
+//! @return number of entries written to @p out.
 uint32_t voice_recording_storage_list_summaries(VoiceRecordingSummary *out, uint32_t max,
                                                 bool *has_more);
 

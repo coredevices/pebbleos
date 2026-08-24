@@ -117,6 +117,7 @@ static void prv_stop_internal(SpeakerFinishReason reason);
 static void prv_audio_trans_cb(uint32_t *free_size);
 static void prv_refill_bg(void *data);
 
+//! Combine the global speaker mute and active quiet-time policy.
 static bool prv_is_speaker_muted(void) {
   if (alerts_preferences_get_speaker_muted()) {
     return true;
@@ -127,6 +128,7 @@ static bool prv_is_speaker_muted(void) {
   return false;
 }
 
+//! Apply mute and the user volume cap unless the source requested absolute volume.
 static uint8_t prv_effective_volume(uint8_t vol) {
   if (prv_is_speaker_muted()) {
     return 0;
@@ -138,6 +140,7 @@ static uint8_t prv_effective_volume(uint8_t vol) {
   return (uint32_t)vol * cap / 100;
 }
 
+//! Accumulate the time-weighted volume between speaker state changes.
 static void prv_update_volume_analytics(uint8_t new_volume_pct) {
   RtcTicks now_ticks = rtc_get_ticks();
 
@@ -200,6 +203,7 @@ static void prv_log_silence(uint8_t vol, uint8_t effective_vol) {
   }
 }
 
+//! Configure and start the audio driver for the active source.
 static void prv_start_audio(uint8_t vol) {
   const uint8_t effective_vol = prv_effective_volume(vol);
 
@@ -214,6 +218,7 @@ static void prv_start_audio(uint8_t vol) {
   audio_start((AudioDevice *)AUDIO, prv_audio_trans_cb);
 }
 
+//! Stop the audio driver and finish accounting for speaker-on time.
 static void prv_stop_audio(void) {
   PBL_ANALYTICS_TIMER_STOP(speaker_on_time_ms);
   prv_update_volume_analytics(0);
@@ -221,6 +226,7 @@ static void prv_stop_audio(void) {
   audio_stop((AudioDevice *)AUDIO);
 }
 
+//! Release all buffers and synthesis state owned by polyphonic tracks.
 static void prv_free_tracks(void) {
   for (uint32_t i = 0; i < s_state.num_tracks; i++) {
     track_deinit(&s_state.tracks[i]);
@@ -236,6 +242,7 @@ static void prv_free_tracks(void) {
   s_state.num_tracks = 0;
 }
 
+//! Notify the source owner that playback finished when notifications are enabled.
 static void prv_post_finish_event(SpeakerFinishReason reason) {
   if (!s_state.finish_enabled) {
     return;
@@ -250,7 +257,7 @@ static void prv_post_finish_event(SpeakerFinishReason reason) {
   event_put(&e);
 }
 
-//! Caller must hold s_lock.
+//! Stop the active source and release its source-specific state. Caller must hold s_lock.
 static void prv_stop_internal(SpeakerFinishReason reason) {
   if (s_state.state == SpeakerStateIdle) {
     return;
@@ -289,6 +296,7 @@ static void prv_stop_internal(SpeakerFinishReason reason) {
   prv_post_finish_event(reason);
 }
 
+//! Decide whether a new source may replace the current one.
 static bool prv_can_preempt(SpeakerPriority new_pri) {
   if (s_state.state == SpeakerStateIdle) {
     return true;
@@ -412,7 +420,7 @@ static uint32_t prv_read_and_convert_pcm(int16_t *out, uint32_t max_out_samples)
   return out_pos;
 }
 
-//! Caller must hold s_lock.
+//! Generate and queue the next audio chunk for the active source. Caller must hold s_lock.
 static void prv_refill_locked(void) {
   if (s_state.state == SpeakerStateIdle) {
     return;
@@ -507,6 +515,7 @@ static void prv_refill_locked(void) {
   }
 }
 
+//! Run the deferred refill under the service lock.
 static void prv_refill_bg(void *data) {
   mutex_lock(s_lock);
   prv_refill_locked();
@@ -558,6 +567,7 @@ bool speaker_service_play_note_seq(const SpeakerNote *notes, uint32_t num_notes,
   return true;
 }
 
+//! Start a synthesized tone, optionally bypassing the user volume cap.
 static bool prv_play_tone_internal(uint16_t freq_hz, uint16_t duration_ms,
                                    uint8_t waveform, uint8_t velocity,
                                    SpeakerPriority pri, uint8_t vol,
@@ -718,6 +728,7 @@ alloc_fail:
   return false;
 }
 
+//! Open a prioritized PCM session and return its ownership token.
 static SpeakerStreamId prv_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt) {
   mutex_lock(s_lock);
 
@@ -797,7 +808,7 @@ bool speaker_service_stream_write_session(SpeakerStreamId id, const void *data, 
   return active;
 }
 
-//! Caller must hold s_lock.
+//! Finish a PCM stream after buffered samples drain. Caller must hold s_lock.
 static void prv_stream_close(void) {
   if (s_state.pcm_stream.count > 0) {
     // Data remaining - enter draining state

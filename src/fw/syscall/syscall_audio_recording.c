@@ -27,6 +27,7 @@ ASSERT_FIELD_MATCHES(app_uuid);
 #undef ASSERT_FIELD_MATCHES
 
 static bool prv_current_app_owns_recording(AudioRecordingId recording_id) {
+  // Recording IDs are global, so authorize each app operation against the stored creator UUID.
   const PebbleProcessMd *app_md = app_manager_get_current_app_md();
   return app_md && voice_recording_is_owned_by(recording_id, &app_md->uuid);
 }

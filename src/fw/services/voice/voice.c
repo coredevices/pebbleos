@@ -12,7 +12,6 @@
 #include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
 #include "pbl/services/comm_session/session.h"
-#include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/audio_endpoint.h"
@@ -53,6 +52,7 @@ typedef enum {
 } SessionState;
 
 static SessionState s_state = SessionState_Idle;
+static bool s_recording_start_reserved;
 
 static PebbleMutex* s_lock = NULL;
 
@@ -132,9 +132,11 @@ static void prv_stop_feed(void) {
     new_timer_stop(s_feed_timer);
   }
   if (s_rec_fd >= 0) {
-    pfs_close(s_rec_fd);
+    const VoiceRecordingId recording_id = s_rec_id;
+    voice_recording_storage_close_payload(s_rec_fd);
     s_rec_fd = -1;
     s_rec_id = VOICE_RECORDING_ID_INVALID;
+    voice_recording_transcription_release(recording_id);
   }
 }
 
@@ -442,6 +444,7 @@ static VoiceStatus prv_get_status_from_result(VoiceEndpointResult result) {
 
 void voice_init(void) {
   s_lock = mutex_create();
+  s_recording_start_reserved = false;
   // Speex encoder is now initialized lazily when a dictation session starts
 }
 
@@ -517,8 +520,15 @@ VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type) {
     }
   }
 
-  if (s_state != SessionState_Idle) {
-    PBL_LOG_DBG("Voice service not idle (state: %d), returning invalid session", s_state);
+  if ((s_state != SessionState_Idle) || s_recording_start_reserved) {
+    PBL_LOG_DBG("Voice service busy (state: %d, recording start: %d)", s_state,
+                s_recording_start_reserved);
+    mutex_unlock(s_lock);
+    return VOICE_SESSION_ID_INVALID;
+  }
+
+  if (voice_recording_in_progress()) {
+    PBL_LOG_DBG("Recording in progress, cannot start dictation");
     mutex_unlock(s_lock);
     return VOICE_SESSION_ID_INVALID;
   }
@@ -545,41 +555,47 @@ VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type) {
 // result comes back through the same path (voice_handle_dictation_result).
 VoiceSessionId voice_start_dictation_from_recording(VoiceRecordingId recording_id) {
   PBL_LOG_DBG("voice_start_dictation_from_recording called for id %u", (unsigned)recording_id);
+  if (!voice_recording_transcription_reserve(recording_id)) {
+    PBL_LOG_DBG("Recording unavailable or another transcription is already reserved");
+    return VOICE_SESSION_ID_INVALID;
+  }
+
   mutex_lock(s_lock);
 
-  if (s_state != SessionState_Idle) {
-    PBL_LOG_DBG("Voice service not idle (state: %d), cannot transcribe", s_state);
-    mutex_unlock(s_lock);
-    return VOICE_SESSION_ID_INVALID;
+  if ((s_state != SessionState_Idle) || s_recording_start_reserved) {
+    PBL_LOG_DBG("Voice service busy (state: %d, recording start: %d)", s_state,
+                s_recording_start_reserved);
+    goto fail;
+  }
+
+  if (voice_recording_in_progress()) {
+    PBL_LOG_DBG("Recording in progress, cannot transcribe");
+    goto fail;
   }
 
   // Dictation, transcription and on-device recording share the single microphone/encoder.
   if (mic_is_running(MIC)) {
     PBL_LOG_WRN("Microphone busy (recording?), cannot transcribe");
-    mutex_unlock(s_lock);
-    return VOICE_SESSION_ID_INVALID;
+    goto fail;
   }
 
   VoiceRecordingStorageMetadata meta;
   if (!voice_recording_storage_get_metadata(recording_id, &meta)) {
     PBL_LOG_WRN("Recording %u not found", (unsigned)recording_id);
-    mutex_unlock(s_lock);
-    return VOICE_SESSION_ID_INVALID;
+    goto fail;
   }
 
   // Transcription (speech-to-text) is mono only.
   if (meta.channels != 1) {
     PBL_LOG_WRN("Cannot transcribe recording with %u channels", meta.channels);
-    mutex_unlock(s_lock);
-    return VOICE_SESSION_ID_INVALID;
+    goto fail;
   }
 
   uint32_t data_bytes = 0;
   const int fd = voice_recording_storage_open_payload(recording_id, &data_bytes);
   if (fd < 0) {
     PBL_LOG_WRN("Failed to open recording %u payload", (unsigned)recording_id);
-    mutex_unlock(s_lock);
-    return VOICE_SESSION_ID_INVALID;
+    goto fail;
   }
 
   s_rec_fd = fd;
@@ -592,6 +608,11 @@ VoiceSessionId voice_start_dictation_from_recording(VoiceRecordingId recording_i
       prv_start_session(VoiceEndpointSessionTypeDictation, &meta.speex);
   mutex_unlock(s_lock);
   return session_id;
+
+fail:
+  mutex_unlock(s_lock);
+  voice_recording_transcription_release(recording_id);
+  return VOICE_SESSION_ID_INVALID;
 }
 
 bool voice_session_is_active(void) {
@@ -599,6 +620,22 @@ bool voice_session_is_active(void) {
   const bool active = (s_state != SessionState_Idle);
   mutex_unlock(s_lock);
   return active;
+}
+
+bool voice_session_reserve_recording(void) {
+  mutex_lock(s_lock);
+  const bool reserved = (s_state == SessionState_Idle) && !s_recording_start_reserved;
+  if (reserved) {
+    s_recording_start_reserved = true;
+  }
+  mutex_unlock(s_lock);
+  return reserved;
+}
+
+void voice_session_release_recording(void) {
+  mutex_lock(s_lock);
+  s_recording_start_reserved = false;
+  mutex_unlock(s_lock);
 }
 
 VoiceRecordingId voice_transcribing_recording_id(void) {

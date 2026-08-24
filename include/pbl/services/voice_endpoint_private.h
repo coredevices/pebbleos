@@ -71,8 +71,6 @@ typedef enum {
   VoiceRecordingEndpointResultNotFound = 0x01,
   VoiceRecordingEndpointResultBusy = 0x02,
   VoiceRecordingEndpointResultInvalidRequest = 0x03,
-  VoiceRecordingEndpointResultUnsupported = 0x04,
-  VoiceRecordingEndpointResultFailed = 0x05,
 } VoiceRecordingEndpointResult;
 
 typedef enum {

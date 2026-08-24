@@ -7,12 +7,10 @@
 
 #include "kernel/pbl_malloc.h"
 #include <pbl/os/mutex.h>
-#include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "pbl/services/speaker/speaker_service.h"
 #include "pbl/services/voice/voice_speex.h"
 #include <pbl/logging/logging.h>
-#include <pbl/util/math.h>
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -29,12 +27,14 @@ static int16_t *s_pcm;
 static uint32_t s_pcm_bytes;
 static uint32_t s_pcm_offset;
 static uint32_t s_remaining;
+// Prevent timer callbacks from touching a stream that replaced this playback.
 static SpeakerStreamId s_stream_id = SPEAKER_STREAM_ID_INVALID;
 static VoiceRecordingId s_playback_id = VOICE_RECORDING_ID_INVALID;
 
+//! Release resources owned by playback without touching a stream that may have replaced it.
 static void prv_cleanup(void) {
   if (s_fd >= 0) {
-    pfs_close(s_fd);
+    voice_recording_storage_close_payload(s_fd);
     s_fd = -1;
   }
   voice_speex_decoder_deinit();
@@ -49,6 +49,7 @@ static void prv_cleanup(void) {
   s_playback_id = VOICE_RECORDING_ID_INVALID;
 }
 
+//! Decode and queue frames until the speaker buffer fills or playback ends.
 static void prv_feed(void *data) {
   mutex_lock(s_lock);
   if (s_fd < 0) {
@@ -85,13 +86,6 @@ static void prv_feed(void *data) {
 
     const int samples = voice_speex_decode_frame(frame, frame_len, s_pcm);
     if (samples > 0) {
-      const uint16_t gain = voice_recording_get_playback_gain();
-      if (gain != VOICE_RECORDING_GAIN_DEFAULT) {
-        for (int i = 0; i < samples; i++) {
-          const int32_t amplified = (int32_t)s_pcm[i] * gain / VOICE_RECORDING_GAIN_DEFAULT;
-          s_pcm[i] = (int16_t)MAX(INT16_MIN, MIN(INT16_MAX, amplified));
-        }
-      }
       s_pcm_bytes = (uint32_t)samples * sizeof(int16_t);
       s_pcm_offset = 0;
     }

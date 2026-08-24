@@ -96,7 +96,7 @@ static void prv_app_focus_handler(PebbleEvent *e, void *context) {
   }
 }
 
-#endif  // CONFIG_MIC
+#endif
 
 bool audio_recording_transcribe(AudioRecordingId recording_id, uint32_t buffer_size,
                                 AudioTranscriptionCallback callback, void *context) {

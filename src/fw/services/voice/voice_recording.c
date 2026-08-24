@@ -15,7 +15,6 @@
 #include <pbl/logging/logging.h>
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/new_timer/new_timer.h"
-#include "pbl/services/settings/settings_file.h"
 #include "pbl/services/voice/voice.h"
 #include "pbl/services/voice/voice_speex.h"
 #include "process_management/app_install_manager.h"
@@ -33,11 +32,6 @@
 PBL_LOG_MODULE_DECLARE(service_voice, CONFIG_SERVICE_VOICE_LOG_LEVEL);
 
 #define VOICE_REC_MAX_DURATION_MS (120 * 1000)
-// Memos are encoded at a higher Speex quality than live dictation (whose bit rate is
-// constrained by the BT link); the default quality is restored when the recording ends.
-#define VOICE_REC_SETTINGS_FILE "voicerec"
-#define VOICE_REC_SETTINGS_KEY "config"
-#define VOICE_REC_SETTINGS_SIZE (128)
 // ~27.8 kbps at quality 8, plus one length byte per 20 ms frame, rounded up.
 #define VOICE_REC_BYTES_PER_SEC (3600)
 #define VOICE_REC_TOTAL_STORAGE_BYTES (KiBYTES(1024))
@@ -46,6 +40,9 @@ PBL_LOG_MODULE_DECLARE(service_voice, CONFIG_SERVICE_VOICE_LOG_LEVEL);
 static PebbleMutex *s_lock;
 static VoiceRecordingId s_active_id = VOICE_RECORDING_ID_INVALID;
 static VoiceRecordingId s_next_id = 1;
+static VoiceRecordingId s_transcribing_id = VOICE_RECORDING_ID_INVALID;
+static Uuid s_transcribing_owner = UUID_INVALID_INIT;
+static bool s_delete_transcribing_on_release;
 static PebbleTask s_owner_task = PebbleTask_Unknown;
 
 static int s_temp_fd = -1;
@@ -60,18 +57,6 @@ static VoiceRecordingError s_last_error;
 // Id of the most recently saved recording, so a stop() racing an auto-stop can be answered
 // accurately without reporting success for an unrelated stored recording.
 static VoiceRecordingId s_last_saved_id = VOICE_RECORDING_ID_INVALID;
-
-typedef struct {
-  VoiceRecordingQuality quality;
-  uint16_t record_gain;
-  uint16_t playback_gain;
-} VoiceRecordingConfig;
-
-static VoiceRecordingConfig s_config = {
-    .quality = VoiceRecordingQuality_High,
-    .record_gain = VOICE_RECORDING_GAIN_DEFAULT,
-    .playback_gain = VOICE_RECORDING_GAIN_DEFAULT,
-};
 
 static uint8_t s_staging[VOICE_REC_STAGING_SIZE];
 static size_t s_staging_used;
@@ -105,14 +90,6 @@ static bool prv_flush_staging(void) {
 static void prv_data_handler(int16_t *samples, size_t sample_count, void *context) {
   if ((s_active_id == VOICE_RECORDING_ID_INVALID) || s_capped) {
     return;
-  }
-
-  if (s_config.record_gain != VOICE_RECORDING_GAIN_DEFAULT) {
-    for (size_t i = 0; i < sample_count; i++) {
-      const int32_t amplified =
-          (int32_t)samples[i] * s_config.record_gain / VOICE_RECORDING_GAIN_DEFAULT;
-      samples[i] = (int16_t)MAX(INT16_MIN, MIN(INT16_MAX, amplified));
-    }
   }
 
   uint8_t encoded[VOICE_SPEEX_MAX_ENCODED_FRAME_SIZE];
@@ -151,7 +128,6 @@ static void prv_close_temp(bool remove) {
 }
 
 static void prv_reset(void) {
-  voice_speex_set_quality(VOICE_SPEEX_QUALITY_DEFAULT);
   s_active_id = VOICE_RECORDING_ID_INVALID;
   s_owner_task = PebbleTask_Unknown;
   s_data_bytes = 0;
@@ -227,25 +203,14 @@ static void prv_max_duration_timeout(void *data) {
 
 void voice_recording_init(void) {
   s_lock = mutex_create();
-  SettingsFile file = {{0}};
-  VoiceRecordingConfig config;
-  if ((settings_file_open(&file, VOICE_REC_SETTINGS_FILE, VOICE_REC_SETTINGS_SIZE) == S_SUCCESS)) {
-    if (settings_file_get(&file, VOICE_REC_SETTINGS_KEY, strlen(VOICE_REC_SETTINGS_KEY), &config,
-                          sizeof(config)) == S_SUCCESS &&
-        config.quality <= VoiceRecordingQuality_High &&
-        config.record_gain >= VOICE_RECORDING_GAIN_MIN &&
-        config.record_gain <= VOICE_RECORDING_GAIN_MAX &&
-        config.playback_gain >= VOICE_RECORDING_GAIN_MIN &&
-        config.playback_gain <= VOICE_RECORDING_GAIN_MAX) {
-      s_config = config;
-    }
-    settings_file_close(&file);
-  }
   voice_recording_storage_init(&s_next_id);
   voice_recording_playback_init();
 }
 
 VoiceRecordingId voice_recording_start(void) {
+  // Close the gap between checking the voice service and marking the recording active.
+  const bool voice_session_reserved = voice_session_reserve_recording();
+
   mutex_lock(s_lock);
 
   VoiceRecordingId id = VOICE_RECORDING_ID_INVALID;
@@ -253,6 +218,12 @@ VoiceRecordingId voice_recording_start(void) {
 
   if ((s_active_id != VOICE_RECORDING_ID_INVALID) || voice_recording_playback_is_active()) {
     PBL_LOG_DBG("Recording or playback already in progress");
+    s_last_error = VoiceRecordingError_Busy;
+    goto unlock;
+  }
+
+  if (!voice_session_reserved) {
+    PBL_LOG_DBG("Voice session already in progress");
     s_last_error = VoiceRecordingError_Busy;
     goto unlock;
   }
@@ -318,6 +289,7 @@ VoiceRecordingId voice_recording_start(void) {
     goto unlock;
   }
 
+  // Tag third-party recordings with their creator; system recordings stay unowned.
   const bool from_app = (pebble_task_get_current() == PebbleTask_App) &&
                         !app_install_id_from_system(app_manager_get_current_app_id());
   s_app_uuid = from_app ? app_manager_get_current_app_md()->uuid : UUID_INVALID;
@@ -337,9 +309,6 @@ VoiceRecordingId voice_recording_start(void) {
     goto unlock;
   }
 
-  static const uint8_t s_speex_quality[] = {4, 6, 8};
-  voice_speex_set_quality(s_speex_quality[s_config.quality]);
-
   s_active_id = id;
   s_next_id = (id == UINT16_MAX) ? 1 : (id + 1);
 
@@ -352,6 +321,9 @@ VoiceRecordingId voice_recording_start(void) {
 
 unlock:
   mutex_unlock(s_lock);
+  if (voice_session_reserved) {
+    voice_session_release_recording();
+  }
   return id;
 }
 
@@ -401,6 +373,7 @@ bool voice_recording_in_progress(void) {
 }
 
 static bool prv_is_owned_by_locked(VoiceRecordingId id, const Uuid *app_uuid) {
+  // An active recording has no finalized file header yet, so use its cached creator.
   if ((s_active_id != VOICE_RECORDING_ID_INVALID) && (id == s_active_id)) {
     return uuid_equal(&s_app_uuid, app_uuid);
   }
@@ -416,23 +389,79 @@ bool voice_recording_is_owned_by(VoiceRecordingId id, const Uuid *app_uuid) {
   return owned;
 }
 
+//! Delete a recording and update cached state. Caller must hold s_lock.
+static bool prv_delete_locked(VoiceRecordingId id) {
+  const bool deleted = voice_recording_storage_delete(id);
+  if (deleted && (id == s_last_saved_id)) {
+    s_last_saved_id = VOICE_RECORDING_ID_INVALID;
+  }
+  return deleted;
+}
+
+bool voice_recording_transcription_reserve(VoiceRecordingId id) {
+  if (id == VOICE_RECORDING_ID_INVALID) {
+    return false;
+  }
+
+  mutex_lock(s_lock);
+  VoiceRecordingStorageMetadata metadata;
+  const bool reserved = (s_transcribing_id == VOICE_RECORDING_ID_INVALID) &&
+                        voice_recording_storage_get_metadata(id, &metadata);
+  if (reserved) {
+    s_transcribing_id = id;
+    s_transcribing_owner = metadata.app_uuid;
+    s_delete_transcribing_on_release = false;
+  }
+  mutex_unlock(s_lock);
+  return reserved;
+}
+
+void voice_recording_transcription_release(VoiceRecordingId id) {
+  mutex_lock(s_lock);
+  if (s_transcribing_id == id) {
+    s_transcribing_id = VOICE_RECORDING_ID_INVALID;
+    s_transcribing_owner = UUID_INVALID;
+    if (s_delete_transcribing_on_release) {
+      s_delete_transcribing_on_release = false;
+      if (!prv_delete_locked(id)) {
+        PBL_LOG_WRN("Failed to delete deferred recording %u", (unsigned)id);
+      }
+    }
+  }
+  mutex_unlock(s_lock);
+}
+
 uint32_t voice_recording_list(VoiceRecordingInfo *out, uint32_t max) {
-  return voice_recording_storage_list(out, max);
+  mutex_lock(s_lock);
+  const uint32_t count = voice_recording_storage_list(out, max);
+  mutex_unlock(s_lock);
+  return count;
 }
 
 uint32_t voice_recording_list_summaries(VoiceRecordingSummary *out, uint32_t max,
                                         bool *has_more) {
-  return voice_recording_storage_list_summaries(out, max, has_more);
+  mutex_lock(s_lock);
+  const uint32_t count = voice_recording_storage_list_summaries(out, max, has_more);
+  mutex_unlock(s_lock);
+  return count;
 }
 
+// Paginate recordings sent to the phone to keep Bluetooth responses bounded.
 uint32_t voice_recording_list_page(VoiceRecordingInfo *out, uint32_t max, uint32_t offset,
                                    bool *has_more) {
-  return voice_recording_storage_list_page(out, max, offset, has_more);
+  mutex_lock(s_lock);
+  const uint32_t count = voice_recording_storage_list_page(out, max, offset, has_more);
+  mutex_unlock(s_lock);
+  return count;
 }
 
 uint32_t voice_recording_list_owned_by(VoiceRecordingInfo *out, uint32_t max,
                                        const Uuid *app_uuid) {
-  return voice_recording_storage_list_owned_by(out, max, app_uuid);
+  // App syscalls use this filtered view; privileged callers may list every recording.
+  mutex_lock(s_lock);
+  const uint32_t count = voice_recording_storage_list_owned_by(out, max, app_uuid);
+  mutex_unlock(s_lock);
+  return count;
 }
 
 bool voice_recording_delete(VoiceRecordingId id) {
@@ -441,15 +470,11 @@ bool voice_recording_delete(VoiceRecordingId id) {
     voice_recording_playback_stop();
   }
   bool deleted = false;
-  // Removing an open PFS file panics; the transcription stream keeps the recording open
-  // for its whole (real-time) duration.
-  if (voice_transcribing_recording_id() == id) {
+  // The reservation is set before the transcription opens the file under this same lock.
+  if (s_transcribing_id == id) {
     PBL_LOG_WRN("Recording %u is being transcribed, refusing to delete", (unsigned)id);
   } else {
-    deleted = voice_recording_storage_delete(id);
-    if (deleted && (id == s_last_saved_id)) {
-      s_last_saved_id = VOICE_RECORDING_ID_INVALID;
-    }
+    deleted = prv_delete_locked(id);
   }
   mutex_unlock(s_lock);
   return deleted;
@@ -466,8 +491,12 @@ void voice_recording_delete_owned_by(const Uuid *app_uuid) {
       prv_is_owned_by_locked(playing_id, app_uuid)) {
     voice_recording_playback_stop();
   }
-  // Skip a recording held open by an active transcription stream (see voice_recording_delete).
-  voice_recording_storage_delete_owned_by(app_uuid, voice_transcribing_recording_id());
+  if ((s_transcribing_id != VOICE_RECORDING_ID_INVALID) &&
+      uuid_equal(&s_transcribing_owner, app_uuid)) {
+    s_delete_transcribing_on_release = true;
+  }
+  // Delete the open transcription file when its payload descriptor is released.
+  voice_recording_storage_delete_owned_by(app_uuid, s_transcribing_id);
   mutex_unlock(s_lock);
 }
 
@@ -497,8 +526,8 @@ bool voice_recording_playback_owned_by(const Uuid *app_uuid) {
 }
 
 void voice_recording_stop_playback(void) {
-  voice_recording_playback_stop();
   mutex_lock(s_lock);
+  voice_recording_playback_stop();
   s_playback_owner = UUID_INVALID;
   mutex_unlock(s_lock);
 }
@@ -514,40 +543,17 @@ VoiceRecordingError voice_recording_last_error(void) {
   return error;
 }
 
-static void prv_save_config(void) {
-  SettingsFile file = {{0}};
-  if (settings_file_open(&file, VOICE_REC_SETTINGS_FILE, VOICE_REC_SETTINGS_SIZE) == S_SUCCESS) {
-    settings_file_set(&file, VOICE_REC_SETTINGS_KEY, strlen(VOICE_REC_SETTINGS_KEY), &s_config,
-                      sizeof(s_config));
-    settings_file_close(&file);
+void voice_recording_get_storage_usage(uint32_t *used_bytes_out,
+                                       uint32_t *available_bytes_out) {
+  mutex_lock(s_lock);
+  const uint32_t used_bytes = voice_recording_storage_total_bytes();
+  if (used_bytes_out) {
+    *used_bytes_out = used_bytes;
   }
-}
-
-VoiceRecordingQuality voice_recording_get_quality(void) {
-  return s_config.quality;
-}
-
-void voice_recording_set_quality(VoiceRecordingQuality quality) {
-  if (quality <= VoiceRecordingQuality_High) {
-    s_config.quality = quality;
-    prv_save_config();
+  if (available_bytes_out) {
+    *available_bytes_out = (used_bytes < VOICE_REC_TOTAL_STORAGE_BYTES)
+                               ? VOICE_REC_TOTAL_STORAGE_BYTES - used_bytes
+                               : 0;
   }
-}
-
-uint16_t voice_recording_get_record_gain(void) {
-  return s_config.record_gain;
-}
-
-void voice_recording_set_record_gain(uint16_t gain) {
-  s_config.record_gain = MIN(VOICE_RECORDING_GAIN_MAX, MAX(VOICE_RECORDING_GAIN_MIN, gain));
-  prv_save_config();
-}
-
-uint16_t voice_recording_get_playback_gain(void) {
-  return s_config.playback_gain;
-}
-
-void voice_recording_set_playback_gain(uint16_t gain) {
-  s_config.playback_gain = MIN(VOICE_RECORDING_GAIN_MAX, MAX(VOICE_RECORDING_GAIN_MIN, gain));
-  prv_save_config();
+  mutex_unlock(s_lock);
 }

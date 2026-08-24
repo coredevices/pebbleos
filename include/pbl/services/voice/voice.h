@@ -71,6 +71,12 @@ VoiceSessionId voice_start_dictation_from_recording(VoiceRecordingId recording_i
 //! @return true if a live dictation or stored-recording transcription session is active.
 bool voice_session_is_active(void);
 
+//! Reserve the idle voice service while an audio recording starts.
+bool voice_session_reserve_recording(void);
+
+//! Release the recording-start reservation.
+void voice_session_release_recording(void);
+
 //! @return the id of the recording whose file is held open by an active transcription stream, or
 //! \ref VOICE_RECORDING_ID_INVALID if none. Removing an open PFS file panics, so deletion paths
 //! must skip this recording.
