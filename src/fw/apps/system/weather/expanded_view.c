@@ -99,8 +99,9 @@ static int prv_sunset_minutes(int16_t lat_e2, int16_t lon_e2, int16_t utc_off_mi
   const int N = lt.tm_yday + 1;                    // day of year 1..366
   // The LOCATION's UTC offset when the phone synced one (v4.1) — so a saved city's
   // sunset reads in that city's local clock; otherwise the watch's own offset.
+  // tm_gmtoff, not time_get_gmtoffset(): the latter excludes DST while lt does not.
   const int tz_min = (utc_off_min != INT16_MIN) ? utc_off_min
-                                                : (time_get_gmtoffset() / 60);
+                                                : (lt.tm_gmtoff / 60);
 
   const int b_cdeg = (36000 * (N - 81)) / 365;     // B = (360/365)*(N-81), deg*100
   const int32_t sinB  = sin_lookup(prv_angle_from_cdeg(b_cdeg));
