@@ -1,15 +1,20 @@
 diff --git a/configs/meson/emscripten.txt b/configs/meson/emscripten.txt
-index 4230e88..144f045 100644
+index 4230e88..3a7fbca 100644
 --- a/configs/meson/emscripten.txt
 +++ b/configs/meson/emscripten.txt
-@@ -4,5 +4,5 @@ cpp_args = ['-pthread']
- objc_args = ['-pthread']
+@@ -1,8 +1,8 @@
+ [built-in options]
+-c_args = ['-pthread']
++c_args = ['-pthread','-Wno-error=incompatible-pointer-types','-Wno-error=implicit-function-declaration','-Wno-error=int-conversion']
+ cpp_args = ['-pthread']
+-objc_args = ['-pthread']
++objc_args = ['-pthread','-Wno-error=incompatible-pointer-types','-Wno-error=implicit-function-declaration','-Wno-error=int-conversion']
  # -sPROXY_TO_PTHREAD link time flag always requires -pthread even during
  # configuration so explicitly add the flag here.
 -c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
 -cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS']
-+c_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
-+cpp_link_args = ['-pthread','-sASYNCIFY=1','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
++c_link_args = ['-pthread','-O2','--profiling-funcs','-sASYNCIFY=1','-sASYNCIFY_STACK_SIZE=1048576','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
++cpp_link_args = ['-pthread','-O2','--profiling-funcs','-sASYNCIFY=1','-sASYNCIFY_STACK_SIZE=1048576','-sPROXY_TO_PTHREAD=1','-sFORCE_FILESYSTEM','-sALLOW_TABLE_GROWTH','-sTOTAL_MEMORY=2GB','-sWASM_BIGINT','-sEXPORT_ES6=1','-sASYNCIFY_IMPORTS=ffi_call_js','-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS,HEAPU8,HEAPU32,callMain']
 diff --git a/hw/arm/Kconfig b/hw/arm/Kconfig
 index cb1fed5..1004a13 100644
 --- a/hw/arm/Kconfig
@@ -218,8 +223,105 @@ index 00c7bf2..727505f 100644
      return s;
  }
  
+diff --git a/hw/block/pflash_cfi02.c b/hw/block/pflash_cfi02.c
+index 18d8716..c6317ba 100644
+--- a/hw/block/pflash_cfi02.c
++++ b/hw/block/pflash_cfi02.c
+@@ -115,6 +115,12 @@ struct PFlashCFI02 {
+     unsigned long *sector_erase_map;
+     char *name;
+     void *storage;
++#ifdef __EMSCRIPTEN__
++    /* Coalesced persistence for the wasm build (see pflash_wasm_flush) */
++    int64_t wasm_dirty_start;
++    int64_t wasm_dirty_end;
++    QEMUTimer *wasm_flush_timer;
++#endif
+ };
+ 
+ /*
+@@ -403,22 +409,66 @@ static uint64_t pflash_read(void *opaque, hwaddr offset, unsigned int width)
+     return ret;
+ }
+ 
++#ifdef __EMSCRIPTEN__
++/*
++ * Synchronous blk_pwrite() from the vCPU thread polls the main AioContext
++ * from outside its home thread, which the wasm fiber/asyncify runtime
++ * cannot support (aio_poll home-thread assertion). Instead, accumulate a
++ * dirty range and persist it from a main-loop timer, where the sync write
++ * is legal. pfl->storage stays authoritative in between.
++ */
++static void pflash_wasm_flush(void *opaque)
++{
++    PFlashCFI02 *pfl = opaque;
++    int64_t start = pfl->wasm_dirty_start;
++    int64_t end = pfl->wasm_dirty_end;
++    int ret;
++
++    pfl->wasm_dirty_start = -1;
++    pfl->wasm_dirty_end = -1;
++    if (start < 0 || !pfl->blk) {
++        return;
++    }
++    ret = blk_pwrite(pfl->blk, start, end - start,
++                     (uint8_t *)pfl->storage + start, 0);
++    if (ret < 0) {
++        error_report("Could not update PFLASH: %s", strerror(-ret));
++    }
++}
++#endif
++
+ /* update flash content on disk */
+ static void pflash_update(PFlashCFI02 *pfl, int offset, int size)
+ {
+     int offset_end;
++#ifndef __EMSCRIPTEN__
+     int ret;
++#endif
+     if (pfl->blk) {
+         offset_end = offset + size;
+         /* widen to sector boundaries */
+         offset = QEMU_ALIGN_DOWN(offset, BDRV_SECTOR_SIZE);
+         offset_end = QEMU_ALIGN_UP(offset_end, BDRV_SECTOR_SIZE);
++#ifdef __EMSCRIPTEN__
++        if (pfl->wasm_dirty_start < 0) {
++            timer_mod(pfl->wasm_flush_timer,
++                      qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + 100);
++            pfl->wasm_dirty_start = offset;
++            pfl->wasm_dirty_end = offset_end;
++        } else {
++            pfl->wasm_dirty_start = MIN(pfl->wasm_dirty_start,
++                                        (int64_t)offset);
++            pfl->wasm_dirty_end = MAX(pfl->wasm_dirty_end,
++                                      (int64_t)offset_end);
++        }
++#else
+         ret = blk_pwrite(pfl->blk, offset, offset_end - offset,
+                          pfl->storage + offset, 0);
+         if (ret < 0) {
+             /* TODO set error bit in status */
+             error_report("Could not update PFLASH: %s", strerror(-ret));
+         }
++#endif
+     }
+ }
+ 
+@@ -1036,6 +1086,12 @@ static void pflash_cfi02_realize(DeviceState *dev, Error **errp)
+     }
+ 
+     timer_init_ns(&pfl->timer, QEMU_CLOCK_VIRTUAL, pflash_timer, pfl);
++#ifdef __EMSCRIPTEN__
++    pfl->wasm_dirty_start = -1;
++    pfl->wasm_dirty_end = -1;
++    pfl->wasm_flush_timer = timer_new_ms(QEMU_CLOCK_REALTIME,
++                                         pflash_wasm_flush, pfl);
++#endif
+     pfl->status = 0;
+ 
+     pflash_cfi02_fill_cfi_table(pfl, nb_regions);
 diff --git a/hw/display/pebble_display.c b/hw/display/pebble_display.c
-index 34f4d9c..2cef34a 100644
+index 34f4d9c..a0a8a4b 100644
 --- a/hw/display/pebble_display.c
 +++ b/hw/display/pebble_display.c
 @@ -39,6 +39,7 @@
@@ -230,7 +332,7 @@ index 34f4d9c..2cef34a 100644
  #include "ui/pixel_ops.h"
  
  #define TYPE_PEBBLE_DISPLAY "pebble-display"
-@@ -140,6 +141,95 @@ static bool pixel_in_round_mask(int x, int y, int w, int h)
+@@ -140,6 +141,101 @@ static bool pixel_in_round_mask(int x, int y, int w, int h)
      return (dx * dx + dy * dy) <= (r * r);
  }
  
@@ -265,6 +367,12 @@ index 34f4d9c..2cef34a 100644
 +
 +    if (con) {
 +        graphic_hw_update(con);
++        if (!s_display_instance) {
++            /* Classic boards render through the adopted console; their
++             * update hooks never bump the frame counter, so advance it
++             * here to tell the web shell to blit. */
++            s_wasm_frame_count++;
++        }
 +    }
 +    timer_mod(s_wasm_refresh_timer,
 +              qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 33);
@@ -326,7 +434,7 @@ index 34f4d9c..2cef34a 100644
  static void pbl_display_update(void *opaque)
  {
      PblDisplay *s = opaque;
-@@ -258,6 +348,9 @@ static void pbl_display_update(void *opaque)
+@@ -258,6 +354,9 @@ static void pbl_display_update(void *opaque)
      }
  
      dpy_gfx_update(s->con, 0, 0, s->width, s->height);
@@ -336,7 +444,7 @@ index 34f4d9c..2cef34a 100644
  }
  
  static void pbl_display_invalidate(void *opaque)
-@@ -369,61 +462,8 @@ static const MemoryRegionOps pbl_display_regs_ops = {
+@@ -369,61 +468,8 @@ static const MemoryRegionOps pbl_display_regs_ops = {
  
  /* === Framebuffer memory access === */
  
@@ -398,7 +506,7 @@ index 34f4d9c..2cef34a 100644
  #define VIBE_FRAME_MS 30
  
  static void pbl_display_vibe_tick(void *opaque)
-@@ -447,7 +487,7 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
+@@ -447,7 +493,7 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
      s_display_instance = s;
      s->vibe_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL, pbl_display_vibe_tick, s);
  
@@ -407,7 +515,7 @@ index 34f4d9c..2cef34a 100644
      if (s->format == FMT_1BPP) {
          uint32_t row_bytes = ((s->width + 31) / 32) * 4;
          s->fb_size = row_bytes * s->height;
-@@ -455,8 +495,6 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
+@@ -455,8 +501,6 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
          s->fb_size = s->width * s->height;  /* 8bpp = 1 byte per pixel */
      }
  
@@ -416,7 +524,7 @@ index 34f4d9c..2cef34a 100644
      /* Create QemuConsole */
      s->con = graphic_console_init(dev, 0, &pbl_display_ops, s);
      qemu_console_resize(s->con, s->width, s->height);
-@@ -466,6 +504,13 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
+@@ -466,6 +510,13 @@ static void pbl_display_realize(DeviceState *dev, Error **errp)
      s->bl_g = 0xFF;
      s->bl_b = 0xFF;
      s->redraw = true;
@@ -430,7 +538,7 @@ index 34f4d9c..2cef34a 100644
  }
  
  static void pbl_display_init(Object *obj)
-@@ -477,9 +522,13 @@ static void pbl_display_init(Object *obj)
+@@ -477,9 +528,13 @@ static void pbl_display_init(Object *obj)
                            "pebble-display-regs", 0x1000);
      sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem_regs);
  
@@ -447,7 +555,7 @@ index 34f4d9c..2cef34a 100644
      sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem_fb);
  
      sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq);
-@@ -530,6 +579,9 @@ static const TypeInfo pbl_display_info = {
+@@ -530,6 +585,9 @@ static const TypeInfo pbl_display_info = {
  static void pbl_display_register_types(void)
  {
      type_register_static(&pbl_display_info);
@@ -457,6 +565,45 @@ index 34f4d9c..2cef34a 100644
  }
  
  type_init(pbl_display_register_types)
+diff --git a/hw/display/pebble_sm_lcd.c b/hw/display/pebble_sm_lcd.c
+index 215cb89..5ed86b5 100644
+--- a/hw/display/pebble_sm_lcd.c
++++ b/hw/display/pebble_sm_lcd.c
+@@ -139,6 +139,13 @@ static void sm_lcd_update_display(void *arg)
+     int x, y, bpp;
+ 
+     DisplaySurface *surface = qemu_console_surface(s->con);
++
++    /* The browser bridge polls gfx_update on a timer, which reaches here in
++     * states the native display loop never does. Bail out instead of
++     * writing through NULL. */
++    if (!surface || !surface_data(surface)) {
++        return;
++    }
+     bpp = surface_bits_per_pixel(surface);
+     d = surface_data(surface);
+ 
+diff --git a/hw/display/pebble_snowy_display.c b/hw/display/pebble_snowy_display.c
+index 78a95c1..4ad2dd2 100644
+--- a/hw/display/pebble_snowy_display.c
++++ b/hw/display/pebble_snowy_display.c
+@@ -796,6 +796,16 @@ static void ps_display_update_display(void *arg)
+     int x, y, bpp, rgb_value;
+ 
+     DisplaySurface *surface = qemu_console_surface(s->con);
++
++    /* The browser bridge polls gfx_update on a timer, which reaches here in
++     * states the native display loop never does: before the surface backs a
++     * real buffer, or before the guest has drawn. Bail out instead of
++     * writing through NULL. */
++    if (!surface || !surface_data(surface) || !s->framebuffer_copy ||
++        surface_width(surface) < s->num_cols ||
++        surface_height(surface) < s->num_rows) {
++        return;
++    }
+     bpp = surface_bits_per_pixel(surface);
+     d = surface_data(surface);
+ 
 diff --git a/hw/gpio/pebble_gpio.c b/hw/gpio/pebble_gpio.c
 index eefbcd0..4614cd7 100644
 --- a/hw/gpio/pebble_gpio.c
@@ -513,3 +660,53 @@ index eefbcd0..4614cd7 100644
  }
  
  static void pbl_gpio_init(Object *obj)
+diff --git a/system/cpus.c b/system/cpus.c
+index 2567235..c0c1750 100644
+--- a/system/cpus.c
++++ b/system/cpus.c
+@@ -478,7 +478,14 @@ void cpus_kick_thread(CPUState *cpu)
+     }
+     cpu->thread_kicked = true;
+ 
+-#ifndef _WIN32
++#if defined(__EMSCRIPTEN__)
++    /*
++     * No signal support under wasm: emscripten turns pthread_kill() into a
++     * proxied call of the (never installed) SIG_IPI handler on the target
++     * worker, which crashes it. The halt_cond broadcast and exit_request
++     * are sufficient to kick a TCI vCPU.
++     */
++#elif !defined(_WIN32)
+     int err = pthread_kill(cpu->thread->thread, SIG_IPI);
+     if (err && err != ESRCH) {
+         fprintf(stderr, "qemu:%s: %s", __func__, strerror(err));
+diff --git a/util/aio-posix.c b/util/aio-posix.c
+index 2e0a5da..1d51b0f 100644
+--- a/util/aio-posix.c
++++ b/util/aio-posix.c
+@@ -676,8 +676,25 @@ bool aio_poll(AioContext *ctx, bool blocking)
+      * is special in that it runs in the main thread, but that thread's context
+      * is qemu_aio_context.
+      */
++#ifdef __EMSCRIPTEN__
++    /*
++     * The wasm fiber/asyncify runtime loses the BQL thread-local flag when
++     * a coroutine started on another thread completes here, so this check
++     * misfires. Warn once instead of aborting the whole emulator.
++     */
++    if (!in_aio_context_home_thread(ctx == iohandler_get_aio_context() ?
++                                    qemu_get_aio_context() : ctx)) {
++        static bool warned;
++        if (!warned) {
++            warned = true;
++            fprintf(stderr, "aio_poll: home-thread check failed "
++                    "(wasm runtime); continuing\n");
++        }
++    }
++#else
+     assert(in_aio_context_home_thread(ctx == iohandler_get_aio_context() ?
+                                       qemu_get_aio_context() : ctx));
++#endif
+ 
+     qemu_lockcnt_inc(&ctx->list_lock);
+ 
