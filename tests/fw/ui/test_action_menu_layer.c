@@ -98,8 +98,6 @@ GSize graphics_text_layout_get_max_used_size(GContext *ctx, const char *text, GF
   return GSize(10, FONT_HEIGHT);
 }
 
-GFont system_theme_get_font(TextStyleFont font) { return NULL; }
-
 void menu_cell_basic_draw_custom(GContext *ctx, const Layer *cell_layer, GFont const title_font,
                                  const char *title, GFont const value_font, const char *value,
                                  GFont const subtitle_font, const char *subtitle, GBitmap *icon,

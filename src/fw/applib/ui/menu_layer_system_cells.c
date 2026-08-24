@@ -6,8 +6,11 @@
 #include "applib/graphics/graphics.h"
 #include "applib/ui/kino/kino_reel.h"
 #include "applib/ui/kino/kino_reel_gbitmap_private.h"
+#include "kernel/pebble_tasks.h"
+#include "process_management/app_install_types.h"
 #include "process_management/process_manager.h"
 #include "shell/system_theme.h"
+#include "syscall/syscall.h"
 #include "system/passert.h"
 #include "pbl/util/math.h"
 
@@ -55,37 +58,49 @@ static const MenuCellDimensions s_menu_cell_dimensions[NumPreferredContentSizes]
   },
 };
 
-static const MenuCellDimensions *prv_get_dimensions_for_runtime_platform_default_size(void) {
-  const PreferredContentSize runtime_platform_default_size =
-      system_theme_get_default_content_size_for_runtime_platform();
-  return &s_menu_cell_dimensions[runtime_platform_default_size];
+//! Third-party apps keep the runtime platform's default size so their layouts are unaffected by
+//! the user's preferred content size.
+static bool prv_use_platform_default_size(void) {
+  return (pebble_task_get_current() == PebbleTask_App) &&
+         !app_install_id_from_system(sys_process_manager_get_current_process_id());
+}
+
+static const MenuCellDimensions *prv_get_cell_dimensions(void) {
+  const PreferredContentSize size = prv_use_platform_default_size() ?
+      system_theme_get_default_content_size_for_runtime_platform() :
+      system_theme_get_content_size();
+  return &s_menu_cell_dimensions[size];
 }
 
 int16_t menu_cell_basic_cell_height(void) {
-  return prv_get_dimensions_for_runtime_platform_default_size()->basic_cell_height;
+  return prv_get_cell_dimensions()->basic_cell_height;
 }
 
 int16_t menu_cell_small_cell_height(void) {
-  return prv_get_dimensions_for_runtime_platform_default_size()->small_cell_height;
+  return prv_get_cell_dimensions()->small_cell_height;
 }
 
 int16_t menu_cell_basic_horizontal_inset(void) {
-  return prv_get_dimensions_for_runtime_platform_default_size()->horizontal_inset;
+  return prv_get_cell_dimensions()->horizontal_inset;
 }
 
 #if PBL_RECT
 static int16_t prv_title_subtitle_left_margin(void) {
-  return prv_get_dimensions_for_runtime_platform_default_size()->title_subtitle_left_margin;
+  return prv_get_cell_dimensions()->title_subtitle_left_margin;
 }
 #endif
 
+static GFont prv_get_cell_font(TextStyleFont font) {
+  return prv_use_platform_default_size() ? system_theme_get_font_for_default_size(font) :
+                                           system_theme_get_font(font);
+}
+
 static ALWAYS_INLINE GFont prv_get_cell_title_font(const MenuCellLayerConfig *config) {
-  return config->title_font ?: system_theme_get_font_for_default_size(TextStyleFont_MenuCellTitle);
+  return config->title_font ?: prv_get_cell_font(TextStyleFont_MenuCellTitle);
 }
 
 static ALWAYS_INLINE GFont prv_get_cell_subtitle_font(const MenuCellLayerConfig *config) {
-  return config->subtitle_font ?:
-      system_theme_get_font_for_default_size(TextStyleFont_MenuCellSubtitle);
+  return config->subtitle_font ?: prv_get_cell_font(TextStyleFont_MenuCellSubtitle);
 }
 
 static ALWAYS_INLINE GFont prv_get_cell_value_font(const MenuCellLayerConfig *config) {

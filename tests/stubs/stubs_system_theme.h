@@ -17,6 +17,10 @@ const char *WEAK system_theme_get_font_key_for_size(PreferredContentSize size,
   return NULL;
 }
 
+GFont WEAK system_theme_get_font(TextStyleFont font) {
+  return NULL;
+}
+
 GFont WEAK system_theme_get_font_for_default_size(TextStyleFont font) {
   return NULL;
 }

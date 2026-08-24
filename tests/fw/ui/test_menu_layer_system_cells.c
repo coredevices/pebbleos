@@ -5,8 +5,11 @@
 #include "applib/graphics/graphics.h"
 #include "applib/ui/menu_layer.h"
 #include "applib/ui/status_bar_layer.h"
+#include "kernel/pebble_tasks.h"
+#include "process_management/app_install_types.h"
 #include "resource/resource.h"
 #include "resource/resource_ids.auto.h"
+#include "shell/system_theme.h"
 #include "util/graphics.h"
 #include "pbl/util/size.h"
 
@@ -28,10 +31,43 @@ bool menu_cell_layer_is_highlighted(const Layer *cell_layer) {
   return s_cell_is_highlighted;
 }
 
+// Controllable replacement for stubs_pebble_tasks.h so tests can simulate an app task
+#include "FreeRTOS.h"
+#include "task.h"
+
+static PebbleTask s_current_task = PebbleTask_KernelMain;
+
+PebbleTask pebble_task_get_current(void) {
+  return s_current_task;
+}
+
+TaskHandle_t pebble_task_get_handle_for_task(PebbleTask task) {
+  return NULL;
+}
+
+const char* pebble_task_get_name(PebbleTask task) {
+  return NULL;
+}
+
+void pebble_task_unregister(PebbleTask task) {
+}
+
+void pebble_task_create(PebbleTask pebble_task, TaskParameters_t *task_params,
+                        TaskHandle_t *handle) {
+}
+
+//! System install ids are negative, app-db (third-party) install ids are positive
+static AppInstallId s_current_process_id = (AppInstallId)(-1);
+
+AppInstallId sys_process_manager_get_current_process_id(void) {
+  return s_current_process_id;
+}
+
 // Stubs
 /////////////////////
 
 #include "stubs_analytics.h"
+#include "stubs_app_install_manager.h"
 #include "stubs_app_state.h"
 #include "stubs_bootbits.h"
 #include "stubs_compiled_with_legacy2_sdk.h"
@@ -42,14 +78,17 @@ bool menu_cell_layer_is_highlighted(const Layer *cell_layer) {
 #include "stubs_mutex.h"
 #include "stubs_passert.h"
 #include "stubs_pbl_malloc.h"
-#include "stubs_pebble_tasks.h"
 #include "stubs_print.h"
 #include "stubs_process_manager.h"
 #include "stubs_prompt.h"
 #include "stubs_serial.h"
 #include "stubs_shell_prefs.h"
 #include "stubs_sleep.h"
+// Hide the WEAK stub so the controllable strong definition above owns the real symbol
+#define sys_process_manager_get_current_process_id \
+    prv_stubbed_sys_process_manager_get_current_process_id
 #include "stubs_syscalls.h"
+#undef sys_process_manager_get_current_process_id
 #include "stubs_task_watchdog.h"
 #include "stubs_ui_window.h"
 #include "stubs_unobstructed_area.h"
@@ -401,4 +440,98 @@ void test_menu_layer_system_cells__cell_width_180(void) {
       ARRAY_LENGTH(s_menu_system_cell_layer_test_column_data),
       /* is_legacy2 */ false);
   cl_check(gbitmap_pbi_eq(s_dest_bitmap, TEST_PBI_FILE));
+}
+
+//! Renders the basic cell rows once per PreferredContentSize (columns, focused and unfocused
+//! side-by-side) to verify that fonts and cell heights follow the user's content size.
+void test_menu_layer_system_cells__basic_cell_content_sizes(void) {
+  const int16_t cell_width = 144;
+  const unsigned int num_rows = ARRAY_LENGTH(s_menu_system_cell_test_row_data);
+
+  gbitmap_destroy(s_dest_bitmap);
+
+  // Two cells (focused and unfocused) per content size column
+  const int num_cell_columns = NumPreferredContentSizes * 2;
+  const int16_t bitmap_width = (cell_width * num_cell_columns) +
+      (GRID_CELL_PADDING * (num_cell_columns + 1));
+
+  // Cell heights follow the content size, so size the canvas for the tallest column
+  int16_t bitmap_height = 0;
+  for (PreferredContentSize size = PreferredContentSizeSmall; size < NumPreferredContentSizes;
+       size++) {
+    system_theme_set_content_size(size);
+    const int16_t column_height = GRID_CELL_PADDING +
+        (num_rows * (menu_cell_basic_cell_height() + GRID_CELL_PADDING));
+    bitmap_height = MAX(bitmap_height, column_height);
+  }
+
+  const GSize bitmap_size = GSize(bitmap_width, bitmap_height);
+  s_dest_bitmap = gbitmap_create_blank(bitmap_size,
+                                       PBL_IF_COLOR_ELSE(GBitmapFormat8Bit, GBitmapFormat1Bit));
+
+  s_ctx.dest_bitmap = *s_dest_bitmap;
+  s_ctx.draw_state.clip_box.size = bitmap_size;
+  s_ctx.draw_state.drawing_box.size = bitmap_size;
+
+  // Fill the bitmap with pink so it's easier to see errors
+  memset(s_dest_bitmap->addr, GColorShockingPinkARGB8,
+         s_dest_bitmap->row_size_bytes * s_dest_bitmap->bounds.size.h);
+
+  for (PreferredContentSize size = PreferredContentSizeSmall; size < NumPreferredContentSizes;
+       size++) {
+    system_theme_set_content_size(size);
+    const int16_t row_height = menu_cell_basic_cell_height();
+    const int16_t x_offset = GRID_CELL_PADDING + (size * ((GRID_CELL_PADDING + cell_width) * 2));
+    int16_t y_offset = 0;
+    for (unsigned int row_index = 0; row_index < num_rows; row_index++) {
+      y_offset += GRID_CELL_PADDING;
+      GRect cell_bounds = GRect(x_offset, y_offset, cell_width, row_height);
+      prv_draw_cell(MenuCellType_Basic, &cell_bounds,
+                    &s_menu_system_cell_test_row_data[row_index],
+                    &s_menu_system_basic_cell_test_column_data[0], true /* is_selected */);
+      cell_bounds.origin.x += cell_width + GRID_CELL_PADDING;
+      prv_draw_cell(MenuCellType_Basic, &cell_bounds,
+                    &s_menu_system_cell_test_row_data[row_index],
+                    &s_menu_system_basic_cell_test_column_data[0], false /* is_selected */);
+      y_offset += row_height;
+    }
+  }
+
+  // The content size setting leaks across tests in this process, restore it before checking
+  system_theme_set_content_size(PreferredContentSizeDefault);
+
+  cl_check(gbitmap_pbi_eq(s_dest_bitmap, TEST_PBI_FILE));
+}
+
+//! Third-party apps must keep the runtime platform's default cell dimensions no matter what
+//! content size the user prefers.
+void test_menu_layer_system_cells__third_party_app_keeps_platform_default(void) {
+  // Simulate a third-party app: app task with an app-db (positive) install id
+  s_current_task = PebbleTask_App;
+  s_current_process_id = (AppInstallId)1;
+
+  // Capture the dimensions before changing the user's content size preference
+  system_theme_set_content_size(PreferredContentSizeDefault);
+  const int16_t default_basic_cell_height = menu_cell_basic_cell_height();
+  const int16_t default_small_cell_height = menu_cell_small_cell_height();
+  const int16_t default_horizontal_inset = menu_cell_basic_horizontal_inset();
+  // Both test platforms default to PreferredContentSizeLarge
+  cl_assert_equal_i(default_basic_cell_height, 61);
+  cl_assert_equal_i(default_small_cell_height, 42);
+  cl_assert_equal_i(default_horizontal_inset, 10);
+
+  system_theme_set_content_size(PreferredContentSizeExtraLarge);
+
+  // The third-party app still sees the platform default dimensions
+  cl_assert_equal_i(menu_cell_basic_cell_height(), default_basic_cell_height);
+  cl_assert_equal_i(menu_cell_small_cell_height(), default_small_cell_height);
+  cl_assert_equal_i(menu_cell_basic_horizontal_inset(), default_horizontal_inset);
+
+  // Positive control: a system process at the same setting does follow the content size
+  s_current_task = PebbleTask_KernelMain;
+  cl_assert_equal_i(menu_cell_basic_cell_height(), 85);
+
+  // Restore process identity and content size for subsequent tests
+  s_current_process_id = (AppInstallId)(-1);
+  system_theme_set_content_size(PreferredContentSizeDefault);
 }
