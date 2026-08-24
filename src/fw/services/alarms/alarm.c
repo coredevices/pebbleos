@@ -107,7 +107,7 @@ static bool prv_reload_alarms(SettingsFile *file);
 static bool prv_alarm_get_config(SettingsFile *file, AlarmId id, AlarmConfig* config_out);
 static void prv_alarm_set_config(SettingsFile *file, AlarmId id, const AlarmConfig* config);
 static void prv_cron_callback(CronJob *job, void* data);
-static void prv_snooze_alarm(int snooze_delay_s);
+static void prv_snooze_alarm(int snooze_delay_s, bool user_initiated);
 static bool prv_set_alarm_kind_op(AlarmId id, AlarmConfig *config, void *context);
 static bool prv_set_alarm_custom_op(AlarmId id, AlarmConfig *config, void *context);
 
@@ -414,7 +414,7 @@ static void prv_process_most_recent_alarm(void) {
     if (!trigger) {
       // Not triggering an event, increment to signify elapsed time and snooze
       s_smart_snooze_counter++;
-      prv_snooze_alarm(SMART_ALARM_SNOOZE_DELAY_S);
+      prv_snooze_alarm(SMART_ALARM_SNOOZE_DELAY_S, false /* user_initiated */);
       return;
     }
   }
@@ -1011,8 +1011,11 @@ cleanup:
   return rv;
 }
 
-static void prv_snooze_alarm(int snooze_delay_s) {
+static void prv_snooze_alarm(int snooze_delay_s, bool user_initiated) {
   prv_clear_snooze_timer();
+  // Set before arming the timer: a stale snooze callback queued on KernelBG cannot be cancelled by
+  // new_timer_stop(), and would consume the flag if it ran while the timer was armed without it.
+  s_user_snoozed = user_initiated;
   PBL_LOG_INFO("Snoozing for %d minutes", snooze_delay_s / SECONDS_PER_MINUTE);
   bool success = new_timer_start(s_snooze_timer_id, snooze_delay_s * MS_PER_SECOND,
                                  prv_snooze_timer_callback, NULL, 0 /* flags*/);
@@ -1021,9 +1024,7 @@ static void prv_snooze_alarm(int snooze_delay_s) {
 
 // ----------------------------------------------------------------------------------------------
 void alarm_set_snooze_alarm(void) {
-  prv_snooze_alarm(s_snooze_delay_m * SECONDS_PER_MINUTE);
-  // Set after prv_snooze_alarm(): clearing the previous timer resets the flag.
-  s_user_snoozed = true;
+  prv_snooze_alarm(s_snooze_delay_m * SECONDS_PER_MINUTE, true /* user_initiated */);
 }
 
 // ----------------------------------------------------------------------------------------------
@@ -1137,13 +1138,19 @@ void alarm_handle_clock_change(void) {
     return;
   }
 
+  // Deferred until after the settings file is closed: prv_alarm_operation() opens it itself, and
+  // opening it twice croaks.
+  AlarmId record_alarm_id = ALARM_INVALID_ID;
+
   // If there's an active alarm (e.g., currently snoozing), we need to handle it carefully.
   // For smart alarms near their deadline, we should trigger them before clearing state.
   if (s_most_recent_alarm_id != ALARM_INVALID_ID) {
     bool should_force_trigger = false;
 
-    // Only consider force-triggering for smart alarms that are in their smart snooze window
-    if (s_most_recent_alarm_config.is_smart && s_smart_snooze_counter > 0) {
+    // Only consider force-triggering for smart alarms that are in their smart snooze window.
+    // A user snooze is an explicit deadline and must survive any clock change; force-triggering
+    // here would clear it and re-fire the alarm immediately.
+    if (s_most_recent_alarm_config.is_smart && s_smart_snooze_counter > 0 && !s_user_snoozed) {
       // Check if we've used up most of our smart snooze attempts (within last 2 minutes)
       if (s_smart_snooze_counter >= (SMART_ALARM_MAX_SMART_SNOOZE - 2)) {
         should_force_trigger = true;
@@ -1175,7 +1182,7 @@ void alarm_handle_clock_change(void) {
       prv_put_alarm_event();
       if (!s_most_recent_alarm_recorded) {
         s_most_recent_alarm_recorded = true;
-        prv_alarm_operation(s_most_recent_alarm_id, prv_record_alarm_op, NULL);
+        record_alarm_id = s_most_recent_alarm_id;
       }
       PBL_LOG_INFO("Clock change during alarm %u, triggered alarm", s_most_recent_alarm_id);
       // The alarm is now firing; stop the smart-snooze loop.
@@ -1210,6 +1217,10 @@ void alarm_handle_clock_change(void) {
   prv_reload_alarms(&file);
 
   prv_file_close_and_unlock(&file);
+
+  if (record_alarm_id != ALARM_INVALID_ID) {
+    prv_alarm_operation(record_alarm_id, prv_record_alarm_op, NULL);
+  }
 }
 
 // ----------------------------------------------------------------------------------------------

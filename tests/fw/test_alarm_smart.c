@@ -277,6 +277,73 @@ void test_alarm_smart__user_snooze_fires_after_delay(void) {
   cl_assert_equal_i(s_num_alarm_events_put, 3);
 }
 
+void test_alarm_smart__user_snooze_survives_clock_change(void) {
+  AlarmId id;
+  id = alarm_create(&(AlarmInfo) { .hour = 10, .minute = 30, .kind = ALARM_KIND_EVERYDAY, .is_smart = true });
+  prv_assert_alarm_config(id, 10, 30, false, ALARM_KIND_EVERYDAY, s_every_day_schedule);
+
+  // Stay asleep so the sleep poll runs and drives up the smart snooze counter
+  s_sleep_state = ActivitySleepStateRestfulSleep;
+  s_sleep_state_seconds = 0;
+  s_rand = 4;
+
+  prv_set_time(s_current_day, 10, 0);
+  cron_service_wakeup();
+  cl_assert_equal_i(s_num_alarm_events_put, 0);
+
+  const int num_checks = 6;
+  for (int i = 0; i < num_checks; i++) {
+    s_sleep_state_seconds = (i + 1) * 5 * SECONDS_PER_MINUTE;
+    s_last_vmc = (i == 5);
+    prv_set_time(s_current_day, 10, i * 5);
+    stub_new_timer_invoke(1);
+  }
+  // The alarm has now fired at the end of the smart window
+  cl_assert_equal_i(s_num_alarm_events_put, 1);
+
+  // The user snoozes it, then a clock change arrives (phone time sync, DST, RTC correction)
+  alarm_set_snooze_alarm();
+  alarm_handle_clock_change();
+
+  // The snooze must survive: no immediate re-fire
+  cl_assert_equal_i(s_num_alarm_events_put, 1);
+
+  // ...and it still fires after exactly the configured delay
+  prv_set_time(s_current_day, 10, 25 + alarm_get_snooze_delay());
+  stub_new_timer_invoke(1);
+  cl_assert_equal_i(s_num_alarm_events_put, 2);
+}
+
+void test_alarm_smart__clock_change_still_force_triggers_sleep_poll(void) {
+  // Guards the FIRM-3127 fix: with no user snooze pending, a clock change during the smart
+  // window must still force the alarm to fire rather than silently dropping it.
+  AlarmId id;
+  id = alarm_create(&(AlarmInfo) { .hour = 10, .minute = 30, .kind = ALARM_KIND_EVERYDAY, .is_smart = true });
+  prv_assert_alarm_config(id, 10, 30, false, ALARM_KIND_EVERYDAY, s_every_day_schedule);
+
+  s_sleep_state = ActivitySleepStateRestfulSleep;
+  s_sleep_state_seconds = 0;
+  s_rand = 4;
+
+  prv_set_time(s_current_day, 10, 0);
+  cron_service_wakeup();
+  cl_assert_equal_i(s_num_alarm_events_put, 0);
+
+  // A couple of sleep polls, so the smart snooze counter is non-zero but the alarm has not fired
+  for (int i = 0; i < 2; i++) {
+    s_sleep_state_seconds = (i + 1) * 5 * SECONDS_PER_MINUTE;
+    s_last_vmc = 0;
+    prv_set_time(s_current_day, 10, i * 5);
+    stub_new_timer_invoke(1);
+  }
+  cl_assert_equal_i(s_num_alarm_events_put, 0);
+
+  // Clock change lands inside the smart window with no user snooze pending
+  prv_set_time(s_current_day, 10, 35);
+  alarm_handle_clock_change();
+  cl_assert_equal_i(s_num_alarm_events_put, 1);
+}
+
 void test_alarm_smart__across_midnight_boundary(void) {
   prv_set_time(s_sunday, 22, 0);
 
