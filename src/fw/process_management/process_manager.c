@@ -27,6 +27,7 @@
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/app_cache.h"
+#include "pbl/services/blob_db/app_db.h"
 #include "pbl/services/data_logging/data_logging_service.h"
 #include "pbl/services/persist.h"
 #include "pbl/services/voice/voice.h"
@@ -228,6 +229,24 @@ static bool prv_needs_fetch(AppInstallId id, const PebbleProcessMd **md, bool is
   }
 
   *md = app_install_get_md(id, is_worker);
+
+  // The cache is keyed on the install ID alone, and IDs are recycled. An entry orphaned by a
+  // previous install leaves a stale binary at this ID, whose metadata comes from its own header --
+  // so without this check we would silently launch the wrong app. Drop it and fetch the real one.
+  AppDBEntry entry;
+  if (*md && (app_db_get_app_entry_for_install_id(id, &entry) == S_SUCCESS) &&
+      !uuid_equal(&(*md)->uuid, &entry.uuid)) {
+    char cached_uuid[UUID_STRING_BUFFER_LENGTH];
+    char expected_uuid[UUID_STRING_BUFFER_LENGTH];
+    uuid_to_string(&(*md)->uuid, cached_uuid);
+    uuid_to_string(&entry.uuid, expected_uuid);
+    PBL_LOG_WRN("Stale app cache entry for id %" PRId32 ": cached %s, expected %s. Refetching.",
+                id, cached_uuid, expected_uuid);
+    app_install_release_md(*md);
+    *md = NULL;
+    app_cache_remove_entry(id);
+    return true;
+  }
 
   return false;
 }
