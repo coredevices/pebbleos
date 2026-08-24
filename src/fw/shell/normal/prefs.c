@@ -1785,6 +1785,16 @@ void system_theme_set_content_size(PreferredContentSize content_size) {
   }
   const uint8_t content_size_uint = content_size;
   prv_pref_set(PREF_KEY_TEXT_STYLE, &content_size_uint, sizeof(content_size_uint));
+
+  // Watch-side sets bypass the blob-db path, so notify subscribed UI here too.
+  PebbleEvent pref_event = {
+    .type = PEBBLE_PREF_CHANGE_EVENT,
+    .pref_change = {
+      .key = PREF_KEY_TEXT_STYLE,
+      .key_len = sizeof(PREF_KEY_TEXT_STYLE),
+    },
+  };
+  event_put(&pref_event);
 }
 
 PreferredContentSize system_theme_get_content_size(void) {

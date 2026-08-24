@@ -64,8 +64,13 @@ typedef struct SettingsData {
 
 static void prv_pref_change_handler(PebbleEvent *event, void *context) {
   SettingsData *data = context;
-  // Refresh the menu when any pref changes
-  layer_mark_dirty(menu_layer_get_layer(&data->menu_layer));
+  // Reload the menu when any pref changes: cell heights are cached by the menu
+  // layer and can change with the preferred content size. Re-anchor the
+  // selection afterwards so the scroll offset stays within the new geometry.
+  menu_layer_reload_data(&data->menu_layer);
+  menu_layer_set_selected_index(&data->menu_layer,
+                                menu_layer_get_selected_index(&data->menu_layer),
+                                MenuRowAlignCenter, false /* animated */);
 }
 
 // Filter category helpers
