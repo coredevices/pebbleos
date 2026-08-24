@@ -3,6 +3,7 @@
 
 #include "display.h"
 #include "menu.h"
+#include "notifications_private.h"
 #include "option_menu.h"
 #include "window.h"
 
@@ -17,6 +18,7 @@
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/light.h"
 #include "shell/prefs.h"
+#include "shell/system_theme.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/size.h"
@@ -68,6 +70,33 @@ static void prv_language_menu_push(SettingsDisplayData *data) {
                             shell_prefs_get_language(), &callbacks,
                             ARRAY_LENGTH(s_language_labels), false /* icons_enabled */,
                             s_language_labels, data);
+}
+
+// Text Size
+/////////////////////////////
+
+static const char *s_text_size_names[] = {
+  [SettingsContentSize_Small]   = i18n_noop("Smaller"),
+  [SettingsContentSize_Default] = i18n_ctx_noop("TextSize", "Default"),
+  [SettingsContentSize_Large]   = i18n_noop("Larger"),
+};
+
+static void prv_text_size_menu_select(OptionMenu *option_menu, int selection, void *context) {
+  system_theme_set_content_size(settings_content_size_to_preferred_size(selection));
+  app_window_stack_remove(&option_menu->window, true /* animated */);
+}
+
+static void prv_text_size_menu_push(SettingsDisplayData *data) {
+  const OptionMenuCallbacks callbacks = {
+    .select = prv_text_size_menu_select,
+  };
+  /// The option in the Settings app for choosing the text size of the system UI.
+  const char *title = i18n_noop("Text Size");
+  const SettingsContentSize index =
+      settings_content_size_from_preferred_size(system_theme_get_content_size());
+  settings_option_menu_push(
+      title, OptionMenuContentType_SingleLine, index, &callbacks, SettingsContentSizeCount,
+      true /* icons_enabled */, s_text_size_names, data);
 }
 
 // Intensity Settings
@@ -555,6 +584,7 @@ enum SettingsDisplayItem {
 #ifdef CONFIG_ORIENTATION_MANAGER
   SettingsDisplayOrientation,
 #endif
+  SettingsDisplayTextSize,
   SettingsDisplayLanguage,
 #ifdef CONFIG_APP_SCALING
   SettingsDisplayLegacyAppMode,
@@ -615,6 +645,9 @@ static void prv_display_select_click_cb(SettingsCallbacks *context, uint16_t row
       prv_display_orientation_menu_push((SettingsDisplayData*)context);
       break;
 #endif
+    case SettingsDisplayTextSize:
+      prv_text_size_menu_push((SettingsDisplayData *)context);
+      break;
     case SettingsDisplayLanguage:
       prv_language_menu_push((SettingsDisplayData *)context);
       break;
@@ -660,6 +693,14 @@ static void prv_display_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       subtitle = s_display_orientation_labels[prv_display_orientation_get_selection_index()];
       break;
 #endif
+    case SettingsDisplayTextSize: {
+      /// String within Settings->Display that describes the text font size
+      title = i18n_noop("Text Size");
+      const SettingsContentSize index =
+          settings_content_size_from_preferred_size(system_theme_get_content_size());
+      subtitle = (index < SettingsContentSizeCount) ? s_text_size_names[index] : "";
+      break;
+    }
     case SettingsDisplayLanguage:
       title = i18n_noop("Language");
       subtitle = i18n_get_lang_name();
