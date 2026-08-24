@@ -356,9 +356,12 @@ export async function buildApp(opts) {
     const srcGlobs = wscriptSourceGlobs(wscriptText);
     let sources = null;
     if (srcGlobs) {
+      // The globs pick among the repo's own sources; the generated
+      // build/*.auto.c files always compile.
       const res = srcGlobs.map(globToRegExp);
-      const picked = cFiles.filter((p) => res.some((r) => r.test(p)));
-      if (picked.length) sources = picked;
+      const picked = cFiles.filter((p) =>
+        !p.startsWith('src/') || res.some((r) => r.test(p)));
+      if (picked.some((p) => p.startsWith('src/'))) sources = picked;
     }
     // An SDK 4 project keeps its C under src/c; older ones put it straight
     // in src. A repo that has lived through both layouts still carries the
