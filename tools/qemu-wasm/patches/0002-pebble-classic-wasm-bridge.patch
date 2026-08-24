@@ -1,3 +1,23 @@
+diff --git a/accel/tcg/cputlb.c b/accel/tcg/cputlb.c
+index b063a57..750e648 100644
+--- a/accel/tcg/cputlb.c
++++ b/accel/tcg/cputlb.c
+@@ -1281,7 +1281,15 @@ io_prepare(hwaddr *out_offset, CPUState *cpu, hwaddr xlat,
+     mr_offset = (xlat & TARGET_PAGE_MASK) + addr;
+     cpu->mem_io_pc = retaddr;
+     if (!cpu->neg.can_do_io) {
++#ifdef __EMSCRIPTEN__
++        /* cpu_io_recompile() longjmps, which emscripten implements as a JS
++         * exception -- prohibitively expensive. Let the I/O proceed; the
++         * cost is icount accounting imprecise by at most one TB, and the
++         * Pebble machines do not run with icount. */
++        cpu->neg.can_do_io = true;
++#else
+         cpu_io_recompile(cpu, retaddr);
++#endif
+     }
+ 
+     *out_offset = mr_offset;
 diff --git a/configs/meson/emscripten.txt b/configs/meson/emscripten.txt
 index 4230e88..3a7fbca 100644
 --- a/configs/meson/emscripten.txt
@@ -680,6 +700,99 @@ index 2567235..c0c1750 100644
      int err = pthread_kill(cpu->thread->thread, SIG_IPI);
      if (err && err != ESRCH) {
          fprintf(stderr, "qemu:%s: %s", __func__, strerror(err));
+diff --git a/tcg/tci.c b/tcg/tci.c
+index 700e672..aa77378 100644
+--- a/tcg/tci.c
++++ b/tcg/tci.c
+@@ -25,6 +25,15 @@
+ #include "tcg-has.h"
+ #include <ffi.h>
+ 
++/* Inline TLB fast path for memory access (TCI_TLB_FAST_PATH) */
++#ifndef CONFIG_USER_ONLY
++#include "exec/cpu-common.h"
++#include "exec/tlb-common.h"
++#include "exec/tlb-flags.h"
++#include "exec/target_page.h"
++#define TCI_TLB_FAST_PATH 1
++#endif
++
+ 
+ #define ctpop_tr    glue(ctpop, TCG_TARGET_REG_BITS)
+ #define deposit_tr  glue(deposit, TCG_TARGET_REG_BITS)
+@@ -281,6 +290,38 @@ static uint64_t tci_qemu_ld(CPUArchState *env, uint64_t taddr,
+     MemOp mop = get_memop(oi);
+     uintptr_t ra = (uintptr_t)tb_ptr;
+ 
++#ifdef TCI_TLB_FAST_PATH
++    /* On a TLB hit with no special flags, access host memory directly,
++     * bypassing the helper_*_mmu call chain (memory ops dominate the
++     * interpreted op mix). Miss or flagged entry falls through. */
++    {
++        CPUState *cpu = env_cpu(env);
++        int mmu_idx = get_mmuidx(oi);
++        uintptr_t tlb_mask = cpu->neg.tlb.f[mmu_idx].mask;
++        uintptr_t idx = (taddr >> TARGET_PAGE_BITS)
++                        & (tlb_mask >> CPU_TLB_ENTRY_BITS);
++        CPUTLBEntry *tlbe = &cpu->neg.tlb.f[mmu_idx].table[idx];
++        uintptr_t tlb_addr = tlbe->addr_read;
++        uintptr_t page = taddr & TARGET_PAGE_MASK;
++
++        if (__builtin_expect(
++                page == (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))
++                && !(tlb_addr & TLB_FORCE_SLOW), 1)) {
++            void *haddr = (void *)(uintptr_t)(taddr + tlbe->addend);
++            switch (mop & MO_SSIZE) {
++            case MO_UB: return *(uint8_t *)haddr;
++            case MO_SB: return (int8_t)*(uint8_t *)haddr;
++            case MO_UW: { uint16_t v; memcpy(&v, haddr, 2); return v; }
++            case MO_SW: { uint16_t v; memcpy(&v, haddr, 2); return (int16_t)v; }
++            case MO_UL: { uint32_t v; memcpy(&v, haddr, 4); return v; }
++            case MO_SL: { uint32_t v; memcpy(&v, haddr, 4); return (int32_t)v; }
++            case MO_UQ: { uint64_t v; memcpy(&v, haddr, 8); return v; }
++            default: break;
++            }
++        }
++    }
++#endif
++
+     switch (mop & MO_SSIZE) {
+     case MO_UB:
+         return helper_ldub_mmu(env, taddr, oi, ra);
+@@ -307,6 +348,33 @@ static void tci_qemu_st(CPUArchState *env, uint64_t taddr, uint64_t val,
+     MemOp mop = get_memop(oi);
+     uintptr_t ra = (uintptr_t)tb_ptr;
+ 
++#ifdef TCI_TLB_FAST_PATH
++    /* Store variant of the inline TLB fast path above. */
++    {
++        CPUState *cpu = env_cpu(env);
++        int mmu_idx = get_mmuidx(oi);
++        uintptr_t tlb_mask = cpu->neg.tlb.f[mmu_idx].mask;
++        uintptr_t idx = (taddr >> TARGET_PAGE_BITS)
++                        & (tlb_mask >> CPU_TLB_ENTRY_BITS);
++        CPUTLBEntry *tlbe = &cpu->neg.tlb.f[mmu_idx].table[idx];
++        uintptr_t tlb_addr = tlbe->addr_write;
++        uintptr_t page = taddr & TARGET_PAGE_MASK;
++
++        if (__builtin_expect(
++                page == (tlb_addr & (TARGET_PAGE_MASK | TLB_INVALID_MASK))
++                && !(tlb_addr & TLB_FORCE_SLOW), 1)) {
++            void *haddr = (void *)(uintptr_t)(taddr + tlbe->addend);
++            switch (mop & MO_SIZE) {
++            case MO_UB: *(uint8_t *)haddr = val; return;
++            case MO_UW: { uint16_t v = val; memcpy(haddr, &v, 2); return; }
++            case MO_UL: { uint32_t v = val; memcpy(haddr, &v, 4); return; }
++            case MO_UQ: { uint64_t v = val; memcpy(haddr, &v, 8); return; }
++            default: break;
++            }
++        }
++    }
++#endif
++
+     switch (mop & MO_SIZE) {
+     case MO_UB:
+         helper_stb_mmu(env, taddr, val, oi, ra);
 diff --git a/util/aio-posix.c b/util/aio-posix.c
 index 2e0a5da..1d51b0f 100644
 --- a/util/aio-posix.c
