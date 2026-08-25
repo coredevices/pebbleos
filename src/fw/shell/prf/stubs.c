@@ -23,6 +23,7 @@
 #include "pbl/services/notifications/alerts_private.h"
 #include "pbl/services/persist.h"
 #include "shell/prefs.h"
+#include "shell/system_theme.h"
 
 void app_fetch_binaries(const Uuid *uuid, AppInstallId app_id, bool has_worker) {
 }
@@ -187,6 +188,14 @@ int16_t shell_prefs_get_automatic_timezone_id(void) {
 bool shell_prefs_can_coredump_on_request() {
   // it would be good to have a core dump escape hatch in PRF
   return true;
+}
+
+// PRF has no preference storage, so the content size is fixed at the runtime platform default.
+void system_theme_set_content_size(PreferredContentSize content_size) {
+}
+
+PreferredContentSize system_theme_get_content_size(void) {
+  return system_theme_get_default_content_size_for_runtime_platform();
 }
 
 AlertMask alerts_get_mask(void) {
