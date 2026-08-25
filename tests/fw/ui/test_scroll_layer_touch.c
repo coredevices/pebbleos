@@ -672,3 +672,62 @@ void test_scroll_layer_touch__fling_cleanup_is_idempotent(void) {
   cl_assert_equal_i(animation_get_duration(anim, false, false), ANIMATION_DEFAULT_DURATION_MS);
   scroll_layer_deinit(&sl);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Rubber-band overscroll: the shared damp mapping is well-behaved, liftoff springs back, and a
+// catch mid-spring-back restarts the glide instead of freezing out of bounds.
+
+void test_scroll_layer_touch__overscroll_damp_mapping(void) {
+  // In range: identity, edges included.
+  cl_assert_equal_i(scroll_layer_touch_overscroll_damp(-100, -600, 0, 300), -100);
+  cl_assert_equal_i(scroll_layer_touch_overscroll_damp(0, -600, 0, 300), 0);
+  cl_assert_equal_i(scroll_layer_touch_overscroll_damp(-600, -600, 0, 300), -600);
+
+  // Past an edge: strictly beyond it, monotonic, saturating at ~frame_h/6.
+  const int16_t max_over = 300 / 6;
+  const int16_t small = scroll_layer_touch_overscroll_damp(40, -600, 0, 300);
+  const int16_t large = scroll_layer_touch_overscroll_damp(4000, -600, 0, 300);
+  cl_assert(small > 0);
+  cl_assert(large > small);
+  cl_assert(large <= max_over);
+
+  // Symmetric on the bottom edge.
+  cl_assert_equal_i(scroll_layer_touch_overscroll_damp(-600 - 40, -600, 0, 300),
+                    (int16_t)(-600 - small));
+}
+
+void test_scroll_layer_touch__snap_from_overscroll_springs_back(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);
+  // Drag past the top edge: rubber-banded positive offset.
+  scroll_layer_touch_handle_pan_update(&sl, GPoint(0, 0), GPoint(0, 200));
+  const int16_t overscrolled_y = scroll_layer_get_content_offset(&sl).y;
+  cl_assert(overscrolled_y > 0);
+  cl_assert_equal_i(overscrolled_y, scroll_layer_touch_overscroll_damp(200, -600, 0, 300));
+
+  // Liftoff (even a fast one) glides back to the edge instead of coasting or snapping.
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, 200), GPoint(0, 2000));
+  Animation *anim = property_animation_get_animation(sl.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, 0);
+  // The glide starts from the rubber-banded offset; nothing snapped yet.
+  cl_assert_equal_i(scroll_layer_get_content_offset(&sl).y, overscrolled_y);
+  scroll_layer_deinit(&sl);
+}
+
+void test_scroll_layer_touch__touchdown_mid_spring_back_restarts_glide(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);
+  scroll_layer_touch_handle_pan_update(&sl, GPoint(0, 0), GPoint(0, 200));
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, 200), GPoint(0, 0));
+
+  // A finger down catches (stops) the glide; the content must not freeze out of bounds, so a
+  // new glide toward the edge is scheduled immediately.
+  scroll_layer_touch_handle_touchdown(&sl);
+  Animation *anim = property_animation_get_animation(sl.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, 0);
+  scroll_layer_deinit(&sl);
+}

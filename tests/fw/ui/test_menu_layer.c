@@ -2100,3 +2100,55 @@ void test_menu_layer__scrollbar_thumb_rect_geometry(void) {
   cl_assert_equal_i(r.origin.y, -40 + 2);
   menu_layer_deinit(&l);
 }
+
+// Overscroll (rubber band)
+//////////////////////
+
+void test_menu_layer__overscroll_pan_rubber_bands_past_top(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t frame_h = 168;
+  const int16_t content_h = scroll_layer_get_content_size(&l.scroll_layer).h;
+  cl_assert(content_h > frame_h);
+  const int16_t min_y = (int16_t)(frame_h - content_h);
+
+  // A pull past the top follows the shared damp mapping: some movement, but less than the finger.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  const int16_t y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert_equal_i(y, scroll_layer_touch_overscroll_damp(50, min_y, 0, frame_h));
+  cl_assert(y > 0);
+  cl_assert(y < 50);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_snap_springs_back_to_edge(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  const int16_t overscrolled_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert(overscrolled_y > 0);
+
+  // Liftoff (even a fast one) glides back to the edge instead of coasting or snapping.
+  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, 50), GPoint(0, 2000));
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, 0);
+  cl_assert(!l.touch_fling_active);  // a spring-back is not a coast
+  // The glide starts from the rubber-banded offset; nothing snapped yet.
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, overscrolled_y);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_cancel_restores_instantly(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y > 0);
+
+  menu_layer_touch_handle_cancel(&l);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, 0);
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(!anim || !animation_is_scheduled(anim));
+  menu_layer_deinit(&l);
+}
