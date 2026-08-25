@@ -1758,19 +1758,24 @@ bool menu_layer_touch_is_gesture_target(const MenuLayer *menu_layer) {
 // ---------------------------------------------------------------------------------------------
 // Coordinate helpers and hit-test
 
-static int16_t prv_menu_touch_clamp_offset_y(MenuLayer *menu_layer, int16_t y) {
+static void prv_menu_touch_offset_bounds(MenuLayer *menu_layer, int16_t *min_y, int16_t *max_y) {
   // Coarse bounds: [min(frame_h - content_h, 0), 0]. With content shorter than the viewport the
   // lower bound is 0 (via the min()). center_focused widens both ends by half a frame so the first
   // and last rows can reach the centre (the scroll layer itself does not clip in that mode).
   const int16_t frame_h = menu_layer->scroll_layer.layer.frame.size.h;
   const int16_t content_h = scroll_layer_get_content_size(&menu_layer->scroll_layer).h;
-  int16_t min_y = MIN((int16_t)(frame_h - content_h), (int16_t)0);
-  int16_t max_y = 0;
+  *min_y = MIN((int16_t)(frame_h - content_h), (int16_t)0);
+  *max_y = 0;
   if (menu_layer->center_focused) {
     const int16_t widen = frame_h / 2;
-    min_y -= widen;
-    max_y += widen;
+    *min_y -= widen;
+    *max_y += widen;
   }
+}
+
+static int16_t prv_menu_touch_clamp_offset_y(MenuLayer *menu_layer, int16_t y) {
+  int16_t min_y, max_y;
+  prv_menu_touch_offset_bounds(menu_layer, &min_y, &max_y);
   return CLIP(y, min_y, max_y);
 }
 
@@ -1959,13 +1964,29 @@ void menu_layer_touch_handle_touchdown(MenuLayer *menu_layer) {
 
 void menu_layer_touch_handle_pan_update(MenuLayer *menu_layer, GPoint base,
                                         GPoint delta_since_start) {
-  const int16_t new_y = prv_menu_touch_clamp_offset_y(menu_layer, base.y + delta_since_start.y);
+  int16_t min_y, max_y;
+  prv_menu_touch_offset_bounds(menu_layer, &min_y, &max_y);
+  const int32_t raw_y = (int32_t)base.y + delta_since_start.y;
+  const int16_t frame_h = menu_layer->scroll_layer.layer.frame.size.h;
+  // Past an edge the pan rubber-bands: the excess is damped instead of hard-clamped. Content
+  // that fits the frame keeps the hard clamp (nothing to scroll, nothing to bounce).
+  const bool scrollable = scroll_layer_get_content_size(&menu_layer->scroll_layer).h > frame_h;
+  const int16_t new_y = scrollable
+      ? scroll_layer_touch_overscroll_damp(raw_y, min_y, max_y, frame_h)
+      : (int16_t)CLIP(raw_y, min_y, max_y);
   prv_scrollbar_kick(menu_layer);
-  scroll_layer_set_content_offset(&menu_layer->scroll_layer, GPoint(0, new_y), false);
+  scroll_layer_touch_set_content_offset_overscrolled(&menu_layer->scroll_layer, new_y);
   if (menu_layer->center_focused) {
     prv_menu_touch_track_center_row(menu_layer);
   }
   // Plain menus: selection intentionally NOT touched — a pan scrolls, a tap selects.
+}
+
+static void prv_menu_touch_spring_back_stopped(Animation *animation, bool finished,
+                                               void *context) {
+  (void)animation;
+  (void)finished;
+  scroll_layer_touch_fling_cleanup(&((MenuLayer *)context)->scroll_layer);
 }
 
 static void prv_menu_touch_fling_stopped(Animation *animation, bool finished, void *context) {
@@ -1998,6 +2019,16 @@ void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint fin
                                   GPoint velocity) {
   const int16_t new_y = prv_menu_touch_clamp_offset_y(menu_layer, base.y + final_delta.y);
   prv_scrollbar_kick(menu_layer);
+  const int16_t current_y = scroll_layer_get_content_offset(&menu_layer->scroll_layer).y;
+  if (!menu_layer->center_focused &&
+      current_y != prv_menu_touch_clamp_offset_y(menu_layer, current_y)) {
+    // Rubber-banded past an edge: glide back to it regardless of velocity (a coast from out of
+    // bounds would be clipped to the edge on its first frame by the standard animation setter).
+    // Center-focused menus don't take this path: their settle-to-center below glides them back.
+    scroll_layer_touch_overscroll_spring_back(&menu_layer->scroll_layer, new_y,
+                                              prv_menu_touch_spring_back_stopped, menu_layer);
+    return;
+  }
   const int32_t v = CLIP((int32_t)velocity.y, -TOUCH_FLING_MAX_VELOCITY_PX_S,
                          TOUCH_FLING_MAX_VELOCITY_PX_S);
   if (ABS(v) >= TOUCH_FLING_MIN_VELOCITY_PX_S) {
@@ -2025,8 +2056,14 @@ void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint fin
 
 void menu_layer_touch_handle_cancel(MenuLayer *menu_layer) {
   if (!menu_layer->center_focused) {
-    // The selection never moved during the pan and the content is already settled, so a cancelled
-    // pan has nothing to do.
+    // The selection never moved during the pan and the content is already settled; only a
+    // rubber-banded offset needs restoring -- instantly, since a cancel is a handover that must
+    // not leave an animation running.
+    const int16_t y = scroll_layer_get_content_offset(&menu_layer->scroll_layer).y;
+    const int16_t clamped_y = prv_menu_touch_clamp_offset_y(menu_layer, y);
+    if (y != clamped_y) {
+      scroll_layer_set_content_offset(&menu_layer->scroll_layer, GPoint(0, clamped_y), false);
+    }
     return;
   }
   // A cancel means something else took over (gesture steal, window change): leave the carousel in

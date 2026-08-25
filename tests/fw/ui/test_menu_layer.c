@@ -1205,20 +1205,27 @@ void test_menu_layer__touch_clamp_center_focused_widens(void) {
   menu_layer_set_center_focused(&l, true);
   prv_set_touch_callbacks(&l);
   menu_layer_reload_data(&l);
-  // center_focused widens the clamp by frame_h/2 (=90), so a positive offset up to +90 is allowed
-  // where a normal menu would clamp at 0.
-  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 300));
-  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, 90);
-
-  // The widen is symmetric: it also lowers the min bound by frame_h/2. A large negative pan reaches
-  // min(frame_h - content_h, 0) - frame_h/2; dropping the min_y widen would stop it at the un-widened
-  // min, so this pins the lower-bound widen the +90 case alone leaves untested.
   const int16_t frame_h = l.scroll_layer.layer.frame.size.h;
   const int16_t content_h = scroll_layer_get_content_size(&l.scroll_layer).h;
-  const int16_t expected_min = MIN((int16_t)(frame_h - content_h), (int16_t)0) - (int16_t)(frame_h / 2);
+  const int16_t widened_max = frame_h / 2;
+  const int16_t widened_min =
+      MIN((int16_t)(frame_h - content_h), (int16_t)0) - (int16_t)(frame_h / 2);
+
+  // center_focused widens the coarse bounds by frame_h/2 (=90), so a positive offset up to +90
+  // scrolls freely where a normal menu would stop at 0; past the widened edge the pan
+  // rubber-bands by the shared damp mapping instead of hard-clamping.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 300));
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y,
+                    scroll_layer_touch_overscroll_damp(300, widened_min, widened_max, frame_h));
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y > widened_max);
+
+  // The widen is symmetric: the min bound is lowered by frame_h/2 too, and the rubber band hangs
+  // off the widened min; dropping the min_y widen would damp from the un-widened min instead.
   scroll_layer_set_content_offset(&l.scroll_layer, GPoint(0, 0), false);
   menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -3000));
-  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, expected_min);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y,
+                    scroll_layer_touch_overscroll_damp(-3000, widened_min, widened_max, frame_h));
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y < widened_min);
 }
 
 // ---- Criterion 6: a cancelled pan leaves the selection alone and fires no client callback ----

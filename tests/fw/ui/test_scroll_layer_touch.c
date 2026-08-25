@@ -216,13 +216,20 @@ void test_scroll_layer_touch__pan_drags_content_1to1_and_clamps(void) {
   scroll_layer_touch_handle_pan_update(&sl, GPoint(0, -120), GPoint(0, -80));
   cl_assert_equal_i(scroll_layer_get_content_offset(&sl).y, -200);
 
-  // Clamp at the bottom: a huge negative delta stops at min(frame_h - content_h, 0) = -600.
+  // Past the bottom edge (min(frame_h - content_h, 0) = -600) a huge delta only rubber-bands a
+  // damped amount beyond it, matching the shared damp mapping.
   scroll_layer_touch_handle_pan_update(&sl, GPoint(0, 0), GPoint(0, -5000));
-  cl_assert_equal_i(scroll_layer_get_content_offset(&sl).y, -600);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&sl).y,
+                    scroll_layer_touch_overscroll_damp(-5000, -600, 0, 300));
+  cl_assert(scroll_layer_get_content_offset(&sl).y < -600);
+  cl_assert(scroll_layer_get_content_offset(&sl).y >= -600 - (300 / 6));
 
-  // Clamp at the top: a positive delta cannot pull the content past 0.
+  // Same at the top: a positive delta rubber-bands past 0 instead of pulling the content freely.
   scroll_layer_touch_handle_pan_update(&sl, GPoint(0, -100), GPoint(0, 5000));
-  cl_assert_equal_i(scroll_layer_get_content_offset(&sl).y, 0);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&sl).y,
+                    scroll_layer_touch_overscroll_damp(4900, -600, 0, 300));
+  cl_assert(scroll_layer_get_content_offset(&sl).y > 0);
+  cl_assert(scroll_layer_get_content_offset(&sl).y <= 300 / 6);
 
   scroll_layer_deinit(&sl);
 }

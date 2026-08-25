@@ -50,7 +50,8 @@ bool menu_layer_touch_find_row_at_content_y(MenuLayer *menu_layer, int16_t conte
 //! carousel the catch glides into the nearest row centre instead of dead-stopping off-grid.
 void menu_layer_touch_handle_touchdown(MenuLayer *menu_layer);
 
-//! Live scroll during a pan: move the content to \a base + \a delta_since_start, coarsely clamped.
+//! Live scroll during a pan: move the content to \a base + \a delta_since_start; past the coarse
+//! bounds it rubber-bands (damped overscroll) instead of hard-clamping, springing back on liftoff.
 //! On a plain menu the selection index is intentionally left unchanged. On a center-focused menu
 //! the focus stays pinned at the viewport centre: the row crossing the centre becomes the
 //! selection live, through the full selection_will_change contract (veto/redirect honoured).
