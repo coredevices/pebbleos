@@ -15,6 +15,11 @@ jobs:
       - name: Rebase onto target branch
         uses: ./.github/actions/rebase
 
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
       - name: Install GitLint
         run: pip install gitlint
 
@@ -31,6 +36,11 @@ jobs:
 
       - name: Rebase onto target branch
         uses: ./.github/actions/rebase
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
 
       - name: Install ruff
         run: pip install ruff
