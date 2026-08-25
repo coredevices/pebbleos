@@ -16,6 +16,7 @@
 #include "applib/ui/animation_private.h"
 #include "applib/ui/property_animation_private.h"
 
+#include "fake_app_timer.h"
 #include "fake_rtc.h"
 #include "pbl/drivers/rtc.h"
 
@@ -179,6 +180,7 @@ bool animation_set_handlers(Animation *animation, AnimationHandlers callbacks, v
 
 void test_menu_layer__initialize(void) {
   s_num_rows = 10;
+  fake_app_timer_init();
   fake_rtc_init(0, 0);
   s_anim_to = GPointZero;
   s_anim_handlers = (AnimationHandlers) { 0 };
@@ -192,6 +194,7 @@ void test_menu_layer__initialize(void) {
 }
 
 void test_menu_layer__cleanup(void) {
+  fake_app_timer_deinit();
 }
 
 static void prv_draw_row(GContext* ctx,

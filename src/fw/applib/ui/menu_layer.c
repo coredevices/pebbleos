@@ -20,6 +20,7 @@
 #include "shell/system_theme.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
+#include "pbl/util/attributes.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
 #include "vibes.h"
@@ -60,13 +61,155 @@ static bool prv_cancel_selection_animation(MenuLayer *menu_layer);
 // Inside the MenuLayer's update_proc (Layer drawing callback), it will call out to its client for each row
 // that needs to be drawn, until all visible rows have been drawn.
 
+//! How long the scrollbar overlay stays visible after the last touch scroll movement.
+#define MENU_LAYER_SCROLLBAR_HIDE_TIMEOUT_MS 1000
+#define MENU_LAYER_SCROLLBAR_WIDTH 3
+#define MENU_LAYER_SCROLLBAR_MARGIN 2
+#define MENU_LAYER_SCROLLBAR_MIN_THUMB_HEIGHT 8
+
+static void prv_scrollbar_cancel_hide_timer(MenuLayer *menu_layer) {
+  if (menu_layer->scrollbar_hide_timer) {
+    app_timer_cancel(menu_layer->scrollbar_hide_timer);
+    menu_layer->scrollbar_hide_timer = NULL;
+  }
+}
+
+#ifdef CONFIG_TOUCH
+static void prv_scrollbar_hide_timer_cb(void *data) {
+  MenuLayer *menu_layer = data;
+  menu_layer->scrollbar_hide_timer = NULL;
+  menu_layer->scrollbar_visible = false;
+  layer_mark_dirty(&menu_layer->scroll_layer.layer);
+}
+
+//! Shows the scrollbar overlay and (re)arms the timer that hides it again. Called only from the
+//! touch scrolling paths: button scrolling steps the selection and doesn't need the position cue.
+static void prv_scrollbar_kick(MenuLayer *menu_layer) {
+  if (menu_layer->scrollbar_hidden || process_manager_compiled_with_legacy2_sdk()) {
+    return;
+  }
+  const int16_t frame_h = menu_layer->scroll_layer.layer.frame.size.h;
+  const int16_t content_h = scroll_layer_get_content_size(&menu_layer->scroll_layer).h;
+  if (content_h <= frame_h) {
+    return;
+  }
+  menu_layer->scrollbar_visible = true;
+  if (!menu_layer->scrollbar_hide_timer ||
+      !app_timer_reschedule(menu_layer->scrollbar_hide_timer,
+                            MENU_LAYER_SCROLLBAR_HIDE_TIMEOUT_MS)) {
+    menu_layer->scrollbar_hide_timer = app_timer_register(
+        MENU_LAYER_SCROLLBAR_HIDE_TIMEOUT_MS, prv_scrollbar_hide_timer_cb, menu_layer);
+  }
+}
+#endif  // CONFIG_TOUCH
+
+#if PBL_ROUND
+//! Curved scrollbar (Wear OS style): the track is an arc hugging the bezel, spanning
+//! ±30° around the 3 o'clock position.
+#define MENU_LAYER_SCROLLBAR_TRACK_SWEEP DEG_TO_TRIGANGLE(60)
+#define MENU_LAYER_SCROLLBAR_MIN_THUMB_SWEEP DEG_TO_TRIGANGLE(10)
+
+//! Thumb start/end angles for the curved scrollbar; false if the content doesn't scroll.
+T_STATIC bool prv_scrollbar_thumb_angles(MenuLayer *menu_layer, int16_t content_top_y,
+                                         int32_t *angle_start, int32_t *angle_end) {
+  const GSize frame_size = menu_layer->scroll_layer.layer.frame.size;
+  const int16_t content_h = scroll_layer_get_content_size(&menu_layer->scroll_layer).h;
+  const int16_t scrollable_h = content_h - frame_size.h;
+  if (scrollable_h <= 0) {
+    return false;
+  }
+  const int32_t track_sweep = MENU_LAYER_SCROLLBAR_TRACK_SWEEP;
+  const int32_t thumb_sweep = CLIP((track_sweep * frame_size.h) / content_h,
+                                   MENU_LAYER_SCROLLBAR_MIN_THUMB_SWEEP, track_sweep);
+  // Center-focused menus over-scroll past the ends (offset clipping disabled); clamp to the track.
+  const int32_t progress_y = CLIP(content_top_y, 0, scrollable_h);
+  const int32_t track_start = DEG_TO_TRIGANGLE(90) - (track_sweep / 2);
+  *angle_start = track_start + (((track_sweep - thumb_sweep) * progress_y) / scrollable_h);
+  *angle_end = *angle_start + thumb_sweep;
+  return true;
+}
+
+//! Fills an arc band with rounded end caps (graphics_fill_radial ends are cut flat).
+static void prv_scrollbar_fill_capped_arc(GContext *ctx, GPoint center, uint16_t radius_outer,
+                                          uint16_t thickness, int32_t angle_start,
+                                          int32_t angle_end) {
+  graphics_fill_radial_internal(ctx, center, radius_outer - thickness, radius_outer,
+                                angle_start, angle_end);
+  const int32_t radius_mid = radius_outer - (thickness / 2);
+  const int32_t angles[2] = { angle_start, angle_end };
+  for (size_t i = 0; i < ARRAY_LENGTH(angles); i++) {
+    const GPoint cap = GPoint(
+        center.x + (int16_t)((radius_mid * sin_lookup(angles[i])) / TRIG_MAX_RATIO),
+        center.y - (int16_t)((radius_mid * cos_lookup(angles[i])) / TRIG_MAX_RATIO));
+    graphics_fill_circle(ctx, cap, thickness / 2);
+  }
+}
+
+static void prv_scrollbar_draw(MenuLayer *menu_layer, GContext *ctx, int16_t content_top_y) {
+  int32_t angle_start, angle_end;
+  if (!prv_scrollbar_thumb_angles(menu_layer, content_top_y, &angle_start, &angle_end)) {
+    return;
+  }
+  const GSize frame_size = menu_layer->scroll_layer.layer.frame.size;
+  // Drawing happens in content space: the viewport center is offset by content_top_y.
+  const GPoint center = GPoint(frame_size.w / 2, content_top_y + (frame_size.h / 2));
+  const uint16_t radius_outer =
+      (MIN(frame_size.w, frame_size.h) / 2) - MENU_LAYER_SCROLLBAR_MARGIN;
+  // 1px halo around the thumb (rounded caps included) so it stays visible over both normal and
+  // highlighted cells
+  graphics_context_set_fill_color(ctx, menu_layer->normal_colors[MenuLayerColorBackground]);
+  prv_scrollbar_fill_capped_arc(ctx, center, radius_outer + 1, MENU_LAYER_SCROLLBAR_WIDTH + 2,
+                                angle_start, angle_end);
+  graphics_context_set_fill_color(ctx, menu_layer->normal_colors[MenuLayerColorForeground]);
+  prv_scrollbar_fill_capped_arc(ctx, center, radius_outer, MENU_LAYER_SCROLLBAR_WIDTH,
+                                angle_start, angle_end);
+}
+#else
+//! Scrollbar thumb rect in content-space coordinates (the space menu_layer_update_proc draws in).
+T_STATIC GRect prv_scrollbar_thumb_rect(MenuLayer *menu_layer, int16_t content_top_y) {
+  const GSize frame_size = menu_layer->scroll_layer.layer.frame.size;
+  const int16_t content_h = scroll_layer_get_content_size(&menu_layer->scroll_layer).h;
+  const int16_t scrollable_h = content_h - frame_size.h;
+  const int16_t track_h = frame_size.h - (2 * MENU_LAYER_SCROLLBAR_MARGIN);
+  if (scrollable_h <= 0 || track_h <= MENU_LAYER_SCROLLBAR_MIN_THUMB_HEIGHT) {
+    return GRectZero;
+  }
+  const int16_t thumb_h = CLIP((int16_t)(((int32_t)track_h * frame_size.h) / content_h),
+                               MENU_LAYER_SCROLLBAR_MIN_THUMB_HEIGHT, track_h);
+  // Center-focused menus over-scroll past the ends (offset clipping disabled); clamp to the track.
+  const int16_t progress_y = CLIP(content_top_y, 0, scrollable_h);
+  const int16_t thumb_y = MENU_LAYER_SCROLLBAR_MARGIN +
+      (((int32_t)(track_h - thumb_h) * progress_y) / scrollable_h);
+  return GRect(frame_size.w - MENU_LAYER_SCROLLBAR_MARGIN - MENU_LAYER_SCROLLBAR_WIDTH,
+               content_top_y + thumb_y, MENU_LAYER_SCROLLBAR_WIDTH, thumb_h);
+}
+
+static void prv_scrollbar_draw(MenuLayer *menu_layer, GContext *ctx, int16_t content_top_y) {
+  const GRect thumb = prv_scrollbar_thumb_rect(menu_layer, content_top_y);
+  if (grect_is_empty(&thumb)) {
+    return;
+  }
+  // 1px halo around the thumb so it stays visible over both normal and highlighted cells
+  const GRect halo = grect_inset_internal(thumb, -1, -1);
+  graphics_context_set_fill_color(ctx, menu_layer->normal_colors[MenuLayerColorBackground]);
+  graphics_fill_round_rect(ctx, &halo, 2, GCornersAll);
+  graphics_context_set_fill_color(ctx, menu_layer->normal_colors[MenuLayerColorForeground]);
+  graphics_fill_round_rect(ctx, &thumb, 1, GCornersAll);
+}
+#endif  // PBL_ROUND
+
 static void prv_menu_scroll_offset_changed_handler(ScrollLayer *scroll_layer,
                                                    MenuLayer *menu_layer) {
 #ifdef CONFIG_TOUCH
-  // During an inertial coast on a carousel the row crossing the centre becomes the selection live,
-  // one row at a time, exactly as during a finger pan (same selection_will_change contract).
-  if (menu_layer->touch_fling_active && menu_layer->center_focused) {
-    prv_menu_touch_track_center_row(menu_layer);
+  if (menu_layer->touch_fling_active) {
+    // Keep the scrollbar alive while an inertial coast drives the offset.
+    prv_scrollbar_kick(menu_layer);
+    // During an inertial coast on a carousel the row crossing the centre becomes the selection
+    // live, one row at a time, exactly as during a finger pan (same selection_will_change
+    // contract).
+    if (menu_layer->center_focused) {
+      prv_menu_touch_track_center_row(menu_layer);
+    }
   }
 #endif
 }
@@ -754,6 +897,10 @@ void menu_layer_update_proc(Layer *scroll_content_layer, GContext* ctx) {
   menu_layer->cache.cursor = render_iter->new_cache;
 
   task_free(render_iter);
+
+  if (menu_layer->scrollbar_visible) {
+    prv_scrollbar_draw(menu_layer, ctx, content_top_y);
+  }
 }
 
 void menu_layer_init_scroll_layer_callbacks(MenuLayer *menu_layer) {
@@ -825,6 +972,7 @@ void menu_layer_deinit(MenuLayer *menu_layer) {
   prv_menu_touch_nav_deregister(menu_layer);
 #endif
   prv_cancel_selection_animation(menu_layer);
+  prv_scrollbar_cancel_hide_timer(menu_layer);
   layer_deinit(&menu_layer->inverter.layer);
   scroll_layer_deinit(&menu_layer->scroll_layer);
 }
@@ -1495,6 +1643,18 @@ void menu_layer_set_center_focused(MenuLayer *menu_layer, bool center_focused) {
   menu_layer_update_caches(menu_layer);
 }
 
+void menu_layer_set_scrollbar_hidden(MenuLayer *menu_layer, bool hidden) {
+  if (!menu_layer) {
+    return;
+  }
+  menu_layer->scrollbar_hidden = hidden;
+  if (hidden && menu_layer->scrollbar_visible) {
+    prv_scrollbar_cancel_hide_timer(menu_layer);
+    menu_layer->scrollbar_visible = false;
+    layer_mark_dirty(&menu_layer->scroll_layer.layer);
+  }
+}
+
 void menu_layer_set_tap_select_only(MenuLayer *menu_layer, bool tap_select_only) {
   if (!menu_layer) {
     return;
@@ -1800,6 +1960,7 @@ void menu_layer_touch_handle_touchdown(MenuLayer *menu_layer) {
 void menu_layer_touch_handle_pan_update(MenuLayer *menu_layer, GPoint base,
                                         GPoint delta_since_start) {
   const int16_t new_y = prv_menu_touch_clamp_offset_y(menu_layer, base.y + delta_since_start.y);
+  prv_scrollbar_kick(menu_layer);
   scroll_layer_set_content_offset(&menu_layer->scroll_layer, GPoint(0, new_y), false);
   if (menu_layer->center_focused) {
     prv_menu_touch_track_center_row(menu_layer);
@@ -1836,6 +1997,7 @@ static void prv_menu_touch_fling(MenuLayer *menu_layer, int16_t released_y, int3
 void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint final_delta,
                                   GPoint velocity) {
   const int16_t new_y = prv_menu_touch_clamp_offset_y(menu_layer, base.y + final_delta.y);
+  prv_scrollbar_kick(menu_layer);
   const int32_t v = CLIP((int32_t)velocity.y, -TOUCH_FLING_MAX_VELOCITY_PX_S,
                          TOUCH_FLING_MAX_VELOCITY_PX_S);
   if (ABS(v) >= TOUCH_FLING_MIN_VELOCITY_PX_S) {

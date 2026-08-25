@@ -20,6 +20,7 @@
 // Stubs
 /////////////////////
 #include "stubs_app_state.h"
+#include "stubs_app_timer.h"
 #include "stubs_click.h"
 #include "stubs_fonts.h"
 #include "stubs_graphics.h"
