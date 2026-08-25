@@ -11,6 +11,7 @@
 //! changed events should use the PEBBLE_WEATHER_CHANGED_EVENT (see events.h)
 
 #include "pbl/services/blob_db/weather_db.h"
+#include "pbl/services/weather/weather_snapshot_types.h"
 #include "pbl/services/weather/weather_types.h"
 #include "pbl/util/list.h"
 #include "util/time/time.h"
@@ -76,3 +77,11 @@ void weather_service_locations_list_destroy(WeatherDataListNode *head);
 
 //! Returns whether or not the phone has weather support
 bool weather_service_supported_by_phone(void);
+
+//! Fills snapshot_out with a pointer-free copy of the default location's
+//! forecast, the same data weather_service_create_default_forecast() would
+//! return, but safe to pass across the syscall boundary directly.
+//! @param snapshot_out Pointer to a WeatherServiceSnapshot to fill in
+//! @return true if weather data was available and snapshot_out was filled
+//! in, false (with snapshot_out zeroed) if no forecast is available
+bool weather_service_get_snapshot(WeatherServiceSnapshot *snapshot_out);

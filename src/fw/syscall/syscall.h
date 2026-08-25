@@ -30,6 +30,7 @@
 #include "pbl/services/evented_timer.h"
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/app_glances/app_glance_service.h"
+#include "pbl/services/weather/weather_snapshot_types.h"
 
 #include "process_management/pebble_process_info.h"
 
@@ -189,6 +190,8 @@ bool sys_clock_is_24h_style(void);
 size_t sys_strftime(char* s, size_t maxsize, const char* format, const struct tm* tim_p, char *locale);
 
 BatteryChargeState sys_battery_get_charge_state(void);
+
+bool sys_weather_get_snapshot(WeatherServiceSnapshot *snapshot_out);
 
 bool sys_activity_get_metric(ActivityMetric metric, uint32_t history_len, int32_t *history);
 bool sys_activity_get_minute_history(HealthMinuteData *minute_data, uint32_t *num_records,

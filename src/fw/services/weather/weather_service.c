@@ -13,8 +13,10 @@
 #include "pbl/services/blob_db/watch_app_prefs_db.h"
 #include "pbl/services/blob_db/weather_db.h"
 #include "pbl/services/weather/weather_types.h"
+#include "syscall/syscall_internal.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
+#include <string.h>
 
 PBL_LOG_MODULE_DEFINE(service_weather, CONFIG_SERVICE_WEATHER_LOG_LEVEL);
 
@@ -222,6 +224,40 @@ void weather_service_destroy_default_forecast(WeatherLocationForecast *forecast)
     task_free(forecast->current_weather_phrase);
     task_free(forecast);
   }
+}
+
+bool weather_service_get_snapshot(WeatherServiceSnapshot *snapshot_out) {
+  *snapshot_out = (WeatherServiceSnapshot){ 0 };
+
+  WeatherLocationForecast *forecast = weather_service_create_default_forecast();
+  if (!forecast) {
+    return false;
+  }
+
+  snapshot_out->has_data = true;
+  snapshot_out->is_current_location = forecast->is_current_location;
+  snapshot_out->current_temp = forecast->current_temp;
+  snapshot_out->today_high = forecast->today_high;
+  snapshot_out->today_low = forecast->today_low;
+  snapshot_out->current_weather_type = (WeatherSnapshotIcon)forecast->current_weather_type;
+  if (forecast->current_weather_phrase) {
+    strncpy(snapshot_out->current_weather_phrase, forecast->current_weather_phrase,
+            sizeof(snapshot_out->current_weather_phrase) - 1);
+  }
+  snapshot_out->tomorrow_high = forecast->tomorrow_high;
+  snapshot_out->tomorrow_low = forecast->tomorrow_low;
+  snapshot_out->tomorrow_weather_type = (WeatherSnapshotIcon)forecast->tomorrow_weather_type;
+  snapshot_out->time_updated_utc = forecast->time_updated_utc;
+
+  weather_service_destroy_default_forecast(forecast);
+  return true;
+}
+
+DEFINE_SYSCALL(bool, sys_weather_get_snapshot, WeatherServiceSnapshot *snapshot_out) {
+  if (PRIVILEGE_WAS_ELEVATED) {
+    syscall_assert_userspace_buffer(snapshot_out, sizeof(*snapshot_out));
+  }
+  return weather_service_get_snapshot(snapshot_out);
 }
 
 static void prv_blobdb_event_handler(PebbleEvent *event, void *context) {

@@ -4,7 +4,7 @@
               "You should also make sure you are obeying our API design guidelines:",
               "https://pebbletechnology.atlassian.net/wiki/display/DEV/SDK+API+Design+Guidelines"
             ],
-  "revision" : "109",
+  "revision" : "110",
   "version" : "2.0",
   "files": [
     "include/pbl/drivers/ambient_light.h",
@@ -135,7 +135,9 @@
     "fw/applib/voice/dictation_session.h",
     "fw/applib/ui/content_indicator.h",
     "fw/applib/rockyjs/rocky.h",
-    "fw/applib/unobstructed_area_service.h"
+    "fw/applib/unobstructed_area_service.h",
+    "fw/applib/weather_service_app.h",
+    "include/pbl/services/weather/weather_snapshot_types.h"
   ],
   "exports": [
     {
@@ -438,6 +440,30 @@
                   "type": "function",
                   "name": "battery_state_service_peek",
                   "addedRevision": "0"
+                }
+              ]
+            }, {
+              "type": "group",
+              "name": "WeatherService",
+              "appOnly": true,
+              "addedRevision": "110",
+              "exports": [
+                {
+                  "type": "define",
+                  "name": "WEATHER_SNAPSHOT_MAX_PHRASE_LEN",
+                  "addedRevision": "110"
+                }, {
+                  "type": "type",
+                  "name": "WeatherSnapshotIcon",
+                  "addedRevision": "110"
+                }, {
+                  "type": "type",
+                  "name": "WeatherServiceSnapshot",
+                  "addedRevision": "110"
+                }, {
+                  "type": "function",
+                  "name": "weather_service_peek",
+                  "addedRevision": "110"
                 }
               ]
             }, {
