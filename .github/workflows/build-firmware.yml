@@ -137,6 +137,7 @@ jobs:
       matrix:
         board:
           - obelix@pvt
+          - getafix@dvt
           - getafix@dvt2
 
     steps:
