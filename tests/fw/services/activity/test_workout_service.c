@@ -75,6 +75,11 @@ uint8_t activity_prefs_heart_get_zone3_threshold(void) {
   return 172;
 }
 
+static HRMonitoringInterval s_hrm_measurement_interval;
+HRMonitoringInterval activity_prefs_get_hrm_measurement_interval(void) {
+  return s_hrm_measurement_interval;
+}
+
 AppInstallId app_get_app_id(void) {
   return 0;
 }
@@ -166,6 +171,7 @@ void test_workout_service__initialize(void) {
   s_total_step_count = 5000;
   s_hrm_expiration = 0;
   s_hrm_subscribed = false;
+  s_hrm_measurement_interval = HRMonitoringInterval_10Min;
   s_abandoned_workout_notification_sent = false;
 
   const bool assert_all_unlocked = true;
@@ -563,6 +569,54 @@ void test_workout_service__app_open_close_valid_workout(void) {
   workout_service_frontend_closed();
   cl_assert_equal_b(s_hrm_subscribed, true);
   cl_assert_equal_i(s_hrm_expiration, 8 * SECONDS_PER_MINUTE);
+}
+
+// ---------------------------------------------------------------------------------------
+// Same as above, but with background HR monitoring disabled. The user expects the sensor to run
+// only during an activity, so closing the app after a workout must turn it off immediately rather
+// than running the post-workout recovery window.
+void test_workout_service__app_open_close_valid_workout_hrm_disabled(void) {
+  s_hrm_measurement_interval = HRMonitoringInterval_Disabled;
+
+  // Put some time into the clock
+  prv_inc_time(1 * SECONDS_PER_MINUTE);
+
+  // Open the app, confirm that we are now subscribed with no end in sight
+  workout_service_frontend_opened();
+  cl_assert_equal_b(s_hrm_subscribed, true);
+  cl_assert_equal_i(s_hrm_expiration, 0);
+
+  prv_inc_time(1 * SECONDS_PER_MINUTE);
+  cl_assert(workout_service_start_workout(ActivitySessionType_Run));
+  // Workout of 120 seconds duration. Should be valid
+  prv_inc_time(2 * SECONDS_PER_MINUTE);
+  cl_assert(workout_service_stop_workout());
+
+  prv_inc_time(2 * SECONDS_PER_MINUTE);
+
+  workout_service_frontend_closed();
+  cl_assert_equal_b(s_hrm_subscribed, false);
+  cl_assert_equal_i(s_hrm_expiration, 0);
+}
+
+// ---------------------------------------------------------------------------------------
+// With background HR monitoring disabled, closing the app while a workout is still running must
+// still keep the sensor on -- an ongoing workout is exactly the "during an activity" case.
+void test_workout_service__app_open_close_active_workout_hrm_disabled(void) {
+  s_hrm_measurement_interval = HRMonitoringInterval_Disabled;
+
+  // Put some time into the clock
+  prv_inc_time(1 * SECONDS_PER_MINUTE);
+
+  workout_service_frontend_opened();
+  cl_assert_equal_b(s_hrm_subscribed, true);
+  cl_assert_equal_i(s_hrm_expiration, 0);
+
+  cl_assert(workout_service_start_workout(ActivitySessionType_Run));
+
+  workout_service_frontend_closed();
+  cl_assert_equal_b(s_hrm_subscribed, true);
+  cl_assert_equal_i(s_hrm_expiration, SECONDS_PER_HOUR);
 }
 
 // ---------------------------------------------------------------------------------------
