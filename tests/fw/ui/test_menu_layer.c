@@ -1963,3 +1963,133 @@ void test_menu_layer__touch_catch_center_focused_settles_to_row(void) {
   cl_assert(animation_is_scheduled(anim));
   cl_assert_equal_i(s_anim_to.y, -108);
 }
+
+// Scrollbar overlay
+//////////////////////
+
+GRect prv_scrollbar_thumb_rect(MenuLayer *menu_layer, int16_t content_top_y);
+
+static void prv_init_scrollbar_menu(MenuLayer *l) {
+  menu_layer_init(l, &GRect(0, 0, 144, 168));
+  menu_layer_set_callbacks(l, NULL, &(MenuLayerCallbacks){
+      .draw_row = prv_draw_row,
+      .get_num_rows = prv_get_num_rows,
+  });
+}
+
+void test_menu_layer__scrollbar_shows_on_touch_pan_and_times_out(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -40));
+  cl_assert(l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer != NULL);
+  cl_assert(fake_app_timer_is_scheduled(l.scrollbar_hide_timer));
+
+  cl_assert(app_timer_trigger(l.scrollbar_hide_timer));
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_not_shown_on_button_scroll(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  // Button scrolling moves the offset through the selection, not a touch gesture
+  menu_layer_set_selected_index(&l, MenuIndex(0, 5), MenuRowAlignTop, false);
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y < 0);
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_not_shown_when_content_fits(void) {
+  s_num_rows = 2;
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -40));
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_rearms_timer_while_scrolling(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -40));
+  AppTimer *timer = l.scrollbar_hide_timer;
+  cl_assert(timer != NULL);
+  // A further pan movement reschedules the same timer instead of registering a new one
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -60));
+  cl_assert(l.scrollbar_hide_timer == timer);
+  cl_assert(l.scrollbar_visible);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_kept_alive_by_fling_coast(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  // Fast liftoff schedules an inertial coast and shows the scrollbar
+  menu_layer_touch_handle_snap(&l, GPoint(0, -40), GPoint(0, -60), GPoint(0, -500));
+  cl_assert(l.touch_fling_active);
+  cl_assert(l.scrollbar_visible);
+
+  // Even if the hide timer fires mid-coast, the next coast frame re-shows and re-arms it
+  cl_assert(app_timer_trigger(l.scrollbar_hide_timer));
+  cl_assert(!l.scrollbar_visible);
+  prv_scroll_layer_set_content_offset_internal(&l.scroll_layer, GPoint(0, -120));
+  cl_assert(l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer != NULL);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_set_hidden(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_set_scrollbar_hidden(&l, true);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -40));
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+
+  // Re-enabling shows it on the next touch scroll; hiding while visible clears it immediately
+  menu_layer_set_scrollbar_hidden(&l, false);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, -40), GPoint(0, -20));
+  cl_assert(l.scrollbar_visible);
+  AppTimer *timer = l.scrollbar_hide_timer;
+  cl_assert(timer != NULL);
+  menu_layer_set_scrollbar_hidden(&l, true);
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+  cl_assert(!fake_app_timer_is_scheduled(timer));
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_thumb_rect_geometry(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t frame_w = 144;
+  const int16_t frame_h = 168;
+  const int16_t content_h = scroll_layer_get_content_size(&l.scroll_layer).h;
+  cl_assert(content_h > frame_h);
+  const int16_t scrollable_h = content_h - frame_h;
+  const int16_t track_h = frame_h - 4;
+  const int16_t thumb_h = (int16_t)(((int32_t)track_h * frame_h) / content_h);
+
+  // Top of the list: thumb rests at the top track margin
+  GRect r = prv_scrollbar_thumb_rect(&l, 0);
+  cl_assert_equal_i(r.origin.x, frame_w - 5);
+  cl_assert_equal_i(r.size.w, 3);
+  cl_assert_equal_i(r.origin.y, 2);
+  cl_assert_equal_i(r.size.h, thumb_h);
+
+  // Bottom of the list: thumb ends at the bottom track margin (content-space coordinates)
+  r = prv_scrollbar_thumb_rect(&l, scrollable_h);
+  cl_assert_equal_i(r.origin.y + r.size.h, scrollable_h + frame_h - 2);
+
+  // Center-focused over-scroll past the top clamps the thumb to the track
+  r = prv_scrollbar_thumb_rect(&l, -40);
+  cl_assert_equal_i(r.origin.y, -40 + 2);
+  menu_layer_deinit(&l);
+}
