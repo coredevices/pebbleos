@@ -499,6 +499,12 @@ typedef struct MenuLayer {
   //! \ref touch_fling_active's byte.
   bool scrollbar_visible:1;
 
+  //! @internal
+  //! True while a touch overscroll stretches the selection background to the viewport edge.
+  //! Derived purely from the (rubber-banded) scroll offset in the offset-changed handler. Packs
+  //! into \ref touch_fling_active's byte.
+  bool overscroll_stretched:1;
+
   //! Add some padding to keep track of the \ref MenuLayer size budget.
   //! As long as the size stays within this budget, 2.x apps can safely use the 3.x MenuLayer type.
   //! The actual size check is generated from applib_malloc.json, not asserted here.

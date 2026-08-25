@@ -46,6 +46,7 @@ struct TouchNavState *modal_manager_get_touch_nav_state(void);
 static void prv_menu_touch_nav_register(MenuLayer *menu_layer);
 static void prv_menu_touch_nav_deregister(MenuLayer *menu_layer);
 static void prv_menu_touch_track_center_row(MenuLayer *menu_layer);
+static void prv_menu_update_overscroll_stretch(MenuLayer *menu_layer);
 #endif
 
 //! @return True if there was an animation to cancel, false otherwise
@@ -201,6 +202,7 @@ static void prv_scrollbar_draw(MenuLayer *menu_layer, GContext *ctx, int16_t con
 static void prv_menu_scroll_offset_changed_handler(ScrollLayer *scroll_layer,
                                                    MenuLayer *menu_layer) {
 #ifdef CONFIG_TOUCH
+  prv_menu_update_overscroll_stretch(menu_layer);
   if (menu_layer->touch_fling_active) {
     // Keep the scrollbar alive while an inertial coast drives the offset.
     prv_scrollbar_kick(menu_layer);
@@ -837,6 +839,13 @@ void menu_layer_update_proc(Layer *scroll_content_layer, GContext* ctx) {
 
   if (!process_manager_compiled_with_legacy2_sdk()) {
     prv_draw_background(menu_layer, ctx, &menu_layer->scroll_layer.layer, false);
+  }
+
+  if (menu_layer->overscroll_stretched) {
+    // The overscroll-stretched selection background: cells paint over their own part, so only
+    // the gap beyond the content edge shows it.
+    graphics_context_set_fill_color(ctx, menu_layer->highlight_colors[MenuLayerColorBackground]);
+    graphics_fill_rect(ctx, &menu_layer->inverter.layer.frame);
   }
 
   MenuRenderIterator *render_iter = applib_type_malloc(MenuRenderIterator);
@@ -1777,6 +1786,51 @@ static int16_t prv_menu_touch_clamp_offset_y(MenuLayer *menu_layer, int16_t y) {
   int16_t min_y, max_y;
   prv_menu_touch_offset_bounds(menu_layer, &min_y, &max_y);
   return CLIP(y, min_y, max_y);
+}
+
+//! Derive the overscroll highlight stretch from the current (possibly rubber-banded) offset:
+//! with the edge row selected, the selection background extends to the viewport edge so the
+//! exposed gap reads as the selected cell stretching -- the touch counterpart of the
+//! blocked-button selection bounce -- and never paints over a neighbouring row (the neighbours
+//! moved away with the content). Purely offset-derived, so the live pan, the release
+//! spring-back, and a cancelled gesture all keep it in sync for free.
+static void prv_menu_update_overscroll_stretch(MenuLayer *menu_layer) {
+  GRect frame = (GRect) {
+    .origin = { 0, menu_layer->selection.y },
+    .size = { menu_layer->scroll_layer.layer.frame.size.w, menu_layer->selection.h },
+  };
+  bool stretched = false;
+  if (!menu_layer->center_focused && !menu_layer->selection_animation_disabled &&
+      !process_manager_compiled_with_legacy2_sdk()) {
+    const int16_t frame_h = menu_layer->scroll_layer.layer.frame.size.h;
+    const int16_t content_h = scroll_layer_get_content_size(&menu_layer->scroll_layer).h;
+    const int16_t min_y = MIN((int16_t)(frame_h - content_h), (int16_t)0);
+    const int16_t offset_y = scroll_layer_get_content_offset(&menu_layer->scroll_layer).y;
+    if (content_h > frame_h && offset_y > 0 && menu_layer->selection.y == 0) {
+      // Pulled past the top with the first cell selected: extend up to the viewport top.
+      frame.origin.y = (int16_t)-offset_y;
+      frame.size.h += offset_y;
+      stretched = true;
+    } else if (content_h > frame_h && offset_y < min_y &&
+               prv_menu_index_is_last_index(menu_layer, &menu_layer->selection.index)) {
+      // Pulled past the bottom with the last cell selected: extend down to the viewport bottom
+      // (covering the bottom padding on the way).
+      frame.size.h = (int16_t)(frame_h - offset_y) - frame.origin.y;
+      stretched = true;
+    }
+  }
+  if (!stretched && !menu_layer->overscroll_stretched) {
+    return;  // never disturb the inverter (selection animations own it) unless we stretched it
+  }
+  if (stretched && !menu_layer->overscroll_stretched) {
+    prv_cancel_selection_animation(menu_layer);  // the pull owns the highlight now
+  }
+  menu_layer->overscroll_stretched = stretched;
+  if (!grect_equal(&menu_layer->inverter.layer.frame, &frame)) {
+    menu_layer->inverter.layer.frame = frame;
+    menu_layer->inverter.layer.bounds.size = frame.size;
+    layer_mark_dirty(&menu_layer->inverter.layer);
+  }
 }
 
 typedef struct MenuHitTestIterator {
