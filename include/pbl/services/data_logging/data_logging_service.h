@@ -26,7 +26,7 @@ typedef enum {
   DlsSystemTagActivityAccelSamples = 82,
   DlsSystemTagActivitySession = 84,
   DlsSystemTagProtobufLogSession = 85,
-  DlsSystemTagMemfaultChunksSession = 86,
+  // Tag 86 is retired; do not reuse.
   DlsSystemTagAnalyticsNativeHeartbeat = 87,
 } DlsSystemTag;
 

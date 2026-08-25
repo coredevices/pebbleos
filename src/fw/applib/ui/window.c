@@ -236,6 +236,13 @@ void window_set_touch_bridge_disabled(Window *window, bool disabled) {
   window->touch_bridge_disabled = disabled;
 }
 
+void window_set_touch_tap_requires_action_bar(Window *window, bool requires_action_bar) {
+  if (!window || (requires_action_bar == window->touch_tap_requires_action_bar)) {
+    return;
+  }
+  window->touch_tap_requires_action_bar = requires_action_bar;
+}
+
 static ClickManager* prv_get_current_click_manager(void) {
   return window_manager_get_window_click_manager(window_manager_get_top_window());
 }

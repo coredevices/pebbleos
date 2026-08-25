@@ -125,6 +125,11 @@ static bool prv_modal_touch_nav_top_overrides_back(void *ctx) {
   return window && window->overrides_back_button;
 }
 
+static bool prv_modal_touch_nav_top_tap_requires_action_bar(void *ctx) {
+  Window *window = prv_get_visible_focused_window();
+  return window && window->touch_tap_requires_action_bar;
+}
+
 static bool prv_modal_touch_nav_top_bridge_disabled(void *ctx) {
   Window *window = prv_get_visible_focused_window();
   // No focused modal window: keep the modal twin inert. The button path is
@@ -157,6 +162,7 @@ static void prv_modal_touch_nav_idle_refresh(void *ctx) {
 static const TouchNavOps s_modal_touch_nav_ops = {
   .is_animating = prv_modal_touch_nav_is_animating,
   .top_overrides_back = prv_modal_touch_nav_top_overrides_back,
+  .top_tap_requires_action_bar = prv_modal_touch_nav_top_tap_requires_action_bar,
   .top_bridge_disabled = prv_modal_touch_nav_top_bridge_disabled,
   .pop_top = prv_modal_touch_nav_pop_top,
   .emit_button = prv_modal_touch_nav_emit_button,

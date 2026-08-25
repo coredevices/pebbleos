@@ -387,7 +387,15 @@ static GTextNode *prv_create_all_day_text_node(const TimelineLayout *layout) {
     .text.style_font = TextStyleFont_Title,
     .text.fixed_lines = 1,
     .text.alignment = PBL_IF_RECT_ELSE(LayoutTextAlignment_Left, LayoutTextAlignment_Right),
-    .text.extent.offset.y = -13,
+    // The font leaves blank space above the text; this pulls the header back up. Large rect
+    // displays need less of a pull than the others.
+    .text.extent.offset.y = PREFERRED_CONTENT_SIZE_SWITCH(PreferredContentSizeDefault,
+      /* This is the same as Medium until Small is designed */
+      /* small */ -13,
+      /* medium */ -13,
+      /* large */ PBL_IF_RECT_ELSE(-8, -13),
+      /* This is the same as Large until ExtraLarge is designed */
+      /* extralarge */ PBL_IF_RECT_ELSE(-8, -13)),
     .text.extent.margin.h = -7,
   };
   GTextNodeText *text_node =

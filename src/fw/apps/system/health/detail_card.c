@@ -32,7 +32,13 @@ static void prv_draw_headings(HealthDetailCard *detail_card, GContext *ctx, cons
     }
 
 #if PBL_ROUND
+#if PBL_DISPLAY_HEIGHT >= 200
+    // Spread the summary content over the taller display instead of packing it at the top
+    int16_t header_y_origin = ((detail_card->num_headings > 1) ? 40 : 52) +
+                              (i * (rect_height + 12));
+#else
     int16_t header_y_origin = ((detail_card->num_headings > 1) ? 22 : 32) + (i * (rect_height + 5));
+#endif
 #endif
 
     GRect header_rect = grect_inset(layer->bounds, GEdgeInsets(rect_padding));
@@ -114,7 +120,9 @@ static void prv_draw_subtitles(HealthDetailCard *detail_card, GContext *ctx, con
     }
 
     GRect subtitle_rect = grect_inset(layer->bounds, GEdgeInsets(rect_padding));
-    subtitle_rect.origin.y += PBL_IF_RECT_ELSE(detail_card->y_origin, 125);
+    // On taller round displays the subtitle moves down to balance the spread-out headings
+    subtitle_rect.origin.y +=
+        PBL_IF_RECT_ELSE(detail_card->y_origin, (PBL_DISPLAY_HEIGHT >= 200) ? 170 : 125);
     subtitle_rect.size.h = rect_height;
 
     detail_card->y_origin += rect_height + rect_padding;

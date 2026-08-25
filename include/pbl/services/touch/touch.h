@@ -104,3 +104,33 @@ void touch_wake_gate_stamp(TouchEvent *event, TouchWakeGateResult gate);
 //! incoming touch coordinates are mirrored to match the rotated framebuffer
 //! before being dispatched to subscribers.
 void touch_set_rotated(bool rotated);
+
+//! Phase of an injected gesture. Stated explicitly rather than inferred from the finger state:
+//! a mid-path sample and a fresh touchdown are both "finger down", so if the service had to guess,
+//! a gesture that lost the sensor (a reset, or touch switched off) could have its next sample
+//! taken as the start of a new one, halfway along the path.
+typedef enum TouchInjectPhase {
+  TouchInjectPhase_Begin,  //!< Touchdown, claiming the sensor
+  TouchInjectPhase_Move,   //!< Position update; requires the gesture to still own the sensor
+  TouchInjectPhase_End,    //!< Liftoff, releasing the sensor
+} TouchInjectPhase;
+
+//! Inject a synthetic touch sample, as if a finger had produced it. Intended for automated input
+//! (the remote input endpoint, console commands), not for drivers.
+//!
+//! @p x and @p y are the coordinates the UI observes: the left-hand mode mirror is not applied,
+//! so callers never restate the rotation themselves.
+//!
+//! Injection is deliberate interaction, so a Begin arms the interaction session the same way a
+//! button press does; without that, contact on the idle watchface is dropped as unarmed.
+//!
+//! The sensor is owned by whoever puts a finger down first: a Begin is refused while a physical
+//! finger is down, and physical samples are ignored until the injected gesture ends. A Move or End
+//! is refused unless the gesture still owns the sensor, so a caller learns it was interrupted
+//! instead of silently starting a second gesture.
+//! @return false if the sample was dropped
+bool touch_handle_injected_update(TouchInjectPhase phase, int16_t x, int16_t y);
+
+//! @return false when a new injected gesture would be refused: touch is globally disabled, or a
+//! physical finger currently owns the sensor.
+bool touch_injection_is_available(void);

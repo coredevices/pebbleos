@@ -5,9 +5,14 @@ ignore-merge-commits=false
 ignore-fixup-commits=false
 ignore-fixup-amend-commits=false
 ignore-squash-commits=false
+regex-style-search=True
+
+[ignore-by-author-name]
+regex=(?i)dependabot
+ignore=all
 
 [title-match-regex]
-regex=[a-z0-9/]+: .*
+regex=^[a-z0-9/]+: .*
 
 [title-max-length]
 line-length=100

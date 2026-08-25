@@ -58,6 +58,12 @@ typedef struct HRMSubscriberState {
 // After this many consecutive hrm_enable failures, stop trying until reboot
 #define HRM_MAX_ENABLE_FAILURES 3
 
+// If the sensor has been on this long and a subscriber still hasn't received a Good-quality
+// reading, the subscriber is deferred to its next interval instead of holding the sensor on.
+// Comfortably above a normal serve cycle (spin-up plus a few seconds), far below the battery
+// impact threshold.
+#define HRM_MAX_UNSERVED_TIME_SEC 120
+
 struct HRMManagerState {
   PebbleRecursiveMutex *lock;
   ListNode *subscribers;
@@ -81,6 +87,9 @@ struct HRMManagerState {
   uint8_t enable_failure_count;    // counts consecutive hrm_enable failures, stops retrying after max
 
   HRMFeature enabled_features;     // feature union the sensor was last enabled with
+
+  RtcTicks sensor_on_since_ticks;  // tick count when the sensor was last turned on; 0 while off
+  bool unserved_timeout_logged;    // limits the unserved-timeout warning to once per on-stretch
 
   bool enabled_run_level;          // True if the current run_level (LowPower, Stationary,
                                    // Normal, etc.) allows the sensor to be turned on

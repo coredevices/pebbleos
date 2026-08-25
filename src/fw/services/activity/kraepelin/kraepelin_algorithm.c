@@ -383,17 +383,31 @@ static const char* prv_log_time(KAlgState *alg_state, time_t utc) {
 }
 
 // ----------------------------------------------------------------------------------------
-static void prv_reset_step_activity_state(KAlgStepActivityState *state) {
+// Drop the HRM subscription held by a step activity, if it has one. Safe to call on a state that
+// stays in progress: the next active minute re-subscribes.
+static void prv_release_step_activity_hrm(KAlgStepActivityState *state) {
 #ifdef CONFIG_HRM
   if (state->hrm_session != HRM_INVALID_SESSION_REF) {
     sys_hrm_manager_unsubscribe(state->hrm_session);
+    state->hrm_session = HRM_INVALID_SESSION_REF;
   }
 #endif
+}
+
+// ----------------------------------------------------------------------------------------
+static void prv_reset_step_activity_state(KAlgStepActivityState *state) {
+  prv_release_step_activity_hrm(state);
   *state = (KAlgStepActivityState) { };
 }
 
 // ----------------------------------------------------------------------------------------
 static void prv_reset_state(KAlgState *state) {
+  // Release the HRM unconditionally. The state reset below skips in-progress activities, but the
+  // subscription must not outlive the reset: a state machine that stops running can never reach
+  // prv_reset_step_activity_state, leaving the sensor pinned on until reboot.
+  prv_release_step_activity_hrm(&state->walk_state);
+  prv_release_step_activity_hrm(&state->run_state);
+
   // Only reset step activity states if they're not currently in progress to avoid
   // race conditions with the minute handler
   if (state->walk_state.start_time == KALG_START_TIME_NONE) {
@@ -1292,6 +1306,16 @@ bool kalg_init(KAlgState *state, KAlgStatsCallback stats_cb) {
 }
 
 
+// -----------------------------------------------------------------------------------------
+// Release resources held by the state. Must be called before the caller frees it, otherwise the
+// HRM subscriptions outlive the only references to them and pin the sensor on until reboot.
+void kalg_deinit(KAlgState *state) {
+  PBL_ASSERTN(state != NULL);
+  prv_release_step_activity_hrm(&state->walk_state);
+  prv_release_step_activity_hrm(&state->run_state);
+}
+
+
 // ------------------------------------------------------------------------------------
 uint32_t kalg_analyze_samples(KAlgState *state, AccelRawData *data, uint32_t num_samples,
                               uint32_t *consumed_samples) {
@@ -2021,12 +2045,20 @@ static void prv_step_activity_update(KAlgState *alg_state, KAlgStepActivityState
     uint32_t duration_secs = utc_now - state->start_time;
 
 #ifdef CONFIG_HRM
+    // Bound the subscription and re-arm it each active minute, so it lapses on its own if this
+    // state machine ever stops running. An activity survives k_max_inactive_minutes without
+    // reaching here, so the window has to comfortably exceed that.
+    const uint16_t hrm_expire_s = 10 * SECONDS_PER_MINUTE;
+
     // Make sure we have a couple active minutes in a row before enabling the HRM to save battery
     const unsigned min_duration_for_hrm = 3 * SECONDS_PER_MINUTE;
-    if (duration_secs >= min_duration_for_hrm && state->hrm_session == HRM_INVALID_SESSION_REF &&
-        activity_prefs_hrm_activity_tracking_is_enabled()) {
+    if (state->hrm_session != HRM_INVALID_SESSION_REF) {
+      sys_hrm_manager_set_update_interval(state->hrm_session, 1 /* update interval */,
+                                          hrm_expire_s);
+    } else if (duration_secs >= min_duration_for_hrm &&
+               activity_prefs_hrm_activity_tracking_is_enabled()) {
       state->hrm_session = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID,
-          1 /* update interval */, 0 /*expire_s*/, HRMFeature_BPM, prv_hrm_subscription_cb, NULL);
+          1 /* update interval */, hrm_expire_s, HRMFeature_BPM, prv_hrm_subscription_cb, NULL);
     }
 #endif
 

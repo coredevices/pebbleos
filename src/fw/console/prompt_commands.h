@@ -279,13 +279,6 @@ extern void command_perftest_text_all(void);
 
 extern void command_bt_sleep_check(const char *iters);
 
-#if MEMFAULT
-extern void command_mflt_export(void);
-extern void command_mflt_collect(void);
-extern void command_mflt_metrics_dump(void);
-extern void command_mflt_device_info(void);
-#endif
-
 #ifdef ANALYTICS_NATIVE
 extern void command_analytics_native_metrics_dump(void);
 #endif
@@ -645,13 +638,6 @@ static const Command s_prompt_commands[] = {
 #if !defined(CONFIG_RELEASE) && defined(CONFIG_DISPLAY_JDI_SF32LB)
   { "display drop_complete", command_display_drop_complete, 0 },
 #endif
-
-#if MEMFAULT
-  { "mflt export", command_mflt_export, 0 },
-  { "mflt collect", command_mflt_collect, 0 },
-  { "mflt metrics_dump", command_mflt_metrics_dump, 0 },
-  { "mflt device_info", command_mflt_device_info, 0 },
-#endif  // MEMFAULT
 
 #if ANALYTICS_NATIVE
   { "analytics native metrics_dump", command_analytics_native_metrics_dump, 0 },

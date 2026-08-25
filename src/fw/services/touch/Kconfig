@@ -3,7 +3,8 @@
 
 config SERVICE_TOUCH
     bool "Touch"
-    default y if TOUCH
+    depends on TOUCH
+    default y
     help
       Touch event service. Requires a touch driver (CONFIG_TOUCH).
 

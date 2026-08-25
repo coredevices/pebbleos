@@ -23,6 +23,7 @@
 #include "kernel/pbl_malloc.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "pbl/os/mutex.h"
+#include "process_management/process_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/analytics/analytics.h"
@@ -40,7 +41,9 @@
 #include "pbl/services/notifications/alerts_preferences_private.h"
 #include "pbl/services/notifications/alerts_private.h"
 #include "pbl/services/notifications/ancs/ancs_filtering.h"
+#include "pbl/services/imaging.h"
 #include "pbl/services/notifications/do_not_disturb.h"
+#include "pbl/services/notifications/notification_image.h"
 #include "pbl/services/notifications/notification_storage.h"
 #include "pbl/services/notifications/notification_types.h"
 #include "pbl/services/notifications/notifications.h"
@@ -1151,6 +1154,7 @@ static void prv_window_unload(Window *window) {
   animation_unschedule(data->peek_animation);
 
   swap_layer_deinit(&data->swap_layer);
+  notification_image_clear();
   status_bar_layer_deinit(&data->status_layer);
   notifications_presented_list_deinit(prv_handle_presented_notif_deinit, NULL);
   gbitmap_deinit(&data->dnd_icon);
@@ -1166,12 +1170,49 @@ static void prv_window_unload(Window *window) {
 // Callback Handlers
 //////////////////////
 
+#if NOTIFICATION_IMAGE_SUPPORTED
+static void prv_redraw_current_layout(void *unused) {
+  LayoutLayer *layout = swap_layer_get_current_layout(&s_notification_window_data.swap_layer);
+  if (s_in_use && layout) {
+    layer_mark_dirty(&layout->layer);
+  }
+}
+
+static void prv_imaging_notification_received(uint8_t token, GBitmap *bitmap) {
+  if (!notification_image_store(token, bitmap) || !s_in_use) {
+    return;
+  }
+  // Delivery lands on KernelMain, which is where the modal renders; the notification history app
+  // owns its window on the App task and has to mark it dirty there.
+  if (s_notification_window_data.is_modal) {
+    prv_redraw_current_layout(NULL);
+  } else {
+    process_manager_send_callback_event_to_process(PebbleTask_App, prv_redraw_current_layout, NULL);
+  }
+}
+
+static void prv_maybe_request_notification_image(LayoutLayer *layout, TimelineItem *item) {
+  GSize size;
+  uint8_t token;
+  if (!notification_layout_get_image_size(layout, &size) ||
+      !imaging_is_type_supported(ImagingImageTypeNotification) ||
+      !notification_image_claim(&item->header.id, &token)) {
+    return;
+  }
+  imaging_request_notification_image(token, ImagingFormat4BitPalette, size.w, size.h,
+                                     &item->header.id);
+}
+#endif
+
 static void prv_layout_did_appear_handler(SwapLayer *swap_layer, LayoutLayer *layout,
                                           int8_t rel_change, void *context) {
   NotificationWindowData *data = context;
   TimelineItem *n = layout_get_context(layout);
   Uuid *id = &n->header.id;
   notifications_presented_list_set_current(id);
+#if NOTIFICATION_IMAGE_SUPPORTED
+  prv_maybe_request_notification_image(layout, n);
+#endif
   if (data->first_notif_loaded || !data->is_modal) {
     layer_set_hidden(&data->action_button_layer, !prv_should_provide_action_menu_for_item(data, n));
   }
@@ -1433,6 +1474,12 @@ void notification_window_focus_notification(Uuid *id, bool animated) {
 void notification_window_service_init(void) {
   s_notification_window_mutex = mutex_create();
   s_notification_window_data.pop_timer_id = EVENTED_TIMER_INVALID_ID;
+  // Unconditional: prv_window_unload clears the slot on every platform, so the lock has to exist
+  // even where images are never fetched.
+  notification_image_service_init();
+#if NOTIFICATION_IMAGE_SUPPORTED
+  imaging_register_handler(ImagingImageTypeNotification, prv_imaging_notification_received);
+#endif
 }
 
 

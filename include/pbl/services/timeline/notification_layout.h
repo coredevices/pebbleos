@@ -123,8 +123,16 @@ static const TimelineResourceId REMINDER_FALLBACK_ICON = TIMELINE_RESOURCE_NOTIF
     ((LAYOUT_TOP_BANNER_HEIGHT - NOTIFICATION_TINY_RESOURCE_HEIGHT) / 2) + \
       NOTIFICATION_TINY_RESOURCE_VERTICAL_OFFSET
 
+//! Bounds on the aspect a notification image band can reserve; the phone clamps to the same range.
+#define NOTIFICATION_IMAGE_MIN_ASPECT (4)   //!< 4:1 landscape
+#define NOTIFICATION_IMAGE_MAX_ASPECT (24)  //!< 2:3 portrait
+
 LayoutLayer *notification_layout_create(const LayoutLayerConfig *config);
 
 bool notification_layout_verify(bool existing_attributes[]);
+
+//! Size of the image band this layout reserves, or false if the item has no image. The requester
+//! and the renderer must agree on it, so it has one home.
+bool notification_layout_get_image_size(const LayoutLayer *layout, GSize *size_out);
 
 TimelineResourceId notification_layout_get_fallback_icon_id(TimelineItemType item_type);

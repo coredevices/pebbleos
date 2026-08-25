@@ -135,8 +135,10 @@ static int prv_location_local_hour(const WxDsForecast *ds) {
   if (!lt) return -1;
   int hour = lt->tm_hour;
   if (ds && ds->utc_offset_min != INT16_MIN) {
+    // tm_gmtoff, not time_get_gmtoffset(): the latter excludes DST while lt does not, which
+    // would skew the location's hour by the DST adjustment for half the year.
     int mins = lt->tm_hour * 60 + lt->tm_min
-             - (int)(time_get_gmtoffset() / 60) + ds->utc_offset_min;
+             - (int)(lt->tm_gmtoff / 60) + ds->utc_offset_min;
     mins = ((mins % 1440) + 1440) % 1440;
     hour = mins / 60;
   }

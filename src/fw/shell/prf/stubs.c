@@ -61,6 +61,12 @@ bool button_lock_is_locked(void) {
 void app_idle_timeout_refresh(void) {
 }
 
+void app_idle_timeout_touch_down(void) {
+}
+
+void app_idle_timeout_touch_up(void) {
+}
+
 PebblePhoneCaller* phone_call_util_create_caller(const char *number, const char *name) {
   return NULL;
 }

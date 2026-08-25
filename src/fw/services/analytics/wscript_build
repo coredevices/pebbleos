@@ -8,11 +8,6 @@ if bld.env.VARIANT != 'prf':
     sources.append('native.c')
     bld.env.DEFINES.append('ANALYTICS_NATIVE')
 
-if bld.env.memfault:
-    use.append('memfault_includes')
-    sources.append('memfault.c')
-    bld.env.DEFINES.append('ANALYTICS_MEMFAULT')
-
 bld.stlib(
     source=sources,
     target='services_analytics',

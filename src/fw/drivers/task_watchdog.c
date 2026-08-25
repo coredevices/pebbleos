@@ -389,7 +389,7 @@ static void prv_task_watchdog_feed(void) {
     if (s_ticks_since_successful_feed >= WATCHDOG_COREDUMP_TICK_CNT) {
 #if !defined(CONFIG_NO_WATCHDOG)
       // Low-pri handler didn't run; capture stuck_task_pc/lr ourselves so
-      // Memfault has a real PC to fingerprint on.
+      // the coredump has a real PC to fingerprint on.
       prv_capture_stuck_task_info(&reboot_reason);
       reboot_reason_clear();
       reboot_reason_set(&reboot_reason);

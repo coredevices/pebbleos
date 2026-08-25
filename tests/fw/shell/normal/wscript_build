@@ -5,6 +5,10 @@ clar(ctx,
     test_sources_ant_glob = "test_normal_system_app_state_machine.c")
 
 clar(ctx,
+    sources_ant_glob = " src/fw/shell/normal/app_idle_timeout.c",
+    test_sources_ant_glob = "test_app_idle_timeout.c")
+
+clar(ctx,
     sources_ant_glob = " src/fw/shell/normal/battery_ui_fsm.c"
                        " src/fw/services/battery/voltage/battery_curve.c",
     test_sources_ant_glob = 'test_battery_ui_fsm.c',

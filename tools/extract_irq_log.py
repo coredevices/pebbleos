@@ -5,10 +5,10 @@
 """Decode the LCDC interrupt ring buffer from a coredump.
 
 display_jdi.c records every LCDC interrupt into the BSS ring buffer
-`s_lcdc_irq_log` (see display_jdi_irq_handler). It rides in Memfault
-coredumps as the registered extra region "lcdc_irq_log". This tool pulls it
-out and decodes it, so the interrupt interleaving behind the JDI-parallel
-silent-loss crash (a lost EOF completion) can be read post-mortem.
+`s_lcdc_irq_log` (see display_jdi_irq_handler), which is captured in
+coredumps. This tool pulls it out and decodes it, so the interrupt
+interleaving behind the JDI-parallel silent-loss crash (a lost EOF
+completion) can be read post-mortem.
 
 The smoking gun: an interrupt whose `irq_before` has EOF_STAT set but whose
 EOF-callback-fired flag is clear -- the HAL saw EOF pending and never reached

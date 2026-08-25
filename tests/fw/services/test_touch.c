@@ -3,11 +3,14 @@
 
 #include "clar.h"
 
+#include "kernel/event_loop.h"
 #include "kernel/events.h"
 #include "kernel/pebble_tasks.h"
+#include <pbl/drivers/display/display.h>
 #include "pbl/services/event_service.h"
 #include "pbl/services/touch/touch.h"
 #include "pbl/services/touch/touch_event.h"
+#include "pbl/services/touch/touch_session.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -42,6 +45,20 @@ void event_service_init(PebbleEventType type, EventServiceAddSubscriberCallback 
   s_remove_subscriber_cb = remove_cb;
 }
 
+static int s_session_arm_count;
+static TouchSessionArmSource s_last_arm_source;
+
+void touch_session_arm(TouchSessionArmSource source) {
+  s_session_arm_count++;
+  s_last_arm_source = source;
+}
+
+// touch.c hands the arm to KernelMain because touch_session is KernelMain-only. Run it inline so
+// the test observes the arm in the same order the event loop would.
+void launcher_task_add_callback(CallbackEventCallback callback, void *data) {
+  callback(data);
+}
+
 static int s_touch_sensor_enable_count;
 static int s_touch_sensor_disable_count;
 static bool s_touch_sensor_enabled;
@@ -63,6 +80,7 @@ void test_touch__initialize(void) {
   s_touch_sensor_enable_count = 0;
   s_touch_sensor_disable_count = 0;
   s_touch_sensor_enabled = false;
+  s_session_arm_count = 0;
   touch_init();
   touch_reset();
   // Make sure the global kill switch is reset between tests — it's a module
@@ -433,6 +451,144 @@ void test_touch__toggle_off_without_finger_no_liftoff(void) {
   touch_service_set_globally_enabled(false);
   cl_assert_equal_i(fake_event_get_count(), 0);
   touch_service_set_globally_enabled(true);
+}
+
+void test_touch__injected_touch_arms_the_session(void) {
+  // Injection is deliberate interaction: without arming, contact on the idle watchface is dropped
+  // as unarmed and the whole gesture goes nowhere.
+  touch_handle_injected_update(TouchInjectPhase_Begin, 10, 20);
+  cl_assert_equal_i(s_session_arm_count, 1);
+  cl_assert_equal_i(s_last_arm_source, TouchSessionArmSource_Injected);
+  prv_assert_touch_event(TouchEvent_Touchdown, 10, 20);
+
+  // Only the touchdown arms; position updates do not re-arm.
+  touch_handle_injected_update(TouchInjectPhase_Move, 10, 40);
+  cl_assert_equal_i(s_session_arm_count, 1);
+
+  touch_handle_injected_update(TouchInjectPhase_End, 10, 40);
+}
+
+void test_touch__injected_coordinates_skip_rotation(void) {
+  touch_set_rotated(true);
+  // Injected coordinates are the ones the UI observes, so left-hand mode must not mirror them
+  // again: the caller states the direction it wants and the service takes it at its word.
+  touch_handle_injected_update(TouchInjectPhase_Begin, 10, 20);
+  prv_assert_touch_event(TouchEvent_Touchdown, 10, 20);
+
+  touch_handle_injected_update(TouchInjectPhase_End, 10, 20);
+  touch_set_rotated(false);
+}
+
+void test_touch__physical_touch_is_still_rotated(void) {
+  touch_set_rotated(true);
+  touch_handle_update(TouchState_FingerDown, 10, 20);
+  // Mirrored against the display bounds, unlike the injected path above.
+  prv_assert_touch_event(TouchEvent_Touchdown, DISP_COLS - 1 - 10, DISP_ROWS - 1 - 20);
+
+  touch_handle_update(TouchState_FingerUp, 10, 20);
+  touch_set_rotated(false);
+}
+
+void test_touch__injection_refused_while_a_finger_is_down(void) {
+  touch_handle_update(TouchState_FingerDown, 10, 20);
+  cl_assert(!touch_injection_is_available());
+
+  // The physical gesture owns the sensor; injection must not hijack it mid-touch.
+  fake_event_reset_count();
+  cl_assert(!touch_handle_injected_update(TouchInjectPhase_Begin, 90, 90));
+  cl_assert_equal_i(fake_event_get_count(), 0);
+
+  touch_handle_update(TouchState_FingerUp, 10, 20);
+  cl_assert(touch_injection_is_available());
+}
+
+void test_touch__physical_touch_ignored_during_injection(void) {
+  cl_assert(touch_handle_injected_update(TouchInjectPhase_Begin, 10, 20));
+
+  // A real finger arriving mid-swipe would otherwise drag the synthetic path off course.
+  fake_event_reset_count();
+  touch_handle_update(TouchState_FingerDown, 90, 90);
+  cl_assert_equal_i(fake_event_get_count(), 0);
+
+  // The injected gesture still owns the sensor and can finish.
+  cl_assert(touch_handle_injected_update(TouchInjectPhase_End, 10, 20));
+  prv_assert_touch_event(TouchEvent_Liftoff, 10, 20);
+}
+
+void test_touch__injection_unavailable_when_globally_disabled(void) {
+  touch_service_set_globally_enabled(false);
+  cl_assert(!touch_injection_is_available());
+  cl_assert(!touch_handle_injected_update(TouchInjectPhase_Begin, 10, 20));
+  cl_assert_equal_i(fake_event_get_count(), 0);
+
+  touch_service_set_globally_enabled(true);
+}
+
+void test_touch__disable_during_injection_releases_ownership(void) {
+  cl_assert(touch_handle_injected_update(TouchInjectPhase_Begin, 10, 20));
+
+  // Turning touch off mid-gesture ends it. The injected liftoff that would normally clear
+  // ownership is itself dropped while disabled, so the release has to happen here or the sensor
+  // stays owned by a gesture that can never finish.
+  touch_service_set_globally_enabled(false);
+  touch_service_set_globally_enabled(true);
+
+  cl_assert(touch_injection_is_available());
+
+  // Physical touch works again...
+  fake_event_reset_count();
+  touch_handle_update(TouchState_FingerDown, 30, 40);
+  prv_assert_touch_event(TouchEvent_Touchdown, 30, 40);
+  touch_handle_update(TouchState_FingerUp, 30, 40);
+
+  // ...and the next injected gesture still arms the session rather than assuming it already owns
+  // the sensor.
+  s_session_arm_count = 0;
+  cl_assert(touch_handle_injected_update(TouchInjectPhase_Begin, 10, 20));
+  cl_assert_equal_i(s_session_arm_count, 1);
+  touch_handle_injected_update(TouchInjectPhase_End, 10, 20);
+}
+
+void test_touch__reset_releases_injection_ownership(void) {
+  cl_assert(touch_handle_injected_update(TouchInjectPhase_Begin, 10, 20));
+  touch_reset();
+
+  cl_assert(touch_injection_is_available());
+  fake_event_reset_count();
+  touch_handle_update(TouchState_FingerDown, 30, 40);
+  prv_assert_touch_event(TouchEvent_Touchdown, 30, 40);
+  touch_handle_update(TouchState_FingerUp, 30, 40);
+}
+
+void test_touch__gesture_suppressed_during_injection(void) {
+  cl_assert(touch_handle_injected_update(TouchInjectPhase_Begin, 10, 20));
+
+  // Drivers report gestures next to the raw samples they came from; letting one through would
+  // break the exclusive ownership the injected path is promised.
+  fake_event_reset_count();
+  touch_handle_gesture(TouchGesture_Tap, 90, 90);
+  cl_assert_equal_i(fake_event_get_count(), 0);
+
+  touch_handle_injected_update(TouchInjectPhase_End, 10, 20);
+}
+
+void test_touch__reset_mid_gesture_refuses_continuation(void) {
+  cl_assert(touch_handle_injected_update(TouchInjectPhase_Begin, 10, 20));
+  // Anything that forces the finger state up mid-gesture takes the sensor away -- an app calling
+  // touch_service_subscribe() reaches touch_reset() this way.
+  touch_reset();
+
+  // The rest of the path must be refused rather than taken as a fresh touchdown from the middle of
+  // the gesture, which is what a phase-less API would have to guess at.
+  fake_event_reset_count();
+  cl_assert(!touch_handle_injected_update(TouchInjectPhase_Move, 10, 40));
+  cl_assert(!touch_handle_injected_update(TouchInjectPhase_End, 10, 40));
+  cl_assert_equal_i(fake_event_get_count(), 0);
+
+  // A brand new gesture is still fine.
+  cl_assert(touch_handle_injected_update(TouchInjectPhase_Begin, 50, 60));
+  prv_assert_touch_event(TouchEvent_Touchdown, 50, 60);
+  touch_handle_injected_update(TouchInjectPhase_End, 50, 60);
 }
 
 void test_touch__event_abi_unchanged(void) {

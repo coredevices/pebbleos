@@ -33,10 +33,10 @@ _NEWLIB_TIME_DEFINE = "-D_USE_LONG_TIME_T"
 # ones (the historical in-tree libc aliased them in its headers).
 _SNIPRINTF_DEFINES = ["-Dsniprintf=snprintf", "-Dvsniprintf=vsnprintf"]
 
-# The firmware compiles with -std=c11 (strict ANSI) unless Memfault forces
-# gnu11, but it uses POSIX/BSD names (strnlen, strcasecmp, ...) that the
-# toolchain libcs hide behind feature-test macros under __STRICT_ANSI__;
-# ask for the default surface explicitly.
+# The firmware compiles with -std=c11 (strict ANSI), but it uses POSIX/BSD
+# names (strnlen, strcasecmp, ...) that the toolchain libcs hide behind
+# feature-test macros under __STRICT_ANSI__; ask for the default surface
+# explicitly.
 _DEFAULT_SOURCE_DEFINE = "-D_DEFAULT_SOURCE"
 
 _ARCH_PREFIXES = ("-mthumb", "-mcpu=", "-mfloat-abi=", "-mfpu=", "-march=")

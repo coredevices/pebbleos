@@ -7,6 +7,7 @@
 #include "comm/bt_lock.h"
 #include "pbl/services/comm_session/session_send_buffer.h"
 #include "pbl/services/new_timer/new_timer.h"
+#include "pbl/services/system_task.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/circular_buffer.h"
@@ -75,6 +76,12 @@ static void prv_start_active_mode(void *data) {
                                       NULL /* granted_handler */);
 }
 
+//! Never block on bt_lock from the timer task (comm_session_set_responsiveness_ext
+//! takes it); defer to KernelBG.
+static void prv_active_mode_timer_cb(void *data) {
+  system_task_add_callback(prv_start_active_mode, NULL);
+}
+
 AudioEndpointSessionId audio_endpoint_setup_transfer(AudioEndpointStopTransferCallback stop_transfer) {
 
   if (s_session.id != AUDIO_ENDPOINT_SESSION_INVALID_ID) {
@@ -90,7 +97,7 @@ AudioEndpointSessionId audio_endpoint_setup_transfer(AudioEndpointStopTransferCa
 
   // restart active mode before it expires, this way it will never be off during the transfer
   new_timer_start(s_session.active_mode_trigger, ACTIVE_MODE_TIMEOUT - ACTIVE_MODE_START_BUFFER,
-      prv_start_active_mode, NULL, TIMER_START_FLAG_REPEATING);
+      prv_active_mode_timer_cb, NULL, TIMER_START_FLAG_REPEATING);
 
   bt_unlock();
 

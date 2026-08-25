@@ -70,6 +70,7 @@ if bld.env.CONFIG_SERVICE_HRM:
     bld.recurse('hrm')
 if bld.env.CONFIG_SERVICE_I18N:
     bld.recurse('i18n')
+bld.recurse('imaging')
 if bld.env.CONFIG_SERVICE_IDLE_WATCHDOG:
     bld.recurse('idle_watchdog')
 if bld.env.CONFIG_SERVICE_LIGHT:

@@ -61,6 +61,10 @@ typedef struct TouchNavWidgetOps {
   //! Optional readiness gate consulted before a pan Starts. NULL means always ready. When it returns
   //! false the gesture is declined for its whole lifetime (no pan_started/get_base_offset is called).
   bool (*can_start)(void *w);
+  //! Optional. Called once when a navigational Touchdown latches this widget as the Tier-1 target,
+  //! before any recognizer triggers. Lets the widget stop a coasting fling at finger-down instead
+  //! of at the pan threshold (catch-to-stop). NULL means nothing to do.
+  void (*touchdown)(void *w);
   //! Pan Started: cancel any of the widget's own running animation so the finger takes over.
   void (*pan_started)(void *w);
   //! @return the widget's content offset at pan Start, latched as the base for the whole gesture.
@@ -69,8 +73,9 @@ typedef struct TouchNavWidgetOps {
   GPointReturn (*get_base_offset)(void *w);
   //! Live pan: apply `base + delta` to the widget's content offset (throttled by the core).
   void (*pan_update)(void *w, GPoint base, GPoint delta);
-  //! Liftoff after a pan: settle the final (unthrottled) offset.
-  void (*pan_snap)(void *w, GPoint base, GPoint final_delta);
+  //! Liftoff after a pan: settle the final (unthrottled) offset. `velocity` is the liftoff
+  //! velocity in px/s (see \ref pan_recognizer_get_velocity), for widgets that fling.
+  void (*pan_snap)(void *w, GPoint base, GPoint final_delta, GPoint velocity);
   //! A pan cancelled mid-gesture (e.g. the widget is torn down): the core clears its latch first.
   void (*pan_cancel)(void *w);
   //! A tap completed on the widget. NULL means the widget has no tap action and the tap is dropped.
@@ -111,6 +116,8 @@ typedef struct TouchNavOps {
   bool (*is_animating)(void *ctx);
   //! @return true if the top window overrides the back button.
   bool (*top_overrides_back)(void *ctx);
+  //! @return true if the top window only accepts taps on action-bar icon zones.
+  bool (*top_tap_requires_action_bar)(void *ctx);
   //! @return true if the top window has the touch bridge disabled.
   bool (*top_bridge_disabled)(void *ctx);
   //! Pop the top window (BACK on a window without a back handler).
@@ -217,9 +224,12 @@ void touch_nav_set_action_bar(TouchNavState *state, const GRect *frame, uint8_t 
 //! Resolve a tap at \a point against the action-bar snapshot \a bar. Returns the zoned button when
 //! the bar is present and the point is inside its frame: the frame is split vertically into three
 //! equal zones (top = UP, middle = SELECT, bottom = DOWN). A zone whose icon bit is clear, a point
-//! outside the frame, or an absent snapshot all fall back to \ref BUTTON_ID_SELECT. Swipes are not
-//! zoned; only taps consult this.
-ButtonId touch_nav_action_bar_zone_button(const TouchNavActionBar *bar, GPoint point);
+//! outside the frame, or an absent snapshot all fall back to \ref BUTTON_ID_SELECT -- unless
+//! \a require_icon_zone is set (the top window's touch_tap_requires_action_bar exception), in which
+//! case every fallback returns NUM_BUTTONS so no button is synthesized. Swipes are not zoned; only
+//! taps consult this.
+ButtonId touch_nav_action_bar_zone_button(const TouchNavActionBar *bar, GPoint point,
+                                          bool require_icon_zone);
 
 //! Register a Tier-1 widget node under the given registry. Dedup-by-address (a re-add WARNs and is
 //! a no-op). Robust to a node zeroed by the widget's *_init. \a ops and \a widget are the migrated

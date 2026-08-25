@@ -117,6 +117,11 @@ typedef enum {
   AttributeIdMuteExpiration = 50,
   //! (StringList) Notification filtering rules encoded as a byte array.
   AttributeIdNotificationFilteringRules = 51,
+  //! (uint8_t) The phone holds an image for this item, fetchable over the imaging endpoint
+  //! (ImagingImageTypeNotification, keyed by the item's UUID). The value is the image's
+  //! height/width in sixteenths, so the card can reserve a band of the right shape before the
+  //! pixels arrive. Absent or 0 means no image.
+  AttributeIdImageAspectRatio = 52,
   NumAttributeIds,
 } AttributeId;
 

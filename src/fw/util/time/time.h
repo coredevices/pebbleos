@@ -73,7 +73,8 @@ struct tm {
   int tm_yday;    /*!< Days in year.[0-365] */
   int tm_isdst;   /*!< DST. [-1/0/1] */
 
-  int tm_gmtoff;  /*!< Seconds east of UTC */
+  int tm_gmtoff;  /*!< Total seconds east of UTC, DST included. tm_isdst is an indicator only --
+                       never add it to this value. */
   char tm_zone[TZ_LEN]; /*!< Timezone abbreviation */
 };
 

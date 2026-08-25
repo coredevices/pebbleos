@@ -42,6 +42,7 @@
 #include "stubs_health_layout.h"
 #include "stubs_heap.h"
 #include "stubs_i18n.h"
+#include "stubs_imaging.h"
 #include "stubs_ios_notif_pref_db.h"
 #include "stubs_layer.h"
 #include "stubs_light.h"

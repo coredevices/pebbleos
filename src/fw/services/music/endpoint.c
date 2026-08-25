@@ -125,6 +125,9 @@ static void prv_update_play_state_info(CommSession *session, const uint8_t* msg,
       player_state_update.playback_state = MusicPlayStateInvalid;
   }
   player_state_update.playback_rate_percent = play_state_info->play_rate;
+  const uint8_t skip_seeks = (length > sizeof(MusicEndpointPlayStateInfo)) ?
+      msg[sizeof(MusicEndpointPlayStateInfo)] : 0;
+  player_state_update.skip_seeks_within_track = (skip_seeks & MusicEndpointSkipSeeksWithinTrack);
   s_progress_reporting_supported = (play_state_info->track_pos_ms >= 0);
   player_state_update.elapsed_time_ms = MAX(play_state_info->track_pos_ms, 0);
   // TODO: Do something with this info

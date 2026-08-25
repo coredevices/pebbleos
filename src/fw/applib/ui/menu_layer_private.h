@@ -45,6 +45,11 @@ typedef struct MenuRenderIterator {
 bool menu_layer_touch_find_row_at_content_y(MenuLayer *menu_layer, int16_t content_y,
                                             MenuIndex *index_out);
 
+//! Finger down: catch a coasting fling (stop it at touchdown, not at the pan threshold) and mark
+//! the gesture's tap, if it becomes one, to be swallowed — a catch is a stop, not a select. On a
+//! carousel the catch glides into the nearest row centre instead of dead-stopping off-grid.
+void menu_layer_touch_handle_touchdown(MenuLayer *menu_layer);
+
 //! Live scroll during a pan: move the content to \a base + \a delta_since_start, coarsely clamped.
 //! On a plain menu the selection index is intentionally left unchanged. On a center-focused menu
 //! the focus stays pinned at the viewport centre: the row crossing the centre becomes the
@@ -53,8 +58,9 @@ void menu_layer_touch_handle_pan_update(MenuLayer *menu_layer, GPoint base, GPoi
 
 //! Liftoff. Applies the last (unthrottled) pan delta. A plain menu only settles the offset — the
 //! selection never moves on a pan. A center-focused menu re-tracks the row under the centre and
-//! then glides it to the exact centre (animated).
-void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint final_delta);
+//! then glides it to the exact centre (animated). \a velocity is the liftoff velocity in px/s.
+void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint final_delta,
+                                  GPoint velocity);
 
 //! One-step tap activation through the same contract: map \a point_on_screen into the scroll
 //! layer's frame, hit-test it, run selection_will_change, and activate (select_click) only if the

@@ -12,6 +12,9 @@
 #include "applib/ui/recognizer/swipe.h"
 #include "applib/ui/recognizer/touch_nav.h"
 
+#include "applib/ui/animation_private.h"
+#include "applib/ui/property_animation_private.h"
+
 #include "fake_rtc.h"
 #include "pbl/drivers/rtc.h"
 
@@ -103,10 +106,47 @@ void window_single_repeating_click_subscribe(ButtonId button_id, uint16_t repeat
                                              ClickHandler handler) {}
 
 // ---------------------------------------------------------------------------------------------
+// Strong overrides of the WEAK animation stubs: capture the animation's to-target and stopped
+// handler so the fling physics are observable and the coast end can be simulated by the test.
+
+static GPoint s_anim_to;
+static AnimationHandlers s_anim_handlers;
+static void *s_anim_handlers_context;
+
+bool property_animation_init(PropertyAnimation *animation,
+                             const PropertyAnimationImplementation *implementation,
+                             void *subject, void *from_value, void *to_value) {
+  if (!animation) {
+    return false;
+  }
+  *(PropertyAnimationPrivate *)animation = (PropertyAnimationPrivate) {
+    .animation.implementation = (const AnimationImplementation *)implementation,
+    .subject = subject,
+  };
+  if (to_value) {
+    s_anim_to = *(GPoint *)to_value;   // every scroll animation targets a GPoint offset
+  }
+  return true;
+}
+
+bool animation_set_handlers(Animation *animation, AnimationHandlers callbacks, void *context) {
+  if (!animation) {
+    return false;
+  }
+  ((AnimationPrivate *)animation)->context = context;
+  s_anim_handlers = callbacks;
+  s_anim_handlers_context = context;
+  return true;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Test lifecycle
 
 void test_scroll_layer_touch__initialize(void) {
   fake_rtc_init(0, 0);
+  s_anim_to = GPointZero;
+  s_anim_handlers = (AnimationHandlers) { 0 };
+  s_anim_handlers_context = NULL;
   s_nav_enabled = true;
   // A zeroed state has a NULL manager, so scroll_layer_init() registration is inert for tests that
   // do not opt into the touch-nav harness (prv_touch_nav_setup()).
@@ -470,3 +510,158 @@ void test_scroll_layer_touch__dispatch_no_trigger_leaves_manager_idle(void) {
   scroll_layer_deinit(&sl);
 }
 
+
+// =============================================================================================
+// Inertial fling on liftoff. All physics run through scroll_layer_touch_handle_snap: the released
+// offset settles instantly (as before), then the coast animation is scheduled toward the clamped
+// projection target = released + v * TAU / 1000 with duration = CLIP(2000 * |d| / |v|, MIN, MAX).
+// The stubbed animation never moves the content, so the offset assertions see the released value
+// while the target/duration assertions pin the physics.
+
+// Below the fling threshold a liftoff settles the offset and schedules nothing (today's behavior).
+void test_scroll_layer_touch__snap_below_threshold_settles_only(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);  // range [-600, 0]
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, -100),
+                                 GPoint(0, -(TOUCH_FLING_MIN_VELOCITY_PX_S - 1)));
+  cl_assert_equal_i(scroll_layer_get_content_offset(&sl).y, -100);
+  cl_assert(sl.animation == NULL);   // never animated: no coast was scheduled
+  scroll_layer_deinit(&sl);
+}
+
+// Above the threshold the coast runs toward the unclamped projection with the full 3*TAU duration.
+void test_scroll_layer_touch__snap_flings_toward_projection(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);
+  // The drag left the content at -100 (last throttled update == released offset here).
+  scroll_layer_touch_handle_pan_update(&sl, GPoint(0, 0), GPoint(0, -100));
+  // Projection = -100 + (-1000 * 240 / 1000) = -340, inside [-600, 0].
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, -100), GPoint(0, -1000));
+  cl_assert_equal_i(scroll_layer_get_content_offset(&sl).y, -100);   // no liftoff jump
+  Animation *anim = property_animation_get_animation(sl.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, -340);
+  // Unclamped distance: duration is exactly 3 * TAU (velocity continuity at liftoff).
+  cl_assert_equal_i(animation_get_duration(anim, false, false), TOUCH_FLING_MAX_DURATION_MS);
+  scroll_layer_deinit(&sl);
+}
+
+// The unthrottled residual between the last throttled pan update and the liftoff is absorbed into
+// the coast (the animation starts from the current offset) instead of jumping instantly.
+void test_scroll_layer_touch__snap_absorbs_unthrottled_residual(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);
+  // Last throttled update left the content at -60; the unthrottled final delta says -100.
+  scroll_layer_touch_handle_pan_update(&sl, GPoint(0, 0), GPoint(0, -60));
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, -100), GPoint(0, -1000));
+  cl_assert_equal_i(scroll_layer_get_content_offset(&sl).y, -60);   // no teleport to -100
+  Animation *anim = property_animation_get_animation(sl.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, -340);   // target still projects from the released offset
+  scroll_layer_deinit(&sl);
+}
+
+// An edge-truncated target shortens the duration proportionally (T = 3000 * |d| / |v|), so the
+// coast keeps the finger's launch speed instead of crawling into the clamp.
+void test_scroll_layer_touch__snap_clamped_target_shortens_duration(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);
+  scroll_layer_touch_handle_pan_update(&sl, GPoint(0, 0), GPoint(0, -500));
+  // released = -500; projection = -740 -> clamped to -600; d = -100 -> T = 3000*100/1000 = 300.
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, -500), GPoint(0, -1000));
+  Animation *anim = property_animation_get_animation(sl.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, -600);
+  cl_assert_equal_i(animation_get_duration(anim, false, false), 300);
+  scroll_layer_deinit(&sl);
+}
+
+// The duration floor: a tiny clamped distance at a high velocity clips to MIN_DURATION.
+void test_scroll_layer_touch__snap_duration_floor(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);
+  scroll_layer_touch_handle_pan_update(&sl, GPoint(0, 0), GPoint(0, -595));
+  // released = -595; projection clamps to -600; d = -5 -> raw T = 3000*5/3000 = 5 -> floor 100.
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, -595), GPoint(0, -3000));
+  Animation *anim = property_animation_get_animation(sl.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, -600);
+  cl_assert_equal_i(animation_get_duration(anim, false, false), TOUCH_FLING_MIN_DURATION_MS);
+  scroll_layer_deinit(&sl);
+}
+
+// The velocity clamp: an absurd velocity is capped at MAX before the projection, pinned through
+// the duration (v = -30000 capped to -3600: d = 600 full range -> T = 3000*600/3600 = 500; the
+// uncapped velocity would floor the duration at 100 instead).
+void test_scroll_layer_touch__snap_velocity_clamped(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, 0), GPoint(0, -30000));
+  Animation *anim = property_animation_get_animation(sl.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, -600);   // projection -864 clamped to the content range
+  cl_assert_equal_i(animation_get_duration(anim, false, false), 500);
+  scroll_layer_deinit(&sl);
+}
+
+// Released at the edge with the velocity pointing further out: the clamped distance collapses to
+// zero, so no degenerate coast is scheduled and the liftoff settles as before.
+void test_scroll_layer_touch__snap_at_edge_schedules_nothing(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);
+  scroll_layer_touch_handle_pan_update(&sl, GPoint(0, 0), GPoint(0, -600));
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, -600), GPoint(0, -2000));
+  cl_assert_equal_i(scroll_layer_get_content_offset(&sl).y, -600);
+  cl_assert(sl.animation == NULL);
+  scroll_layer_deinit(&sl);
+}
+
+// Paging scroll layers never fling: a coast would break page alignment (and the create-path moook
+// interpolation), so the liftoff keeps its plain snap semantics.
+void test_scroll_layer_touch__snap_paging_never_flings(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);
+  scroll_layer_set_paging(&sl, true);
+  cl_assert(scroll_layer_get_paging(&sl));
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, -100), GPoint(0, -2000));
+  cl_assert(sl.animation == NULL);
+  scroll_layer_deinit(&sl);
+}
+
+// The coast's stopped handler restores the shared animation's defaults so a later programmatic
+// scroll does not inherit the fling duration/curve/handlers.
+void test_scroll_layer_touch__fling_stopped_restores_defaults(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, -100), GPoint(0, -1000));
+  Animation *anim = property_animation_get_animation(sl.animation);
+  cl_assert(anim != NULL);
+  cl_assert(s_anim_handlers.stopped != NULL);
+  cl_assert_equal_p(s_anim_handlers_context, &sl);
+  // Simulate the coast ending: the real animation service unschedules, then fires stopped.
+  animation_unschedule(anim);
+  s_anim_handlers.stopped(anim, true /* finished */, s_anim_handlers_context);
+  cl_assert_equal_i(animation_get_duration(anim, false, false), ANIMATION_DEFAULT_DURATION_MS);
+  cl_assert(s_anim_handlers.stopped == NULL);   // handlers cleared for the next (plain) scroll
+  scroll_layer_deinit(&sl);
+}
+
+// Catch-before-first-frame: a fling unscheduled without its stopped handler ever firing leaves
+// stale parameters; the pan-start path restores them explicitly through the cleanup helper.
+void test_scroll_layer_touch__fling_cleanup_is_idempotent(void) {
+  ScrollLayer sl;
+  prv_make_tall_scroll(&sl, GRect(0, 0, 200, 300), 900);
+  scroll_layer_touch_handle_snap(&sl, GPoint(0, 0), GPoint(0, -100), GPoint(0, -1000));
+  Animation *anim = property_animation_get_animation(sl.animation);
+  animation_unschedule(anim);   // caught: no stopped handler ran
+  scroll_layer_touch_fling_cleanup(&sl);
+  cl_assert_equal_i(animation_get_duration(anim, false, false), ANIMATION_DEFAULT_DURATION_MS);
+  scroll_layer_touch_fling_cleanup(&sl);   // safe to repeat
+  cl_assert_equal_i(animation_get_duration(anim, false, false), ANIMATION_DEFAULT_DURATION_MS);
+  scroll_layer_deinit(&sl);
+}

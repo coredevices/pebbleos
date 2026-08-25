@@ -54,6 +54,8 @@ typedef struct {
   MusicPlayState playback_state;
   int32_t playback_rate_percent;
   uint32_t elapsed_time_ms;
+  //! @see music_skip_seeks_within_track
+  bool skip_seeks_within_track;
 } MusicPlayerStateUpdate;
 
 //! Updates playstate, playback rate and elapsed time in one go.
@@ -80,3 +82,11 @@ void music_update_track_position(uint32_t track_pos_ms);
 
 //! Update the duration of the current track.
 void music_update_track_duration(uint32_t track_duration_ms);
+
+//! Hand the service the album art for the current track, transferring ownership of the bitmap (and
+//! its heap-allocated pixel data and palette) to the service. The service frees the previous art.
+//! Pass NULL for `bitmap` to report that there is no art. If `token` does not match the current
+//! now-playing generation the art is stale and is dropped (and freed).
+//! @note The bitmap and its `addr`/`palette` buffers must be allocated on the kernel heap; the
+//! service frees them with kernel_free.
+void music_set_album_art(struct GBitmap *bitmap, uint8_t token);

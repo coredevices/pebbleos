@@ -20,6 +20,7 @@
 #include "pbl/services/firmware_update.h"
 #include "pbl/services/hrm/hrm_manager.h"
 #include "pbl/services/light.h"
+#include "kernel/remote_input.h"
 #include "pbl/services/poll_remote.h"
 #include "pbl/services/put_bytes/put_bytes.h"
 #include "pbl/services/shared_prf_storage/shared_prf_storage.h"
@@ -47,9 +48,13 @@ void services_common_init(void) {
 #endif
   comm_session_init();
 
+  remote_input_init();
+
   bt_ctl_init();
 
-#ifdef CONFIG_TOUCH
+#ifdef CONFIG_SERVICE_TOUCH
+  // Gate on the same symbol that compiles touch.c and its consumers (e.g. the remote input
+  // endpoint), so no configuration can reach the touch service before touch_init() has run.
   touch_init();
 #endif
 

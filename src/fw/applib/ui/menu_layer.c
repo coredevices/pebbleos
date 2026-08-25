@@ -44,6 +44,7 @@ struct TouchNavState *modal_manager_get_touch_nav_state(void);
 
 static void prv_menu_touch_nav_register(MenuLayer *menu_layer);
 static void prv_menu_touch_nav_deregister(MenuLayer *menu_layer);
+static void prv_menu_touch_track_center_row(MenuLayer *menu_layer);
 #endif
 
 //! @return True if there was an animation to cancel, false otherwise
@@ -61,7 +62,13 @@ static bool prv_cancel_selection_animation(MenuLayer *menu_layer);
 
 static void prv_menu_scroll_offset_changed_handler(ScrollLayer *scroll_layer,
                                                    MenuLayer *menu_layer) {
-  // TODO: we might need to propagate this event down to MenuLayerCallbacks
+#ifdef CONFIG_TOUCH
+  // During an inertial coast on a carousel the row crossing the centre becomes the selection live,
+  // one row at a time, exactly as during a finger pan (same selection_will_change contract).
+  if (menu_layer->touch_fling_active && menu_layer->center_focused) {
+    prv_menu_touch_track_center_row(menu_layer);
+  }
+#endif
 }
 
 static void prv_menu_select_click_handler(ClickRecognizerRef recognizer, MenuLayer *menu_layer) {
@@ -1488,6 +1495,13 @@ void menu_layer_set_center_focused(MenuLayer *menu_layer, bool center_focused) {
   menu_layer_update_caches(menu_layer);
 }
 
+void menu_layer_set_tap_select_only(MenuLayer *menu_layer, bool tap_select_only) {
+  if (!menu_layer) {
+    return;
+  }
+  menu_layer->tap_select_only = tap_select_only;
+}
+
 bool menu_layer_get_scroll_wrap_around(MenuLayer *menu_layer) {
   return menu_layer->scroll_wrap_around;
 }
@@ -1543,13 +1557,19 @@ void menu_layer_set_scroll_vibe_on_blocked(MenuLayer *menu_layer, bool scroll_vi
 // public per-menu gesture surface (and the unit-test entry points).
 //
 // Live scrolling happens on pan Updated. On a plain (non-center-focused) menu the selection is
-// frozen for the whole pan and never changes on liftoff — a pan scrolls, a tap selects. A
-// center-focused menu is a carousel instead: the focus stays pinned at the viewport centre, so the
-// row crossing the centre becomes the selection live during the pan (through the full
-// selection_will_change contract), and liftoff settles the selected row to the exact centre.
+// frozen for the whole pan and never changes on liftoff — a pan only scrolls. A center-focused
+// menu is a carousel instead: the focus stays pinned at the viewport centre, so the row crossing
+// the centre becomes the selection live during the pan (through the full selection_will_change
+// contract), and liftoff settles the selected row to the exact centre.
+//
+// Taps differ by shape. A plain menu behaves like a phone list: a single tap on any row both
+// selects it (selection_will_change honoured) and activates it — one tap opens the item. A
+// carousel keeps the two-step model (a tap on an off-centre row centres it, a tap on the centred
+// row activates), bridged by the double-tap window below.
 
-// Two independent taps within this window on the same menu count as a "double tap" and activate the
-// last tap-selected row (there is no dedicated double-tap recognizer). CALIBRATION: ~300ms is the
+// Two independent taps within this window on the same carousel count as a "double tap" and activate
+// the last tap-selected row (there is no dedicated double-tap recognizer). Plain menus activate on
+// the first tap, so the window only ever arms on center-focused menus. CALIBRATION: ~300ms is the
 // usual comfortable double-tap spacing; tune on hardware if it feels too eager/sluggish.
 #define DOUBLE_TAP_WINDOW_MS 300
 
@@ -1712,8 +1732,11 @@ static void prv_menu_touch_reselect_row(MenuLayer *menu_layer, MenuIndex index) 
   // Any selection move invalidates the double-tap window (same rule as prv_apply_selection_change).
   menu_layer->double_tap_armed = false;
   const bool up = (comp < 0);
+  // During an inertial coast the scroll animation IS the ongoing motion: change_ongoing_animation
+  // would unschedule it on the first row crossing and kill the coast dead. During a finger pan no
+  // scroll animation is scheduled, so the flag is inert either way.
   prv_menu_layer_update_selection_highlight(menu_layer, up, false /* animated */,
-                                            true /* change_ongoing_animation */);
+                                            !menu_layer->touch_fling_active);
   prv_announce_selection_changed(menu_layer, prev_selection.index);
 }
 
@@ -1750,6 +1773,30 @@ static void prv_menu_touch_settle_to_center(MenuLayer *menu_layer, bool animated
 // ---------------------------------------------------------------------------------------------
 // Gesture handlers (also the unit-test entry surface)
 
+void menu_layer_touch_handle_touchdown(MenuLayer *menu_layer) {
+  // Finger down while the content is coasting: catch it. The tap this gesture may become is then a
+  // stop, not a select. The flag is ASSIGNED (never OR-ed) so it always reflects this gesture: a
+  // caught-then-abandoned gesture's leftover is overwritten by the next Touchdown.
+  const bool coasting = menu_layer->touch_fling_active;
+  menu_layer->touch_tap_swallow = coasting;
+  if (!coasting) {
+    return;
+  }
+  Animation *anim = property_animation_get_animation(menu_layer->scroll_layer.animation);
+  if (anim && animation_is_scheduled(anim)) {
+    animation_unschedule(anim);
+  }
+  menu_layer->touch_fling_active = false;   // a coast caught pre-first-frame skips its handler
+  scroll_layer_touch_fling_cleanup(&menu_layer->scroll_layer);
+  if (menu_layer->center_focused) {
+    // A dead stop could freeze the carousel off-grid forever on a catch-and-hold (a >300 ms hold
+    // fails the tap, so no later callback would re-centre). Glide into the nearest row centre
+    // instead; a pan taking over unschedules this settle with the base latched mid-flight.
+    prv_menu_touch_track_center_row(menu_layer);
+    prv_menu_touch_settle_to_center(menu_layer, true /* animated */);
+  }
+}
+
 void menu_layer_touch_handle_pan_update(MenuLayer *menu_layer, GPoint base,
                                         GPoint delta_since_start) {
   const int16_t new_y = prv_menu_touch_clamp_offset_y(menu_layer, base.y + delta_since_start.y);
@@ -1760,17 +1807,56 @@ void menu_layer_touch_handle_pan_update(MenuLayer *menu_layer, GPoint base,
   // Plain menus: selection intentionally NOT touched — a pan scrolls, a tap selects.
 }
 
-void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint final_delta) {
-  // Liftoff: settle the final (unthrottled) scroll offset.
+static void prv_menu_touch_fling_stopped(Animation *animation, bool finished, void *context) {
+  (void)animation;
+  MenuLayer *menu_layer = context;
+  menu_layer->touch_fling_active = false;
+  // Restore the shared animation defaults first so a settle scheduled below runs with them.
+  scroll_layer_touch_fling_cleanup(&menu_layer->scroll_layer);
+  if (finished && menu_layer->center_focused) {
+    // The coast ended off-grid: adopt the row under the centre and glide it to the exact centre
+    // (this also reconciles a mid-coast veto). A not-finished stop means something else took over
+    // the offset -- whoever unscheduled owns the settle.
+    prv_menu_touch_track_center_row(menu_layer);
+    prv_menu_touch_settle_to_center(menu_layer, true /* animated */);
+  }
+}
+
+// Coast toward the velocity projection, clamped by the menu's own (possibly widened) clamp.
+static void prv_menu_touch_fling(MenuLayer *menu_layer, int16_t released_y, int32_t velocity_y) {
+  const int32_t projected_y = released_y + (velocity_y * TOUCH_FLING_TAU_MS) / 1000;
+  const int16_t target_y = prv_menu_touch_clamp_offset_y(
+      menu_layer, (int16_t)CLIP(projected_y, INT16_MIN, INT16_MAX));
+  if (scroll_layer_touch_fling_start(&menu_layer->scroll_layer, target_y, (int16_t)velocity_y,
+                                     prv_menu_touch_fling_stopped, menu_layer)) {
+    menu_layer->touch_fling_active = true;
+  }
+}
+
+void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint final_delta,
+                                  GPoint velocity) {
   const int16_t new_y = prv_menu_touch_clamp_offset_y(menu_layer, base.y + final_delta.y);
+  const int32_t v = CLIP((int32_t)velocity.y, -TOUCH_FLING_MAX_VELOCITY_PX_S,
+                         TOUCH_FLING_MAX_VELOCITY_PX_S);
+  if (ABS(v) >= TOUCH_FLING_MIN_VELOCITY_PX_S) {
+    // Fast liftoff: coast toward the projection from the released offset. The coast starts from
+    // the current (last throttled) offset, so the unthrottled residual is absorbed into the
+    // animation instead of jumping instantly at liftoff. Plain menus coast the content only (the
+    // selection is intentionally left where it was — a pan scrolls, a tap selects); on a carousel
+    // rows step through the centre live via the offset-changed handler, and the coast's stopped
+    // handler settles the final row to the exact centre.
+    prv_menu_touch_fling(menu_layer, new_y, v);
+    if (menu_layer->touch_fling_active) {
+      return;
+    }
+  }
+  // Slow liftoff (or a coast too short to schedule): settle the final (unthrottled) offset.
   scroll_layer_set_content_offset(&menu_layer->scroll_layer, GPoint(0, new_y), false);
   if (!menu_layer->center_focused) {
-    // Plain menus: the selection is intentionally left exactly where it was — a finger pan scrolls
-    // the content, it must not reselect (it may even scroll the selection off-screen).
     return;
   }
-  // Carousel liftoff: the final delta may have crossed one more boundary than the last throttled
-  // pan update saw, so re-track first, then glide the focused row into the exact centre.
+  // Carousel: the final delta may have crossed one more boundary than the last throttled pan
+  // update saw, so re-track, then glide the focused row into the exact centre.
   prv_menu_touch_track_center_row(menu_layer);
   prv_menu_touch_settle_to_center(menu_layer, true /* animated */);
 }
@@ -1787,6 +1873,11 @@ void menu_layer_touch_handle_cancel(MenuLayer *menu_layer) {
 }
 
 void menu_layer_touch_handle_tap(MenuLayer *menu_layer, GPoint point_on_screen) {
+  if (menu_layer->touch_tap_swallow) {
+    // This tap caught (stopped) a coast at its Touchdown: it is a stop, not a select.
+    menu_layer->touch_tap_swallow = false;
+    return;
+  }
   // The recognizer reports the tap in screen coordinates; map it into the scroll layer's frame
   // first. Skipping this mis-hits by the frame's screen offset, so a menu inset below the status
   // bar resolves the bottom of every row to the next row down.
@@ -1826,31 +1917,47 @@ void menu_layer_touch_handle_tap(MenuLayer *menu_layer, GPoint point_on_screen) 
     return;
   }
 
-  // Priority 3 — select the tapped row through the full will_change contract (veto/redirect honoured)
-  // and centre it, WITHOUT activating. A veto (final == old selection) must change nothing: it must
-  // not re-centre the old selection (that mini-snap is exactly what Fix 1 removed from pans). Record
-  // the double-tap state only when a selection actually changes (normal or redirect).
+  // Priority 3 — the tapped row is not the selection: run the full will_change contract
+  // (veto/redirect honoured). A veto (final == old selection) must change nothing: no select, no
+  // activate, no re-centre of the old selection (that mini-snap is exactly what Fix 1 removed from
+  // pans), no animation cancel, and the double-tap window stays as it was — cancelling would abort
+  // an in-flight highlight animation and violate "veto changes nothing", so the cancel lives past
+  // the veto check.
   const MenuIndex old_index = menu_layer->selection.index;
   const MenuIndex final = prv_menu_run_will_change(menu_layer, candidate);
   if (menu_index_compare(&final, &old_index) == 0) {
-    // Vetoed: no select, no activate, no re-centre, no animation cancel, and the window stays as it
-    // was. Cancelling here would abort an in-flight highlight animation and violate "veto changes
-    // nothing", so the cancel lives in the select branch below.
     return;
   }
   prv_cancel_selection_animation(menu_layer);
-  // Animated: a center-focused menu plays the same jump/bounce as a button step (the nudge-in,
-  // half-way snap and bounce-out of prv_schedule_center_focus_animation); plain menus slide as
-  // before.
+
+  if (!menu_layer->center_focused) {
+    // Plain menus behave like a phone list: the tap selects AND opens the row in one gesture.
+    // Commit without scrolling — the row is already visible under the finger, and a re-centre
+    // would visibly shift the content just as the activated window pushes. Activate only when the
+    // contract kept the tapped row: a redirect selects the redirected row without opening it
+    // (opening a row the finger never touched would be a misfire), so there activation stays a
+    // deliberate second tap (priority 2). tap_select_only menus (short-item action menus, whose
+    // rows hold several columns the row-granular hit-test cannot tell apart) keep that two-step
+    // model for every row.
+    menu_layer_set_selected_index(menu_layer, final, MenuRowAlignNone, false);
+    if (!menu_layer->tap_select_only &&
+        menu_index_compare(&menu_layer->selection.index, &candidate) == 0) {
+      prv_menu_activate_selected(menu_layer);
+    }
+    return;
+  }
+
+  // Carousel: select the tapped row and centre it WITHOUT activating — the same jump/bounce as a
+  // button step (the nudge-in, half-way snap and bounce-out of
+  // prv_schedule_center_focus_animation); opening is the second tap (or the double-tap window).
   menu_layer_set_selected_index(menu_layer, final, MenuRowAlignCenter, true);
   // Record the committed (range-clamped) selection, not the raw will_change output: a client that
   // redirects to an out-of-range index would otherwise be handed that OOB index by a fast double tap
-  // (priority 1), diverging from priority 2 which activates the clamped selection.index. On a
-  // center-focused menu the index commit is deferred to the half-way point of the jump animation;
-  // until then the committed target lives in animation.new_selection (a priority-1 tap during the
-  // jump cancels it, which drives the animation to its end state and commits that same target).
-  const bool jump_in_flight = menu_layer->center_focused &&
-                              animation_is_scheduled(menu_layer->animation.animation);
+  // (priority 1), diverging from priority 2 which activates the clamped selection.index. The index
+  // commit is deferred to the half-way point of the jump animation; until then the committed
+  // target lives in animation.new_selection (a priority-1 tap during the jump cancels it, which
+  // drives the animation to its end state and commits that same target).
+  const bool jump_in_flight = animation_is_scheduled(menu_layer->animation.animation);
   menu_layer->last_selected_index = jump_in_flight ? menu_layer->animation.new_selection.index
                                                    : menu_layer->selection.index;
   prv_menu_set_last_select_ticks(menu_layer, now);
@@ -1896,10 +2003,24 @@ void menu_layer_touch_handle_swipe(MenuLayer *menu_layer, SwipeDirection directi
 // TouchNavState) drives the menu through these; direct assignment of the apply functions would not
 // compile because their first parameter is MenuLayer*, not void*.
 
+static void prv_menu_ops_touchdown(void *w) {
+  menu_layer_touch_handle_touchdown((MenuLayer *)w);
+}
+
 static void prv_menu_ops_pan_started(void *w) {
   // Touchdown-equivalent for the pan: stop any in-flight selection animation so the finger takes
   // over. The base offset is latched by the core via get_base_offset immediately after.
-  prv_cancel_selection_animation((MenuLayer *)w);
+  MenuLayer *menu_layer = w;
+  prv_cancel_selection_animation(menu_layer);
+  // Also stop a running settle/coast on the scroll offset itself; otherwise it and the first
+  // throttled pan update both write the offset for up to one frame. A coast caught before its
+  // first frame never ran its stopped handler, so clear its state explicitly.
+  Animation *anim = property_animation_get_animation(menu_layer->scroll_layer.animation);
+  if (anim && animation_is_scheduled(anim)) {
+    animation_unschedule(anim);
+  }
+  menu_layer->touch_fling_active = false;
+  scroll_layer_touch_fling_cleanup(&menu_layer->scroll_layer);
 }
 
 static GPointReturn prv_menu_ops_get_base_offset(void *w) {
@@ -1910,8 +2031,8 @@ static void prv_menu_ops_pan_update(void *w, GPoint base, GPoint delta) {
   menu_layer_touch_handle_pan_update((MenuLayer *)w, base, delta);
 }
 
-static void prv_menu_ops_pan_snap(void *w, GPoint base, GPoint final_delta) {
-  menu_layer_touch_handle_snap((MenuLayer *)w, base, final_delta);
+static void prv_menu_ops_pan_snap(void *w, GPoint base, GPoint final_delta, GPoint velocity) {
+  menu_layer_touch_handle_snap((MenuLayer *)w, base, final_delta, velocity);
 }
 
 static void prv_menu_ops_pan_cancel(void *w) {
@@ -1930,6 +2051,7 @@ static void prv_menu_ops_swipe(void *w, SwipeDirection dir) {
 // can_start is NULL: a MenuLayer is always ready to start a pan.
 static const TouchNavWidgetOps s_menu_touch_nav_ops = {
   .can_start = NULL,
+  .touchdown = prv_menu_ops_touchdown,
   .pan_started = prv_menu_ops_pan_started,
   .get_base_offset = prv_menu_ops_get_base_offset,
   .pan_update = prv_menu_ops_pan_update,

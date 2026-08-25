@@ -21,6 +21,7 @@
 #include "stubs_layer.h"
 #include "stubs_layout_node.h"
 #include "stubs_logging.h"
+#include "stubs_notification_image.h"
 #include "stubs_passert.h"
 #include "stubs_pbl_malloc.h"
 #include "stubs_pin_db.h"
@@ -29,6 +30,9 @@
 #include "stubs_text_node.h"
 #include "stubs_timeline_item.h"
 #include "stubs_timeline_resources.h"
+
+// Not in stubs_graphics.h: test_bitmap_layer.c defines its own.
+void graphics_draw_bitmap_in_rect(GContext *ctx, const GBitmap *src_bitmap, const GRect *rect) {}
 
 // Statics
 ////////////////////////////////////

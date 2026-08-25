@@ -131,7 +131,7 @@ clar(ctx,
      defines=ctx.env.test_image_defines + ["USE_DISPLAY_PERIMETER_ON_FONT_LAYOUT=1"],
      runtime_deps=ctx.env.test_pngs + ctx.env.test_pbis + ctx.env.test_pfos,
      override_includes=['dummy_board'],
-     platforms=['obelix', 'gabbro'])
+     platforms=['obelix', 'gabbro', 'asterix'])
 
 clar(ctx,
      sources_ant_glob=(

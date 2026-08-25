@@ -3,9 +3,12 @@
 
 #include "pbl/services/music_internal.h"
 
+#include "applib/graphics/gtypes.h"
 #include "apps/system/music.h"
+#include "pbl/services/imaging.h"
 #include <pbl/drivers/rtc.h>
 #include "kernel/events.h"
+#include "kernel/pbl_malloc.h"
 #include "process_management/app_manager.h"
 #include "shell/system_app_ids.auto.h"
 #include "pbl/os/mutex.h"
@@ -61,18 +64,74 @@ struct MusicServiceContext {
 
   //! The current playback state
   MusicPlayState playback_state;
+
+  //! @see music_skip_seeks_within_track
+  bool skip_seeks_within_track;
+
+  //! Album art for the current track, or NULL if none. Owned by the service; freed with
+  //! kernel_free. Deliberately kept (up to ~34 KB of kernel heap on the largest displays) even
+  //! while the Music app is closed, so reopening it shows the cover instantly; a track change,
+  //! NoArt reply or server disconnect replaces or frees it.
+  GBitmap *album_art;
+
+  //! The now_playing_generation the current album art response was for. A track change bumps
+  //! now_playing_generation without clearing the art (so the previous art stays on screen until the
+  //! new one arrives); comparing the two tells the Music app whether it still needs to request art
+  //! for the current track. Set on every response (art or NoArt), so a NoArt reply also stops the
+  //! re-request. @see music_album_art_is_current
+  uint8_t album_art_generation;
+
+  //! Generation token, bumped whenever the track (title/artist) changes. Used to discard album art
+  //! that arrives after a track change. @see music_get_now_playing_generation
+  uint8_t now_playing_generation;
 } s_music_ctx;
+
+// Album art arrives via the generic image-fetch service; store it against the requesting token.
+static void prv_imaging_album_art_received(uint8_t token, GBitmap *bitmap) {
+  music_set_album_art(bitmap, token);
+}
 
 void music_init(void) {
   s_music_ctx.mutex = mutex_create_recursive();
+  imaging_register_handler(ImagingImageTypeAlbumArt, prv_imaging_album_art_received);
+}
+
+//! Length to keep from (src, src_length) so the copy fits the buffer without splitting a UTF-8
+//! sequence. Backing off mid-sequence keeps the stored string valid UTF-8, which lets the phone
+//! prefix-match the title it gets back in an album-art request exactly (see the imaging service).
+static size_t prv_utf8_crop_length(const char *src, size_t src_length) {
+  size_t cropped = MIN(MUSIC_BUFFER_LENGTH - 1, src ? src_length : 0);
+  if (src && cropped < src_length) {
+    // We cut: if it landed inside a multi-byte sequence, drop the partial trailing bytes.
+    while (cropped > 0 && ((uint8_t)src[cropped] & 0xC0) == 0x80) {
+      cropped--;
+    }
+  }
+  return cropped;
 }
 
 static void copy_and_truncate(char *dest, const char *src, size_t src_length) {
-  size_t cropped_length = MIN(MUSIC_BUFFER_LENGTH - 1, src_length);
+  size_t cropped_length = prv_utf8_crop_length(src, src_length);
   if (src) {
     memcpy(dest, src, cropped_length);
   }
   dest[cropped_length] = 0;
+}
+
+//! @return true if the truncated form of (src, src_length) differs from the null-terminated dest.
+static bool prv_str_differs(const char *dest, const char *src, size_t src_length) {
+  size_t cropped_length = prv_utf8_crop_length(src, src_length);
+  return (strlen(dest) != cropped_length) || (memcmp(dest, src, cropped_length) != 0);
+}
+
+//! Free the currently-stored album art. Caller must hold the mutex.
+static void prv_free_album_art_locked(void) {
+  if (s_music_ctx.album_art) {
+    kernel_free(s_music_ctx.album_art->addr);
+    kernel_free(s_music_ctx.album_art->palette);
+    kernel_free(s_music_ctx.album_art);
+    s_music_ctx.album_art = NULL;
+  }
 }
 
 static void prv_put_now_playing_changed_event(void) {
@@ -120,6 +179,9 @@ bool music_set_connected_server(const MusicServerImplementation *implementation,
     // Taking short-cut here, music_update_now_playing already puts NowPlayingChanged event, no
     // need to put it again by calling music_update_player_name:
     s_music_ctx.player_name[0] = 0;
+    // now_playing no longer drops art on a track change (see music_update_now_playing), so clear it
+    // explicitly here: a connect/disconnect must not leave the previous session's art on screen.
+    prv_free_album_art_locked();
     music_update_now_playing(NULL, 0, NULL, 0, NULL, 0);
     music_update_track_duration(0);
     const MusicPlayerStateUpdate state = {
@@ -158,6 +220,22 @@ void music_update_now_playing(const char *title, size_t title_length,
                               const char *artist, size_t artist_length,
                               const char *album, size_t album_length) {
   mutex_lock_recursive(s_music_ctx.mutex);
+
+  // A change to the title, artist or album means we're on a different track, so any album art we're
+  // holding (or receiving) is now stale. Bump the generation so in-flight chunks for the old track
+  // are rejected and the Music app re-requests art. (Album is included so same-title/same-artist
+  // tracks from different albums, or podcast episodes, still refresh their art.)
+  //
+  // We deliberately keep the previous art on screen until the new track's art (or a NoArt reply)
+  // arrives, rather than dropping it here. Phones (e.g. Android) often send several now-playing
+  // updates per skip as metadata fields populate one-by-one, which would otherwise blank the art to
+  // black and flash it back once per update. music_set_album_art()/NoArt handle the swap.
+  const bool track_changed = prv_str_differs(s_music_ctx.title, title, title_length) ||
+                             prv_str_differs(s_music_ctx.artist, artist, artist_length) ||
+                             prv_str_differs(s_music_ctx.album, album, album_length);
+  if (track_changed) {
+    s_music_ctx.now_playing_generation++;
+  }
 
   copy_and_truncate(s_music_ctx.title, title, title_length);
   copy_and_truncate(s_music_ctx.artist, artist, artist_length);
@@ -321,6 +399,7 @@ void music_update_player_playback_state(const MusicPlayerStateUpdate *state) {
   s_music_ctx.playback_rate_percent = state->playback_rate_percent;
   s_music_ctx.track_pos_ms = state->elapsed_time_ms;
   s_music_ctx.track_pos_updated_at = rtc_get_ticks();
+  s_music_ctx.skip_seeks_within_track = state->skip_seeks_within_track;
   mutex_unlock_recursive(s_music_ctx.mutex);
 
   prv_put_state_changed_event(state->playback_state);
@@ -388,6 +467,13 @@ void music_request_low_latency_for_period(uint32_t period_ms) {
   }
 }
 
+bool music_skip_seeks_within_track(void) {
+  mutex_lock_recursive(s_music_ctx.mutex);
+  const bool seeks = s_music_ctx.skip_seeks_within_track;
+  mutex_unlock_recursive(s_music_ctx.mutex);
+  return seeks;
+}
+
 bool music_is_command_supported(MusicCommand command) {
   const off_t o = offsetof(__typeof__(*s_music_ctx.implementation),
                            is_command_supported);
@@ -436,6 +522,64 @@ bool music_is_progress_reporting_supported(void) {
 
 bool music_is_volume_reporting_supported(void) {
   return prv_is_capability_supported(MusicServerCapabilityVolumeReporting);
+}
+
+uint8_t music_get_now_playing_generation(void) {
+  mutex_lock_recursive(s_music_ctx.mutex);
+  uint8_t generation = s_music_ctx.now_playing_generation;
+  mutex_unlock_recursive(s_music_ctx.mutex);
+  return generation;
+}
+
+static void prv_put_album_art_updated_event(void) {
+  PebbleEvent e = {
+    .type = PEBBLE_MEDIA_EVENT,
+    .media.type = PebbleMediaEventTypeAlbumArtUpdated,
+  };
+  event_put(&e);
+}
+
+void music_set_album_art(GBitmap *bitmap, uint8_t token) {
+  mutex_lock_recursive(s_music_ctx.mutex);
+
+  if (token != s_music_ctx.now_playing_generation) {
+    // The track changed while the art was in flight; it's for the wrong song. Drop it.
+    if (bitmap) {
+      kernel_free(bitmap->addr);
+      kernel_free(bitmap->palette);
+      kernel_free(bitmap);
+    }
+    mutex_unlock_recursive(s_music_ctx.mutex);
+    return;
+  }
+
+  prv_free_album_art_locked();
+  s_music_ctx.album_art = bitmap;
+  // Record that we've now got a response (art, or NULL for NoArt) for this track, so the Music app
+  // stops re-requesting until the track changes again.
+  s_music_ctx.album_art_generation = token;
+
+  mutex_unlock_recursive(s_music_ctx.mutex);
+
+  prv_put_album_art_updated_event();
+}
+
+bool music_album_art_is_current(void) {
+  mutex_lock_recursive(s_music_ctx.mutex);
+  const bool is_current = (s_music_ctx.album_art_generation == s_music_ctx.now_playing_generation);
+  mutex_unlock_recursive(s_music_ctx.mutex);
+  return is_current;
+}
+
+const GBitmap *music_album_art_lock(void) {
+  mutex_lock_recursive(s_music_ctx.mutex);
+  // Held until music_album_art_unlock so the bitmap can't be freed mid-draw. The recursive mutex is
+  // released by the matching unlock call.
+  return s_music_ctx.album_art;
+}
+
+void music_album_art_unlock(void) {
+  mutex_unlock_recursive(s_music_ctx.mutex);
 }
 
 void command_print_now_playing(void) {

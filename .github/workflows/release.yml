@@ -27,7 +27,7 @@ jobs:
         run: git config --system --add safe.directory "${GITHUB_WORKSPACE}"
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: true
@@ -96,7 +96,7 @@ jobs:
           cp build/pebbleos.elf artifacts/prf_mfg_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}.elf
 
       - name: Store
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: artifacts-prf-${{ steps.artifact_board.outputs.NAME }}
           path: artifacts
@@ -129,7 +129,7 @@ jobs:
         run: git config --system --add safe.directory "${GITHUB_WORKSPACE}"
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: true
@@ -201,7 +201,7 @@ jobs:
             --endpoint-url "${{ vars.LOG_HASH_BUCKET_ENDPOINT }}"
 
       - name: Store
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: artifacts-${{ steps.artifact_board.outputs.NAME }}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}
           path: artifacts
@@ -224,7 +224,7 @@ jobs:
         run: git config --system --add safe.directory "${GITHUB_WORKSPACE}"
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: true
@@ -262,7 +262,7 @@ jobs:
           cp build/qemu_spi_flash.bin artifacts/sdkshell_${{ matrix.board }}_${{ github.ref_name }}_spi_flash.bin
 
       - name: Store
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: artifacts-${{ matrix.board }}
           path: artifacts
@@ -279,10 +279,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
 
       - name: Display artifacts
         run: ls -R
@@ -300,7 +300,7 @@ jobs:
           done
 
       - name: Create release
-        uses: softprops/action-gh-release@v3.0.0
+        uses: softprops/action-gh-release@v3.0.2
         with:
           files: artifacts-*/*
 

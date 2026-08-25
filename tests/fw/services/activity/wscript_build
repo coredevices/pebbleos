@@ -61,7 +61,7 @@ clar(ctx,
          " tests/fw/services/activity/kraepelin_reference/helper_worker.c" \
          " tests/fw/services/activity/kraepelin_reference/ProjectK_worker.c" \
          " tests/fw/services/activity/kraepelin_reference/raw_stats.c",
-     defines=['DUMA_DISABLED'],  # DUMA false-positive
+     defines=['DUMA_DISABLED', 'CONFIG_HRM'],  # DUMA false-positive
      test_sources_ant_glob = "test_kraepelin_algorithm.c",
      override_includes=['dummy_board'])
 

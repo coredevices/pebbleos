@@ -223,7 +223,7 @@ static void dls_endpoint_print_message(uint8_t *message, int num_bytes) {
 
 bool dls_endpoint_open_session(DataLoggingSession *session) {
   CommSession *comm_session = comm_session_get_system_session();
-  if (!session) {
+  if (!comm_session) {
     return false;
   }
 

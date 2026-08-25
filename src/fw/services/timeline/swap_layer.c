@@ -1001,7 +1001,9 @@ static void prv_swap_ops_pan_update(void *w, GPoint base, GPoint delta) {
   prv_swap_touch_apply_drag((SwapLayer *)w, base.y, delta.y);
 }
 
-static void prv_swap_ops_pan_snap(void *w, GPoint base, GPoint final_delta) {
+static void prv_swap_ops_pan_snap(void *w, GPoint base, GPoint final_delta, GPoint velocity) {
+  // The notification swap has page semantics; the liftoff decision is displacement-based.
+  (void)velocity;
   prv_swap_touch_liftoff((SwapLayer *)w, base.y, final_delta.y);
 }
 

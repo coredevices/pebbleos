@@ -875,6 +875,7 @@ bool activity_algorithm_deinit(void) {
   PBL_ASSERTN(s_alg_state->k_state);
 
   mutex_destroy((PebbleMutex *)s_alg_state->mutex);
+  kalg_deinit(s_alg_state->k_state);
   kernel_free(s_alg_state->k_state);
 
   kernel_free(s_alg_state);

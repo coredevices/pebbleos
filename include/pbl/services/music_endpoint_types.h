@@ -48,10 +48,18 @@ typedef enum {
   MusicEndpointRepeatModeAll = 3,
 } MusicEndpointRepeatMode;
 
+//! Bits of the optional byte trailing MusicEndpointPlayStateInfo. Phone apps that predate it send
+//! the shorter message, which reads as "no bits set".
+typedef enum {
+  MusicEndpointSkipSeeksWithinTrack = (1 << 0),
+} MusicEndpointSkipSeeksFlag;
+
 typedef struct PACKED {
   uint8_t play_state;
   int32_t track_pos_ms;
   int32_t play_rate;
   uint8_t play_shuffle_mode;
   uint8_t play_repeat_mode;
+  //! Trailing MusicEndpointSkipSeeksFlag bits follow, but are optional: check the message length
+  //! before reading them.
 } MusicEndpointPlayStateInfo;

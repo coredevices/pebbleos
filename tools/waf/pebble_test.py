@@ -526,7 +526,6 @@ def clar(
     # Make a copy so if we modify it we don't accidentally modify the callers list
     defines = list(defines or [])
     defines.append("UNITTEST")
-    defines.append("MEMFAULT=0")
 
     if platforms is None:
         platforms = ["default"]

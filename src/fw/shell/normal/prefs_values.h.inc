@@ -72,4 +72,5 @@
   PREFS_MACRO(PREF_KEY_MENU_SCROLL_VIBE_BEHAVIOR, s_menu_scroll_vibe_behavior)
   PREFS_MACRO(PREF_KEY_MUSIC_SHOW_VOLUME_CONTROLS, s_music_show_volume_controls)
   PREFS_MACRO(PREF_KEY_MUSIC_SHOW_PROGRESS_BAR, s_music_show_progress_bar)
+  PREFS_MACRO(PREF_KEY_MUSIC_SHOW_ALBUM_ART, s_music_show_album_art)
   PREFS_MACRO(PREF_KEY_BUTTON_LOCK_HOLD_MS, s_button_lock_hold_ms)

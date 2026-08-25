@@ -93,6 +93,10 @@ uint32_t kalg_state_size(void);
 //  statistics that are computed.
 bool kalg_init(KAlgState *state, KAlgStatsCallback stats_cb);
 
+// Release resources held by the state. Must be called before freeing it.
+// @param[in] state the state structure passed into kalg_init
+void kalg_deinit(KAlgState *state);
+
 // Analyze a set of accel samples
 // @param[in] state the state structure passed into kalg_init
 // @param[in] samples array of accel samples

@@ -8,6 +8,7 @@
 #include <bluetooth/init.h>
 
 #include "comm/bt_lock.h"
+#include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/regular_timer.h"
@@ -244,7 +245,7 @@ static void prv_increment_elapsed_time_for_job(GAPLEAdvertisingJob **job_ptr, bo
 //! It removes the job if it's done.
 //! It updates the s_jobs list.
 //! It calls prv_perform_next_job() to set up the next job.
-static void prv_cycle_timer_callback(void *unused) {
+static void prv_cycle_kernelmain_cb(void *unused) {
   bool force_update = false;
 
   bt_lock();
@@ -270,6 +271,12 @@ static void prv_cycle_timer_callback(void *unused) {
   }
 unlock:
   bt_unlock();
+}
+
+//! Runs once per second on the NewTimers task; never block on bt_lock there
+//! (it stalls every other timer in the system) — bounce to KernelMain.
+static void prv_cycle_timer_callback(void *unused) {
+  launcher_task_add_callback(prv_cycle_kernelmain_cb, NULL);
 }
 
 // -----------------------------------------------------------------------------

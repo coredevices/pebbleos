@@ -10,8 +10,7 @@ config RELEASE
     help
       Whether this is a release build. Pass
       `-DCONFIG_RELEASE=y` to `./waf configure` to enable. Gates
-      features like Memfault crash reporting that should only run on
-      shipping firmware.
+      features that should only run on shipping firmware.
 
 config RECOVERY_FW
     bool "Recovery firmware (PRF)"

@@ -24,7 +24,7 @@ static NORETURN prv_enter_standby(void) {
 #endif
 
 NORETURN enter_standby(RebootReasonCode reason) {
-  PBL_LOG_ALWAYS("Preparing to enter standby mode.");
+  PBL_LOG_ALWAYS("Preparing to enter standby mode (reason %u).", (unsigned)reason);
 
   RebootReason reboot_reason = { reason, 0 };
   reboot_reason_set(&reboot_reason);
