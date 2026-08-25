@@ -320,6 +320,10 @@ void workout_service_frontend_closed(void) {
     } else if (s_workout_data.frontend_last_opened_ts >= s_workout_data.last_workout_end_ts) {
       // If the app was opened and closed without starting a workout, turn the HR sensor off
       hr_time_left = 0;
+    } else if (activity_prefs_get_hrm_measurement_interval() == HRMonitoringInterval_Disabled) {
+      // Background HR monitoring is off, so the user expects the sensor to run only while an
+      // activity is in progress. The workout is over, so skip the recovery window entirely.
+      hr_time_left = 0;
     } else {
       // We have ended a workout while the app was open. Make sure to keep the HR sensor on for at
       // least a little bit after the workout is finished
