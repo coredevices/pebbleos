@@ -1,0 +1,9 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    commit-message:
+      prefix: 'ci'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
