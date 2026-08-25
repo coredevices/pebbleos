@@ -13,9 +13,6 @@
 #include "logging/logging_private.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
-#if MEMFAULT
-#include "memfault/core/platform/core.h"
-#endif
 #include "mfg/mfg_serials.h"
 #include "process_management/app_manager.h"
 #include "pbl/services/analytics/analytics.h"
@@ -192,11 +189,6 @@ void debug_init(McuRebootReason mcu_reboot_reason) {
 #ifdef CONFIG_PBLBOOT
   PBL_LOG_ALWAYS("Boot slot: %d", TINTIN_METADATA.is_slot_0 ? 0 : 1);
 #endif
-
-  #if MEMFAULT
-  // This must be called before debug_reboot_reason_print which resets the reason
-  memfault_platform_boot();
-  #endif
 
   debug_reboot_reason_print(mcu_reboot_reason);
 }

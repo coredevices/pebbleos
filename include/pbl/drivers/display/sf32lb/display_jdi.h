@@ -55,7 +55,7 @@ void display_jdi_irq_handler(DisplayJDIDevice *disp);
 //! Test hook: arm a one-shot drop of the next LCDC transfer-complete callback,
 //! simulating the silent-loss failure mode (e.g. SiFli HAL ICB overflow). The
 //! silent-loss timer should fire ~500ms later and PBL_CROAK, producing a
-//! Memfault coredump and a watch reboot. Intended for verifying the
+//! coredump and a watch reboot. Intended for verifying the
 //! detect-and-crash path on hardware.
 void display_jdi_test_drop_next_complete(void);
 #endif

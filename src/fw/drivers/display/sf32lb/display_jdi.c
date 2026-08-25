@@ -11,7 +11,6 @@
 #include "kernel/pbl_malloc.h"
 #include "kernel/util/delay.h"
 #include "pbl/soc/sf32lb/sleep.h"
-#include "kernel/coredump_extra_regions.h"
 #include <pbl/drivers/rtc.h>
 #include "pbl/mcu/cache.h"
 #include "pbl/os/mutex.h"
@@ -90,20 +89,6 @@ static volatile DisplayIrqLog s_lcdc_irq_log;
 // Set by HAL_LCDC_SendLayerDataCpltCbk (the EOF callback) so the IRQ logger can
 // record, per interrupt, whether the HAL reached the completion path.
 static volatile bool s_lcdc_eof_cb_fired;
-
-// Called from coredump_extra_regions_init() in main.c boot path so the
-// snapshot buffer rides in Memfault coredumps. The default Memfault
-// reconstruction only forwards thread stacks + log buffers; without this
-// the LCDC register dump captured by prv_silent_loss_handler stays in flash
-// and never reaches Sifli.
-void display_jdi_register_coredump_regions(void) {
-  coredump_extra_regions_register("lcdc_pre_crash_regs",
-                                  (const void *)s_lcdc_pre_crash_regs,
-                                  sizeof(s_lcdc_pre_crash_regs));
-  coredump_extra_regions_register("lcdc_irq_log",
-                                  (const void *)&s_lcdc_irq_log,
-                                  sizeof(s_lcdc_irq_log));
-}
 
 #ifndef CONFIG_RELEASE
 // Test hook: arm a one-shot drop of the next LCDC transfer-complete callback,
@@ -225,8 +210,8 @@ static void prv_snapshot_lcdc_regs(const LCDC_HandleTypeDef *hlcdc) {
 // HAL_LCDC_ERROR_OVERFLOW without invoking XferCpltCallback / XferErrorCallback,
 // so the firmware silently loses the completion and the compositor wedges.
 // Capture LCDC registers into BSS so they ride in the coredump, then crash —
-// the user sees a reboot instead of a frozen screen, and Memfault captures
-// the state Sifli needs to diagnose the underlying HAL bug.
+// the user sees a reboot instead of a frozen screen, and the coredump
+// captures the state Sifli needs to diagnose the underlying HAL bug.
 static void prv_silent_loss_handler(void *data) {
   if (s_eof_observed) {
     // EOF fired between us arming the timer and the timeout — terminate is

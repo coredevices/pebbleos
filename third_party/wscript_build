@@ -17,5 +17,3 @@ if bld.env.CONFIG_HAL_SIFLI:
 if bld.env.CONFIG_BT_FW_NIMBLE:
     bld.recurse('mbedtls')
     bld.recurse('nimble')
-
-bld.recurse('memfault')

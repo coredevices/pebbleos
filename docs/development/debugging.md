@@ -55,10 +55,8 @@ Logs are also persisted to a circular buffer in flash;
 
 When the firmware crashes, it writes a coredump to SPI flash (see the
 {doc}`architecture overview <../architecture/index>` for the on-flash
-format). Devices reporting to Memfault upload these automatically:
+format).
 
-- `tools/memfault_download_coredumps.py` downloads all coredumps for a
-  Memfault issue together with the matching symbol ELF files.
 - `tools/analyze_coredump.py <symbols.elf> <coredump>` runs GDB in batch
   mode and prints a full report: backtraces for all threads, registers,
   heap and lock statistics, and build metadata.

@@ -394,10 +394,6 @@ def _link_firmware(bld, sources):
     # selected by lib/c via tools/waf/libc.py.
     uses.extend(bld.env.LIBC_USE)
 
-    if bld.env.CONFIG_MEMFAULT:
-        fw_linkflags.append('-Wl,--require-defined=g_memfault_build_id')
-        uses.append('memfault')
-
     # Used by pblboot image tools; the C define mirrors the historical name.
     bld.env.FIRMWARE_OFFSET = bld.env.CONFIG_FIRMWARE_OFFSET
     bld.env.append_value('DEFINES', [f'FIRMWARE_OFFSET={bld.env.CONFIG_FIRMWARE_OFFSET}'])
@@ -496,9 +492,6 @@ def _build_fw(bld):
                      'freertos_includes',
                      'idl_includes',
                      'nanopb_includes']
-
-    if bld.env.CONFIG_MEMFAULT:
-        fw_includes_use.append('memfault_includes')
 
     if bld.env.CONFIG_SOC_NRF52:
         fw_includes_use.append('hal_nordic')

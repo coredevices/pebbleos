@@ -133,7 +133,8 @@ void fault_handler_dump(char buffer[80], unsigned int *stacked_args) {
 
 static void hard_fault_handler_c(unsigned int* hardfault_args) {
   // Prefer LR (PC is often madness on a hardfault). Fall back through PC,
-  // BFAR, MMFAR so Memfault always has a non-zero address to fingerprint on.
+  // BFAR, MMFAR so crash reports always have a non-zero address to
+  // fingerprint on.
   unsigned int stacked_lr = ((unsigned long) hardfault_args[5]);
   if (stacked_lr == 0) {
     stacked_lr = ((unsigned long) hardfault_args[6]);

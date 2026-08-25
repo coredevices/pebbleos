@@ -40,7 +40,6 @@
 #include "resource/resource.h"
 #include "resource/system_resource.h"
 
-#include "kernel/coredump_extra_regions.h"
 #include "kernel/util/task_init.h"
 #include "kernel/util/sleep.h"
 #include "kernel/events.h"
@@ -289,11 +288,6 @@ static NOINLINE void prv_main_task_init(void) {
   // from firing if we block other tasks.
   task_watchdog_init();
   task_watchdog_pause(30);
-
-  // Wire up the coredump extra-regions registry before pbl_analytics_init,
-  // which triggers Memfault coredump reconstruction. Reconstruction reads the
-  // registry to decide what beyond-the-defaults RAM to forward to the cloud.
-  coredump_extra_regions_init();
 
   pbl_analytics_init();
   register_system_timers();

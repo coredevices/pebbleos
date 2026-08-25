@@ -43,8 +43,8 @@ Normal firmware and PRF (Pebble Recovery Firmware — the minimal fallback
 image used to reinstall the main firmware) are separate compile-time
 variants: `./pbl configure --variant=prf` (see
 [build options](../development/options.md)) applies `src/fw/prj_prf.conf` on
-top of the base config, disabling the JS engine and Memfault and marking the
-image as recovery firmware.
+top of the base config, disabling the JS engine and marking the image as
+recovery firmware.
 
 ## Processes and apps
 
@@ -111,8 +111,6 @@ alongside the allocator in `pfs.c`.
 
 The on-flash coredump image format (header plus chunked records, including
 per-thread register sets) is documented in `src/fw/kernel/core_dump.c`.
-Drivers can attach extra RAM regions to the Memfault upload via the registry
-described in `src/fw/kernel/coredump_extra_regions.h`.
 
 ## Design documents
 

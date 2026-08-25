@@ -24,8 +24,8 @@ Build variant, `normal` (main firmware) or `prf` (recovery firmware).
 
 :`-DCONFIG_RELEASE=y`:
 Build a release-mode firmware. Strips debug aids, enables shipping
-defaults (e.g. Memfault crash reporting), and reduces battery usage
-compared to a debug build. Pass this to `./pbl configure`.
+defaults, and reduces battery usage compared to a debug build. Pass
+this to `./pbl configure`.
 
 ## Main features
 
