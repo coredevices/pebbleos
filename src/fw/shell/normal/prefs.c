@@ -1418,9 +1418,11 @@ BacklightPreset backlight_get_preset(void) {
     return BacklightPreset_Advanced;
   }
   // A preset is only reported while the underlying settings still match it;
-  // they can drift independently (e.g. via phone sync).
+  // they can drift independently (e.g. via phone sync). Every concrete preset
+  // implies the backlight is on, so a disabled backlight also means Advanced.
   const BacklightPresetSettings *settings = &s_backlight_preset_settings[preset];
-  if ((s_backlight_ambient_sensor_enabled != settings->ambient_sensor_enabled) ||
+  if (!s_backlight_enabled ||
+      (s_backlight_ambient_sensor_enabled != settings->ambient_sensor_enabled) ||
 #ifdef CONFIG_DYNAMIC_BACKLIGHT
       (s_backlight_dynamic_mode != settings->dynamic_mode) ||
 #endif
