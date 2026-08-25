@@ -2152,3 +2152,102 @@ void test_menu_layer__overscroll_cancel_restores_instantly(void) {
   cl_assert(!anim || !animation_is_scheduled(anim));
   menu_layer_deinit(&l);
 }
+
+// Overscroll highlight stretch
+//////////////////////
+
+void test_menu_layer__overscroll_stretch_fills_gap_at_top(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t cell_h = l.selection.h;
+  cl_assert_equal_i(l.selection.y, 0);  // first row selected
+
+  // Pulling past the top rubber-bands the offset; the selection background extends up to the
+  // viewport top so the exposed gap reads as the selected cell stretching.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  const int16_t offset_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert(offset_y > 0);
+  cl_assert(l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, -offset_y);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, cell_h + offset_y);
+
+  // Tracking the finger back into range restores the natural frame and clears the flag.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -10));
+  cl_assert(!l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, 0);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, cell_h);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_stretch_only_with_edge_row_selected(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_set_selected_index(&l, MenuIndex(0, 5), MenuRowAlignTop, false);
+  const int16_t base_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  const GRect before = l.inverter.layer.frame;
+
+  // The offset still rubber-bands past the top, but with a mid-list row selected the highlight
+  // is left alone.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, base_y), GPoint(0, -base_y + 50));
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y > 0);
+  cl_assert(!l.overscroll_stretched);
+  cl_assert(grect_equal(&l.inverter.layer.frame, &before));
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_stretch_fills_gap_at_bottom(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t frame_h = 168;
+  const int16_t min_y = (int16_t)(frame_h - scroll_layer_get_content_size(&l.scroll_layer).h);
+  menu_layer_set_selected_index(&l, MenuIndex(0, 9), MenuRowAlignCenter, false);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, min_y);
+
+  // Pulling past the bottom: the highlight extends down to the viewport bottom (covering the
+  // bottom padding on the way), anchored at the cell's top.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, min_y), GPoint(0, -50));
+  const int16_t offset_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert(offset_y < min_y);
+  cl_assert(l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, l.selection.y);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y + l.inverter.layer.frame.size.h,
+                    frame_h - offset_y);  // content-space viewport bottom
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_stretch_follows_spring_back(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t cell_h = l.selection.h;
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  cl_assert(l.overscroll_stretched);
+
+  // Liftoff schedules the offset spring-back toward the edge; the stretch is offset-derived, so
+  // each animation frame shrinks it, and reaching the edge restores the natural frame.
+  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, 50), GPoint(0, 0));
+  cl_assert(animation_is_scheduled(property_animation_get_animation(l.scroll_layer.animation)));
+  cl_assert_equal_i(s_anim_to.y, 0);
+  scroll_layer_touch_set_content_offset_overscrolled(&l.scroll_layer, 5);  // a mid-glide frame
+  cl_assert(l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, -5);
+  scroll_layer_touch_set_content_offset_overscrolled(&l.scroll_layer, 0);  // the glide lands on the edge
+  cl_assert(!l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, 0);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, cell_h);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_stretch_resets_on_cancel(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t cell_h = l.selection.h;
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  cl_assert(l.overscroll_stretched);
+
+  // A cancelled gesture restores the offset instantly, and the stretch follows.
+  menu_layer_touch_handle_cancel(&l);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, 0);
+  cl_assert(!l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, cell_h);
+  menu_layer_deinit(&l);
+}
