@@ -77,7 +77,7 @@ jobs:
         run: ./waf build qemu_image_micro qemu_image_spi
 
       - name: Store
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: firmware-${{ matrix.board }}-qemu
           path: |

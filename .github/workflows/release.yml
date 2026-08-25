@@ -96,7 +96,7 @@ jobs:
           cp build/pebbleos.elf artifacts/prf_mfg_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}.elf
 
       - name: Store
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: artifacts-prf-${{ steps.artifact_board.outputs.NAME }}
           path: artifacts
@@ -201,7 +201,7 @@ jobs:
             --endpoint-url "${{ vars.LOG_HASH_BUCKET_ENDPOINT }}"
 
       - name: Store
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: artifacts-${{ steps.artifact_board.outputs.NAME }}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}
           path: artifacts
@@ -262,7 +262,7 @@ jobs:
           cp build/qemu_spi_flash.bin artifacts/sdkshell_${{ matrix.board }}_${{ github.ref_name }}_spi_flash.bin
 
       - name: Store
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: artifacts-${{ matrix.board }}
           path: artifacts

@@ -93,7 +93,7 @@ jobs:
         run: ./waf bundle
 
       - name: Store
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: firmware-${{ steps.artifact_board.outputs.NAME }}
           path: |
@@ -189,7 +189,7 @@ jobs:
           ls -la out
 
       - name: Store merged QA firmware
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: qa-firmware-${{ steps.artifact_board.outputs.NAME }}
           path: out/**

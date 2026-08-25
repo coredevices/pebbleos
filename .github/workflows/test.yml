@@ -80,7 +80,7 @@ jobs:
           detailed_summary: true
 
       - name: Store failed test images
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: (!cancelled())
         with:
           name: failed_test_images
