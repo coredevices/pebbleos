@@ -9,6 +9,18 @@ on:
       run_id:
         description: "Build Firmware run id whose merged firmware artifacts are tested"
         required: true
+      unicorn_ref:
+        description: "Unicorn workflow ref (manual integration testing only)"
+        required: false
+        default: "main"
+      coreapp_run_id:
+        description: "CoreApp Build Android run id (manual integration testing only)"
+        required: false
+        default: ""
+      coreapp_qa_ref:
+        description: "CoreApp qa/release ref (manual integration testing only)"
+        required: false
+        default: ""
 
 run-name: Release QA (${{ github.event.workflow_run.head_branch || format('run {0}', inputs.run_id) }})
 
@@ -76,11 +88,22 @@ jobs:
           GH_TOKEN: ${{ secrets.UNICORN_DISPATCH_TOKEN }}
           RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
           PEBBLEOS_QA_REF: ${{ steps.check.outputs.pebbleos_sha }}
+          UNICORN_REF: ${{ inputs.unicorn_ref || 'main' }}
+          COREAPP_RUN_ID: ${{ inputs.coreapp_run_id }}
+          COREAPP_QA_REF: ${{ inputs.coreapp_qa_ref }}
         run: |
           if [ -z "${GH_TOKEN:-}" ]; then
             echo "::warning::UNICORN_DISPATCH_TOKEN not set, skipping"
             exit 0
           fi
-          gh workflow run one-off-pebbleos-test.yml -R coredevices/unicorn \
-            -f to_pbz_run_id="${RUN_ID}" \
-            -f pebbleos_qa_ref="${PEBBLEOS_QA_REF}"
+          # `gh workflow run` first queries repository.defaultBranchRef through GraphQL. The
+          # fine-grained dispatch token intentionally has Actions access but not Contents access,
+          # so that preflight fails even though the REST workflow-dispatch permission is present.
+          # Call the dispatch endpoint directly and pin every definition ref passed to Unicorn.
+          gh api --method POST \
+            "repos/coredevices/unicorn/actions/workflows/one-off-pebbleos-test.yml/dispatches" \
+            -f ref="$UNICORN_REF" \
+            -f "inputs[to_pbz_run_id]=$RUN_ID" \
+            -f "inputs[pebbleos_qa_ref]=$PEBBLEOS_QA_REF" \
+            -f "inputs[coreapp_run_id]=$COREAPP_RUN_ID" \
+            -f "inputs[coreapp_qa_ref]=$COREAPP_QA_REF"

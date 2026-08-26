@@ -48,8 +48,10 @@ An unmerged change is tested without copying definitions into Unicorn:
 
 1. Build the PebbleOS PR to get its merged dual-slot `firmware-obelix_pvt` artifact.
 2. Build the CoreApp PR to get its `app-release` APK.
-3. Dispatch Unicorn's `one-off-pebbleos-test` from its integration branch with both run IDs and both
-   source SHAs. Unicorn checks out each catalog at the exact SHA that produced its artifact.
+3. Manually dispatch PebbleOS `Release QA` from its integration branch with the Unicorn integration
+   ref, both run IDs, and the CoreApp source SHA. It resolves the PebbleOS SHA from the firmware run
+   and dispatches Unicorn through the same REST handoff used after merge. Unicorn checks out each
+   catalog at the exact SHA that produced its artifact.
 
 The recommended merge order is Unicorn executor first, CoreApp capabilities second, and PebbleOS
 catalog last. Older artifact commits without both catalogs continue through Unicorn's legacy flow
