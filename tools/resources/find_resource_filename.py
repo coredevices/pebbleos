@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from pebble_sdk_platform import pebble_platforms
-
 import os
 import os.path
 from glob import glob
+
+from pebble_sdk_platform import pebble_platforms
 
 __author__ = "katharine"
 
@@ -22,7 +22,7 @@ def find_most_specific_filename(bld, env, root_node, general_filename):
         root_len = 2
 
     glob_result = glob(
-        "{}*{}".format(os.path.join(root_node.relpath(), basename), extension)
+        f"{os.path.join(root_node.relpath(), basename)}*{extension}"
     )
     options = [x[root_len:] for x in glob_result if os.path.isfile(x)]
 

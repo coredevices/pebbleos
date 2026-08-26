@@ -1,22 +1,19 @@
 # Copyright (c) 2025 Joshua Wise
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import, print_function
-
-from progressbar import (
-    ProgressBar,
-    Bar,
-    FileTransferSpeed,
-    Timer,
-    Percentage,
-    FormatLabel,
-)
 
 from libpebble2.protocol.system import SystemMessage
 from libpebble2.services.putbytes import PutBytes, PutBytesType
 from libpebble2.util.bundle import PebbleBundle
-
 from pebble_tool.commands.base import PebbleCommand
+from progressbar import (
+    Bar,
+    FileTransferSpeed,
+    FormatLabel,
+    Percentage,
+    ProgressBar,
+    Timer,
+)
 
 
 class InstallFirmwareCommand(PebbleCommand):
@@ -40,7 +37,7 @@ class InstallFirmwareCommand(PebbleCommand):
         self.started = False
 
     def __call__(self, args):
-        super(InstallFirmwareCommand, self).__call__(args)
+        super().__call__(args)
 
         self.pebble.send_and_read(
             SystemMessage(message_type=SystemMessage.Type.FirmwareUpdateStart),
@@ -77,6 +74,6 @@ class InstallFirmwareCommand(PebbleCommand):
 
     @classmethod
     def add_parser(cls, parser):
-        parser = super(InstallFirmwareCommand, cls).add_parser(parser)
+        parser = super().add_parser(parser)
         parser.add_argument("filename", nargs="?", type=str, help="Filename of pbz")
         return parser

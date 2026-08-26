@@ -10,6 +10,7 @@ see http://clang.llvm.org/docs/JSONCompilationDatabase.html"""
 
 import json
 import os
+
 from waflib import Logs, TaskGen
 from waflib.Tools import c, cxx
 
@@ -69,9 +70,7 @@ def write_compilation_database(ctx):
 
 def options(opt):
     "opitions for clang_compilation_database"
-    pass
 
 
 def configure(cfg):
     "configure for clang_compilation_database"
-    pass

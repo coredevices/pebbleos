@@ -1,10 +1,9 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from waflib.TaskGen import before_method, feature
-from waflib import Context, Task
-
 from sdk_helpers import get_node_from_abspath
+from waflib import Context, Task
+from waflib.TaskGen import before_method, feature
 
 
 @feature("headers")
@@ -72,15 +71,11 @@ class copy_headers(Task.Task):
 
         if len(self.inputs) != len(self.outputs):
             bld.fatal(
-                "Number of input headers ({}) does not match number of target headers ({})".format(
-                    len(self.inputs), len(self.outputs)
-                )
+                f"Number of input headers ({len(self.inputs)}) does not match number of target headers ({len(self.outputs)})"
             )
 
         for i in range(len(self.inputs)):
             bld.cmd_and_log(
-                'cp "{src}" "{tgt}"'.format(
-                    src=self.inputs[i].abspath(), tgt=self.outputs[i].abspath()
-                ),
+                f'cp "{self.inputs[i].abspath()}" "{self.outputs[i].abspath()}"',
                 quiet=Context.BOTH,
             )

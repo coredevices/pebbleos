@@ -3,12 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import argparse
 import re
 import sys
-import argparse
 
 from .newlogging import get_log_dict_from_file
-
 
 FORMAT_SPECIFIER_REGEX = (
     r"(?P<flags>[-+ #0])?(?P<width>\*|\d*)?(?P<precision>\.\d+|\.\*)?"
@@ -48,14 +47,7 @@ def check_dict_log_strings(log_dict):
 
         # Make sure that 'level' is being generated correctly
         if "level" in log_line:
-            if not log_line["level"].isdigit():
-                output.append(
-                    "'{}' PBL_LOG contains a non-constant LOG_LEVEL_ value '{}'".format(
-                        file_line, log_line["level"]
-                    )
-                )
-                break
-            elif int(log_line["level"]) not in LOG_LEVELS:
+            if not log_line["level"].isdigit() or int(log_line["level"]) not in LOG_LEVELS:
                 output.append(
                     "'{}' PBL_LOG contains a non-constant LOG_LEVEL_ value '{}'".format(
                         file_line, log_line["level"]
@@ -65,7 +57,7 @@ def check_dict_log_strings(log_dict):
 
         # Make sure that '`' isn't anywhere in the string
         if "`" in log_line["msg"]:
-            output.append("'{}' PBL_LOG contains '`'".format(file_line))
+            output.append(f"'{file_line}' PBL_LOG contains '`'")
 
         # Now check the fmt string rules:
 
@@ -84,7 +76,7 @@ def check_dict_log_strings(log_dict):
             match = FORMAT_SPECIFIER_PATTERN.match(log_line["msg"][offset + 1 :])
             if not match:
                 output.append(
-                    "'{}' PBL_LOG contains unknown format specifier".format(file_line)
+                    f"'{file_line}' PBL_LOG contains unknown format specifier"
                 )
                 break
 
@@ -92,18 +84,18 @@ def check_dict_log_strings(log_dict):
 
             # RULE: no % literals.
             if match.group("specifier") == "%":
-                output.append("'{}' PBL_LOG contains '%%'".format(file_line))
+                output.append(f"'{file_line}' PBL_LOG contains '%%'")
                 break
 
             # RULE: no 64 bit values.
             if match.group("length") in LENGTH_64:
-                output.append("'{}' PBL_LOG contains 64 bit value".format(file_line))
+                output.append(f"'{file_line}' PBL_LOG contains 64 bit value")
                 break
 
             # RULE: no floats. VarArgs promotes to 64 bits, so this won't work, either
             if match.group("specifier") in FLOAT_SPECIFIERS:
                 output.append(
-                    "'{}' PBL_LOG contains floating point specifier".format(file_line)
+                    f"'{file_line}' PBL_LOG contains floating point specifier"
                 )
                 break
 
@@ -116,16 +108,14 @@ def check_dict_log_strings(log_dict):
                     or match.group("precision")
                 ):
                     output.append(
-                        "'{}' PBL_LOG contains a formatted string conversion".format(
-                            file_line
-                        )
+                        f"'{file_line}' PBL_LOG contains a formatted string conversion"
                     )
                     break
 
             # RULE: no dynamic width specifiers. I.e., no * or .* widths. '.*' is already covered
             #       above -- .* specifies precision for floats and # chars for strings. * remains.
             if "*" in match.group("width"):
-                output.append("'{}' PBL_LOG contains a dynamic width".format(file_line))
+                output.append(f"'{file_line}' PBL_LOG contains a dynamic width")
                 break
 
             # Consume this match by updating our offset
@@ -136,13 +126,13 @@ def check_dict_log_strings(log_dict):
         # RULE: maximum of 7 format conversions
         if num_conversions > 7:
             output.append(
-                "'{}' PBL_LOG contains more than 7 format conversions".format(file_line)
+                f"'{file_line}' PBL_LOG contains more than 7 format conversions"
             )
 
         # RULE: maximum of 2 string conversions
         if num_str_conversions > 2:
             output.append(
-                "'{}' PBL_LOG contains more than 2 string conversions".format(file_line)
+                f"'{file_line}' PBL_LOG contains more than 2 string conversions"
             )
 
     if output:

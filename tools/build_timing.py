@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import requests
 import re
 from datetime import datetime
+
+import requests
 
 # Hello. This script is kind of crappy.
 #

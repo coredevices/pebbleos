@@ -1,10 +1,10 @@
-import os
-import unittest
-import sys
 import argparse
+import os
+import sys
+import unittest
 
-from pblconvert.pblconvert import parse_args
 from pblconvert import pblconvert
+from pblconvert.pblconvert import parse_args
 
 
 class FakeFile:
@@ -12,7 +12,7 @@ class FakeFile:
         self.name = name
 
 
-class FakeFileType(object):
+class FakeFileType:
     def __init__(self, mode="r", bufsize=-1):
         self._mode = mode
         self._bufsize = bufsize

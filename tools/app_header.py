@@ -6,7 +6,7 @@ import uuid
 from functools import reduce
 
 
-class PebbleAppHeader(object):
+class PebbleAppHeader:
     MAGIC = b"PBLAPP\x00\x00"
 
     # 10 bytes
@@ -116,7 +116,7 @@ class PebbleAppHeader(object):
 
     def __setattr__(self, name, value):
         if name == "_info":
-            super(PebbleAppHeader, self).__setattr__(name, value)
+            super().__setattr__(name, value)
         self._info[name] = value
 
     def __repr__(self):

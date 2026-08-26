@@ -3,18 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from struct import pack, unpack
-
 import os
 import os.path
 import sys
-
-from subprocess import Popen, PIPE
 from shutil import copy2
-from pbpack import ResourcePack
-
+from struct import pack, unpack
+from subprocess import PIPE, Popen
 
 import stm32_crc
+from pbpack import ResourcePack
 
 # Pebble App Metadata Struct
 # These are offsets of the PebbleProcessInfo struct in src/fw/app_management/pebble_process_info.h
@@ -158,11 +155,7 @@ def inject_metadata(
             if len(columns) < 6:
                 continue
 
-            if columns[0] == ".bss":
-                addr = int(columns[2], 16)
-                size = int(columns[4], 16)
-                last_section_end_addr = addr + size
-            elif columns[0] == ".data" and last_section_end_addr == 0:
+            if columns[0] == ".bss" or columns[0] == ".data" and last_section_end_addr == 0:
                 addr = int(columns[2], 16)
                 size = int(columns[4], 16)
                 last_section_end_addr = addr + size
@@ -333,8 +326,7 @@ def inject_metadata(
         # Write the reloc_entries past the end of the binary. This expands the size of the binary,
         # but this new stuff won't actually be loaded into ram.
         f.seek(app_load_size)
-        for entry in reloc_entries:
-            f.write(pack("<L", entry))
+        f.writelines(pack("<L", entry) for entry in reloc_entries)
 
         f.flush()
 

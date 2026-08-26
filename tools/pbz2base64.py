@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-import zipfile
 import argparse
-import json
 import base64
+import json
 import os
+import zipfile
 
 CHUNK_SIZE = (1024 * 3) / 4
 

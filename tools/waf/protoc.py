@@ -5,6 +5,7 @@
 # Matt Clarkson, 2012
 
 import re
+
 from waflib.Task import Task
 from waflib.TaskGen import extension
 

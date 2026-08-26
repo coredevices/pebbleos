@@ -8,7 +8,6 @@ Render glyphs from a TTF font to 1-bit PNG images with a JSON manifest.
 import argparse
 import json
 import os
-import struct
 import sys
 
 import freetype

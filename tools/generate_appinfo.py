@@ -89,7 +89,7 @@ def generate_appinfo_c(app_info, output_filename, platform_name=None):
     icon_resource_id = None
     try:
         for r in app_info["resources"]["media"]:
-            if "menuIcon" in r and r["menuIcon"]:
+            if r.get("menuIcon"):
                 if icon_resource_id is not None:
                     raise Exception(
                         "More than one resource is set to be your menuIcon!"
@@ -116,7 +116,7 @@ def generate_appinfo_c(app_info, output_filename, platform_name=None):
     if is_moddable:
         flags.append("PROCESS_INFO_MODDABLE_APP")
     if platform_name:
-        flags.append("PROCESS_INFO_PLATFORM_{}".format(platform_name.upper()))
+        flags.append(f"PROCESS_INFO_PLATFORM_{platform_name.upper()}")
 
     if len(flags):
         flags_string = " | ".join(flags)

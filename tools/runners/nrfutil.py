@@ -17,10 +17,8 @@ class NrfUtilRunner(Runner):
     def do_run(self, command):
         if command == "flash":
             self._nrfutil(
-                "program --firmware {} "
-                "--options chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE".format(
-                    self.cfg.hex_file
-                )
+                f"program --firmware {self.cfg.hex_file} "
+                "--options chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE"
             )
             self._nrfutil("reset")
         elif command in ("run", "reset"):

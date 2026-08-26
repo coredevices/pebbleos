@@ -4,7 +4,7 @@
 import pickle
 
 
-class ResourceBall(object):
+class ResourceBall:
     """A object meant to be serialized to the filesystem that represents the complete set of
     resources for a firmware variant. Resources that are distributed with the firmware are present
     as ResourceObject instances where resources that are not (such as language packs) are present

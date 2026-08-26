@@ -1,16 +1,12 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from serial_port_wrapper import SerialPortWrapper
-import time
-import re
-from bisect import bisect_left
-import json
-from datetime import datetime
-import sys
-from collections import deque
-from collections import namedtuple
 import argparse
+import re
+import sys
+from collections import deque, namedtuple
+
+from serial_port_wrapper import SerialPortWrapper
 
 PowerDataPoint = namedtuple("PowerDataPoint", ["timestamp", "power", "duration"])
 
@@ -94,7 +90,6 @@ class BattPowerSystem(PowerSystem):
     def addPower(self, timestamp, data):
         chg_state = data[0]
         voltage = data[1]
-        return
 
 
 # Special case for the accelerometer
@@ -102,7 +97,6 @@ class AccelPowerSystem(PowerSystem):
     def addPower(self, timestamp, data):
         state = data[0]
         frequency = data[1]
-        return
 
 
 # Special case for the magnetometer
@@ -110,7 +104,6 @@ class MagPowerSystem(PowerSystem):
     def addPower(self, timestamp, data):
         state = data[0]
         adc_rate = data[1]
-        return
 
 
 # Special case for the vibe motor
@@ -119,7 +112,6 @@ class VibePowerSystem(PowerSystem):
         state = data[0]
         freq = data[1]
         duty = data[2]
-        return
 
 
 # Special case for the backlight

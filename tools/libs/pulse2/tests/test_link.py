@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import time
 import unittest
@@ -9,7 +8,7 @@ import unittest
 try:
     from unittest import mock
 except ImportError:
-    import mock
+    from unittest import mock
 
 try:
     import queue
@@ -19,7 +18,7 @@ except ImportError:
 from pebble.pulse2 import exceptions, framing, link, ppp
 
 
-class FakeIOStream(object):
+class FakeIOStream:
     def __init__(self):
         self.read_queue = queue.Queue()
         self.write_queue = queue.Queue()
@@ -27,7 +26,7 @@ class FakeIOStream(object):
 
     def read(self, length):
         if self.closed:
-            raise IOError("I/O operation on closed FakeIOStream")
+            raise OSError("I/O operation on closed FakeIOStream")
         try:
             return self.read_queue.get(timeout=0.001)
         except queue.Empty:
@@ -35,7 +34,7 @@ class FakeIOStream(object):
 
     def write(self, data):
         if self.closed:
-            raise IOError("I/O operation on closed FakeIOStream")
+            raise OSError("I/O operation on closed FakeIOStream")
         self.write_queue.put(data)
 
     def close(self):

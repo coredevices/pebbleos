@@ -2,20 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import sys
 import os
+import sys
 
 # waf loads this module from waflib/extras, which contains the file sdk_paths
 extras_dir = os.path.dirname(os.path.abspath(__file__))
 if extras_dir not in sys.path:
     sys.path.insert(0, extras_dir)
 
-from waflib.Configure import conf
-from waflib import Logs
+import report_memory_usage  # noqa: F401
 import sdk_paths  # noqa: F401
 from generate_appinfo import generate_appinfo_c
 from process_sdk_resources import generate_resources
-import report_memory_usage  # noqa: F401
 from sdk_helpers import (
     configure_libraries,
     configure_platform,
@@ -23,6 +21,7 @@ from sdk_helpers import (
     truncate_to_32_bytes,
     validate_message_keys_object,
 )
+from waflib.Configure import conf
 
 
 def _extract_project_info(conf, info_json, json_filename):
@@ -128,19 +127,17 @@ def _validate_version(ctx, original_version):
     if len(version) > 3:
         ctx.fatal(
             "App versions must be of the format MAJOR or MAJOR.MINOR or MAJOR.MINOR.PATCH. "
-            "An invalid version of {} was specified for the app. Try {}.{}.{} instead".format(
-                original_version, version[0], version[1], version[2]
-            )
+            f"An invalid version of {original_version} was specified for the app. Try {version[0]}.{version[1]}.{version[2]} instead"
         )
     elif not (0 <= int(version[0]) <= 255):
         ctx.fatal(
-            "An invalid or out of range value of {} was specified for the major version of "
-            "the app. The valid range is 0-255.".format(version[0])
+            f"An invalid or out of range value of {version[0]} was specified for the major version of "
+            "the app. The valid range is 0-255."
         )
     elif not (0 <= int(version[1]) <= 255):
         ctx.fatal(
-            "An invalid or out of range value of {} was specified for the minor version of "
-            "the app. The valid range is 0-255.".format(version[1])
+            f"An invalid or out of range value of {version[1]} was specified for the minor version of "
+            "the app. The valid range is 0-255."
         )
     # note: version[2] does not reach the Pebble FW (it is stripped off by generate_appinfo)
     # so has no upper limit. Just make sure it's an int.
@@ -177,9 +174,9 @@ def configure(conf):
     # This overrides the default config in pebble_sdk_common.py
     if conf.options.timestamp:
         conf.env.TIMESTAMP = conf.options.timestamp
-        conf.env.BUNDLE_NAME = "app_{}.pbw".format(conf.env.TIMESTAMP)
+        conf.env.BUNDLE_NAME = f"app_{conf.env.TIMESTAMP}.pbw"
     else:
-        conf.env.BUNDLE_NAME = "{}.pbw".format(conf.path.name)
+        conf.env.BUNDLE_NAME = f"{conf.path.name}.pbw"
 
     # Read in package.json for environment configuration, or fallback to appinfo.json for older
     # projects
@@ -203,10 +200,8 @@ def configure(conf):
     if getattr(conf.env.PROJECT_INFO, "enableMultiJS", False):
         if not conf.env.WEBPACK:
             conf.fatal(
-                "'enableMultiJS' is set to true, but unable to locate webpack module at {} "
-                "Please set enableMultiJS to false, or reinstall the SDK.".format(
-                    conf.env.NODE_PATH
-                )
+                f"'enableMultiJS' is set to true, but unable to locate webpack module at {conf.env.NODE_PATH} "
+                "Please set enableMultiJS to false, or reinstall the SDK."
             )
 
     if "resources" in project_info and "media" in project_info["resources"]:

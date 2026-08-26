@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import collections
 import struct
@@ -12,7 +11,7 @@ import pebble.pulse2.exceptions
 from .. import exceptions
 
 
-class Prompt(object):
+class Prompt:
     PORT_NUMBER = 0x3E20
 
     def __init__(self, link):

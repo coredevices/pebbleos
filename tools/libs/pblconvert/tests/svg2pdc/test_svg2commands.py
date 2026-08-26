@@ -3,7 +3,6 @@ import sys
 import unittest
 import xml.etree.ElementTree as ET
 
-
 sys.path.insert(0, os.path.abspath(".."))
 from pblconvert.svg2pdc import pdc
 from pblconvert.svg2pdc.svg import surface_from_svg

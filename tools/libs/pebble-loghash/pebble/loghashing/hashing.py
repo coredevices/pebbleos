@@ -11,14 +11,14 @@ import os
 import re
 
 from pebble.loghashing.constants import (
-    STR_LITERAL_PATTERN,
-    FORMAT_SPECIFIER_PATTERN,
     FORMAT_IDENTIFIER_STRING_FMT,
-    LOOKUP_RESULT_STRING_FMT,
-    LINES_TO_HASH,
+    FORMAT_SPECIFIER_PATTERN,
     HASH_MASK,
     HASH_NEXT_LINE,
+    LINES_TO_HASH,
     LOOKUP_DEFAULT_STRING,
+    LOOKUP_RESULT_STRING_FMT,
+    STR_LITERAL_PATTERN,
 )
 
 
@@ -36,7 +36,7 @@ def hash_directory(path, output_file_name):
         root, file_names = walk[0::2]
 
         for file_name in file_names:
-            lookup_dict.update(hash_file("{}/{}".format(root, file_name)))
+            lookup_dict.update(hash_file(f"{root}/{file_name}"))
 
     # Read in hash_lookup
     # Write lines out
@@ -108,15 +108,13 @@ def hash_line(line, file_name, line_num, force_hash=False):
                 str_literal = inttype_conversion(str_literal)
 
                 # Hash the file name and line number in as well
-                line_to_hash = "{}:{}:{}".format(
-                    os.path.basename(file_name), line_num, str_literal
-                )
+                line_to_hash = f"{os.path.basename(file_name)}:{line_num}:{str_literal}"
 
                 hashed_msg = hash_string(line_to_hash)
 
                 hash_dict[hashed_msg] = line_to_hash
 
-                line = "{}{}{}\n".format(match.group(1), hashed_msg, match.group(3))
+                line = f"{match.group(1)}{hashed_msg}{match.group(3)}\n"
 
     return (line, hash_dict)
 

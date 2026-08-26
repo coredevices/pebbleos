@@ -15,7 +15,7 @@ class ResourceGeneratorMetaclass(type):
     type = None
 
     def __init__(cls, name, bases, dict):
-        super(ResourceGeneratorMetaclass, cls).__init__(name, bases, dict)
+        super().__init__(name, bases, dict)
 
         if cls.type:
             _ResourceGenerators[cls.type] = cls

@@ -5,7 +5,7 @@
 from resources.types.resource_declaration import ResourceDeclaration
 
 
-class StorageType(object):
+class StorageType:
     pbpack = 1
     builtin = 2
     pfs = 3

@@ -7,12 +7,12 @@ Coredump analyzer for ARM embedded systems using arm-none-eabi-gdb.
 Loads a coredump file and extracts relevant debugging information to a text file.
 """
 
+import argparse
+import os
+import shutil
 import subprocess
 import sys
-import os
-import argparse
 import tempfile
-import shutil
 from datetime import datetime
 
 

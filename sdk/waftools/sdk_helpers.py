@@ -5,12 +5,11 @@ import json
 import os
 import struct
 
-from waflib import Logs
-
 from pebble_package import LibraryPackage
 from pebble_sdk_platform import pebble_platforms
 from pebble_sdk_version import set_env_sdk_version
 from resources.types.resource_object import ResourceObject
+from waflib import Logs
 
 
 def _get_pbi_size(data):
@@ -150,7 +149,7 @@ def configure_platform(ctx, platform):
         ctx.env[attribute] = ctx.env.PLATFORM[attribute]
     ctx.env.append_value("INCLUDES", ctx.env.BUILD_DIR)
 
-    ctx.msg("Found Pebble SDK for {} in:".format(platform), ctx.env.PEBBLE_SDK_PLATFORM)
+    ctx.msg(f"Found Pebble SDK for {platform} in:", ctx.env.PEBBLE_SDK_PLATFORM)
 
     process_info = pebble_sdk_root.find_node(str(platform)).find_node(
         "include/pebble_process_info.h"
@@ -199,9 +198,7 @@ def get_target_platforms(ctx):
         )
     if not target_platforms:
         ctx.fatal(
-            "No valid targetPlatforms specified in appinfo.json. Valid options are {}".format(
-                supported_platforms
-            )
+            f"No valid targetPlatforms specified in appinfo.json. Valid options are {supported_platforms}"
         )
 
     ctx.env.TARGET_PLATFORMS = sorted([p for p in target_platforms], reverse=True)
@@ -236,23 +233,23 @@ def process_package(ctx, package, root_lib_node=None):
     if not root_lib_node:
         root_lib_node = ctx.path.find_node(ctx.env.LIB_DIR)
         if root_lib_node is None:
-            ctx.fatal("Missing {} directory".format(ctx.env.LIB_DIR))
+            ctx.fatal(f"Missing {ctx.env.LIB_DIR} directory")
 
     lib_node = root_lib_node.find_node(str(package))
     if lib_node is None:
-        ctx.fatal("Missing library for {} in {}".format(str(package), ctx.env.LIB_DIR))
+        ctx.fatal(f"Missing library for {package!s} in {ctx.env.LIB_DIR}")
     else:
         libinfo_node = lib_node.find_node("package.json")
         if libinfo_node is None:
-            ctx.fatal("Missing package.json for {} library".format(str(package)))
+            ctx.fatal(f"Missing package.json for {package!s} library")
         else:
             if lib_node.find_node(ctx.env.LIB_DIR):
                 error_str = (
                     "ERROR: Multiple versions of the same package are not supported by "
-                    "the Pebble SDK due to namespace issues during linking. Package '{}' "
+                    f"the Pebble SDK due to namespace issues during linking. Package '{package}' "
                     "contains the following duplicate and incompatible dependencies, "
                     "which may lead to additional build errors and/or unpredictable "
-                    "runtime behavior:\n".format(package)
+                    "runtime behavior:\n"
                 )
                 packages_str = ""
                 for package in lib_node.find_node(ctx.env.LIB_DIR).ant_glob(
@@ -282,8 +279,8 @@ def process_package(ctx, package, root_lib_node=None):
                 dist_node = lib_node.find_node("dist.zip")
                 if not dist_node:
                     ctx.fatal(
-                        "Missing dist.zip file for {}. Are you sure this is a Pebble "
-                        "library?".format(package)
+                        f"Missing dist.zip file for {package}. Are you sure this is a Pebble "
+                        "library?"
                     )
                 lib_package = LibraryPackage(dist_node.abspath())
                 lib_package.unpack(libinfo["path"])
@@ -376,9 +373,7 @@ def validate_resource_not_larger_than(
                     assert reso.data[4:] == "PDCI"
                 except AssertionError:
                     ctx.fatal(
-                        "Unsupported published resource type for {}".format(
-                            resource_file
-                        )
+                        f"Unsupported published resource type for {resource_file}"
                     )
                 else:
                     resource_size = _get_pdc_size(reso.data[4:])
@@ -390,7 +385,7 @@ def validate_resource_not_larger_than(
                 resource_size = _get_pdc_size(data[4:])
             else:
                 ctx.fatal(
-                    "Unsupported published resource type for {}".format(resource_file)
+                    f"Unsupported published resource type for {resource_file}"
                 )
 
     if width and height:

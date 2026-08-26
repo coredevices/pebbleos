@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from waflib import Configure, TaskGen, Task
+from waflib import Configure, Task, TaskGen
 
 GETTEXT_KEYWORDS = [
     "i18n_noop",

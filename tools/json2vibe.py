@@ -4,8 +4,8 @@
 
 
 import argparse
-import os
 import json
+import os
 
 from libpebble2.protocol.base import PebblePacket
 from libpebble2.protocol.base.types import *

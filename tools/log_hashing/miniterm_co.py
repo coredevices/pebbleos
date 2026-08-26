@@ -2,18 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Stuff we're patching or calling into directly
-from serial.tools.miniterm import main
-from serial import Serial
-from serial.urlhandler.protocol_socket import Serial as SocketSerial
-from serial.serialutil import SerialException
-
 # Stuff we need
 import os
 import sys
 import time
-import socket
 
 from logdehash import LogDehash
+from serial import Serial
+from serial.serialutil import SerialException
+from serial.tools.miniterm import main
+from serial.urlhandler.protocol_socket import Serial as SocketSerial
 
 line_buffer = []
 
@@ -77,11 +75,11 @@ def socket_serial_read(self, size=1):
                 if data:
                     break
 
-        except socket.timeout:
+        except TimeoutError:
             # just need to get out of recv from time to time to check if
             # still alive
             continue
-        except socket.error as e:
+        except OSError as e:
             # connection fails -> terminate loop
             raise SerialException("connection failed (%s)" % e)
     return bytes(data)

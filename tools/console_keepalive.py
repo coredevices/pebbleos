@@ -23,7 +23,6 @@ import subprocess
 import sys
 import time
 
-
 _SOCKET_PREFIX = "socket://"
 
 

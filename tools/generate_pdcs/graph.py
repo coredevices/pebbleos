@@ -37,7 +37,7 @@ def is_line_segment_in_path(path, vertex_1, vertex_2):
     return False
 
 
-class Graph(object):
+class Graph:
     def __init__(self, graph_dict={}):
         """initializes a graph object"""
         self.__graph_dict = graph_dict

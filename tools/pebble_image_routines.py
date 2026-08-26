@@ -18,7 +18,7 @@ NEAREST = "nearest"
 # Create pebble 64 colors-table (r, g, b - 2 bits per channel)
 def _get_pebble64_palette():
     pebble_palette = []
-    for i in range(0, 64):
+    for i in range(64):
         pebble_palette.append(
             (
                 ((i >> 4) & 0x3) * 85,  # R

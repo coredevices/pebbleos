@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-import os
+import argparse
 import glob
+import logging
+import os
+import shutil
 import subprocess
 import sys
-import argparse
-import logging
-import shutil
+
 from generate_pdcs import pdc_gen
 
 
@@ -51,7 +52,7 @@ def log_exception(filename, exc_type, exc_value, exc_traceback):
     import traceback
 
     lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
-    s = "Exception while processing {}\n".format(filename)
+    s = f"Exception while processing {filename}\n"
     s += "".join(lines)
     logging.error(s)
 
@@ -147,8 +148,8 @@ def copy_error_files_to_failed_subdir(path, error_files):
         logging.debug(png_error + " => " + png_copy)
         try:
             shutil.copy(png_error, png_copy)
-        except IOError as e:
-            logging.error("Failed to copy {} to failed directory".format(f))
+        except OSError:
+            logging.error(f"Failed to copy {f} to failed directory")
 
 
 def main(path=None):

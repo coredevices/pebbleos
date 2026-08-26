@@ -1,15 +1,14 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from resources.types.resource_object import ResourceObject
-from resources.resource_map.resource_generator import ResourceGenerator
-
-from pebble_sdk_platform import pebble_platforms
-
-import bitmapgen
 import os
 import subprocess
 import tempfile
+
+import bitmapgen
+from pebble_sdk_platform import pebble_platforms
+from resources.resource_map.resource_generator import ResourceGenerator
+from resources.types.resource_object import ResourceObject
 
 
 def _pbi_generator(task, definition, format_str):

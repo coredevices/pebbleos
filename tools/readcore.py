@@ -21,10 +21,9 @@ from enum import Enum
 # Don't try reading the `construct` readthedocs, the entire API has changed
 # since 2.5 to now...
 import construct as cs
-
-from elftools.elf.structs import ELFStructs
-from elftools.elf.enums import *
 import elftools.construct as ecs  # Sigh...
+from elftools.elf.enums import *
+from elftools.elf.structs import ELFStructs
 
 
 class _CoreDumpChunkKey(Enum):

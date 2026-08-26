@@ -1,14 +1,13 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from resources.types.resource_object import ResourceObject
-from resources.resource_map.resource_generator import ResourceGenerator
-
-from pebble_sdk_platform import pebble_platforms
+import re
 
 import bitmapgen
 import png2pblpng
-import re
+from pebble_sdk_platform import pebble_platforms
+from resources.resource_map.resource_generator import ResourceGenerator
+from resources.types.resource_object import ResourceObject
 
 PNG_MIN_APP_MEMORY = 0x8000  # 32k, fairly arbitrarily
 
@@ -38,22 +37,20 @@ class BitmapResourceGenerator(ResourceGenerator):
             and definition.storage_format == "png"
         ):
             task.generator.bld.fatal(
-                "{}: spaceOptimization: memory and storageFormat: "
-                "png are mutually exclusive.".format(definition.name)
+                f"{definition.name}: spaceOptimization: memory and storageFormat: "
+                "png are mutually exclusive."
             )
         if (
             definition.space_optimization == "storage"
             and definition.storage_format == "pbi"
         ):
             task.generator.bld.fatal(
-                "{}: spaceOptimization: storage and storageFormat: "
-                "pbi are mutually exclusive.".format(definition.name)
+                f"{definition.name}: spaceOptimization: storage and storageFormat: "
+                "pbi are mutually exclusive."
             )
         if definition.storage_format == "png" and memory_format == "1bit":
             task.generator.bld.fatal(
-                "{}: PNG storage does not support non-palettised 1-bit images.".format(
-                    definition.name
-                )
+                f"{definition.name}: PNG storage does not support non-palettised 1-bit images."
             )
 
         # If storage_format is not specified, it is completely determined by space_optimization.
@@ -125,24 +122,22 @@ class BitmapResourceGenerator(ResourceGenerator):
                 # If they asked for "smallestpalette", replace that with its actual value.
                 if bitdepth > 4:
                     task.generator.bld.fatal(
-                        "{} has too many colours for a palettised image"
-                        "(max 16), but 'SmallestPalette' specified.".format(
-                            definition.name
-                        )
+                        f"{definition.name} has too many colours for a palettised image"
+                        "(max 16), but 'SmallestPalette' specified."
                     )
                 else:
-                    memory_format = "{}bitpalette".format(bitdepth)
+                    memory_format = f"{bitdepth}bitpalette"
 
             # Pull out however many bits we're supposed to use (which is exact, not a min or max)
             bits = int(re.match(r"^(\d+)bitpalette$", memory_format).group(1))
             if bits < bitdepth:
                 task.generator.bld.fatal(
-                    "{}: requires at least {} bits.".format(definition.name, bitdepth)
+                    f"{definition.name}: requires at least {bitdepth} bits."
                 )
             if bits > 2 and not is_color:
                 task.generator.bld.fatal(
-                    "{}: can't use more than two bits on a black-and-white"
-                    "platform.".format(definition.name)
+                    f"{definition.name}: can't use more than two bits on a black-and-white"
+                    "platform."
                 )
 
             if definition.storage_format == "pbi":
@@ -168,8 +163,8 @@ class BitmapResourceGenerator(ResourceGenerator):
             elif memory_format == "8bit":
                 if not is_color:
                     task.generator.bld.fatal(
-                        "{}: can't use more than two bits on a black-and-white"
-                        "platform.".format(definition.name)
+                        f"{definition.name}: can't use more than two bits on a black-and-white"
+                        "platform."
                     )
                 # generate an 8-bit pbi or png, as appropriate.
                 if definition.storage_format == "pbi":

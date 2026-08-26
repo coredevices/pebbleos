@@ -9,7 +9,6 @@ delimiters, transparency encoding and Frame Check Sequence. The content of the
 datagrams themselves are not examined or parsed.
 """
 
-from __future__ import absolute_import
 
 import binascii
 import struct
@@ -20,7 +19,6 @@ except ImportError:  # Py2
     import Queue as queue
 
 from cobs import cobs
-
 
 FLAG = 0x55
 CRC32_RESIDUE = binascii.crc32(b"\0" * 4)
@@ -38,7 +36,7 @@ class CorruptFrame(FramingException):
     pass
 
 
-class FrameSplitter(object):
+class FrameSplitter:
     """Takes a byte stream and partitions it into frames.
 
     Empty frames (two consecutive flag bytes) are silently discarded.

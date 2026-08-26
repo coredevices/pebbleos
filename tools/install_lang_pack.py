@@ -5,7 +5,6 @@
 """Install a .pbl language pack onto a running Pebble emulator."""
 
 import argparse
-import sys
 
 from libpebble2.communication import PebbleConnection
 from libpebble2.communication.transports.websocket import WebsocketTransport

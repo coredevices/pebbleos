@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-import xml.etree.ElementTree as ET
 import xml.dom.minidom
+import xml.etree.ElementTree as ET
 
 """
 Based on the following understanding of what Jenkins can parse for JUnit XML files.
@@ -39,7 +39,7 @@ Based on the following understanding of what Jenkins can parse for JUnit XML fil
 """
 
 
-class TestSuite(object):
+class TestSuite:
     """Suite of test cases"""
 
     def __init__(
@@ -170,7 +170,7 @@ class TestSuite(object):
         file_descriptor.write(TestSuite.to_xml_string(test_suites, prettyprint))
 
 
-class TestCase(object):
+class TestCase:
     """A JUnit test case with a result and possibly some stdout or stderr"""
 
     def __init__(

@@ -108,7 +108,7 @@ def activate_sdk(repo_root):
 
     env_sh = sdk_dir / "env.sh"
     if not env_sh.is_file():
-        Logs.warn("PebbleOS SDK at {} has no env.sh; ignoring".format(sdk_dir))
+        Logs.warn(f"PebbleOS SDK at {sdk_dir} has no env.sh; ignoring")
         return None
 
     # bash, not sh: env.sh uses ${BASH_SOURCE:-$0} to find its own location;
@@ -118,14 +118,12 @@ def activate_sdk(repo_root):
             [
                 "bash",
                 "-c",
-                '. {} >/dev/null 2>&1 && printf %s "$PATH"'.format(
-                    shlex.quote(str(env_sh))
-                ),
+                f'. {shlex.quote(str(env_sh))} >/dev/null 2>&1 && printf %s "$PATH"',
             ],
             text=True,
         )
     except subprocess.CalledProcessError as e:
-        Logs.warn("Failed to source {}: {}".format(env_sh, e))
+        Logs.warn(f"Failed to source {env_sh}: {e}")
         return None
 
     if not new_path:
@@ -135,5 +133,5 @@ def activate_sdk(repo_root):
     os.environ["PEBBLEOS_SDK_ACTIVATED"] = str(sdk_dir)
 
     label = ".".join(str(x) for x in version) if version else "unversioned"
-    Logs.pprint("CYAN", "Using PebbleOS SDK ({}) at {}".format(label, sdk_dir))
+    Logs.pprint("CYAN", f"Using PebbleOS SDK ({label}) at {sdk_dir}")
     return sdk_dir

@@ -3,10 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import with_statement
 import base64
-import zlib
 import sys
+import zlib
 
 
 def compress_file(filename):

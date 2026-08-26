@@ -1,13 +1,11 @@
 from abc import *
 
 from exceptions import PblConvertFormatError
-
-from gif2apng.gif import read_gif, convert_to_apng
 from gif2apng.exceptions import Gif2ApngFormatError
-
-from svg2pdc.pdc import serialize_image, convert_to_png
-from svg2pdc.svg import surface_from_svg
+from gif2apng.gif import convert_to_apng, read_gif
 from svg2pdc.exceptions import Svg2PdcFormatError
+from svg2pdc.pdc import convert_to_png, serialize_image
+from svg2pdc.svg import surface_from_svg
 
 
 class Handler:

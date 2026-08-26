@@ -11,7 +11,6 @@ except ImportError:
     )
 import argparse
 import re
-
 from collections import namedtuple
 
 
@@ -30,7 +29,7 @@ class AddressInfo(namedtuple("AddressInfo", "filename line addr")):
         return cls._make([filename, line, addr])
 
     def __str__(self):
-        return "{}:{} (0x{:0>8x})".format(self.filename, self.line, self.addr)
+        return f"{self.filename}:{self.line} (0x{self.addr:0>8x})"
 
 
 def addr2line(addr_value):
@@ -79,8 +78,8 @@ class Address(int):
                 match = Address.ADDR_REGEX.match(val)
                 if match:
                     val = match.group(1)
-                    return super(Address, cls).__new__(cls, val, base=16)
-        return super(Address, cls).__new__(cls, *args, **kwargs)
+                    return super().__new__(cls, val, base=16)
+        return super().__new__(cls, *args, **kwargs)
 
     def __repr__(self):
         return "0x%08x" % self
@@ -136,7 +135,7 @@ class ActionBreakpoint(gdb.Breakpoint):
             symbol_name = "*" + str(addr)
         if not symbol_name:
             symbol_name = action_callable.__name__
-        super(ActionBreakpoint, self).__init__(symbol_name)
+        super().__init__(symbol_name)
         self.action_callable = action_callable
         self.auto_continue = auto_continue
 

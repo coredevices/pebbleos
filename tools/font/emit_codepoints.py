@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-import freetype
 import os
-import sys
 import re
+import sys
+
+import freetype
 
 MIN_CODEPOINT = 0x20
 MAX_CODEPOINT = 0xFFFF
@@ -22,7 +23,7 @@ class Font:
         m = re.search("([0-9]+)", self.basename)
         if m == None:
             sys.stderr.write(
-                "Font {0}: no size found in file name...\n".format(filename)
+                f"Font {filename}: no size found in file name...\n"
             )
             return
         self.max_height = int(m.group(0))
@@ -46,7 +47,6 @@ class Font:
             if self.is_supported_glyph(codepoint):
                 print >> f, "U+%08d" % (codepoint,)
         f.close()
-        return
 
     def emit_codepoints_as_utf8(self):
         to_file = os.path.splitext(self.ttf_path)[0] + ".utf8"
@@ -56,7 +56,6 @@ class Font:
             if self.is_supported_glyph(codepoint):
                 f.write(unichr(codepoint).encode("utf-8"))
         f.close()
-        return
 
 
 def main():
@@ -71,7 +70,6 @@ def main():
         f = Font(font_path)
         f.emit_codepoints()
         f.emit_codepoints_as_utf8()
-    return
 
 
 if __name__ == "__main__":

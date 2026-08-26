@@ -3,12 +3,12 @@
 
 import os
 import re
-import sh
 import shutil
 import subprocess
 import sys
-from packaging import version
 
+import sh
+from packaging import version
 from waflib import Logs
 
 REQUIREMENTS = "requirements.txt"

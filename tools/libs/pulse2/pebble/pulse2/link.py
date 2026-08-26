@@ -1,16 +1,14 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import logging
 import threading
 
 import serial
 
-from . import exceptions, framing, ppp, transports
+from . import exceptions, framing, pcap_file, ppp, transports
 from . import logging as pulse2_logging
-from . import pcap_file
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -20,7 +18,7 @@ DBGSERIAL_PORT_SETTINGS = dict(
 )
 
 
-class Interface(object):
+class Interface:
     """The PULSEv2 lower data-link layer.
 
     An Interface object is roughly analogous to a network interface,
@@ -110,7 +108,7 @@ class Interface(object):
                 break
             try:
                 splitter.write(self.iostream.read(1))
-            except IOError:
+            except OSError:
                 if self.closed:
                     self.logger.info("Interface closed; receive loop exiting")
                 else:
@@ -203,7 +201,7 @@ class Interface(object):
             return self._link
 
 
-class InterfaceSocket(object):
+class InterfaceSocket:
     """A socket for sending and receiving link-layer packets over a
     PULSE2 interface.
 
@@ -250,7 +248,7 @@ class InterfaceSocket(object):
         self.on_close = None
 
 
-class Link(object):
+class Link:
     """The connectionful portion of a PULSE2 interface."""
 
     TRANSPORTS = {}

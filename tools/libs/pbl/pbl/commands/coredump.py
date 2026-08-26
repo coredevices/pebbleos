@@ -1,14 +1,12 @@
-from __future__ import absolute_import, print_function
 
 import datetime
-from progressbar import ProgressBar, Bar, FileTransferSpeed, Timer, Percentage
 
+from libpebble2.exceptions import GetBytesError
 from libpebble2.protocol.transfers import GetBytesInfoResponse
 from libpebble2.services.getbytes import GetBytesService
-from libpebble2.exceptions import GetBytesError
-
 from pebble_tool.commands.base import PebbleCommand
 from pebble_tool.exceptions import ToolError
+from progressbar import Bar, FileTransferSpeed, Percentage, ProgressBar, Timer
 
 
 class CoredumpCommand(PebbleCommand):
@@ -30,7 +28,7 @@ class CoredumpCommand(PebbleCommand):
         self.started = False
 
     def __call__(self, args):
-        super(CoredumpCommand, self).__call__(args)
+        super().__call__(args)
         get_bytes = GetBytesService(self.pebble)
         get_bytes.register_handler("progress", self._handle_progress)
 
@@ -48,7 +46,7 @@ class CoredumpCommand(PebbleCommand):
         filename = self._generate_filename() if args.filename is None else args.filename
         with open(filename, "wb") as core_file:
             core_file.write(core_data)
-        print("Saved coredump to {}".format(filename))
+        print(f"Saved coredump to {filename}")
 
     def _handle_progress(self, progress, total):
         if not self.started:
@@ -64,7 +62,7 @@ class CoredumpCommand(PebbleCommand):
 
     @classmethod
     def add_parser(cls, parser):
-        parser = super(CoredumpCommand, cls).add_parser(parser)
+        parser = super().add_parser(parser)
         parser.add_argument(
             "filename", nargs="?", type=str, help="Filename of coredump"
         )

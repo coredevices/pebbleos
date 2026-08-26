@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-import png
 import itertools
 from io import BytesIO
 
 import pebble_image_routines
+import png
 
 # color reduction methods
 TRUNCATE = "truncate"
@@ -85,9 +85,7 @@ def _convert_png_to_pebble_png_writer(
     if force_bitdepth is not None:
         if bitdepth > force_bitdepth:
             raise Exception(
-                "Tried to force {} bits; need at least {}.".format(
-                    force_bitdepth, bitdepth
-                )
+                f"Tried to force {force_bitdepth} bits; need at least {bitdepth}."
             )
 
         # If we're forcing a particular bitdepth, and it's not the one we were going
@@ -265,7 +263,7 @@ def main():
         default=NEAREST,
         choices=COLOR_REDUCTION_CHOICES,
         help="Method used to convert colors to Pebble's color palette, "
-        "options are [{}, {}]".format(NEAREST, TRUNCATE),
+        f"options are [{NEAREST}, {TRUNCATE}]",
     )
     args = parser.parse_args()
 

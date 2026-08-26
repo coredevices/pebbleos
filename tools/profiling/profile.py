@@ -1,18 +1,16 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
 import logging
+import operator
 import subprocess
 import sys
-import argparse
-import pexpect
 import time
-import pprint
-import operator
 
 
 ##########################################################################################
-class Profiler(object):
+class Profiler:
     """This class encapsulates the profiling functionality"""
 
     #####################################################################################
@@ -86,8 +84,7 @@ class Profiler(object):
         )
         print("Saving samples to %s..." % (filename))
         with open(filename, "w") as out:
-            for k, v in pcs.iteritems():
-                out.write("%s %d\n" % (k, v))
+            out.writelines("%s %d\n" % (k, v) for k, v in pcs.iteritems())
 
     #####################################################################################
     def view(self, filename, elf):
@@ -151,14 +148,14 @@ class Profiler(object):
             file_line_count.items(), key=operator.itemgetter(1), reverse=True
         )
         for k, v in sorted_values:
-            k = "{0}   ({1:.24})".format(k, method_lookup[k])
+            k = f"{k}   ({method_lookup[k]:.24})"
             print(format_str % (k, v * 100.0 / total_samples, v))
 
         print("\n\nSamples grouped by address ")
         print("---------------------------------------------------------------")
         sorted_values = sorted(pcs.items(), key=operator.itemgetter(1), reverse=True)
         for k, v in sorted_values:
-            k = "{0}   ({1:.48})".format(k, file_line_lookup[k])
+            k = f"{k}   ({file_line_lookup[k]:.48})"
             print(format_str % (k, v * 100.0 / total_samples, v))
 
 

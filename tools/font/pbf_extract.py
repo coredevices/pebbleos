@@ -11,10 +11,11 @@ Usage:
 """
 
 import argparse
+import array
 import json
 import os
 import struct
-import array
+
 from PIL import Image
 
 # Font version constants
@@ -149,7 +150,7 @@ def extract_pbf(pbf_path, output_dir):
             else:
                 bitlist = []
                 for w in array.array("I", bitmap_data):
-                    bitlist.extend(((w & (1 << bit)) != 0 for bit in range(32)))
+                    bitlist.extend((w & (1 << bit)) != 0 for bit in range(32))
                 height = height_or_rle
 
             # Create and save image

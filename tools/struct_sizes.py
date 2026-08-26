@@ -7,9 +7,9 @@ import argparse
 import logging
 import sys
 
-from elftools.elf.elffile import ELFFile
-from elftools.dwarf.die import DIE
 from elftools.common.utils import preserve_stream_pos
+from elftools.dwarf.die import DIE
+from elftools.elf.elffile import ELFFile
 
 
 def _extract_struct_sizes(die, struct_names_by_size):

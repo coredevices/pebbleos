@@ -8,8 +8,8 @@ import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 
-from generate_native_sdk import parse_c_decl
 import clang
+from generate_native_sdk import parse_c_decl
 
 
 def extract_exported_functions(node, functions=[], types=[], defines=[]):
@@ -41,7 +41,6 @@ def extract_exported_functions(node, functions=[], types=[], defines=[]):
                     if e.comment is None or len(comment) > len(e.comment):
                         e.comment = comment
 
-        return None
 
     if node.kind == clang.cindex.CursorKind.FUNCTION_DECL:
         update_matching_export(functions, node)
@@ -71,8 +70,7 @@ def extract_symbol_info(
     # parsing each one individually
     all_headers_file = os.path.join(output_dir, "all_sdk_headers.h")
     with open(all_headers_file, "w") as outfile:
-        for f in filenames:
-            outfile.write('#include "%s"\n' % f)
+        outfile.writelines('#include "%s"\n' % f for f in filenames)
 
     parse_c_decl.parse_file(
         all_headers_file,
@@ -91,7 +89,7 @@ def extract_symbol_info(
 if __name__ == "__main__":
     parse_c_decl.dump_tree = True
 
-    class Export(object):
+    class Export:
         def __init__(self, name):
             self.name = name
 

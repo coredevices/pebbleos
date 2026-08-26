@@ -1,14 +1,13 @@
 import unittest
 from argparse import Namespace
-
-import mock
+from unittest import mock
 
 from pblconvert.pblconvert import logic
 
 
 class LogicTests(unittest.TestCase):
     def setUp(self):
-        super(LogicTests, self).setUp()
+        super().setUp()
 
     def test_pdc(self):
         parsed = Namespace(infile=1, outfile=2, outformat="pdc")

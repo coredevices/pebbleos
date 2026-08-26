@@ -16,12 +16,12 @@ The viewbox size is currently passed in as a parameter.
 The fill color is currently defaulted to solid white.
 """
 
-import os
 import argparse
-from . import pebble_commands
 import json
-from . import graph
+import os
 from itertools import groupby
+
+from . import graph, pebble_commands
 
 INVISIBLE_POINT_THRESHOLD = 500
 DISPLAY_DIM_X = 144

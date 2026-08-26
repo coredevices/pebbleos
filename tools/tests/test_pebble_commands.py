@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
+import array
 import os
 import sys
 import unittest
-import array
 from struct import pack
 
 # Allow us to run even if not at the `tools` directory.
@@ -53,7 +53,7 @@ class MyTestCase(unittest.TestCase):
     def assertPointsEqual(self, p1, p2):
         self.assertTrue(
             pebble_commands.compare_points(p1, p2),
-            "({}, {}) != ({}, {})".format(p1[0], p1[1], p2[0], p2[1]),
+            f"({p1[0]}, {p1[1]}) != ({p2[0]}, {p2[1]})",
         )
 
     def test_convert_to_pebble_coordinates(self):

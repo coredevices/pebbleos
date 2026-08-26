@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-import binutils
 import os.path
 
+import binutils
 
-class Config(object):
+
+class Config:
     def abs_path(self, script_relative_path):
         return os.path.join(
             os.path.dirname(os.path.realpath(__file__)), script_relative_path

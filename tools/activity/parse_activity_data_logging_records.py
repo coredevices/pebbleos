@@ -31,12 +31,12 @@ import base64
 import datetime
 import gzip
 import json
-from jira.client import JIRA
 import logging
 import os
 import re
 import struct
 
+from jira.client import JIRA
 
 # Create a ~/.triage JSON file and override/configure these keys:
 SETTINGS = {
@@ -77,7 +77,7 @@ SLEEP_DEFAULT_EXPECTED_TEXT = """  //> TEST_VERSION 3
 
 
 #############################################################################################
-class JIRASupport(object):
+class JIRASupport:
     DESYM_EXT = ".desym"
 
     def __init__(self, issue_id):
@@ -97,7 +97,7 @@ class JIRASupport(object):
         try:
             user_settings_file = open(os.path.expanduser(settings_path), "rb")
             user_settings = json.load(user_settings_file)
-        except IOError as e:
+        except OSError as e:
             if e.errno == 2:
                 logging.error(
                     """Please create %s with credentials: """
@@ -130,14 +130,14 @@ class JIRASupport(object):
 
     def unzip_android_logs(self, paths):
         ungz_paths = []
-        gz_paths = filter(lambda path: re.search("\.gz$", path), paths)
+        gz_paths = filter(lambda path: re.search(r"\.gz$", path), paths)
         for gz_path in gz_paths:
             with gzip.open(gz_path, "rb") as f_in:
                 ungz_path = os.path.splitext(gz_path)[0]
                 with open(ungz_path, "wb") as f_out:
                     try:
                         f_out.writelines(f_in)
-                    except IOError:
+                    except OSError:
                         logging.error("Error writing unzipped android log")
                     finally:
                         f_out.close()
@@ -201,7 +201,7 @@ class JIRASupport(object):
 
 
 #############################################################################################
-class ParseAccelSamplesFile(object):
+class ParseAccelSamplesFile:
     """Parse raw accel data and produce a text output file from it. The raw binary
     format is documented as the ActivityRawSamplesRecord structure in activity.h
 
@@ -451,7 +451,7 @@ class ParseAccelSamplesFile(object):
 
 
 #############################################################################################
-class ParseMinuteStatsFile(object):
+class ParseMinuteStatsFile:
     #############################################################################################
     def __init__(self, image, bin_file, sample_prefix, format, start_idx):
         self.bin_file = bin_file

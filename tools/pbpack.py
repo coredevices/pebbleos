@@ -4,11 +4,12 @@
 
 
 import argparse
-import stm32_crc
 import struct
 
+import stm32_crc
 
-class ResourcePackTableEntry(object):
+
+class ResourcePackTableEntry:
     TABLE_ENTRY_FMT = "<IIII"
 
     def __init__(self, content_index, offset, length, crc):
@@ -41,7 +42,7 @@ class ResourcePackTableEntry(object):
         return str(self.__dict__)
 
 
-class ResourcePack(object):
+class ResourcePack:
     """Pebble resource pack file format (de)serialization tools.
 
     An instance of this class is an in-memory representation of a resource
@@ -186,7 +187,7 @@ class ResourcePack(object):
         # is a duplicate of an earlier resource and if we assigned offsets starting at the
         # beginning of the table, that final resource would end up pointing to an assigned
         # offset somewhere in the middle of the pack, causing the pack to appear to be truncated.
-        current_offset = sum((len(c) for c in self.contents))
+        current_offset = sum(len(c) for c in self.contents)
         for table_entry in reversed(self.table_entries):
             if table_entry.offset == -1:
                 # This entry doesn't have an offset in the output file yet, assign one to all

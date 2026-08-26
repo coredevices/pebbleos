@@ -3,28 +3,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from datetime import datetime
-import json
-import logging
-import os
 import re
-import readline
 import shlex
-import sys
 import threading
-import time
 import tokenize
 import traceback
 import types
-import unicodedata as ud
 
 import prompt_toolkit
-
-from log_hashing.logdehash import LogDehash
 import pulse
+from log_hashing.logdehash import LogDehash
 
 
-class PebbleCommander(object):
+class PebbleCommander:
     """Pebble Commander.
     Implements everything for interfacing with PULSE things.
     """
@@ -144,7 +135,7 @@ class PebbleCommander(object):
         return None
 
 
-class InteractivePebbleCommander(object):
+class InteractivePebbleCommander:
     """Interactive Pebble Commander.
     Most/all UI implementations should either use this directly or sub-class it.
     """

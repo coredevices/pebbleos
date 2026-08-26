@@ -3,13 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import with_statement, print_function
 
-import sys
 import struct
+import sys
 
 from fw_binary_info import PebbleFirmwareBinaryInfo
-
 
 # typedef struct ATTR_PACKED FirmwareDescription {
 #   uint32_t description_length;

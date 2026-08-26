@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import sys
 import json
 import struct
 
@@ -28,18 +27,16 @@ def main(pack_path, manifest_path):
 
     (num_resources, res_version) = struct.unpack("<I16s", header[:20])
 
-    print("number of resources: {}".format(num_resources))
-    print("resource pack version: {}".format(res_version))
+    print(f"number of resources: {num_resources}")
+    print(f"resource pack version: {res_version}")
     print("resource entries:")
-    print("")
+    print()
     print("{:<32s}\t{:>8s}\t{:>8s}\t{:>8s}".format("name", "offset", "size", "crc"))
     print("{:<32s}\t{:>8s}\t{:>8s}\t{:>8s}".format("----", "------", "----", "---"))
     for x in resource_generator(header[20:], num_resources):
         (index, offset, size, crc) = x
         print(
-            "{:<32s}\t{:>8d}\t{:>8d}\t{:>08x}".format(
-                resource_names[index], offset, size, crc
-            )
+            f"{resource_names[index]:<32s}\t{offset:>8d}\t{size:>8d}\t{crc:>08x}"
         )
 
 

@@ -5,21 +5,19 @@ import os
 import time
 import types
 
-from waflib import Logs
-from waflib.Configure import conf
-from waflib.Errors import WafError
-from waflib.Task import Task
-from waflib.TaskGen import after_method, before_method, feature
-from waflib.Tools import c, c_preproc
-
-import ldscript, process_bundle, process_headers, process_js, report_memory_usage  # noqa: F401
+import ldscript  # noqa: F401
 from sdk_helpers import (
     append_to_attr,
     find_sdk_component,
     get_node_from_abspath,
     wrap_task_name_with_platform,
 )
-
+from waflib import Logs
+from waflib.Configure import conf
+from waflib.Errors import WafError
+from waflib.Task import Task
+from waflib.TaskGen import after_method, before_method, feature
+from waflib.Tools import c, c_preproc
 
 # Override the default waf task __str__ method to include display of the HW platform being targeted
 Task.__str__ = wrap_task_name_with_platform
@@ -258,7 +256,7 @@ def setup_pebble_cprogram(task_gen):
     """
     build_node = task_gen.path.get_bld().make_node(task_gen.env.BUILD_DIR)
     platform = task_gen.env.PLATFORM_NAME
-    if not hasattr(task_gen, "bin_type") or getattr(task_gen, "bin_type") != "lib":
+    if not hasattr(task_gen, "bin_type") or task_gen.bin_type != "lib":
         append_to_attr(task_gen, "source", build_node.make_node("appinfo.auto.c"))
         append_to_attr(
             task_gen, "source", build_node.make_node("src/resource_ids.auto.c")
@@ -306,7 +304,7 @@ def setup_pebble_cprogram(task_gen):
                 scoped_name = lib["name"].rsplit("/", 1)
                 lib_binary = platform_binary_path.find_node(
                     str(scoped_name[0])
-                ).find_node("lib{}.a".format(scoped_name[1]))
+                ).find_node(f"lib{scoped_name[1]}.a")
             else:
                 lib_binary = platform_binary_path.find_node(
                     "lib{}.a".format(lib["name"])
@@ -414,7 +412,7 @@ def pbl_build(self, *k, **kw):
     if bin_type not in valid_bin_types:
         self.fatal(
             "The pbl_build method requires that a valid bin_type attribute be specified. "
-            "Valid options are {}".format(valid_bin_types)
+            f"Valid options are {valid_bin_types}"
         )
 
     if bin_type in ("app", "worker"):
@@ -423,7 +421,7 @@ def pbl_build(self, *k, **kw):
     elif bin_type == "lib":
         kw["features"] = "c cstlib memory_usage"
         path, name = kw["target"].rsplit("/", 1)
-        kw["lib"] = self.path.find_or_declare(path).make_node("lib{}.a".format(name))
+        kw["lib"] = self.path.find_or_declare(path).make_node(f"lib{name}.a")
 
     # Pass values needed for memory usage report
     if bin_type != "worker":

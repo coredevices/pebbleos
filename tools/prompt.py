@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from serial_port_wrapper import SerialPortWrapper
 import sys
-import stm32_crc
 import time
 
 
@@ -54,7 +52,7 @@ def boot_bit_set(s, bit, value):
     response = s.readline(1)
     words = response.split(" ")
     if words[0] != "OK":
-        raise Exception("non-OK response for set bits: {}".format(response))
+        raise Exception(f"non-OK response for set bits: {response}")
 
 
 def resource_bank_info(s, bank_num, verbose=False):
@@ -66,7 +64,7 @@ def resource_bank_info(s, bank_num, verbose=False):
     response = s.readline(1)
     words = response.split(" ")
     if words[0] != "OK":
-        raise Exception("non-OK response for bank info: {}".format(response))
+        raise Exception(f"non-OK response for bank info: {response}")
     start = int(words[1])
     length = int(words[2])
     return (start, length)

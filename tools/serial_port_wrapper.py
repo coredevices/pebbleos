@@ -1,9 +1,10 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-import serial
 import threading
 import time
+
+import serial
 
 PEBBLE_BAUD_RATE = 115200
 SERIAL_READ_TIMEOUT = 0.1

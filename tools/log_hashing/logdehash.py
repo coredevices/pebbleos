@@ -8,8 +8,8 @@ import os
 import sys
 import threading
 import time
-from datetime import datetime
 import unicodedata as ud
+from datetime import datetime
 
 from pebble.loghashing import newlogging
 
@@ -58,7 +58,7 @@ BOLD = "\x1b[1m"
 CLEAR_LINE = "\x1b[2K"
 
 
-class LogDehash(object):
+class LogDehash:
     """Dehashing helper with a file update watch thread"""
 
     def __init__(
@@ -124,7 +124,7 @@ class LogDehash(object):
         print("Supported Cores:")
         for key in sorted(self.loghash_dict, key=self.loghash_dict.get):
             if key.startswith(LOG_DICT_KEY_CORE_ID):
-                print("    {}: {}".format(key, self.loghash_dict[key]))
+                print(f"    {key}: {self.loghash_dict[key]}")
 
     def update_log_string_metrics(self):
         if not self.loghash_dict:
@@ -173,7 +173,7 @@ class LogDehash(object):
             line_dict[key] for key in ("date", "time") if key in line_dict
         )
         if timestamp:
-            output.append("[{}]".format(timestamp))
+            output.append(f"[{timestamp}]")
         elif "support" not in line_dict:
             # Use the current time if one isn't provided by the system
             now = datetime.now()

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from waflib import Task, Utils, Errors
+from waflib import Errors, Task, Utils
 from waflib.Configure import conf
 from waflib.TaskGen import after, feature
 

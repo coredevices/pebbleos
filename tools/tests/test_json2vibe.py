@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # See pebbletechnology.atlassian.net/wiki/display/DEV/Project%3A+Vibe+Pattern+Format
+import json
 import os
+import struct
 import sys
 import unittest
-import json
-import struct
 
 # Allow us to run even if not at the `tools` directory.
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))

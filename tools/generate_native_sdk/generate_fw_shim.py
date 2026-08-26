@@ -29,7 +29,7 @@ def gen_function_pointer_array(functions):
         else:
             function_ptrs.append("0")
 
-    output.extend(("  %s," % f for f in function_ptrs))
+    output.extend("  %s," % f for f in function_ptrs)
     output.append("};")
     output.append("")
 

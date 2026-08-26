@@ -2,9 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import collections
-import json
 import struct
-import threading
 from datetime import datetime
 
 from . import socket
@@ -41,7 +39,7 @@ class LogMessage(
         return cls(log_level, task, timestamp, file_name, line_number, msg)
 
 
-class LoggingProtocol(object):
+class LoggingProtocol:
     PROTOCOL_NUMBER = 0x03
 
     def __init__(self, connection):

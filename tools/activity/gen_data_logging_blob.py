@@ -6,9 +6,8 @@
 ##################################################################################################
 import argparse
 import logging
-import time
 import struct
-
+import time
 
 """
 typedef struct {

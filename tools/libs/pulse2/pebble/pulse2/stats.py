@@ -1,12 +1,11 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import, division
 
 import math
 
 
-class OnlineStatistics(object):
+class OnlineStatistics:
     """Calculates various statistical properties of a data series
     iteratively, without keeping the data items in memory.
 
@@ -53,6 +52,4 @@ class OnlineStatistics(object):
         return math.sqrt(self.variance)
 
     def __str__(self):
-        return "min/avg/max/stddev = {:.03f}/{:.03f}/{:.03f}/{:.03f}".format(
-            self.min, self.mean, self.max, self.stddev
-        )
+        return f"min/avg/max/stddev = {self.min:.03f}/{self.mean:.03f}/{self.max:.03f}/{self.stddev:.03f}"

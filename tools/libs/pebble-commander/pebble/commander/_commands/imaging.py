@@ -1,13 +1,12 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import print_function
 
-from binascii import crc32
 import os
 import struct
 import sys
 import traceback
+from binascii import crc32
 from functools import reduce
 
 import pebble.pulse2.exceptions
@@ -16,7 +15,7 @@ from .. import PebbleCommander
 from ..util import stm32_crc
 
 
-class PebbleFirmwareBinaryInfo(object):
+class PebbleFirmwareBinaryInfo:
     V1_STRUCT_VERSION = 1
     V1_STRUCT_DEFINTION = [
         ("20s", "build_id"),

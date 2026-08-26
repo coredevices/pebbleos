@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+
 from binutils import analyze_elf
 
 if __name__ == "__main__":

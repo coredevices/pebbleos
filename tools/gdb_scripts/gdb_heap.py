@@ -10,18 +10,18 @@ except ImportError:
         "Hint: to load a script in GDB, use `source this_file.py`"
     )
 
-import gdb_utils
 import itertools
-
 from collections import namedtuple
 
+import gdb_utils
 
-class CorruptionCode(object):
+
+class CorruptionCode:
     def __init__(self, message):
         self.message = message
 
     def __repr__(self):
-        return 'CorruptionCode("{}")'.format(self.message)
+        return f'CorruptionCode("{self.message}")'
 
     def __str__(self):
         return self.message
@@ -51,7 +51,7 @@ class HeapBlock(namedtuple("HeapBlock", "info data size allocated corruption_cod
                 return self.data
 
 
-class Heap(object):
+class Heap:
     BlockSizeZero = CorruptionCode("Block size is zero")
     PrevSizeZero = CorruptionCode("Prev size is zero")
     WrongPrevSize = CorruptionCode("PrevSize is less than the size of the last block")

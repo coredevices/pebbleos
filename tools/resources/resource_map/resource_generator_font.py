@@ -1,18 +1,15 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from resources.types.resource_object import ResourceObject
-from resources.types.resource_definition import ResourceDefinition
-from resources.resource_map.resource_generator import ResourceGenerator
-
-from font.fontgen import Font, MAX_GLYPHS_EXTENDED, MAX_GLYPHS
-
-from pebble_sdk_platform import pebble_platforms
-
-from threading import Lock
-
 import os
 import re
+from threading import Lock
+
+from font.fontgen import MAX_GLYPHS, MAX_GLYPHS_EXTENDED, Font
+from pebble_sdk_platform import pebble_platforms
+from resources.resource_map.resource_generator import ResourceGenerator
+from resources.types.resource_definition import ResourceDefinition
+from resources.types.resource_object import ResourceObject
 
 
 class FontResourceGenerator(ResourceGenerator):
@@ -129,7 +126,7 @@ class FontResourceGenerator(ResourceGenerator):
 
         if match is None:
             if name != "FONT_FALLBACK" and name != "FONT_FALLBACK_INTERNAL":
-                raise ValueError("Font {0}: no height found in name\n".format(name))
+                raise ValueError(f"Font {name}: no height found in name\n")
 
             return 14
 

@@ -7,10 +7,10 @@
 import argparse
 import copy
 import json
-from math import sqrt
 import re
-import urllib
 import sys
+import urllib
+from math import sqrt
 from os.path import basename, splitext
 
 COLORS_JSON_PREFIX = splitext(basename(__file__))[0]
@@ -40,9 +40,9 @@ def download_all_colors_from_color_lovers():
     Requests and caches into colorlovers_colors.json all 64 colors
     """
     colors = []
-    for r2 in range(0, 4):
-        for g2 in range(0, 4):
-            for b2 in range(0, 4):
+    for r2 in range(4):
+        for g2 in range(4):
+            for b2 in range(4):
                 colors += download_values_from_color_lovers(r2 * 85, g2 * 85, b2 * 85)
 
     with open(COLORLOVERS_COLORS_JSON, "w") as f:
@@ -103,7 +103,7 @@ def download_and_parse_colors_from_wikipedia():
     """
     Requests and caches into wikipedia_colors.json all available colors from wikipedias "list of colors" pages
     """
-    from mediawikiapi import MediaWikiAPI, Config
+    from mediawikiapi import Config, MediaWikiAPI
 
     wikipedia = MediaWikiAPI(config=Config(timeout=15))
 
@@ -280,7 +280,7 @@ def enhanced_color(color):
     hex_value = "0x%0.2X%0.2X%0.2X" % (r, g, b)
     html_value = "#%0.2X%0.2X%0.2X" % (r, g, b)
     result["html"] = html_value
-    binary = "0b11{0:02b}{1:02b}{2:02b}".format(r2, g2, b2)
+    binary = f"0b11{r2:02b}{g2:02b}{b2:02b}"
     result["binary"] = binary
 
     result["literals"] = [
@@ -304,9 +304,7 @@ def enhanced_color(color):
         {
             "id": "gcolor_fields",
             "description": "GColor (components)",
-            "value": "(GColor){{.a=0b11, .r=0b{0:02b}, .g=0b{1:02b}, .b=0b{2:02b}}}".format(
-                r2, g2, b2
-            ),
+            "value": f"(GColor){{.a=0b11, .r=0b{r2:02b}, .g=0b{g2:02b}, .b=0b{b2:02b}}}",
         },
     ]
 
@@ -339,15 +337,15 @@ def all_colors_with_names():
         # for now, we only look at colors from wikipedia
         # color lovers code can be deleted as soon as we agreed on final color names
         # candidates += load_colorlovers_colors()
-    except IOError as e:
-        raise IOError(
+    except OSError as e:
+        raise OSError(
             "%s\n\n%s" % (e, "make sure you called --download_wikipedia once")
         )
 
     result = []
-    for r2 in range(0, 4):
-        for g2 in range(0, 4):
-            for b2 in range(0, 4):
+    for r2 in range(4):
+        for g2 in range(4):
+            for b2 in range(4):
                 c = {"r": r2 * 85, "g": g2 * 85, "b": b2 * 85}
                 closest = closest_color(c, candidates)
                 dist = color_dist(c, closest)

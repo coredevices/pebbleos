@@ -3,24 +3,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import with_statement
-from __future__ import print_function
 
-import os
-import os.path as path
-import shutil
 import argparse
+import os
+import shutil
 from functools import cmp_to_key
+from os import path
 
+import exports
+from extract_comments import extract_comments
+from extract_symbol_info import extract_symbol_info
 from generate_app_header import make_app_header
+from generate_app_sdk_version_header import generate_app_sdk_version_header
 from generate_app_shim import make_app_shim_lib
 from generate_fw_shim import make_fw_shims
 from generate_json_api_description import make_json_api_description
-from generate_app_sdk_version_header import generate_app_sdk_version_header
-
-from extract_symbol_info import extract_symbol_info
-from extract_comments import extract_comments
-import exports
 
 # When this file is called by waf using `python generate_pebble_native_sdk_files.py ...`, we
 # need to append the parent directory to the system PATH because relative imports won't work
@@ -111,15 +108,13 @@ def generate_shim_files(
         include_groups=True,
     )
 
-    compiler_flags = ["-D{}".format(d) for d in platform_info["DEFINES"]]
+    compiler_flags = [f"-D{d}" for d in platform_info["DEFINES"]]
 
     freertos_port_name = "ARM_CM3" if platform_name == "aplite" else "ARM_CM4F"
     compiler_flags.extend(
         [
-            "-I{}/../third_party/freertos/FreeRTOS-Kernel/FreeRTOS/Source/{}".format(
-                pbl_src_dir, p
-            )
-            for p in ["include", "portable/GCC/{}".format(freertos_port_name)]
+            f"-I{pbl_src_dir}/../third_party/freertos/FreeRTOS-Kernel/FreeRTOS/Source/{p}"
+            for p in ["include", f"portable/GCC/{freertos_port_name}"]
         ]
     )
 

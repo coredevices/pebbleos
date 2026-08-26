@@ -5,8 +5,8 @@
 import argparse
 import errno
 import os
-from shutil import rmtree
 import zipfile
+from shutil import rmtree
 
 
 class MissingFileException(Exception):
@@ -25,20 +25,18 @@ def _calculate_crc(path):
     pass
 
 
-class PebblePackage(object):
+class PebblePackage:
     def __init__(self, package_filename):
         self.package_filename = package_filename
         self.package_files = {}
 
     def add_file(self, name, file_path):
         if not os.path.exists(file_path):
-            raise MissingFileException("The file '{}' does not exist".format(file_path))
+            raise MissingFileException(f"The file '{file_path}' does not exist")
         if name in self.package_files and self.package_files.get(name) != file_path:
             raise DuplicatePackageFileException(
-                "The file '{}' cannot be added to the package "
-                "because `{}` has already been assigned to `{}`".format(
-                    file_path, self.package_files.get(name), name
-                )
+                f"The file '{file_path}' cannot be added to the package "
+                f"because `{self.package_files.get(name)}` has already been assigned to `{name}`"
             )
         else:
             self.package_files[name] = file_path
@@ -63,7 +61,7 @@ class PebblePackage(object):
 
 class LibraryPackage(PebblePackage):
     def __init__(self, package_filename="dist.zip"):
-        super(LibraryPackage, self).__init__(package_filename)
+        super().__init__(package_filename)
 
     def add_files(self, includes, binaries, resources, js):
         for include, include_path in includes.items():
@@ -76,7 +74,7 @@ class LibraryPackage(PebblePackage):
             self.add_file(os.path.join("js", js_file), js_file_path)
 
     def unpack(self, package_path="dist"):
-        super(LibraryPackage, self).unpack(package_path)
+        super().unpack(package_path)
 
 
 if __name__ == "__main__":

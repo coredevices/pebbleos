@@ -1,9 +1,10 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-import gdb
 import re
 from collections import defaultdict
+
+import gdb
 
 INFO_LINE_RE = re.compile(r"(.+\s)*(\S+)\s+(\S+);")
 INFO_FILE_RE = re.compile(r"File ([^:]+):$")
@@ -26,7 +27,7 @@ def _do_info_line_match(line):
     paren_loc = symbol.find("[")
     if paren_loc > 0:
         symbol = symbol[:paren_loc]
-    symbol = "'{}'".format(symbol)
+    symbol = f"'{symbol}'"
     return (_type, symbol)
 
 
@@ -68,7 +69,7 @@ def _find_match(gdb_output, _file=None):
 
 
 def _run_info(symbol_name, _type):
-    out = gdb.execute("info {} {}\\b".format(_type, symbol_name), False, True)
+    out = gdb.execute(f"info {_type} {symbol_name}\\b", False, True)
     return out
 
 
@@ -79,19 +80,19 @@ def get_static_variable(variable_name, _file=None, ref=False):
     out = _run_info(variable_name, "variables")
     (_type, symbol) = _find_match(out, _file)
     if symbol is None:
-        raise Exception('Error: Symbol matching "{}" DNE.'.format(variable_name))
+        raise Exception(f'Error: Symbol matching "{variable_name}" DNE.')
     if ref:
         symbol = "&" + symbol
         if _type is not None:
             _type += " *"
     if _type:
-        ret = "(({}){})".format(_type, symbol)
-    ret = "({})".format(symbol)
+        ret = f"(({_type}){symbol})"
+    ret = f"({symbol})"
     get_static_variable.cache[_file][variable_name] = ret
     return ret
 
 
-get_static_variable.cache = defaultdict(lambda: defaultdict(lambda: {}))
+get_static_variable.cache = defaultdict(lambda: defaultdict(dict))
 
 
 def get_static_function(function_name):

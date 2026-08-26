@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from waflib import Node, Task, TaskGen
-
 from resources.resource_map import resource_generator
-from resources.resource_map.resource_generator_js import JsResourceGenerator  # noqa: F401
+from resources.resource_map.resource_generator_js import (
+    JsResourceGenerator,  # noqa: F401
+)
+from resources.types.resource_ball import ResourceBall
 from resources.types.resource_definition import StorageType
 from resources.types.resource_object import ResourceObject
-from resources.types.resource_ball import ResourceBall
+from waflib import Node, Task, TaskGen
 
 
 class reso(Task.Task):
@@ -28,7 +29,7 @@ class resource_ball(Task.Task):
         # resource id mapping exists, use that to sort the resources instead.
         if not resource_id_mapping:
             for s in [StorageType.pbpack, StorageType.builtin, StorageType.pfs]:
-                ordered_resos.extend((o for o in resos if o.definition.storage == s))
+                ordered_resos.extend(o for o in resos if o.definition.storage == s)
         else:
             resos_dict = {
                 resource_id_mapping[reso.definition.name]: reso for reso in resos

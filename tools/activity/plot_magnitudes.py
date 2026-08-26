@@ -5,8 +5,7 @@
 unit test (when STATS_FILE_NAME is defined).
 """
 
-import matplotlib.pyplot as pyplot
-
+from matplotlib import pyplot
 
 ##################################################################################################
 if __name__ == "__main__":

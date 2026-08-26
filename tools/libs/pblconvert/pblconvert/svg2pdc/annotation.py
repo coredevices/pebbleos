@@ -1,5 +1,5 @@
-# coding=utf-8
 from xml.etree import ElementTree
+
 from pdc import bounding_box_around_points
 
 NS_ANNOTATION = "http://www.pebble.com/2015/pdc"

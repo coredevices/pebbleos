@@ -5,11 +5,10 @@ import collections
 import struct
 import time
 
-from . import exceptions
-from . import socket
+from . import exceptions, socket
 
 
-class EraseCommand(object):
+class EraseCommand:
     command_type = 1
     command_struct = struct.Struct("<BII")
 
@@ -38,7 +37,7 @@ class EraseCommand(object):
         return unpacked
 
 
-class WriteCommand(object):
+class WriteCommand:
     command_type = 2
     command_struct = struct.Struct("<BI")
     header_len = command_struct.size
@@ -53,7 +52,7 @@ class WriteCommand(object):
         return header + self.data
 
 
-class WriteResponse(object):
+class WriteResponse:
     response_type = 129
     response_struct = struct.Struct("<xII?")
     Response = collections.namedtuple("WriteResponse", "address length complete")
@@ -65,7 +64,7 @@ class WriteResponse(object):
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
-class CrcCommand(object):
+class CrcCommand:
     command_type = 3
     command_struct = struct.Struct("<BII")
 
@@ -94,7 +93,7 @@ class CrcCommand(object):
         return unpacked
 
 
-class QueryFlashRegionCommand(object):
+class QueryFlashRegionCommand:
     command_type = 4
     command_struct = struct.Struct("<BB")
 
@@ -121,7 +120,7 @@ class QueryFlashRegionCommand(object):
         return unpacked
 
 
-class FinalizeFlashRegionCommand(object):
+class FinalizeFlashRegionCommand:
     command_type = 5
     command_struct = struct.Struct("<BB")
 
@@ -146,7 +145,7 @@ class FinalizeFlashRegionCommand(object):
             )
 
 
-class FlashImagingProtocol(object):
+class FlashImagingProtocol:
     PROTOCOL_NUMBER = 0x02
 
     RESP_BAD_CMD = 192

@@ -30,30 +30,30 @@ except ImportError:
         "Hint: to load a script in GDB, use `source this_file.py`"
     )
 
-import gdb.printing
 import ctypes
 import datetime
 import re
 import struct
+from collections import Counter, OrderedDict, defaultdict, namedtuple
 
-from collections import defaultdict, OrderedDict, namedtuple, Counter
+import gdb.printing
 
 # Enable importing of other .py files in the same folder:
 _SCRIPT_DIR = os.path.abspath(os.path.dirname(os.path.expanduser(__file__)))
 sys.path.insert(0, _SCRIPT_DIR)
 
-import gdb_utils
 import gdb_parser
+import gdb_utils
 from gdb_heap import Heap
-from gdb_tintin_metadata import TintinMetadata
 from gdb_symbols import get_static_variable
+from gdb_tintin_metadata import TintinMetadata
 
 
 class PblCommand(gdb.Command):
     """Pebble-specific commands."""
 
     def __init__(self):
-        super(PblCommand, self).__init__(
+        super().__init__(
             "pbl", gdb.COMMAND_USER, gdb.COMPLETE_NONE, prefix=True
         )
 
@@ -64,7 +64,7 @@ class PblCommand(gdb.Command):
 PblCommand()
 
 
-class PebbleTaskBitSet(object):
+class PebbleTaskBitSet:
     """Convenience class to format a PebbleTask bitset"""
 
     def __init__(self, bitset):
@@ -80,7 +80,7 @@ class PebbleTaskBitSet(object):
 
     def human_readable_list(self, separator="\n", indent=" - "):
         task_names = []
-        for value in range(0, 32):
+        for value in range(32):
             if self.bitset & (1 << value):
                 task_name = self.enum[value] if value in self.enum else "???"
                 task_names.append(task_name)
@@ -92,7 +92,7 @@ class PebbleTaskBitSet(object):
         return self.human_readable_list()
 
 
-class FreeRTOSMutex(object):
+class FreeRTOSMutex:
     """Convenience class to access FreeRTOS mutex structure"""
 
     def __init__(self, mutex):
@@ -144,7 +144,7 @@ class FreeRTOSMutex(object):
         return bool(self.mutex["uxLocked"])
 
 
-class FreeRTOSQueue(object):
+class FreeRTOSQueue:
     """Convenience class to access data in a FreeRTOS queue"""
 
     def __init__(self, queue, item_type_or_string=None):
@@ -265,7 +265,7 @@ class FreeRTOSQueue(object):
         return self.get_queue_item_description(list(self.items()))
 
 
-class Tasks(object):
+class Tasks:
     """Holds information about valid tasks"""
 
     def __init__(self):
@@ -282,7 +282,7 @@ class Tasks(object):
         return task in self.valid_tasks
 
 
-class LinkedList(object):
+class LinkedList:
     """Returns an iterable linked list when given a ListNode."""
 
     def __init__(self, start_ptr):
@@ -295,11 +295,9 @@ class LinkedList(object):
         while node.address != 0:
             if node[prev_direction] != prev_address:
                 print(
-                    (
-                        "Warning: LinkedList {} corrupted? Expected {} got {}".format(
-                            node.address, prev_address, node[prev_direction]
-                        )
-                    )
+                    
+                        f"Warning: LinkedList {node.address} corrupted? Expected {prev_address} got {node[prev_direction]}"
+                    
                 )
                 break
             self.addresses.append(node.address)
@@ -327,7 +325,7 @@ class DumpQueue(gdb.Command):
             "Expected command format:\n"
             "dumpqueue QueueHandle [TYPE_CAST] [-p]"
         )
-        super(DumpQueue, self).__init__("pbl dumpqueue", gdb.COMMAND_USER)
+        super().__init__("pbl dumpqueue", gdb.COMMAND_USER)
         self.parser = gdb_utils.GdbArgumentParser(prog="dumpqueue", description=desc)
         self.parser.add_argument(
             "-p",
@@ -370,7 +368,7 @@ class QueueStats(gdb.Command):
     """Dumps the status of various queues used within PebbleOS."""
 
     def __init__(self):
-        super(QueueStats, self).__init__("pbl queuestats", gdb.COMMAND_USER)
+        super().__init__("pbl queuestats", gdb.COMMAND_USER)
 
     def invoke(self, unicode_args, from_tty):
         def print_line():
@@ -401,7 +399,7 @@ class QueueStats(gdb.Command):
             "Worker": [[get_static_variable("s_to_worker_event_queue"), "PebbleEvent"]],
         }
 
-        for owner in owners_of_queues_to_dump.keys():
+        for owner in owners_of_queues_to_dump:
             print("Dumping queue(s) used by %s" % owner)
             print_line()
             for queues in owners_of_queues_to_dump[owner]:
@@ -417,7 +415,7 @@ class PrintList(gdb.Command):
     """Prints a list of ListNode`s."""
 
     def __init__(self):
-        super(PrintList, self).__init__("pbl pl", gdb.COMMAND_USER)
+        super().__init__("pbl pl", gdb.COMMAND_USER)
 
     def invoke(self, unicode_args, from_tty):
         if not unicode_args:
@@ -461,7 +459,7 @@ class StackRecover(gdb.Command):
     """Recover the stack"""
 
     def __init__(self):
-        super(StackRecover, self).__init__("pbl stackwizard", gdb.COMMAND_USER)
+        super().__init__("pbl stackwizard", gdb.COMMAND_USER)
         desc = (
             "Attempts to recover a backtrace from a corrupted stack (i.e stack oveflow)"
         )
@@ -518,7 +516,7 @@ class StackRecover(gdb.Command):
         # solution, it analyzes how many valid frames exist. If there's a reasonable
         # number of frames the solution is displayed to the user
 
-        for word in range(0, 200):
+        for word in range(200):
             stack_addr = pxBottomStackAddr + (4 * word)
             stack_val = stack_addr.cast(uint32_ptr_type).dereference()
             stack_word_pc_info = gdb.find_pc_line(int(stack_val))
@@ -553,7 +551,7 @@ class StackStats(gdb.Command):
     """Print Stack Usage by routine"""
 
     def __init__(self):
-        super(StackStats, self).__init__("pbl sbt", gdb.COMMAND_USER)
+        super().__init__("pbl sbt", gdb.COMMAND_USER)
 
     def print_usage(self):
         print(
@@ -621,7 +619,7 @@ class HeapParser(gdb.Command):
     """Try to figure out what structures are allocated on the heap"""
 
     def __init__(self):
-        super(HeapParser, self).__init__("pbl heap", gdb.COMMAND_USER)
+        super().__init__("pbl heap", gdb.COMMAND_USER)
         desc = "Attempts to guess the type of each block in the kernel heap."
         self.parser = gdb_utils.GdbArgumentParser(prog="pbl heap", description=desc)
         self.parser.add_argument(
@@ -684,9 +682,7 @@ class HeapParser(gdb.Command):
             print("~" * 60)
             for block in heap:
                 print(
-                    "Addr: {}  Bytes: {:<6} {}".format(
-                        block.data, block.size, block_data[str(block.data)]
-                    )
+                    f"Addr: {block.data}  Bytes: {block.size:<6} {block_data[str(block.data)]}"
                 )
 
         print("~" * 60)
@@ -694,9 +690,7 @@ class HeapParser(gdb.Command):
 
         for struct, blocks in OrderedDict(sorted(data.items())).items():
             print(
-                "{:<30}: {:<3} ({} bytes)".format(
-                    struct, len(blocks), sum(block.size for block in blocks)
-                )
+                f"{struct:<30}: {len(blocks):<3} ({sum(block.size for block in blocks)} bytes)"
             )
 
         if args.dump_strings:
@@ -723,8 +717,8 @@ class HeapParser(gdb.Command):
                 if heap.malloc_instrumentation:
                     pc = int(block.info["pc"])
                     info = gdb_utils.addr2line(pc)
-                    desc = "{info.filename}:{info.line}".format(info=info)
-                print("Addr: {}  Bytes: {:<8} {}".format(block.data, block.size, desc))
+                    desc = f"{info.filename}:{info.line}"
+                print(f"Addr: {block.data}  Bytes: {block.size:<8} {desc}")
             print("Note: Most unknowns in the kernel heap are from applib_malloc.")
         if data["Unknown"]:
             print("~" * 60)
@@ -738,9 +732,7 @@ class HeapParser(gdb.Command):
                 candidates = types_by_size.get(size, [])
                 cand_str = ", ".join(candidates) if candidates else "-"
                 print(
-                    "  {:>5} B x {:>3} ({:>6} B total) : {}".format(
-                        size, len(blocks), size * len(blocks), cand_str
-                    )
+                    f"  {size:>5} B x {len(blocks):>3} ({size * len(blocks):>6} B total) : {cand_str}"
                 )
 
         if len(data["Unknown"]) > 20:
@@ -758,7 +750,7 @@ class LockStats(gdb.Command):
     """Walk through mutexes and look for deadlocks"""
 
     def __init__(self):
-        super(LockStats, self).__init__("pbl lockstats", gdb.COMMAND_USER)
+        super().__init__("pbl lockstats", gdb.COMMAND_USER)
 
     def print_usage(self):
         print("Checks for deadlocks and prints warnings if a deadlock \nhas occurred")
@@ -788,12 +780,10 @@ class LockStats(gdb.Command):
 
         for mutex in mutexes:
             message.append(
-                "Mutex Addr: {} Owner: {}".format(mutex.address, mutex.owner_name())
+                f"Mutex Addr: {mutex.address} Owner: {mutex.owner_name()}"
             )
             message.append(
-                "Last locked: {}".format(
-                    mutex_lrs.get(str(mutex.address)),
-                )
+                f"Last locked: {mutex_lrs.get(str(mutex.address))}"
             )
 
             for waiter in mutex.waiter_task_list():
@@ -807,7 +797,7 @@ class LockStats(gdb.Command):
                 # Is the lock waiting for the current task?
                 if task in task_lock_wait_dict.get(lock, []):
                     message.append(
-                        "Found deadlock between {} and {}".format(task, lock)
+                        f"Found deadlock between {task} and {lock}"
                     )
             del task_lock_wait_dict[task]
 
@@ -825,7 +815,7 @@ class HeapStats(gdb.Command):
     """Print Heap info"""
 
     def __init__(self):
-        super(HeapStats, self).__init__("pbl heapstats", gdb.COMMAND_USER)
+        super().__init__("pbl heapstats", gdb.COMMAND_USER)
         self.parser = gdb_utils.GdbArgumentParser(
             prog="heapstats", description="Print heap info"
         )
@@ -870,7 +860,7 @@ class HeapStats(gdb.Command):
             self.extract_info(block)
 
         # Ensure the next line printed is on its own line instead of appended to the progress
-        print("")
+        print()
 
         if args.dump_heap or args.dump_size:
             if not self.malloc_instrumentation:
@@ -894,14 +884,12 @@ class HeapStats(gdb.Command):
             )
             print("File: Heap usage (bytes)")
             for filename, size in filesize_dict_sorted.items():
-                print("{}: {}".format(filename, size))
+                print(f"{filename}: {size}")
 
         if args.dump_heap:
             for pc, ptr, size_bytes, filename, desc in self.file_size_list:
                 print(
-                    "PC:0x{:0>8x} Addr:{} Bytes:{:<8} {}".format(
-                        pc, ptr, size_bytes, desc
-                    )
+                    f"PC:0x{pc:0>8x} Addr:{ptr} Bytes:{size_bytes:<8} {desc}"
                 )
 
         if args.dump_freq:
@@ -911,7 +899,7 @@ class HeapStats(gdb.Command):
             )
             print("Freq: Size (bytes)")
             for size, freq in list(heaps_dict_sorted.items()):
-                print("{:>4d}: {}".format(freq, size))
+                print(f"{freq:>4d}: {size}")
 
         if heap.corrupted:
             message = "HEAP CORRUPTED!"
@@ -927,16 +915,16 @@ class HeapStats(gdb.Command):
         alloc = HeapInfo(self.alloc_segments)
 
         print(
-            (
-                "Heap start {heap.start}\n"
-                "Heap end {heap.end}\n"
-                "Heap total size {heap.size}\n"
-                "Heap allocated {alloc.size}\n"
-                "Heap high water mark {heap.high_water_mark}\n"
-                "Heap free blocks: {free.size} bytes, {free.blocks} blocks\n"
-                "Heap alloc blocks: {alloc.size:d} bytes, {alloc.blocks} blocks\n"
-                "Heap largest free block: {free.max}"
-            ).format(heap=heap, free=free, alloc=alloc)
+            
+                f"Heap start {heap.start}\n"
+                f"Heap end {heap.end}\n"
+                f"Heap total size {heap.size}\n"
+                f"Heap allocated {alloc.size}\n"
+                f"Heap high water mark {heap.high_water_mark}\n"
+                f"Heap free blocks: {free.size} bytes, {free.blocks} blocks\n"
+                f"Heap alloc blocks: {alloc.size:d} bytes, {alloc.blocks} blocks\n"
+                f"Heap largest free block: {free.max}"
+            
         )
 
     def extract_info(self, block):
@@ -952,14 +940,14 @@ class HeapStats(gdb.Command):
         filename = "UNKNOWN"
         pc = 0xFFFFFFFF
         if block.corruption_code:
-            desc = "Block corrupted: {}".format(block.corruption_code)
+            desc = f"Block corrupted: {block.corruption_code}"
         else:
             if self.malloc_instrumentation:
                 pc = int(block.info["pc"])
                 info = gdb_utils.addr2line(pc)
                 filename = info.filename
                 if not desc:
-                    desc = "{info.filename}:{info.line}".format(info=info)
+                    desc = f"{info.filename}:{info.line}"
                 gdb.write(".")
                 gdb.flush()
             else:
@@ -979,7 +967,7 @@ class LayerTree(gdb.Command):
     """Print the layer tree of either a given window, or the window currently on screen"""
 
     def __init__(self):
-        super(LayerTree, self).__init__("pbl layer-tree", gdb.COMMAND_USER)
+        super().__init__("pbl layer-tree", gdb.COMMAND_USER)
 
     def invoke(self, unicode_args, from_tty):
         window_ptr = 0
@@ -1003,9 +991,7 @@ class LayerTree(gdb.Command):
                 print("Current window is on the app window stack")
                 s_app_state = get_static_variable("s_app_state")
                 window_ptr = gdb.parse_and_eval(
-                    "((WindowStackItem *){}.window_stack->list_head)->window".format(
-                        s_app_state
-                    )
+                    f"((WindowStackItem *){s_app_state}.window_stack->list_head)->window"
                 )
             else:
                 print("Current window is a modal")
@@ -1014,9 +1000,7 @@ class LayerTree(gdb.Command):
         # see GDB Bug 10676 https://sourceware.org/bugzilla/show_bug.cgi?id=10676 for why I use str()
         if str(window_ptr.type) != str(window_ptr_type):
             print(
-                "Error: argument must be of type {}, this one is {}".format(
-                    window_ptr_type, window_ptr.type
-                )
+                f"Error: argument must be of type {window_ptr_type}, this one is {window_ptr.type}"
             )
 
         def print_layer(layer_ptr, level):
@@ -1102,7 +1086,7 @@ class WorkerSymbols(gdb.Command):
     """Load in symbols for the worker task"""
 
     def __init__(self):
-        super(WorkerSymbols, self).__init__("pbl worker_symbols", gdb.COMMAND_USER)
+        super().__init__("pbl worker_symbols", gdb.COMMAND_USER)
 
     def print_usage(self):
         print(
@@ -1116,7 +1100,6 @@ class WorkerSymbols(gdb.Command):
 
     def invoke(self, unicode_args, from_tty):
         setup_task_symbols(self, unicode_args, "worker")
-        return
 
 
 WorkerSymbols()
@@ -1127,7 +1110,7 @@ class AppSymbols(gdb.Command):
     """Load in symbols for the app task"""
 
     def __init__(self):
-        super(AppSymbols, self).__init__("pbl app_symbols", gdb.COMMAND_USER)
+        super().__init__("pbl app_symbols", gdb.COMMAND_USER)
 
     def print_usage(self):
         print(
@@ -1141,7 +1124,6 @@ class AppSymbols(gdb.Command):
 
     def invoke(self, unicode_args, from_tty):
         setup_task_symbols(self, unicode_args, "app")
-        return
 
 
 AppSymbols()
@@ -1152,7 +1134,7 @@ class RebootReason(gdb.Command):
     """Print RebootReason stored in the RTC registers"""
 
     def __init__(self):
-        super(RebootReason, self).__init__("pbl reboot_reason", gdb.COMMAND_USER)
+        super().__init__("pbl reboot_reason", gdb.COMMAND_USER)
 
     def print_usage(self):
         print("Print Reboot reason from RTC registers.\n")
@@ -1165,7 +1147,7 @@ class RebootReason(gdb.Command):
 RebootReason()
 
 
-class SharedCircularBuffer(object):
+class SharedCircularBuffer:
     def __init__(self, circular_buffer, client):
         if not isinstance(circular_buffer, gdb.Value):
             circular_buffer = gdb.parse_and_eval(circular_buffer)
@@ -1210,7 +1192,7 @@ class DumpLogBuffer(gdb.Command):
     )
 
     def __init__(self):
-        super(DumpLogBuffer, self).__init__(
+        super().__init__(
             "pbl log-buffer", gdb.COMMAND_USER, gdb.COMPLETE_NONE
         )
 
@@ -1253,12 +1235,7 @@ class DumpLogBuffer(gdb.Command):
             header = self.LogMessage._make(self.LogMessageStruct.unpack(header_bytes))
             message = reader.read_and_consume(length)
             gdb.write(
-                "{ts:%Y-%m-%d %H:%M:%S}:000GMT {file}:{line} {msg}\n".format(
-                    ts=datetime.datetime.utcfromtimestamp(header.timestamp),
-                    file=ctypes.c_char_p(header.filename).value,
-                    line=header.line_number,
-                    msg=ctypes.c_char_p(message).value,
-                )
+                f"{datetime.datetime.utcfromtimestamp(header.timestamp):%Y-%m-%d %H:%M:%S}:000GMT {ctypes.c_char_p(header.filename).value}:{header.line_number} {ctypes.c_char_p(message).value}\n"
             )
 
 
@@ -1270,7 +1247,7 @@ class DumpNotificationsApp(gdb.Command):
     """Dump the list of notifications from the Notifications App"""
 
     def __init__(self):
-        super(DumpNotificationsApp, self).__init__(
+        super().__init__(
             "pbl notif_app", gdb.COMMAND_USER, gdb.COMPLETE_NONE
         )
 
@@ -1329,7 +1306,7 @@ class DumpNotificationsApp(gdb.Command):
                 identifier = int(attr_ptr["id"])
                 if identifier == 1 or identifier == 2 or identifier == 3:
                     print(attr_ptr["cstring"])
-            print("")
+            print()
             node = node["node"]["next"].cast(node_type)
 
 
@@ -1355,8 +1332,8 @@ class _rangeInfo(collections.namedtuple("_rangeInfo", "start end name")):
 
     def __str__(self):
         return (
-            "0x{self.start:08x} - 0x{self.end:08x} = "
-            "{self.size:8d} : {self.name}".format(self=self)
+            f"0x{self.start:08x} - 0x{self.end:08x} = "
+            f"{self.size:8d} : {self.name}"
         )
 
 
@@ -1364,7 +1341,7 @@ class FilesInfo(gdb.Command):
     """gdb 'info files' command in sorted order with sizes"""
 
     def __init__(self):
-        super(FilesInfo, self).__init__(
+        super().__init__(
             "pbl info-files", gdb.COMMAND_USER, gdb.COMPLETE_SYMBOL
         )
 
@@ -1395,7 +1372,7 @@ class PNGDump(gdb.Command):
     sys.path.append(os.path.abspath("."))
 
     def __init__(self):
-        super(PNGDump, self).__init__(
+        super().__init__(
             "pbl to_png", gdb.COMMAND_USER, gdb.COMPLETE_SYMBOL
         )
 
@@ -1405,11 +1382,11 @@ class PNGDump(gdb.Command):
 
     def invoke(self, unicode_args, from_tty):
         from tools.pbi2png import (
-            pbi_struct,
-            pbi_to_png,
+            palette_size,
             pbi_format,
             pbi_is_palettized,
-            palette_size,
+            pbi_struct,
+            pbi_to_png,
         )
 
         if not unicode_args:
@@ -1474,7 +1451,7 @@ class PNGDump(gdb.Command):
         png = pbi_to_png(pbi, pixels)
         if png:
             png.save(filename)
-            print("Saved to {}".format(filename))
+            print(f"Saved to {filename}")
 
 
 PNGDump()
@@ -1484,7 +1461,7 @@ class FaultWizard(gdb.Command):
     """Finds and sets the register values (lr,pc,sp) for a fault"""
 
     def __init__(self):
-        super(FaultWizard, self).__init__(
+        super().__init__(
             "pbl fault_wizard", gdb.COMMAND_USER, gdb.COMPLETE_SYMBOL
         )
 
@@ -1520,7 +1497,7 @@ class PrintMetadata(gdb.Command):
     """Prints information about the build running on the watch"""
 
     def __init__(self):
-        super(PrintMetadata, self).__init__(
+        super().__init__(
             "pbl metadata", gdb.COMMAND_USER, gdb.COMPLETE_SYMBOL
         )
 

@@ -1,8 +1,8 @@
-from handlers import *
-
 import argparse
 import os
 import sys
+
+from handlers import *
 
 SUPPORTED_FORMATS_MAP = {
     "in": {
@@ -70,7 +70,7 @@ def parse_args(args):
                         break
 
                 if outfile_path != avoiding_path:
-                    raise IOError(
+                    raise OSError(
                         "File %s and (%d similar alternatives) "
                         "already exists" % (outfile_path, LIMIT_WHEN_AVOIDING_OVERRIDE)
                     )

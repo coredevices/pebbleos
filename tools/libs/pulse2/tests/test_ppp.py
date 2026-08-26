@@ -1,20 +1,19 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import unittest
 
 try:
     from unittest import mock
 except ImportError:
-    import mock
+    from unittest import mock
 
 
-from pebble.pulse2 import ppp, exceptions
+from pebble.pulse2 import exceptions, ppp
 
-from .fake_timer import FakeTimer
 from . import timer_helper
+from .fake_timer import FakeTimer
 
 
 class TestPPPEncapsulation(unittest.TestCase):
@@ -225,11 +224,7 @@ class TestControlProtocolRestartTimer(unittest.TestCase):
 
 
 class InstrumentedControlProtocol(ppp.ControlProtocol):
-    methods_to_mock = (
-        "this_layer_up this_layer_down this_layer_started "
-        "this_layer_finished send_packet start_restart_timer "
-        "stop_restart_timer"
-    ).split()
+    methods_to_mock = ["this_layer_up", "this_layer_down", "this_layer_started", "this_layer_finished", "send_packet", "start_restart_timer", "stop_restart_timer"]
     attributes_to_mock = ("restart_timer",)
 
     def __init__(self):
@@ -240,7 +235,7 @@ class InstrumentedControlProtocol(ppp.ControlProtocol):
             setattr(self, attr, mock.NonCallableMock())
 
 
-class ControlProtocolTestMixin(object):
+class ControlProtocolTestMixin:
     CONTROL_CODE_ENUM = ppp.ControlCode
 
     def _map_control_code(self, code):

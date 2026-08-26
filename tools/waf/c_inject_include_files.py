@@ -7,7 +7,7 @@ optional attribute `inject_include_files`.
 """
 
 from waflib.Node import Nod3
-from waflib.TaskGen import feature, after_method
+from waflib.TaskGen import after_method, feature
 from waflib.Utils import def_attrs, to_list
 
 

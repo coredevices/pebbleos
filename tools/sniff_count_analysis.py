@@ -7,7 +7,7 @@
 import re
 
 f = open("log.txt")
-r = re.compile("[^\n]+(\+\+|\-\-)no_sniff_count : [0-9]+ \(([A-z]+)\)")
+r = re.compile("[^\n]+(\\+\\+|\\-\\-)no_sniff_count : [0-9]+ \\(([A-z]+)\\)")
 d = {}
 for line in f:
     m = r.search(line)
@@ -21,6 +21,6 @@ for line in f:
             d[tag] += 1
         else:
             d[tag] -= 1
-print("")
+print()
 for tag in d:
-    print("{0} -> {1}".format(tag, d[tag]))
+    print(f"{tag} -> {d[tag]}")

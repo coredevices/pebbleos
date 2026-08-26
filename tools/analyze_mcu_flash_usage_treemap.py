@@ -3,17 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from analyze_mcu_flash_find_unclaimed import claim
-from analyze_mcu_flash_config import *
 import argparse
-import binutils
 import json
 import os.path
 import re
-import sh
 
+import binutils
+from analyze_mcu_flash_config import *
+from analyze_mcu_flash_find_unclaimed import claim
 
-ROOT_PATH_SPLIT_RE = re.compile("\.?\.?/?([^/]+)/(.*)")
+ROOT_PATH_SPLIT_RE = re.compile(r"\.?\.?/?([^/]+)/(.*)")
 
 
 def split_root_path(path):
@@ -149,5 +148,5 @@ if __name__ == "__main__":
     print("Total bytes mapped:        %u" % total_size)
     print("-------------------------------------")
     print("Unaccounted bytes:         %u" % (text_size - total_size))
-    print("")
+    print()
     print("Now go open %s.html to view treemap" % os.path.splitext(__file__)[0])

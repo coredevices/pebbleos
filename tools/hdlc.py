@@ -12,7 +12,7 @@ HDLC_ESCAPE = 0x7D
 HDLC_ESCAPE_MASK = 0x20
 
 
-class HDLCDecoder(object):
+class HDLCDecoder:
     _STATE_SYNC, _STATE_DATA, _STATE_ESCAPE = range(3)
 
     def __init__(self):

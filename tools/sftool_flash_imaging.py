@@ -9,7 +9,6 @@
 # Same CLI as pulse_flash_imaging / pulse_legacy_flash_imaging so waf can
 # select this tool via _get_pulse_flash_tool() for MICRO_FAMILY == 'SF32LB52'.
 
-from __future__ import print_function
 
 import argparse
 import subprocess

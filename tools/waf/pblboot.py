@@ -10,7 +10,6 @@ import zlib
 
 from intelhex import IntelHex
 
-
 MAGIC = 0x96F3B83D
 
 # Boot priority bands (bits 63..56 of the header priority field, formerly a

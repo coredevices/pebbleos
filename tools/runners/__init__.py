@@ -16,9 +16,9 @@ __all__ = [
     "RunnerConfig",
     "RunnerError",
     "UnsupportedOperation",
-    "names",
-    "get",
     "create",
+    "get",
+    "names",
     "register_args",
 ]
 
@@ -41,7 +41,7 @@ def get(name):
     try:
         return RUNNERS[name]
     except KeyError:
-        raise RunnerError("Unknown runner: {}".format(name))
+        raise RunnerError(f"Unknown runner: {name}")
 
 
 def create(name, cfg, args):

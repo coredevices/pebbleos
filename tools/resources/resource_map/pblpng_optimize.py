@@ -167,8 +167,7 @@ def optimize_png_bytes(data):
         for r in rows:
             for x in range(w):
                 v = (r[(x * bd) // 8] >> (8 - bd - ((x * bd) % 8))) & mask
-                if v > maxidx:
-                    maxidx = v
+                maxidx = max(maxidx, v)
         nplte = plte[: 3 * (maxidx + 1)] if (ct == 3 and plte) else plte
         ntrns = None
         if trns is not None:

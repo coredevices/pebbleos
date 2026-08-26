@@ -15,7 +15,7 @@ from datetime import datetime
 from gdb_symbols import get_static_variable
 
 
-class TintinMetadata(object):
+class TintinMetadata:
     """Convenience Metadata struct for a tintin firmware"""
 
     def parse_hw_version(self, hw_version_num):
@@ -40,7 +40,7 @@ class TintinMetadata(object):
         }
 
         platform_name = None
-        for platform_key in platforms.keys():
+        for platform_key in platforms:
             if platform_key.lower() in board_name.lower():
                 platform_name = platforms[platform_key]
         return platform_name, board_name
@@ -83,11 +83,11 @@ class TintinMetadata(object):
 
     def __str__(self):
         str_rep = ""
-        str_rep += "Build Timestamp:  {}\n".format(self.version_timestamp())
-        str_rep += "Version Tag:      {}\n".format(self.version_tag())
-        str_rep += "Version Short:    {}\n".format(self.version_short())
-        str_rep += "Is Recovery:      {}\n".format(self.is_recovery_firmware())
-        str_rep += "HW Platform:      {}\n".format(self.hw_platform())
-        str_rep += "HW Board Name:    {}\n".format(self.hw_board_name())
-        str_rep += "HW Board Num:     {}".format(self.hw_board_number())
+        str_rep += f"Build Timestamp:  {self.version_timestamp()}\n"
+        str_rep += f"Version Tag:      {self.version_tag()}\n"
+        str_rep += f"Version Short:    {self.version_short()}\n"
+        str_rep += f"Is Recovery:      {self.is_recovery_firmware()}\n"
+        str_rep += f"HW Platform:      {self.hw_platform()}\n"
+        str_rep += f"HW Board Name:    {self.hw_board_name()}\n"
+        str_rep += f"HW Board Num:     {self.hw_board_number()}"
         return str_rep

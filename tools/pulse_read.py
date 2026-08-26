@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import print_function
 import argparse
 import logging
-import pulse
 import sys
+
+import pulse
 
 
 def auto_int(num):
@@ -79,9 +79,7 @@ def main():
             method = getattr(connection.read, "_".join((args.operation, args.domain)))
         except AttributeError:
             print(
-                "Domain {!r} doesn't support method {!r}".format(
-                    args.domain, args.operation
-                ),
+                f"Domain {args.domain!r} doesn't support method {args.operation!r}",
                 file=sys.stderr,
             )
             sys.exit(1)

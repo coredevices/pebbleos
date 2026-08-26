@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from queue import Queue
 import struct
 import sys
 import threading
@@ -10,12 +9,13 @@ import time
 import traceback
 import uuid
 import weakref
+from queue import Queue
 
-from cobs import cobs
 import serial
+import stm32_crc
+from cobs import cobs
 
 from . import exceptions
-import stm32_crc
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ def encode_frame(protocol, payload):
     return cobs.encode(frame)
 
 
-class Connection(object):
+class Connection:
     """A socket for sending and receiving datagrams over the PULSE serial
     protocol.
     """
@@ -389,7 +389,7 @@ class Connection(object):
         self.port_settings_altered = True
 
 
-class ProtocolSocket(object):
+class ProtocolSocket:
     """A socket for sending and receiving datagrams of a single protocol over a
     PULSE connection.
 

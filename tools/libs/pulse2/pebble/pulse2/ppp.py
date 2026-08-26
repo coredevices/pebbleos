@@ -8,7 +8,6 @@ be unreasonable to describe the lower layers of PULSEv2 as PPP in a
 custom framing.
 """
 
-from __future__ import absolute_import
 
 import collections
 import enum
@@ -23,7 +22,6 @@ from transitions.extensions import LockedMachine
 
 from . import exceptions
 from . import logging as pulse2_logging
-
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -71,7 +69,7 @@ class Constructors:
     """Namespace for Construct parsers."""
 
     LCPPacket = construct.Struct(
-        "LCPPacket",  # noqa
+        "LCPPacket",
         construct.Byte("code"),
         construct.Byte("identifier"),
         construct.UBInt16("length"),
@@ -80,26 +78,26 @@ class Constructors:
     )
 
     Option = construct.Struct(
-        "option",  # noqa
+        "option",
         construct.UBInt8("type"),
         construct.NoneOf(construct.UBInt8("length"), [0, 1]),
         construct.Field("data", lambda ctx: ctx.length - 2),
     )
 
     OptionList = construct.Struct(
-        "options",  # noqa
+        "options",
         construct.Rename("options", construct.GreedyRange(Option)),
         construct.Terminator,
     )
 
     ProtocolReject = construct.Struct(
-        "protocol_reject",  # noqa
+        "protocol_reject",
         construct.UBInt16("rejected_protocol"),
         OptionalGreedyString("rejected_information"),
     )
 
     MagicPlusData = construct.Struct(
-        None,  # noqa
+        None,
         construct.UBInt32("magic_number"),
         OptionalGreedyString("data"),
     )
@@ -228,7 +226,7 @@ class LCPCode(enum.Enum):
     Identification = 12
 
 
-class ConfigurationAccepted(object):
+class ConfigurationAccepted:
     pass
 
 
@@ -248,7 +246,7 @@ def flatten_transitions_table(transitions):
     return flattened
 
 
-class ControlProtocol(object):
+class ControlProtocol:
     """The base PPP Control Protocol state machine.
 
     Only the states and events common to LCP and NCPs are implemented
@@ -831,7 +829,6 @@ class ControlProtocol(object):
 
         Subclasses should override this method.
         """
-        pass
 
     def this_layer_down(self, *args):
         """Signal to upper layers that the automaton is leaving the
@@ -839,7 +836,6 @@ class ControlProtocol(object):
 
         Subclasses should override this method.
         """
-        pass
 
     def this_layer_started(self):
         """Signal to lower layers that the automaton is entering the
@@ -847,7 +843,6 @@ class ControlProtocol(object):
 
         Subclasses should override this method.
         """
-        pass
 
     def this_layer_finished(self):
         """Signal to lower layers that the lower layer is no longer
@@ -855,7 +850,6 @@ class ControlProtocol(object):
 
         Subclasses should override this method.
         """
-        pass
 
     def send_packet(self, packet):
         """Send a packet out to the lower layer.
@@ -1111,7 +1105,6 @@ class ControlProtocol(object):
         which the implementation requires be negotiated,
         `NegotiationFailure` should be raised.
         """
-        pass
 
     def handle_configure_nak(self, unacceptable_options):
         """Handle options which were not acceptable by the remote peer.
@@ -1119,11 +1112,9 @@ class ControlProtocol(object):
         the next call to `get_configure_request_options` will
         reflect the values that the remote peer has deemed unacceptable.
         """
-        pass
 
     def handle_configure_accepted(self, options):
         """Handle the remote peer accepting the options list."""
-        pass
 
     # Other protocol housekeeping
     def handle_unknown_code(self, code, identifier, data):
@@ -1143,7 +1134,6 @@ class ControlProtocol(object):
         Raise `CodeRejectCatastrophic` if a rejection of that code
         cannot be recovered from.
         """
-        pass
 
 
 class LinkControlProtocol(ControlProtocol):

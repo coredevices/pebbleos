@@ -3,11 +3,8 @@ import logging
 import pebble_tool
 from libpebble2.communication.transports.pulse import PULSETransport
 from libpebble2.exceptions import PebbleError
-from .commands import coredump
-from .commands import install_lang
-from .commands import test
-from .commands import install_firmware
-from .commands import flash_logs
+
+from .commands import coredump, flash_logs, install_firmware, install_lang, test
 
 # TODO: unopened logging ports cause super noisy logs, fix this in the
 # pulse package then remove this
@@ -27,7 +24,7 @@ class PebbleTransportPULSE(pebble_tool.commands.base.PebbleTransportConfiguratio
                 "pulse2 package not installed: it is required for PULSE transport"
             )
 
-        (url,) = super(PebbleTransportPULSE, cls)._connect_args(args)
+        (url,) = super()._connect_args(args)
         interface = pulse2.Interface.open_dbgserial(url=url)
         link = interface.get_link()
         return (link,)

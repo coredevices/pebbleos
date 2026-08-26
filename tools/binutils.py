@@ -3,11 +3,11 @@
 
 import os.path
 import re
-import sh
 import subprocess
 import sys
 import tempfile
 
+import sh
 
 NM_LINE_PATTERN = re.compile(
     r"""([0-9a-f]+)\s+ # address
@@ -20,7 +20,7 @@ NM_LINE_PATTERN = re.compile(
 )
 
 
-class Symbol(object):
+class Symbol:
     def __init__(self, name, size):
         self.name = name
         self.size = size
@@ -29,7 +29,7 @@ class Symbol(object):
         return "<Symbol %s: %u>" % (self.name, self.size)
 
 
-class FileInfo(object):
+class FileInfo:
     def __init__(self, filename):
         self.filename = filename
         self.size = 0
@@ -59,7 +59,7 @@ class FileInfo(object):
         return "<FileInfo %s: %u>" % (self.filename, self.size)
 
 
-class SectionInfo(object):
+class SectionInfo:
     def __init__(self, name):
         self.name = name
         self.count = 0
@@ -191,7 +191,7 @@ def _get_symbols_table(f):
             try:
                 addr2line.stdin.write("0x%s\n" % addr)
                 success = True
-            except IOError:
+            except OSError:
                 # This happens if the previous iteration caused an error
                 addr2line = create_addr2line_process()
 

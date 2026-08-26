@@ -6,7 +6,7 @@ Define a __FILE_NAME__ macro to expand to the filename of the C/C++ source,
 stripping the other path components.
 """
 
-from waflib.TaskGen import feature, after_method
+from waflib.TaskGen import after_method, feature
 
 
 @feature("c")

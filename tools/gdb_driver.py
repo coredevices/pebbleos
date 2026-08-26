@@ -23,7 +23,7 @@ def find_gdb_path():
     return None
 
 
-class GDBDriver(object):
+class GDBDriver:
     def __init__(self, elf_path, gdb_path=None, server_port=1234):
         self.gdb_path = gdb_path or find_gdb_path()
         if not self.gdb_path:
@@ -72,7 +72,7 @@ class GDBDriver(object):
         self.pipe.send_signal(signal)
 
 
-class GDBInterface(object):
+class GDBInterface:
     def __init__(self, gdb_driver):
         assert gdb_driver
         self.gdb_driver = gdb_driver

@@ -1,11 +1,9 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from waflib import Task, TaskGen
-
 from resources.types.resource_ball import ResourceBall
 from resources.types.resource_definition import ResourceDefinition
-
+from waflib import Task, TaskGen
 
 enum_header = """#pragma once
 
@@ -97,15 +95,9 @@ class generate_resource_id_header(Task.Task):
                     RESOURCE_ID_DECLARATION.format(declaration.name, i) + "\n"
                 )
                 if isinstance(declaration, ResourceDefinition):
-                    for alias in declaration.aliases:
-                        output_file.write(
-                            RESOURCE_ID_DECLARATION.format(alias, i) + " // alias\n"
-                        )
-            for item in published_media:
-                output_file.write(
-                    PUBLISHED_ID_DECLARATION.format(item["name"], item["id"] or 0)
-                    + "\n"
-                )
+                    output_file.writelines(RESOURCE_ID_DECLARATION.format(alias, i) + " // alias\n" for alias in declaration.aliases)
+            output_file.writelines(PUBLISHED_ID_DECLARATION.format(item["name"], item["id"] or 0)
+                    + "\n" for item in published_media)
 
             # Handle defining extended font ids for extended fonts that don't actually exist.
             # Every font should have a matching ID defined, but if the resource itself doesn't
@@ -148,15 +140,9 @@ class generate_resource_id_definitions(Task.Task):
                     RESOURCE_ID_DEFINITION.format(declaration.name, i) + "\n"
                 )
                 if isinstance(declaration, ResourceDefinition):
-                    for alias in declaration.aliases:
-                        output_file.write(
-                            RESOURCE_ID_DEFINITION.format(alias, i) + " // alias\n"
-                        )
+                    output_file.writelines(RESOURCE_ID_DEFINITION.format(alias, i) + " // alias\n" for alias in declaration.aliases)
 
-            for item in published_media:
-                output_file.write(
-                    PUBLISHED_ID_DEFINITION.format(item["name"], item["id"])
-                )
+            output_file.writelines(PUBLISHED_ID_DEFINITION.format(item["name"], item["id"]) for item in published_media)
 
 
 @TaskGen.feature("generate_resource_id_header")

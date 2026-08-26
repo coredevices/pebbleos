@@ -42,7 +42,7 @@ class gpathInfoPrinter:
         points_code = ""
         num_points = int(self.val["num_points"])
         array_val = self.val["points"]
-        for i in range(0, num_points):
+        for i in range(num_points):
             point_val = array_val[i]
             if points_code:
                 points_code += ", "
@@ -51,7 +51,7 @@ class gpathInfoPrinter:
         return outer_code_fmt % (num_points, points_code)
 
 
-class UuidPrinter(object):
+class UuidPrinter:
     """Print a UUID."""
 
     def __init__(self, val):

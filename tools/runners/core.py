@@ -14,8 +14,7 @@ import shlex
 import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import NamedTuple, Optional
-
+from typing import NamedTuple
 
 # Commands a runner may implement.
 COMMANDS = ("flash", "run", "reset", "erase", "debug", "debugserver")
@@ -40,17 +39,17 @@ class RunnerCaps:
     def __post_init__(self):
         invalid = self.commands - set(COMMANDS)
         if invalid:
-            raise ValueError("invalid runner commands: {}".format(sorted(invalid)))
+            raise ValueError(f"invalid runner commands: {sorted(invalid)}")
 
 
 class RunnerConfig(NamedTuple):
     """Inputs a runner needs to execute a command, independent of the frontend."""
 
     board_dir: str  # boards/<board>
-    soc: Optional[str] = None  # CONFIG_SOC, e.g. "NRF52", "SF32LB52"
-    hex_file: Optional[str] = None
-    elf_file: Optional[str] = None
-    resources_file: Optional[str] = None
+    soc: str | None = None  # CONFIG_SOC, e.g. "NRF52", "SF32LB52"
+    hex_file: str | None = None
+    elf_file: str | None = None
+    resources_file: str | None = None
     dry_run: bool = False
 
 
@@ -84,11 +83,11 @@ class Runner(ABC):
         caps = self.capabilities()
         if command not in caps.commands:
             raise UnsupportedOperation(
-                "{} runner does not support {}".format(self.name, command)
+                f"{self.name} runner does not support {command}"
             )
         if command == "flash" and self.cfg.resources_file and not caps.flash_resources:
             raise UnsupportedOperation(
-                "{} runner does not support flashing resources".format(self.name)
+                f"{self.name} runner does not support flashing resources"
             )
         self.do_run(command)
 

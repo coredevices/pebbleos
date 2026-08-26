@@ -1,12 +1,10 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from waflib import Task, TaskGen
-
+import generate_c_byte_array
 from resources.types.resource_ball import ResourceBall
 from resources.types.resource_definition import StorageType
-
-import generate_c_byte_array
+from waflib import Task, TaskGen
 
 
 class generate_builtin(Task.Task):
@@ -21,13 +19,13 @@ class generate_builtin(Task.Task):
         with open(self.outputs[0].abspath(), "w") as f:
             fw_bld_node = self.generator.bld.bldnode.find_node("src/fw")
             f.write(
-                '#include "{}"\n'.format(self.resource_id_header.path_from(fw_bld_node))
+                f'#include "{self.resource_id_header.path_from(fw_bld_node)}"\n'
             )
             f.write('#include "resource/resource_storage.h"\n')
             f.write('#include "resource/resource_storage_builtin.h"\n\n')
 
             def var_name(reso):
-                return "{}_builtin_bytes".format(reso.definition.name)
+                return f"{reso.definition.name}_builtin_bytes"
 
             # Write the blobs of data:
             for reso in resource_objects:
@@ -39,9 +37,7 @@ class generate_builtin(Task.Task):
             f.write("\n")
 
             f.write(
-                "const uint32_t g_num_builtin_resources = {};\n".format(
-                    len(resource_objects)
-                )
+                f"const uint32_t g_num_builtin_resources = {len(resource_objects)};\n"
             )
             f.write("const BuiltInResourceData g_builtin_resources[] = {\n")
 

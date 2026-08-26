@@ -7,13 +7,12 @@ import argparse
 import json
 import logging
 import os
-import requests
 import sys
 import zipfile
 
 import logdehash
 import newlogging
-
+import requests
 
 DICT_FIRMWARE = "build/src/fw/loghash_dict.json"
 DICT_PRF = "build/prf/src/fw/loghash_dict.json"
@@ -39,7 +38,7 @@ def load_user_settings():
     try:
         user_settings_file = open(os.path.expanduser(settings_path), "rb")
         user_settings = json.load(user_settings_file)
-    except IOError as e:
+    except OSError as e:
         if e.errno == 2:
             logging.error(
                 """Please create %s with credentials: """
@@ -75,7 +74,7 @@ def get_loghash_dict_from_hagen_daas_files(hash):
     return r.text
 
 
-class Log(object):
+class Log:
     def __init__(self, output=False):
         self.output = output
 

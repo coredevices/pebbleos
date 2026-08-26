@@ -21,12 +21,11 @@ be launched whenever QEMU is launched and likewise taken down whenever QEMU exit
 we exit this process whenever we detect that the QEMU gdb server connection has closed.
 """
 
+import argparse
 import logging
+import select
 import socket
 import time
-import argparse
-import select
-
 
 CTRL_C_CHARACTER = b"\3"
 
@@ -48,14 +47,14 @@ def byte_swap_uint32(val):
 
 
 ##########################################################################################
-class PebbleThread(object):
+class PebbleThread:
     """This class encapsulates the information about a thread on the Pebble"""
 
     # Mapping of register name to register index
     reg_name_to_index = {
         name: num
         for num, name in enumerate(
-            "r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 sp lr pc xpsr".split()
+            ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "sp", "lr", "pc", "xpsr"]
         )
     }
 
@@ -145,7 +144,7 @@ class PebbleThread(object):
 
 
 ##########################################################################################
-class QemuGdbProxy(object):
+class QemuGdbProxy:
     """
     This class implements a GDB server listening for a gdb connection on a specific port.
     It connects to and acts as a proxy to yet another gdb server running on the target system.
@@ -646,7 +645,7 @@ class QemuGdbProxy(object):
             try:
                 self.target_socket.connect((self.target_host, self.target_port))
                 connected = True
-            except socket.error:
+            except OSError:
                 self.target_socket.close()
                 self.target_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 time.sleep(0.1)

@@ -1,12 +1,10 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from waflib import Task, TaskGen
-
+from pbpack import ResourcePack
 from resources.types.resource_ball import ResourceBall
 from resources.types.resource_definition import StorageType
-
-from pbpack import ResourcePack
+from waflib import Task, TaskGen
 
 
 class generate_pbpack(Task.Task):

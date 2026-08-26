@@ -3,13 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-import freetype
+import itertools
+import json
 import os
 import re
 import struct
 import sys
-import itertools
-import json
+
+import freetype
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 
@@ -147,15 +148,13 @@ class Font:
     def set_compression(self, engine):
         if self.version != FONT_VERSION_3:
             raise Exception(
-                "Compression being set but version != 3 ({})".format(self.version)
+                f"Compression being set but version != 3 ({self.version})"
             )
         if engine == "RLE4":
             self.features |= FEATURE_RLE4
         else:
             raise Exception(
-                "Unsupported compression engine: '{}'. Font {}".format(
-                    engine, self.ttf_path
-                )
+                f"Unsupported compression engine: '{engine}'. Font {self.ttf_path}"
             )
 
     def set_version(self, version):
@@ -171,7 +170,7 @@ class Font:
             except Exception:
                 raise Exception(
                     "Supplied filter argument was not a valid regular expression."
-                    "Font: {}".format(self.ttf_path)
+                    f"Font: {self.ttf_path}"
                 )
         else:
             self.regex = None
@@ -244,7 +243,7 @@ class Font:
         src_ptr = self.max_glyph_size - len(glyph_packed)
 
         def glyph_packed_iterator(tbl, num):
-            for i in range(0, num):
+            for i in range(num):
                 yield struct.unpack("<B", tbl[i])[0]
 
         # Generate glyph buffer. Ignore the header
@@ -259,9 +258,7 @@ class Font:
         while rle_units > 0:
             if src_ptr >= self.max_glyph_size:
                 raise Exception(
-                    "Error: input stream too large for buffer. Font {}".format(
-                        self.ttf_path
-                    )
+                    f"Error: input stream too large for buffer. Font {self.ttf_path}"
                 )
 
             unit_pair = bitmap[src_ptr]
@@ -280,15 +277,11 @@ class Font:
                 if out_num_bits >= 8:
                     if dst_ptr >= src_ptr:
                         raise Exception(
-                            "Error: unable to RLE4 decode in place! Overrun. Font {}".format(
-                                self.ttf_path
-                            )
+                            f"Error: unable to RLE4 decode in place! Overrun. Font {self.ttf_path}"
                         )
                     if dst_ptr >= self.max_glyph_size:
                         raise Exception(
-                            "Error: output bitmap too large for buffer. Font {}".format(
-                                self.ttf_path
-                            )
+                            f"Error: output bitmap too large for buffer. Font {self.ttf_path}"
                         )
                     bitmap[dst_ptr] = out & 0xFF
                     dst_ptr += 1
@@ -343,9 +336,7 @@ class Font:
             else:
                 # freetype-py should never give us a value not in (1,2)
                 raise Exception(
-                    "Unsupported pixel mode: {}. Font {}".format(
-                        pixel_mode, self.ttf_path
-                    )
+                    f"Unsupported pixel mode: {pixel_mode}. Font {self.ttf_path}"
                 )
 
             if self.features & FEATURE_RLE4:
@@ -354,7 +345,7 @@ class Font:
                 if height > 255:
                     raise Exception(
                         "Unable to RLE4 compress -- more than 255 units required"
-                        "({}). Font {}".format(height, self.ttf_path)
+                        f"({height}). Font {self.ttf_path}"
                     )
                 # Check that we can in-place decompress. Will raise an exception if not.
                 self.check_decompress_glyph_RLE4(glyph_packed, width, height)
@@ -369,9 +360,7 @@ class Font:
                 size = ((width * height) + (8 - 1)) // 8
                 if size > self.max_glyph_size:
                     raise Exception(
-                        "Glyph too large! codepoint {}: {} > {}. Font {}".format(
-                            codepoint, size, self.max_glyph_size, self.ttf_path
-                        )
+                        f"Glyph too large! codepoint {codepoint}: {size} > {self.max_glyph_size}. Font {self.ttf_path}"
                     )
 
         glyph_header = struct.pack(
@@ -477,14 +466,12 @@ class Font:
             if codepoint is WILDCARD_CODEPOINT:
                 raise Exception(
                     "Wildcard codepoint is used for something else in this font."
-                    "Font {}".format(self.ttf_path)
+                    f"Font {self.ttf_path}"
                 )
 
             if gindex == 0:
                 raise Exception(
-                    "0 index is reused by a non wildcard glyph. Font {}".format(
-                        self.ttf_path
-                    )
+                    f"0 index is reused by a non wildcard glyph. Font {self.ttf_path}"
                 )
 
             if codepoint_is_in_subset(codepoint):

@@ -1,16 +1,14 @@
 # SPDX-FileCopyrightText: 2025 Federico Bechini
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import, print_function
-
-from libpebble2.services.getbytes import GetBytesService
-from libpebble2.exceptions import GetBytesError
-from libpebble2.protocol.transfers import GetBytesInfoResponse
-
-from pebble_tool.commands.base import PebbleCommand
-from pebble_tool.exceptions import ToolError
 
 import os
+
+from libpebble2.exceptions import GetBytesError
+from libpebble2.protocol.transfers import GetBytesInfoResponse
+from libpebble2.services.getbytes import GetBytesService
+from pebble_tool.commands.base import PebbleCommand
+from pebble_tool.exceptions import ToolError
 
 
 class FlashLogsCommand(PebbleCommand):
@@ -20,7 +18,7 @@ class FlashLogsCommand(PebbleCommand):
 
     @classmethod
     def add_parser(cls, parser):
-        parser = super(FlashLogsCommand, cls).add_parser(parser)
+        parser = super().add_parser(parser)
         parser.add_argument(
             "--board",
             required=True,
@@ -30,7 +28,7 @@ class FlashLogsCommand(PebbleCommand):
         return parser
 
     def __call__(self, args):
-        super(FlashLogsCommand, self).__call__(args)
+        super().__call__(args)
         get_bytes = GetBytesService(self.pebble)
 
         # Map board names to (start_address, size)
@@ -55,7 +53,7 @@ class FlashLogsCommand(PebbleCommand):
         region = FLASH_LOG_REGIONS.get(board)
         if not region:
             # Try simple aliasing or partial matching if needed, but for now strict map
-            print("Error: Unknown board '{}'.".format(board))
+            print(f"Error: Unknown board '{board}'.")
             print(
                 "Supported boards: {}".format(
                     ", ".join(sorted(FLASH_LOG_REGIONS.keys()))
@@ -65,32 +63,28 @@ class FlashLogsCommand(PebbleCommand):
 
         flash_log_start, flash_log_size = region
 
-        print("Board: {}".format(board))
+        print(f"Board: {board}")
         print(
-            "Reading flash log region: 0x{:X} - 0x{:X} ({} KB)".format(
-                flash_log_start,
-                flash_log_start + flash_log_size,
-                flash_log_size // 1024,
-            )
+            f"Reading flash log region: 0x{flash_log_start:X} - 0x{flash_log_start + flash_log_size:X} ({flash_log_size // 1024} KB)"
         )
 
         try:
             flash_data = get_bytes.get_flash_region(flash_log_start, flash_log_size)
-            print("Read {} bytes from flash".format(len(flash_data)))
+            print(f"Read {len(flash_data)} bytes from flash")
 
             # Save to file
             import datetime
 
             filename = datetime.datetime.now().strftime(
-                "flash_logs_{}_%Y-%m-%d_%H-%M-%S.bin".format(board)
+                f"flash_logs_{board}_%Y-%m-%d_%H-%M-%S.bin"
             )
             filepath = os.path.abspath(filename)
             with open(filename, "wb") as log_file:
                 log_file.write(flash_data)
-            print("Saved flash logs to {}".format(filepath))
+            print(f"Saved flash logs to {filepath}")
 
             print("\nTo parse and dehash the logs:")
-            print("  tools/dehash_flash_logs.py {}".format(filename))
+            print(f"  tools/dehash_flash_logs.py {filename}")
 
         except GetBytesError as ex:
             if ex.code == GetBytesInfoResponse.ErrorCode.DoesNotExist:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 
 """executed when directory is called as script."""

@@ -3,7 +3,7 @@ import shutil
 import unittest
 from filecmp import dircmp
 
-from pblconvert.svg2pdc.pdc import serialize_image, convert_to_png
+from pblconvert.svg2pdc.pdc import convert_to_png, serialize_image
 from pblconvert.svg2pdc.svg import surface_from_svg
 
 RECORD_MODE = False

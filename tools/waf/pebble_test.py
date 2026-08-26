@@ -1,14 +1,16 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from waflib.TaskGen import after, feature, taskgen_method
-from waflib import Errors, Logs, Task, Utils
-from tools.waf import junit_xml
-from string import Template
 import hashlib
 import os
 import re
 import unicodedata as ud
+from string import Template
+
+from waflib import Errors, Logs, Task, Utils
+from waflib.TaskGen import after, feature, taskgen_method
+
+from tools.waf import junit_xml
 
 
 @feature("pebble_test")
@@ -41,7 +43,7 @@ class run_test(Task.Task):
         if self.generator.bld.options.no_run:
             return Task.SKIP_ME
 
-        ret = super(run_test, self).runnable_status()
+        ret = super().runnable_status()
         if ret == Task.SKIP_ME:
             # FIXME: We probably don't need to rerun tests if the inputs don't change, but meh, whatever.
             return Task.RUN_ME
@@ -252,7 +254,7 @@ def get_bitdepth_for_platform(bld, platform):
     elif platform in ("asterix",):
         return 1
     else:
-        bld.fatal("Unknown platform {}".format(platform))
+        bld.fatal(f"Unknown platform {platform}")
 
 
 def add_clar_test(
@@ -306,9 +308,7 @@ def add_clar_test(
         test_src_file = task.inputs[0].abspath()
         test_bld_dir = task.outputs[0].get_bld().parent.abspath()
 
-        cmd = "python {0}/clar.py --file={1} --clar-path={0} {2}".format(
-            clar_dir, test_src_file, test_bld_dir
-        )
+        cmd = f"python {clar_dir}/clar.py --file={test_src_file} --clar-path={clar_dir} {test_bld_dir}"
         task.generator.bld.exec_command(cmd)
 
     clar_harness = test_dir.make_node("clar_main.c")
@@ -346,7 +346,7 @@ def add_clar_test(
         platform if platform in ("asterix", "obelix", "gabbro") else "obelix"
     )
     src_includes.append(
-        "tests/overrides/default/resources/{}".format(resource_override_dir_name)
+        f"tests/overrides/default/resources/{resource_override_dir_name}"
     )
 
     override_includes = ["tests/overrides/" + f for f in override_includes]

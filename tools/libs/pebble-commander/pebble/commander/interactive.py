@@ -1,18 +1,17 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import shlex
 import traceback
 
-from log_hashing.logdehash import LogDehash
 import prompt_toolkit
+from log_hashing.logdehash import LogDehash
 
 from .commander import PebbleCommander
 
 
-class InteractivePebbleCommander(object):
+class InteractivePebbleCommander:
     """Interactive Pebble Commander.
     Most/all UI implementations should either use this directly or sub-class it.
     """

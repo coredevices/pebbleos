@@ -3,7 +3,6 @@
 
 from .. import PebbleCommander, exceptions
 
-
 # TODO: flash-write
 # Can't do it with pulse prompt :(
 

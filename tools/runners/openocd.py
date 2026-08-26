@@ -21,7 +21,7 @@ def _is_openocd_running():
     try:
         s.bind(("", OPENOCD_TELNET_PORT))
         s.close()
-    except socket.error as e:
+    except OSError as e:
         s.close()
         return e.errno == errno.EADDRINUSE
     return False
@@ -43,7 +43,7 @@ class OpenOcdRunner(Runner):
     def do_run(self, command):
         if command == "flash":
             self._run_command(
-                "init; reset halt; program {} reset;".format(self.cfg.hex_file),
+                f"init; reset halt; program {self.cfg.hex_file} reset;",
                 expect=["Programming Finished", "Programming Finished", "shutdown"],
                 enforce_expect=True,
             )
@@ -67,9 +67,7 @@ class OpenOcdRunner(Runner):
             raise RunnerError("pebble-gdb not found!")
 
         with self._daemon():
-            cmd = '{} {} --init-command=".gdbinit" --ex="target remote :{}"'.format(
-                gdb, self.cfg.elf_file, OPENOCD_GDB_PORT
-            )
+            cmd = f'{gdb} {self.cfg.elf_file} --init-command=".gdbinit" --ex="target remote :{OPENOCD_GDB_PORT}"'
             if self.cfg.dry_run:
                 print("[dry-run] " + cmd)
             else:

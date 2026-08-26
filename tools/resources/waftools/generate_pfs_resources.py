@@ -18,14 +18,12 @@ class pfs_resources_table(Task.Task):
 
             fw_bld_node = self.generator.bld.bldnode.find_node("src/fw")
             f.write(
-                '#include "{}"\n'.format(self.resource_id_header.path_from(fw_bld_node))
+                f'#include "{self.resource_id_header.path_from(fw_bld_node)}"\n'
             )
             f.write("\n")
 
             f.write(
-                "const uint32_t g_num_file_resource_stores = {};\n".format(
-                    len(self.file_definitions)
-                )
+                f"const uint32_t g_num_file_resource_stores = {len(self.file_definitions)};\n"
             )
             f.write("\n")
 
@@ -37,17 +35,12 @@ class pfs_resources_table(Task.Task):
 
                 # FIXME: We should just get rid of this concept since it's trivially calculated at
                 # compile time
-                id_offset_expr = "({} - 1)".format(first_resource_id)
+                id_offset_expr = f"({first_resource_id} - 1)"
 
                 filename = d["name"]
 
                 f.write(
-                    '  {{ {first}, {last}, {id_offset}, "{filename}" }},\n'.format(
-                        first=first_resource_id,
-                        last=last_resource_id,
-                        id_offset=id_offset_expr,
-                        filename=filename,
-                    )
+                    f'  {{ {first_resource_id}, {last_resource_id}, {id_offset_expr}, "{filename}" }},\n'
                 )
 
             f.write("};\n")

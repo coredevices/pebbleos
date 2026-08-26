@@ -117,13 +117,13 @@ def _build_picolibc(conf):
 
     out.make_node("cross.txt").write(
         "[binaries]\n"
-        "c = ['arm-none-eabi-gcc', {a}, '-nostdlib']\n"
-        "cpp = ['arm-none-eabi-g++', {a}, '-nostdlib']\n"
+        f"c = ['arm-none-eabi-gcc', {arch_lit}, '-nostdlib']\n"
+        f"cpp = ['arm-none-eabi-g++', {arch_lit}, '-nostdlib']\n"
         "ar = 'arm-none-eabi-ar'\nas = 'arm-none-eabi-as'\n"
         "nm = 'arm-none-eabi-nm'\nstrip = 'arm-none-eabi-strip'\n"
         "[host_machine]\n"
         "system = 'none'\ncpu_family = 'arm'\ncpu = 'arm'\nendian = 'little'\n"
-        "[properties]\nskip_sanity_check = true\n".format(a=arch_lit)
+        "[properties]\nskip_sanity_check = true\n"
     )
 
     if not builddir.find_node("build.ninja"):

@@ -3,14 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-import os
-import sys
-import zipfile
 import argparse
 import json
-import time
-import stm32_crc
+import os
 import pprint
+import sys
+import time
+import zipfile
+
+import stm32_crc
 
 MANIFEST_VERSION = 2
 BUNDLE_PREFIX = "bundle"
@@ -38,7 +39,7 @@ def check_paths(*args):
             raise MissingFileException(path)
 
 
-class PebbleBundle(object):
+class PebbleBundle:
     def __init__(self, subfolder=None):
         self.generated_at = int(time.time())
         self.bundle_manifest = {
@@ -163,7 +164,7 @@ class PebbleBundle(object):
             raise Exception("Added multiple js_toolings to a single bundle")
 
         if not (1 <= bytecode_version <= 31):
-            raise Exception("Invalid bytecode version {}".format(bytecode_version))
+            raise Exception(f"Invalid bytecode version {bytecode_version}")
 
         check_paths(jstooling_path)
         self.bundle_files.append(jstooling_path)
@@ -259,11 +260,11 @@ class PebbleBundle(object):
             raise Exception("Bundle must contain either a firmware or watchapp")
 
         if not out_path:
-            out_path = "pebble-{}-{:d}.pbz".format(self.type, self.generated_at)
+            out_path = f"pebble-{self.type}-{self.generated_at:d}.pbz"
 
         if verbose:
             pprint.pprint(self.bundle_manifest)
-            print("writing bundle to {}".format(out_path))
+            print(f"writing bundle to {out_path}")
 
         with zipfile.ZipFile(out_path, "w") as z:
             for f in self.bundle_files:
@@ -291,9 +292,9 @@ def check_required_args(opts, *args):
     for required_arg in args:
         try:
             if not options[required_arg]:
-                raise Exception("Missing argument {}".format(required_arg))
+                raise Exception(f"Missing argument {required_arg}")
         except KeyError:
-            raise Exception("Missing argument {}".format(required_arg))
+            raise Exception(f"Missing argument {required_arg}")
 
 
 def make_firmware_bundle(

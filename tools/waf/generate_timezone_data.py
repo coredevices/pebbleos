@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-import tools.timezones
+from io import BytesIO
 
 from resources.types.resource_definition import ResourceDefinition
 from resources.types.resource_object import ResourceObject
 
-from io import BytesIO
+import tools.timezones
 
 
 def wafrule(task):
@@ -23,7 +23,7 @@ def generate_resource_object(olson_database):
     dstrule_list = tools.timezones.dstrules_parse(olson_database)
     zonelink_list = tools.timezones.zonelink_parse(olson_database)
 
-    print("{} {} {}".format(len(zoneinfo_list), len(dstrule_list), len(zonelink_list)))
+    print(f"{len(zoneinfo_list)} {len(dstrule_list)} {len(zonelink_list)}")
 
     data_file = BytesIO()
     tools.timezones.zoneinfo_to_bin(

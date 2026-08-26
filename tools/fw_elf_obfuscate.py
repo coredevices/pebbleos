@@ -11,7 +11,6 @@ import json
 import os
 import struct
 
-
 EXPORTED_SYMBOLS_PATH = os.path.join(
     os.path.dirname(__file__), "generate_native_sdk/exported_symbols.json"
 )
@@ -36,7 +35,7 @@ OBFUSCATE_SYMBOLS = [
 ]
 
 
-class ELFObjectBase(object):
+class ELFObjectBase:
     def unpack(self, data, offset=0):
         raise NotImplementedError("unpack is not implement")
 
@@ -251,7 +250,7 @@ class ELFStringTable(ELFSection):
     def __init__(self, header, content):
         assert header.type == header.TYPE_STRING_TABLE
         assert content[0] == 0 and content[-1] == 0
-        super(ELFStringTable, self).__init__(header, content)
+        super().__init__(header, content)
         self.strings = []
 
     def unpack(self):
@@ -283,7 +282,7 @@ class ELFSymbolTable(ELFSection):
     def __init__(self, header, content):
         assert header.type == header.TYPE_SYMBOL_TABLE
         assert len(content) % header.entry_size == 0
-        super(ELFSymbolTable, self).__init__(header, content)
+        super().__init__(header, content)
         self.symbols = []
 
     def unpack(self):
@@ -419,13 +418,13 @@ class ELFFile(ELFObjectBase):
         for index, section in enumerate(self.sections):
             if section.name == name:
                 return index
-        raise Exception("Could not find section: {}".format(name))
+        raise Exception(f"Could not find section: {name}")
 
     def get_section(self, name):
         for section in self.sections:
             if section.name == name:
                 return section
-        raise Exception("Could not find section: {}".format(name))
+        raise Exception(f"Could not find section: {name}")
 
 
 def _get_preserved_symbols():

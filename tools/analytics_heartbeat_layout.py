@@ -15,7 +15,6 @@ import sys
 
 from elftools.elf.elffile import ELFFile
 
-
 STRUCT_NAME = "native_heartbeat_record"
 HEADER_FIELDS = {"version", "timestamp", "build_id"}
 METRIC_PREFIX = "metric_"
@@ -262,7 +261,7 @@ def dump_layout(elf_path):
         sep = "─" * 60
 
         if header_fields:
-            print(f"\nHeader:")
+            print("\nHeader:")
             print(sep)
             print(f"{'Offset':>6}  {'Size':>4}  {'Type':<16}  {'Field'}")
             print(sep)
@@ -272,7 +271,7 @@ def dump_layout(elf_path):
             print(sep)
 
         if metric_fields:
-            print(f"\nMetrics:")
+            print("\nMetrics:")
             print(sep)
             print(f"{'Offset':>6}  {'Size':>4}  {'Type':<16}  {'Field'}")
             print(sep)
@@ -280,9 +279,7 @@ def dump_layout(elf_path):
             for name, offset, byte_size, type_name in metric_fields:
                 size_str = str(byte_size) if byte_size is not None else "?"
                 display_name = (
-                    name[len(METRIC_PREFIX) :]
-                    if name.startswith(METRIC_PREFIX)
-                    else name
+                    name.removeprefix(METRIC_PREFIX)
                 )
                 if display_name.endswith("_scale"):
                     scaled_field = prev_display_name or display_name

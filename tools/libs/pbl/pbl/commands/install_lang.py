@@ -1,9 +1,6 @@
-from __future__ import absolute_import, print_function
-from pebble_tool.commands.base import PebbleCommand
-
-from progressbar import ProgressBar, Bar, FileTransferSpeed, Timer, Percentage
-
 from libpebble2.services.putbytes import PutBytes, PutBytesType
+from pebble_tool.commands.base import PebbleCommand
+from progressbar import Bar, FileTransferSpeed, Percentage, ProgressBar, Timer
 
 
 class InstallLangCcommand(PebbleCommand):
@@ -12,7 +9,7 @@ class InstallLangCcommand(PebbleCommand):
     command = "install-lang"
 
     def __call__(self, args):
-        super(InstallLangCcommand, self).__call__(args)
+        super().__call__(args)
 
         progress_bar = ProgressBar(
             widgets=[
@@ -44,6 +41,6 @@ class InstallLangCcommand(PebbleCommand):
 
     @classmethod
     def add_parser(cls, parser):
-        parser = super(InstallLangCcommand, cls).add_parser(parser)
+        parser = super().add_parser(parser)
         parser.add_argument("lang_file", help="Language file to install")
         return parser

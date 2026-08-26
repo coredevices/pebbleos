@@ -3,11 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import with_statement
-from string import Template
-import re
 import fnmatch
 import os
+import re
+from string import Template
 
 VERSION = "0.10.0"
 
@@ -249,9 +248,9 @@ static const char *_clar_cat_${suite_name}[] = { "${categories}", NULL };
                 return cfile.read()
 
         else:
-            import zlib
             import base64
             import sys
+            import zlib
 
             content = CLAR_FILES[filename]
 

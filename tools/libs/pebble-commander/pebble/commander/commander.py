@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import re
 import threading
@@ -13,7 +12,7 @@ from pebble import pulse2
 from . import apps
 
 
-class Pulse2ConnectionAdapter(object):
+class Pulse2ConnectionAdapter:
     """An adapter for the pulse2 API to look enough like pulse.Connection
     to make PebbleCommander work...ish.
 
@@ -33,7 +32,7 @@ class Pulse2ConnectionAdapter(object):
         self.interface.close()
 
 
-class PebbleCommander(object):
+class PebbleCommander:
     """Pebble Commander.
     Implements everything for interfacing with PULSE things.
     """

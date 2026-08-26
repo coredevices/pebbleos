@@ -3,15 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from binascii import crc32
 import os
 import struct
+from binascii import crc32
 from functools import reduce
 
 import stm32_crc
 
 
-class PebbleFirmwareBinaryInfo(object):
+class PebbleFirmwareBinaryInfo:
     V1_STRUCT_VERSION = 1
     V1_STRUCT_DEFINTION = [
         ("20s", "build_id"),

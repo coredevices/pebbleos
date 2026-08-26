@@ -8,7 +8,7 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 import analyze_static_memory_usage
-from binutils import nm_generator, analyze_elf
+from binutils import analyze_elf, nm_generator
 
 
 def cleanup_path(f):
@@ -18,8 +18,7 @@ def cleanup_path(f):
     if len(f) > 6 and f[-6:-3] == ".c." and f[-2:] == ".o":
         f = f[:-4]
 
-    if f.startswith("src/"):
-        f = f[4:]
+    f = f.removeprefix("src/")
 
     newlib_index = f.rfind("/newlib/libc")
     if newlib_index != -1:
@@ -137,7 +136,7 @@ def print_groups(text_section, verbose):
         ("build/src/fw", "FW Other"),
     ]
 
-    class Group(object):
+    class Group:
         def __init__(self, name):
             self.name = name
             self.total_size = 0

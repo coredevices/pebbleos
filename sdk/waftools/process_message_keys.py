@@ -4,11 +4,9 @@
 import json
 from re import findall
 
-from waflib.TaskGen import before_method, feature
-from waflib import Logs, Task
-
 from sdk_helpers import get_node_from_abspath
-
+from waflib import Logs, Task
+from waflib.TaskGen import before_method, feature
 
 header = """#pragma once
 #include <stdint.h>
@@ -102,11 +100,9 @@ def configure(conf):
             except IndexError:
                 suggested_key_name = key.split("[", 1)[0]
                 conf.fatal(
-                    "An invalid message key of `{}` was specified. Verify that a valid "
+                    f"An invalid message key of `{key}` was specified. Verify that a valid "
                     "length is specified if you are trying to allocate an array of keys "
-                    "with a single identifier. For example, try `{}[2]`.".format(
-                        key, suggested_key_name
-                    )
+                    f"with a single identifier. For example, try `{suggested_key_name}[2]`."
                 )
             else:
                 key_dict.update({key_name: next_key})
@@ -151,7 +147,7 @@ def process_message_keys(task_gen):
     header_task = task_gen.create_task(
         "message_key_header",
         tgt=get_node_from_abspath(
-            task_gen.bld, getattr(task_gen.env, "MESSAGE_KEYS_HEADER")
+            task_gen.bld, task_gen.env.MESSAGE_KEYS_HEADER
         ),
     )
     header_task.message_keys = message_keys
@@ -166,7 +162,7 @@ def process_message_keys(task_gen):
     definitions_task = task_gen.create_task(
         "message_key_definitions",
         tgt=get_node_from_abspath(
-            task_gen.bld, getattr(task_gen.env, "MESSAGE_KEYS_DEFINITION")
+            task_gen.bld, task_gen.env.MESSAGE_KEYS_DEFINITION
         ),
     )
     definitions_task.message_keys = message_keys
@@ -177,7 +173,7 @@ def process_message_keys(task_gen):
     json_task = task_gen.create_task(
         "message_key_json",
         tgt=get_node_from_abspath(
-            task_gen.bld, getattr(task_gen.env, "MESSAGE_KEYS_JSON")
+            task_gen.bld, task_gen.env.MESSAGE_KEYS_JSON
         ),
     )
     json_task.message_keys = message_keys
@@ -197,8 +193,7 @@ class message_key_header(Task.Task):
         self.outputs[0].parent.mkdir()
         with open(self.outputs[0].abspath(), "w") as f:
             f.write(header)
-            for k, v in sorted(list(self.message_keys.items()), key=lambda x: x[0]):
-                f.write("extern uint32_t MESSAGE_KEY_{};\n".format(k))
+            f.writelines(f"extern uint32_t MESSAGE_KEY_{k};\n" for k, v in sorted(list(self.message_keys.items()), key=lambda x: x[0]))
 
 
 class message_key_definitions(Task.Task):
@@ -214,8 +209,7 @@ class message_key_definitions(Task.Task):
         self.outputs[0].parent.mkdir()
         with open(self.outputs[0].abspath(), "w") as f:
             f.write(definitions_file)
-            for k, v in sorted(list(self.message_keys.items()), key=lambda x: x[0]):
-                f.write("uint32_t MESSAGE_KEY_{} = {};\n".format(k, v))
+            f.writelines(f"uint32_t MESSAGE_KEY_{k} = {v};\n" for k, v in sorted(list(self.message_keys.items()), key=lambda x: x[0]))
 
 
 class message_key_json(Task.Task):

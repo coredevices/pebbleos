@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import logging
 import threading
@@ -14,18 +13,14 @@ except ImportError:
 
 import construct
 
-from . import exceptions
+from . import exceptions, pcmp, ppp, stats
 from . import logging as pulse2_logging
-from . import pcmp
-from . import ppp
-from . import stats
-
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-class Socket(object):
+class Socket:
     """A socket for sending and receiving packets over a single port
     of a PULSE2 transport.
     """
@@ -88,7 +83,7 @@ class TransportControlProtocol(ppp.ControlProtocol):
 
 
 BestEffortPacket = construct.Struct(
-    "BestEffortPacket",  # noqa
+    "BestEffortPacket",
     construct.UBInt16("port"),
     construct.UBInt16("length"),
     construct.Field("information", lambda ctx: ctx.length - 4),
@@ -96,7 +91,7 @@ BestEffortPacket = construct.Struct(
 )
 
 
-class BestEffortTransportBase(object):
+class BestEffortTransportBase:
     def __init__(self, interface, link_mtu):
         self.logger = pulse2_logging.TaggedAdapter(logger, {"tag": type(self).__name__})
         self.sockets = {}
@@ -271,7 +266,7 @@ class SimplexTransport(BestEffortTransportBase):
 
 
 ReliableInfoPacket = construct.Struct(
-    "ReliableInfoPacket",  # noqa
+    "ReliableInfoPacket",
     # BitStructs are parsed MSBit-first
     construct.EmbeddedBitStruct(
         construct.BitField("sequence_number", 7),  # N(S) in LAPB
@@ -290,7 +285,7 @@ ReliableSupervisoryPacket = construct.BitStruct(
     "ReliableSupervisoryPacket",
     construct.Const(construct.Nibble("reserved"), 0b0000),
     construct.Enum(
-        construct.BitField("kind", 2),  # noqa
+        construct.BitField("kind", 2),
         RR=0b00,
         RNR=0b01,
         REJ=0b10,
@@ -330,7 +325,7 @@ def build_reliable_supervisory_packet(kind, ack_number, poll=False, final=False)
     )
 
 
-class ReliableTransport(object):
+class ReliableTransport:
     """The reliable transport protocol, also known as TRAIN.
 
     The protocol is based on LAPB from ITU-T Recommendation X.25.

@@ -4,6 +4,7 @@
 
 
 import json
+
 from waflib import Logs
 
 from tools.log_hashing.check_elf_log_strings import check_dict_log_strings
@@ -20,7 +21,7 @@ def wafrule(task):
 def generate_log_strings_json(elf_filename, log_strings_json_filename):
     log_dict = get_log_dict_from_file(elf_filename)
     if not log_dict:
-        error = "Unable to get log strings from {}".format(elf_filename)
+        error = f"Unable to get log strings from {elf_filename}"
         Logs.pprint("RED", error)
         return error
 

@@ -4,11 +4,12 @@
 
 
 import argparse
-import sys
-import struct
 import array
-import pprint
 import itertools
+import pprint
+import struct
+import sys
+
 from PIL import Image
 
 FONT_VERSION_1 = 1
@@ -21,7 +22,7 @@ GLYPH_MD_STRUCT = "BBbbb"
 
 
 def dec_and_hex(i):
-    return "0x{:x} ({:d})".format(i, i)
+    return f"0x{i:x} ({i:d})"
 
 
 def grouper(n, iterable, fillvalue=None):
@@ -100,7 +101,7 @@ def print_glyph(features, glyph_table, offset, raw, show_image):
         else:
             b = []
             for w in array.array("I", g["bitmap"]):
-                b.extend(((w & (1 << bit)) != 0 for bit in range(0, 32)))
+                b.extend((w & (1 << bit)) != 0 for bit in range(32))
 
         return b, height
 
@@ -124,7 +125,7 @@ def print_glyph(features, glyph_table, offset, raw, show_image):
     def draw_glyph_raw(header, bitlist, width, height):
         # Header:
         for byte in header:
-            print("{:02x}".format(ord(byte)), end=" ")
+            print(f"{ord(byte):02x}", end=" ")
         print(" - ", end=" ")
         # Repack the glyph data. This is required because the glyph may have been compressed
         for byte in range(height * width / 8):
@@ -132,7 +133,7 @@ def print_glyph(features, glyph_table, offset, raw, show_image):
             for bit in range(8):
                 if bitlist[byte * 8 + bit]:
                     w |= 1 << bit
-            print("{:02x}".format(w), end=" ")
+            print(f"{w:02x}", end=" ")
         print()
 
     g, header = get_glyph(features, glyph_table, offset)
@@ -148,7 +149,7 @@ def print_glyph(features, glyph_table, offset, raw, show_image):
         output.append("offset bytes: {}".format(g["offset_bytes"]))
         output.append("top: {}".format(g["top"]))
         output.append("left: {}".format(g["left"]))
-        output.append("height: {}".format(height))
+        output.append(f"height: {height}")
         output.append("width: {}".format(g["width"]))
         output.append("advance: {}".format(g["advance"]))
         output.append("bitmap:")
@@ -174,13 +175,11 @@ def my_unichr(i):
 # (See PYTHONIOENCODING)
 def print_glyph_header(codepoint, offset, raw=False):
     if raw:
-        print("{:08X}:".format(codepoint), end=" ")
+        print(f"{codepoint:08X}:", end=" ")
     else:
         print()
         print(
-            "{}\t({})\t{}".format(
-                dec_and_hex(codepoint), my_unichr(codepoint), dec_and_hex(offset)
-            ).encode("utf-8", "replace")
+            f"{dec_and_hex(codepoint)}\t({my_unichr(codepoint)})\t{dec_and_hex(offset)}".encode("utf-8", "replace")
         )
         print()
 
@@ -210,7 +209,7 @@ def main(pfo_path, show_hash_table, offset_table, glyph, all_glyphs, show_image,
         font_md_size = struct.calcsize(font_md_format[version])
         features = 0
     else:
-        raise Exception("Error: Unexpected font file version {}".format(version))
+        raise Exception(f"Error: Unexpected font file version {version}")
 
     # Build up the offset entry struct
     offset_table_format = "<"
@@ -256,9 +255,9 @@ def main(pfo_path, show_hash_table, offset_table, glyph, all_glyphs, show_image,
         )
 
         print()
-        print("Hash Table start:   {}".format(font_md_size))
-        print("Offset Table start: {}".format(offset_tables_start))
-        print("Glyph Table start:  {}".format(glyph_table_start))
+        print(f"Hash Table start:   {font_md_size}")
+        print(f"Offset Table start: {offset_tables_start}")
+        print(f"Glyph Table start:  {glyph_table_start}")
         print("--------------------------")
 
     if all_glyphs:
@@ -283,9 +282,7 @@ def main(pfo_path, show_hash_table, offset_table, glyph, all_glyphs, show_image,
         _, sz, off = hash_table[offset_table]
         if not raw:
             print(
-                "Offset Table {} offset: {}".format(
-                    offset_table, offset_tables_start + off
-                )
+                f"Offset Table {offset_table} offset: {offset_tables_start + off}"
             )
         off_table = dict(
             [x for x in offset_iterator(font[(offset_tables_start + off) :], sz)]
@@ -310,7 +307,7 @@ def main(pfo_path, show_hash_table, offset_table, glyph, all_glyphs, show_image,
                 glyph_off = off_table[codepoint]
                 break
         else:
-            print("{} not in font".format(codepoint))
+            print(f"{codepoint} not in font")
             return
         print_glyph_header(codepoint, glyph_off, raw)
         print_glyph(features, glyph_table, glyph_off, raw, show_image)

@@ -1,4 +1,3 @@
-from __future__ import print_function
 import imghdr
 import os
 import subprocess
@@ -17,7 +16,7 @@ COLORMAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "colorm
 def read_gif(obj):
     data = obj.read()
     if imghdr.what(None, data) != "gif":
-        raise Gif2ApngFormatError("{} is not a valid GIF data".format(path))
+        raise Gif2ApngFormatError(f"{path} is not a valid GIF data")
 
     return data
 

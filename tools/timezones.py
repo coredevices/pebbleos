@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import print_function
 
 import argparse
 import re
@@ -286,18 +285,7 @@ def build_zoneinfo_list(tzfile):
                     # Don't include Troll, Antarctica as their DST is 2 hours and overlapping rules
                     # not even a city, actually just a station :
                     # http://mm.icann.org/pipermail/tz/2014-February/020605.html
-                    if full_region == "Antarctica/Troll":
-                        region = ""
-                    # Don't include Egypt because our rules for handling its DST are broken!
-                    elif full_region == "Africa/Cairo":
-                        region = ""
-                    # Don't include Morocco because our rules for handling its DST are broken!
-                    elif full_region == "Africa/Casablanca":
-                        region = ""
-                    elif full_region == "Africa/El_Aaiun":
-                        region = ""
-                    # Don't include Lord Howe Island because our rules for handling its DST are broken!
-                    elif full_region == "Australia/Lord_Howe":
+                    if full_region == "Antarctica/Troll" or full_region == "Africa/Cairo" or full_region == "Africa/Casablanca" or full_region == "Africa/El_Aaiun" or full_region == "Australia/Lord_Howe":
                         region = ""
 
             # Now look to see if we've found the final line of the block
@@ -508,8 +496,7 @@ def build_and_create_tzdata(olson_database, output_text, output_bin):
 
     # save output as text for reference
     with open(output_text, "wb") as output_txt:
-        for zoneinfo in zoneinfo_list:
-            output_txt.write(f"{zoneinfo}\n".encode())
+        output_txt.writelines(f"{zoneinfo}\n".encode() for zoneinfo in zoneinfo_list)
 
     dstrule_list = dstrules_parse(olson_database)
 

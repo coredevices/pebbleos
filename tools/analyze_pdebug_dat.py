@@ -31,7 +31,7 @@
 tasks_by_thread = {}
 
 
-class Task(object):
+class Task:
     pass
 
 
@@ -47,10 +47,8 @@ with open("pdebug.dat") as f:
         t.start_time = float(row[2])
         t.task_name = row[3]
 
-        if t.task_name.startswith("'"):
-            t.task_name = t.task_name[1:]
-        if t.task_name.endswith("'"):
-            t.task_name = t.task_name[:-1]
+        t.task_name = t.task_name.removeprefix("'")
+        t.task_name = t.task_name.removesuffix("'")
 
         thread_tasks = tasks_by_thread.setdefault(t.thread_id, [])
         thread_tasks.append(t)
@@ -87,7 +85,7 @@ for t in all_tasks:
     task_type_tasks.append(t)
 
 
-class TaskType(object):
+class TaskType:
     pass
 
 

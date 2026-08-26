@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import collections
 import struct
@@ -39,7 +38,7 @@ class LogMessage(
         return cls(log_level, task, timestamp, file_name, line_number, msg)
 
 
-class StreamingLogs(object):
+class StreamingLogs:
     """App for receiving log messages streamed by the firmware."""
 
     PORT_NUMBER = 0x0003

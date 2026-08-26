@@ -5,7 +5,6 @@ import os
 
 import yaml
 
-
 NO_REVISION = "_"
 
 

@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import print_function
 
 import os
 from shlex import quote
@@ -15,12 +14,12 @@ def load_lockfile(env, basepath):
     lockfile_path = os.path.join(basepath, Options.lockfile)
     try:
         env.load(lockfile_path)
-    except IOError:
+    except OSError:
         raise ValueError(
-            "{} is not configured yet".format(os.path.basename(os.getcwd()))
+            f"{os.path.basename(os.getcwd())} is not configured yet"
         )
     except Exception:
-        raise ValueError("Could not load {}".format(lockfile_path))
+        raise ValueError(f"Could not load {lockfile_path}")
 
 
 @conf
@@ -54,12 +53,12 @@ class show_configure(BuildContext):
         # Configure time environment vars
         for var in ["CFLAGS"]:
             if var in env.environ:
-                argv = ["{}={}".format(var, quote(env.environ[var]))] + argv
+                argv = [f"{var}={quote(env.environ[var])}"] + argv
 
         # Persistent environment vars
         for var in ["WAFLOCK"]:
             if var in env.environ:
-                argv = ["export {}={};".format(var, quote(env.environ[var]))] + argv
+                argv = [f"export {var}={quote(env.environ[var])};"] + argv
 
         # Print and force waf to complete without further output
         print(" ".join(argv))

@@ -10,9 +10,11 @@ Currently the following SVG elements are supported:
 g, layer, path, rect, polyline, polygon, line, circle,
 """
 
-import xml.etree.ElementTree as ET
-import svg.path
 import glob
+import xml.etree.ElementTree as ET
+
+import svg.path
+
 from . import pebble_commands
 
 xmlns = "{http://www.w3.org/2000/svg}"
@@ -482,7 +484,7 @@ def get_commands(
 def get_xml(filename):
     try:
         root = ET.parse(filename).getroot()
-    except IOError:
+    except OSError:
         return None
     return root
 

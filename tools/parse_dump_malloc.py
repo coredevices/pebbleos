@@ -3,9 +3,9 @@
 
 import argparse
 import os
-import sh
 import sys
 
+import sh
 
 total_alloc_size = 0
 alloc_count = 0
@@ -96,8 +96,7 @@ def handle_line(line, verbose):
     if is_free:
         total_free_size += actual_size
         free_count += 1
-        if actual_size > largest_free_block:
-            largest_free_block = actual_size
+        largest_free_block = max(largest_free_block, actual_size)
         return
 
     total_alloc_size += actual_size
@@ -173,14 +172,12 @@ if __name__ == "__main__":
         max_addr = alloc_list[0][0] + alloc_list[0][1]
         for alloc in alloc_list:
             low_addr = alloc[0]
-            if low_addr < min_addr:
-                min_addr = low_addr
+            min_addr = min(min_addr, low_addr)
             high_addr = low_addr + alloc[1]
-            if high_addr > max_addr:
-                max_addr = high_addr
+            max_addr = max(max_addr, high_addr)
 
     if verbose:
-        print("")
+        print()
     print("Heap start: 0x%x" % min_addr)
     print("Heap end: 0x%x" % max_addr)
     print("Heap size: %u bytes" % (max_addr - min_addr))

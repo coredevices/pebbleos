@@ -4,11 +4,12 @@
 import argparse
 import json
 import os
-import sh
 import string
 
+import sh
 
-class ApplibType(object):
+
+class ApplibType:
     def __init__(self, type_dict):
         self.name = type_dict["name"]
 

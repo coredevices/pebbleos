@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import struct
+
 from PIL import Image
 
 # Feature flags

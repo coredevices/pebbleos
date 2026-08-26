@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from waflib import Task, TaskGen
-
 import json
+
+from waflib import Task, TaskGen
 
 
 class generate_timeline_table(Task.Task):
@@ -23,15 +23,12 @@ class generate_timeline_table(Task.Task):
 const uint16_t g_timeline_resources[][TimelineResourceSizeCount] = {
 """)
 
-            for res in self.timeline_dict:
-                f.write(
-                    "   [{}] = {{ {}, {}, {} }},\n".format(
+            f.writelines("   [{}] = {{ {}, {}, {} }},\n".format(
                         res["id"],
                         res["sizes"].get("tiny", "RESOURCE_ID_INVALID"),
                         res["sizes"].get("small", "RESOURCE_ID_INVALID"),
                         res["sizes"].get("large", "RESOURCE_ID_INVALID"),
-                    )
-                )
+                    ) for res in self.timeline_dict)
 
             f.write("};\n")
 
@@ -59,7 +56,7 @@ typedef enum {
                 f.write("  TIMELINE_RESOURCE_{} = {:#x},\n".format(res["name"], id))
 
             f.write("} TimelineResourceId;\n\n")
-            f.write("#define NUM_TIMELINE_RESOURCES {}\n".format(max_timeline_id + 1))
+            f.write(f"#define NUM_TIMELINE_RESOURCES {max_timeline_id + 1}\n")
 
 
 @TaskGen.feature("generate_timeline")

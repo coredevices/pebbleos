@@ -1,20 +1,17 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import print_function
 
 import argparse
 import os
 import signal
 import threading
-import sys
 
+from log_hashing.logdehash import LogDehash
+from pebble import commander, pulse2
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
-
-from pebble import pulse2, commander
-from log_hashing.logdehash import LogDehash
 
 PROMPT_STRING = "> "
 

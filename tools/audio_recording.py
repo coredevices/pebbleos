@@ -3,12 +3,10 @@
 
 import argparse
 import array
-import glob
-import serial
 import struct
-import sys
 
 import prompt
+import serial
 import stm32_crc as crc
 from hdlc import HDLCDecoder
 from serial_port_wrapper import SerialPortWrapper
@@ -54,7 +52,7 @@ def store_wav(samples, filename, sample_size, freq):
     with open(filename, "wb") as f:
         f.write(wav)
         f.close()
-        print("{0} samples packed into {1}".format(len(samples), filename))
+        print(f"{len(samples)} samples packed into {filename}")
 
 
 def receive_hdlc_data(s, sample_size):
@@ -90,7 +88,7 @@ def receive_hdlc_data(s, sample_size):
                 d = data[i] | (data[i + 1] << 8)
             samples.append(d)
         except:
-            print("conversion failed on word {0}".format(i / sample_size))
+            print(f"conversion failed on word {i / sample_size}")
 
     return samples
 
@@ -142,12 +140,10 @@ def record_from_tty(
             s = open_serial_port(tty_accessory, 115200)
 
         samples = receive_hdlc_data(s, sample_size)
-        print("{0} samples read".format(len(samples)))
+        print(f"{len(samples)} samples read")
         if len(samples) != (sample_rate * t):
             print(
-                "Not enough samples received ({0}/{1})".format(
-                    len(samples), (sample_rate * t)
-                )
+                f"Not enough samples received ({len(samples)}/{sample_rate * t})"
             )
         else:
             print("Output file: " + filename)

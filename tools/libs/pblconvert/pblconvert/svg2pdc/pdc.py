@@ -1,13 +1,14 @@
 import os
 import shutil
+import sys
 import tempfile
 from struct import pack
-import sys
-from subprocess import Popen, PIPE
+from subprocess import PIPE, Popen
+
 from pebble_image_routines import (
-    truncate_color_to_pebble64_palette,
     nearest_color_to_pebble64_palette,
     rgba32_triplet_to_argb8,
+    truncate_color_to_pebble64_palette,
 )
 
 DRAW_COMMAND_VERSION = 1
@@ -35,7 +36,7 @@ def convert_color(r, g, b, a, truncate=True):
 
     valid = valid_color(r, g, b, a)
     if not valid:
-        print("Invalid color: ({}, {}, {}, {})".format(r, g, b, a))
+        print(f"Invalid color: ({r}, {g}, {b}, {a})")
         return 0
 
     if truncate:
@@ -87,9 +88,7 @@ def convert_to_pebble_coordinates(point, precise=False):
     problem = (
         None
         if compare_points(point, nearest)
-        else "Invalid point: ({:.2f}, {:.2f}). Used closest supported coordinate: ({}, {})".format(
-            point[0], point[1], nearest[0], nearest[1]
-        )
+        else f"Invalid point: ({point[0]:.2f}, {point[1]:.2f}). Used closest supported coordinate: ({nearest[0]}, {nearest[1]})"
     )
 
     translated = sum_points(point, (-0.5, -0.5))  # translate point by (-0.5, -0.5)
@@ -148,7 +147,7 @@ def convert_to_png(pdc_data):
         p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
         stdout, stderr = p.communicate()
         if p.returncode != 0:
-            raise IOError(stderr)
+            raise OSError(stderr)
 
         png_path = os.path.join(tmp_dir, "image.png")
         with open(png_path, "rb") as png_file:
@@ -200,7 +199,6 @@ class Command:
                     )
                 grid_annotation.add_highlight(p[0], p[1], details=problem)
 
-        pass
 
     def bounding_box(self):
         result = None
@@ -271,14 +269,7 @@ class PathCommand(Command):
         else:
             type = ""
         return (
-            "Path: [fill color:{}; stroke color:{}; stroke width:{}] {} {} {}".format(
-                self.fill_color,
-                self.stroke_color,
-                self.stroke_width,
-                points,
-                self.open,
-                type,
-            )
+            f"Path: [fill color:{self.fill_color}; stroke color:{self.stroke_color}; stroke width:{self.stroke_width}] {points} {self.open} {type}"
         )
 
 
@@ -289,7 +280,7 @@ class CircleCommand(Command):
         self.radius = radius
 
     def transform(self, transformer):
-        super(CircleCommand, self).transform(transformer)
+        super().transform(transformer)
 
         (dx, dy) = transformer.transform_distance(self.radius, self.radius)
         self.radius = min(dx, dy)
@@ -309,13 +300,7 @@ class CircleCommand(Command):
         return s
 
     def __str__(self):
-        return "Circle: [fill color:{}; stroke color:{}; stroke width:{}] {} {}".format(
-            self.fill_color,
-            self.stroke_color,
-            self.stroke_width,
-            self.points[0],
-            self.radius,
-        )
+        return f"Circle: [fill color:{self.fill_color}; stroke color:{self.stroke_color}; stroke width:{self.stroke_width}] {self.points[0]} {self.radius}"
 
 
 def serialize_header(size):

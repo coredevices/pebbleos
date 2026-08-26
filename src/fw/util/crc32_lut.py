@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import print_function
 
 CRC_POLY = 0xEDB88320
 
@@ -18,7 +17,7 @@ def crc_table(bits):
     return lookup_table
 
 
-table = ["0x{:08x},".format(entry) for entry in crc_table(4)]
+table = [f"0x{entry:08x}," for entry in crc_table(4)]
 chunks = zip(*[iter(table)] * 4)
 
 print("static const uint32_t s_lookup_table[] = {")

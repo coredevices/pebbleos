@@ -1,12 +1,11 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-import re
 import json
+import re
 
 from elftools.elf.elffile import ELFFile
 from elftools.elf.segments import NoteSegment
-
 
 LOG_STRINGS_SECTION_NAME = ".log_strings"
 BUILD_ID_SECTION_NAME = ".note.gnu.build-id"
@@ -60,15 +59,13 @@ class LogDict:
             elif tag.startswith("CORE_NAME"):
                 self.core_name = key
             else:
-                raise Exception("Unknown header tag '{}'".format(line))
+                raise Exception(f"Unknown header tag '{line}'")
 
         if self.log_dict[LOG_DICT_KEY_VERSION] != NEW_LOGGING_VERSION:
             version = self.log_dict[LOG_DICT_KEY_VERSION]
             # Worthy of an exception! Something bad has happened with the tools configuration.
             raise Exception(
-                "Expected log strings version {} not {}".format(
-                    NEW_LOGGING_VERSION, version
-                )
+                f"Expected log strings version {NEW_LOGGING_VERSION} not {version}"
             )
 
     def log_line_regex_from_key_list(self):
@@ -178,9 +175,7 @@ def merge_dicts(dict1, dict2):
 
         if dict1[LOG_DICT_KEY_VERSION] != dict2[LOG_DICT_KEY_VERSION]:
             raise Exception(
-                "log dicts have different versions! {} != {}".format(
-                    dict1[LOG_DICT_KEY_VERSION], dict2[LOG_DICT_KEY_VERSION]
-                )
+                f"log dicts have different versions! {dict1[LOG_DICT_KEY_VERSION]} != {dict2[LOG_DICT_KEY_VERSION]}"
             )
 
     # Check to make sure that both have core IDs and that they're different.
@@ -201,7 +196,7 @@ def merge_dicts(dict1, dict2):
     intersection = set(core_list_dict1).intersection(core_list_dict2)
     if len(intersection) != 0:
         raise Exception(
-            "Both log_dicts specify the following cores: {}".format(list(intersection))
+            f"Both log_dicts specify the following cores: {list(intersection)}"
         )
 
     # Merge the dictionaries. Don't bother confirming there are no log message conflicts.

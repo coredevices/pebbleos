@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import collections
 import logging
@@ -18,7 +17,7 @@ class EraseError(PebbleCommanderError):
     pass
 
 
-class OpenCommand(object):
+class OpenCommand:
     command_type = 1
     command_struct = struct.Struct("<BB")
 
@@ -35,7 +34,7 @@ class OpenCommand(object):
         return cmd
 
 
-class CloseCommand(object):
+class CloseCommand:
     command_type = 2
     command_struct = struct.Struct("<BB")
 
@@ -47,7 +46,7 @@ class CloseCommand(object):
         return self.command_struct.pack(self.command_type, self.fd)
 
 
-class ReadCommand(object):
+class ReadCommand:
     command_type = 3
     command_struct = struct.Struct("<BBII")
 
@@ -63,7 +62,7 @@ class ReadCommand(object):
         )
 
 
-class WriteCommand(object):
+class WriteCommand:
     command_type = 4
     command_struct = struct.Struct("<BBI")
     header_size = command_struct.size
@@ -81,7 +80,7 @@ class WriteCommand(object):
         )
 
 
-class CRCCommand(object):
+class CRCCommand:
     command_type = 5
     command_struct = struct.Struct("<BBII")
 
@@ -97,7 +96,7 @@ class CRCCommand(object):
         )
 
 
-class StatCommand(object):
+class StatCommand:
     command_type = 6
     command_struct = struct.Struct("<BB")
 
@@ -109,7 +108,7 @@ class StatCommand(object):
         return self.command_struct.pack(self.command_type, self.fd)
 
 
-class EraseCommand(object):
+class EraseCommand:
     command_type = 7
     command_struct = struct.Struct("<BB")
 
@@ -126,7 +125,7 @@ class EraseCommand(object):
         return cmd
 
 
-class OpenResponse(object):
+class OpenResponse:
     response_type = 128
     response_format = "<xB"
     response_struct = struct.Struct(response_format)
@@ -141,7 +140,7 @@ class OpenResponse(object):
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
-class CloseResponse(object):
+class CloseResponse:
     response_type = 129
     response_format = "<xB"
     response_struct = struct.Struct(response_format)
@@ -156,7 +155,7 @@ class CloseResponse(object):
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
-class ReadResponse(object):
+class ReadResponse:
     response_type = 130
     response_format = "<xBI"
     response_struct = struct.Struct(response_format)
@@ -176,7 +175,7 @@ class ReadResponse(object):
         return cls.Response(fd, address, body)
 
 
-class WriteResponse(object):
+class WriteResponse:
     response_type = 131
     response_format = "<xBII"
     response_struct = struct.Struct(response_format)
@@ -191,7 +190,7 @@ class WriteResponse(object):
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
-class CRCResponse(object):
+class CRCResponse:
     response_type = 132
     response_format = "<xBIII"
     response_struct = struct.Struct(response_format)
@@ -206,7 +205,7 @@ class CRCResponse(object):
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
-class StatResponse(object):
+class StatResponse:
     response_type = 133
 
     def __init__(self, name, format, fields):
@@ -221,12 +220,10 @@ class StatResponse(object):
         return self.tuple._make(self.struct.unpack(response))
 
     def __repr__(self):
-        return "StatResponse({self.name!r}, {self.struct!r}, {self.tuple!r})".format(
-            self=self
-        )
+        return f"StatResponse({self.name!r}, {self.struct!r}, {self.tuple!r})"
 
 
-class EraseResponse(object):
+class EraseResponse:
     response_type = 134
     response_format = "<xBb"
     response_struct = struct.Struct(response_format)
@@ -248,7 +245,7 @@ def enum(**enums):
 ReadDomains = enum(MEMORY=1, EXTERNAL_FLASH=2, FRAMEBUFFER=3, COREDUMP=4, PFS=5)
 
 
-class PULSEIO_Base(object):
+class PULSEIO_Base:
     ERASE_FORMAT = None
     STAT_FORMAT = None
     DOMAIN = None
@@ -419,7 +416,7 @@ class PULSEIO_PFS(PULSEIO_Base):
         return struct.pack("<BBI", mode_num, flags, initial_size) + filename
 
 
-class BulkIO(object):
+class BulkIO:
     PROTOCOL_NUMBER = 0x3E21
     DOMAIN_MAP = {"pfs": PULSEIO_PFS, "framebuffer": PULSEIO_Framebuffer}
 

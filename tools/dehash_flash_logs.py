@@ -8,10 +8,10 @@ Parses the binary circular buffer format and extracts log messages.
 """
 
 import argparse
-import struct
-import sys
 import json
 import os
+import struct
+import sys
 from datetime import datetime
 
 # Setup paths for dehash libraries

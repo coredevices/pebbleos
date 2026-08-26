@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-import exports
-
 import os
+
+import exports
 
 
 def writeline(f, line=""):
@@ -143,7 +143,7 @@ def make_app_header(exports_tree, output_filename, header_type, inject_text):
 
             if not skip and e.include_after:
                 for header in e.include_after:
-                    writeline(f, '#include "{}"'.format(header))
+                    writeline(f, f'#include "{header}"')
                 writeline(f, "")  # space out these headers nicely.
 
         def format_export_list(export_list):

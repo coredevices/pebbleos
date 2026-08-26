@@ -4,8 +4,7 @@
 import binascii
 
 import sparse_length_encoding
-
-from waflib import Task, TaskGen, Utils, Node, Errors
+from waflib import Errors, Node, Task, TaskGen, Utils
 
 
 class binary_header(Task.Task):

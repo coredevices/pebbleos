@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from analyze_mcu_flash_config import *
-
 import argparse
+
 import binutils
 import sh
+from analyze_mcu_flash_config import *
 
 
 def contains(a, b):
@@ -97,11 +97,11 @@ if __name__ == "__main__":
     print("unclaimed memory:                 %u" % bytes_unclaimed)
     print("claimed memory:                   %u" % bytes_claimed)
     print("unknown .text regions             %u" % (text_size - bytes_claimed))
-    print("")
+    print()
     print("These should add up:")
     print("bytes_unclaimed + bytes_claimed = %u" % (bytes_unclaimed + bytes_claimed))
     print("REGION_END - REGION_START =       %u" % (region[1] - region[0]))
-    print("")
+    print()
 
     num = 30
     print("------------------------------------------------------------")
@@ -117,7 +117,7 @@ if __name__ == "__main__":
         if args.dump:
             print("-----------------------------------------------------------")
             print("%u bytes @ 0x%08x" % (size, region[0]))
-            print("")
+            print()
             print(
                 sh.arm_none_eabi_objdump(
                     "-S",

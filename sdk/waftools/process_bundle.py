@@ -3,13 +3,12 @@
 
 import os
 
-from waflib import Task
-from waflib.TaskGen import feature
-
 import mkbundle
 from pebble_package import LibraryPackage
 from process_elf import generate_bin_file
 from resources.types.resource_ball import ResourceBall
+from waflib import Task
+from waflib.TaskGen import feature
 
 
 class lib_package(Task.Task):
@@ -92,8 +91,8 @@ class app_bundle(Task.Task):
         This method executes when the bundle task runs
         :return: N/A
         """
-        binaries = getattr(self, "bin_files")
-        js_files = getattr(self, "js_files")
+        binaries = self.bin_files
+        js_files = self.js_files
         outfile = self.outputs[0].abspath()
 
         mkbundle.make_watchapp_bundle(
@@ -128,18 +127,18 @@ def make_lib_bundle(task_gen):
         bld_dir = task_gen.path.get_bld().find_or_declare(platform)
         env = task_gen.bld.all_envs[platform]
 
-        resources.append(getattr(env, "PROJECT_RESBALL"))
+        resources.append(env.PROJECT_RESBALL)
 
         project_name = env.PROJECT_INFO["name"]
         if project_name.startswith("@"):
             scoped_name = project_name.rsplit("/", 1)
             binaries.append(
                 bld_dir.find_or_declare(str(scoped_name[0])).find_or_declare(
-                    "lib{}.a".format(scoped_name[1])
+                    f"lib{scoped_name[1]}.a"
                 )
             )
         else:
-            binaries.append(bld_dir.find_or_declare("lib{}.a".format(project_name)))
+            binaries.append(bld_dir.find_or_declare(f"lib{project_name}.a"))
 
     task = task_gen.create_task(
         "lib_package", [], task_gen.bld.path.make_node(task_gen.bld.env.BUNDLE_NAME)

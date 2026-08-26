@@ -108,7 +108,7 @@ def test_handle_macro():
 #define TEST "nosetests"
 """
 
-    class TestDefine(object):
+    class TestDefine:
         def __init__(self, name):
             self.name = name
             self.comment = None

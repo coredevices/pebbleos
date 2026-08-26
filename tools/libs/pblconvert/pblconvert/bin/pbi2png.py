@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-import os, sys
+import sys
 from ctypes import *
+
 from PIL import Image
 
 format_dict = {
@@ -26,7 +27,7 @@ class pbi_struct(Structure):
 
 
 def flip_byte(abyte):
-    return int("{:08b}".format(abyte)[::-1], 2)
+    return int(f"{abyte:08b}"[::-1], 2)
 
 
 # converts from argb8 (2-bits per color channel) to RGBA32 (byte per channel)
@@ -64,7 +65,7 @@ def pbi_to_png(pbi, pixel_bytearray):
         print("8-bit ARGB color image")
         pixel_rgba_array = bytearray()
         for idx, abyte in enumerate(pixel_bytearray):
-            argb8 = pixel_bytearray[idx]
+            argb8 = abyte
             pixel_rgba_array.append(((argb8 >> 4) & 0x3) * 85)  # r
             pixel_rgba_array.append(((argb8 >> 2) & 0x3) * 85)  # g
             pixel_rgba_array.append(((argb8 >> 0) & 0x3) * 85)  # b
@@ -82,13 +83,13 @@ def pbi_to_png(pbi, pixel_bytearray):
 
     elif gbitmap_version == 1 and pbi_is_palettized(gbitmap_format):
         bitdepth = pbi_bitdepth(gbitmap_format)
-        print("{}-bit palettized color image".format(bitdepth))
+        print(f"{bitdepth}-bit palettized color image")
 
         # Create palette colors in format R, G, B, A
         palette = []
         palette_offset = pbi.stride * pbi.bounds_h
         for argb8 in pixel_bytearray[palette_offset:]:
-            palette.append((argb8_to_rgba32(argb8)))
+            palette.append(argb8_to_rgba32(argb8))
 
         pixels = []
         # go through the image data byte by byte, and handle
@@ -100,10 +101,10 @@ def pbi_to_png(pbi, pixel_bytearray):
                 # which is the difference between the width and the stride
                 if idx % (pbi.stride * (8 / bitdepth)) < pbi.bounds_w:
                     pixels.append(
-                        (
+                        
                             (pxl8 >> (bitdepth * (8 / bitdepth - (i + 1))))
                             & ~(~0 << bitdepth)
-                        )
+                        
                     )
                 idx = idx + 1
 

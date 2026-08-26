@@ -7,7 +7,7 @@ import logging
 INTERNAL_REVISION = 999
 
 
-class Export(object):
+class Export:
     def __init__(self, v, app_only, worker_only, deprecated):
         self.name = v["name"]
         self.type = v["type"]
@@ -24,7 +24,7 @@ class Export(object):
 
 class FullExport(Export):
     def __init__(self, v, app_only, worker_only, deprecated):
-        super(FullExport, self).__init__(v, app_only, worker_only, deprecated)
+        super().__init__(v, app_only, worker_only, deprecated)
 
         self.full_definition = None
 
@@ -34,7 +34,7 @@ class FullExport(Export):
 
 class FunctionExport(FullExport):
     def __init__(self, v, app_only, worker_only, deprecated):
-        super(FunctionExport, self).__init__(v, app_only, worker_only, deprecated)
+        super().__init__(v, app_only, worker_only, deprecated)
 
         self.removed = False
         self.skip_definition = v.get("skipDefinition", False)
@@ -50,12 +50,12 @@ class FunctionExport(FullExport):
         if self.removed or self.skip_definition:
             return True
 
-        return super(FunctionExport, self).complete()
+        return super().complete()
 
 
 class StubbedFunctionExport(Export):
     def __init__(self, v, app_only, worker_only, deprecated):
-        super(StubbedFunctionExport, self).__init__(
+        super().__init__(
             v, app_only, worker_only, deprecated
         )
 
@@ -71,7 +71,7 @@ class StubbedFunctionExport(Export):
         return True
 
 
-class Group(object):
+class Group:
     def __init__(
         self,
         export,
@@ -137,7 +137,7 @@ def parse_exports_list(
         if "addedRevision" in e:
             added_revision = int(e["addedRevision"])
             if added_revision > current_revision:
-                logging.warn(
+                logging.warning(
                     "Omitting '%s' from SDK export because its revision "
                     "(%u) is higher than the current revision (%u)"
                     % (e["name"], added_revision, current_revision)

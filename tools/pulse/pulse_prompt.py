@@ -5,11 +5,10 @@ import collections
 import struct
 from datetime import datetime
 
-from . import exceptions
-from . import socket
+from . import exceptions, socket
 
 
-class PromptProtocol(object):
+class PromptProtocol:
     PROTOCOL_NUMBER = 0x04
 
     def __init__(self, connection):
@@ -89,7 +88,7 @@ class PromptResponse(
         return cls(response_type, timestamp, message)
 
 
-class PromptCommand(object):
+class PromptCommand:
     _cookie = 0
 
     def __init__(self, body):

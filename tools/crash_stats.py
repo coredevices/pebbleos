@@ -7,12 +7,11 @@ import argparse
 import csv
 import logging
 import os
-import requests
-import requests_oauthlib
 import subprocess
-
 from collections import OrderedDict
-from triage import download_path, load_user_settings, download_elf_by_sw_hw_version
+
+import requests
+from triage import download_elf_by_sw_hw_version, download_path, load_user_settings
 
 
 def crash_analytic_path(fw_version):

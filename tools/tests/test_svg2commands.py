@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 sys.path.insert(0, root_dir)
 
-from generate_pdcs import svg2commands, pebble_commands
+from generate_pdcs import pebble_commands, svg2commands
 
 svg_header = (
     '<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" '

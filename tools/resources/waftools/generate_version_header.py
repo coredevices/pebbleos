@@ -1,11 +1,9 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from waflib import Task, TaskGen
-
-from resources.types.resource_ball import ResourceBall  # noqa: F401
-
 from pbpack import ResourcePack
+from resources.types.resource_ball import ResourceBall  # noqa: F401
+from waflib import Task, TaskGen
 
 
 class generate_version_header(Task.Task):
@@ -21,7 +19,7 @@ class generate_version_header(Task.Task):
         self.outputs[0].parent.mkdir()  # Make sure the output directory exists
         with open(self.outputs[0].abspath(), "w") as output_file:
             output_file.write(
-                """
+                f"""
 #pragma once
 
 //
@@ -30,10 +28,10 @@ class generate_version_header(Task.Task):
 //
 
 static const ResourceVersion SYSTEM_RESOURCE_VERSION = {{
-  .crc = {},
+  .crc = {resource_crc},
   .timestamp = 0
 }};
-""".format(resource_crc)
+"""
             )
 
 

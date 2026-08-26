@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import threading
 import unittest
@@ -9,22 +8,20 @@ import unittest
 try:
     from unittest import mock
 except ImportError:
-    import mock
+    from unittest import mock
 
 import construct
-
 from pebble.pulse2 import exceptions, pcmp, transports
 
-from .fake_timer import FakeTimer
 from . import timer_helper
-
+from .fake_timer import FakeTimer
 
 # Save a reference to the real threading.Timer for tests which need to
 # use timers even while threading.Timer is patched with FakeTimer.
 RealThreadingTimer = threading.Timer
 
 
-class CommonTransportBeforeOpenedTestCases(object):
+class CommonTransportBeforeOpenedTestCases:
     def test_send_raises_exception(self):
         with self.assertRaises(exceptions.TransportNotReady):
             self.uut.send(0xDEAD, b"not gonna get through")
@@ -33,7 +30,7 @@ class CommonTransportBeforeOpenedTestCases(object):
         self.assertIsNone(self.uut.open_socket(0xBEEF, timeout=0))
 
 
-class CommonTransportTestCases(object):
+class CommonTransportTestCases:
     def test_send_raises_exception_after_transport_is_closed(self):
         self.uut.down()
         with self.assertRaises(exceptions.TransportNotReady):

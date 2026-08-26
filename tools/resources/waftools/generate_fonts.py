@@ -1,9 +1,8 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from waflib import Task, TaskGen
-
 from resources.types.resource_ball import ResourceBall
+from waflib import Task, TaskGen
 
 
 def get_font_keys_from_resource_ball(resource_ball_node):
@@ -26,10 +25,7 @@ class generate_font_header(Task.Task):
         with open(self.outputs[0].abspath(), "w") as output_file:
             output_file.write("#pragma once\n\n")
 
-            for key in font_keys:
-                output_file.write(
-                    '#define FONT_KEY_{key} "RESOURCE_ID_{key}"\n'.format(key=key)
-                )
+            output_file.writelines(f'#define FONT_KEY_{key} "RESOURCE_ID_{key}"\n' for key in font_keys)
 
             # See PBL-9335. We removed this define as it's no longer a complete font. It looked the
             # same as Gothic 14, so going forward use that visual lookalike instead.
@@ -51,12 +47,9 @@ static const struct {
 } s_font_resource_keys[] = {
 """)
 
-            for key in font_keys:
-                output_file.write(
-                    "  {{ FONT_KEY_{key}, "
-                    "RESOURCE_ID_{key}, "
-                    "RESOURCE_ID_{key}_EXTENDED }},\n".format(key=key)
-                )
+            output_file.writelines(f"  {{ FONT_KEY_{key}, "
+                    f"RESOURCE_ID_{key}, "
+                    f"RESOURCE_ID_{key}_EXTENDED }},\n" for key in font_keys)
 
             output_file.write("};\n")
 

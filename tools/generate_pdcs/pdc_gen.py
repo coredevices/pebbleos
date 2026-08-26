@@ -9,12 +9,10 @@ Magic Word (4 bytes) - 'PDCI' for image, 'PDCS' for sequence
 Size (4 bytes) - size of PDC image or sequence following the header in bytes
 """
 
-import os
 import argparse
+import os
 
-from . import pebble_commands
-from . import svg2commands
-from . import json2commands
+from . import json2commands, pebble_commands, svg2commands
 
 
 def create_pdc_data_from_path(
