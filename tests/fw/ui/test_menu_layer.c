@@ -1207,13 +1207,14 @@ void test_menu_layer__touch_clamp_center_focused_widens(void) {
   menu_layer_reload_data(&l);
   const int16_t frame_h = l.scroll_layer.layer.frame.size.h;
   const int16_t content_h = scroll_layer_get_content_size(&l.scroll_layer).h;
-  const int16_t widened_max = frame_h / 2;
+  // With the first row selected the top bound is its exact centred rest offset; the selection is
+  // not the last row, so the bottom bound keeps the coarse half-frame widen.
+  const int16_t widened_max = (int16_t)((frame_h - 44) / 2);
   const int16_t widened_min =
       MIN((int16_t)(frame_h - content_h), (int16_t)0) - (int16_t)(frame_h / 2);
 
-  // center_focused widens the coarse bounds by frame_h/2 (=90), so a positive offset up to +90
-  // scrolls freely where a normal menu would stop at 0; past the widened edge the pan
-  // rubber-bands by the shared damp mapping instead of hard-clamping.
+  // center_focused widens the bounds so the terminal rows can reach the centre; past the widened
+  // edge the pan rubber-bands by the shared damp mapping instead of hard-clamping.
   menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 300));
   cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y,
                     scroll_layer_touch_overscroll_damp(300, widened_min, widened_max, frame_h));

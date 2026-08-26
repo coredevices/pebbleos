@@ -505,6 +505,13 @@ typedef struct MenuLayer {
   //! into \ref touch_fling_active's byte.
   bool overscroll_stretched:1;
 
+  //! @internal
+  //! True while a touch gesture (pan, coast, or the settle that follows) pins a center-focused
+  //! menu's selection highlight to the viewport centre, so rows slide through the fixed box the
+  //! way button steps look. Cleared lazily when the settling row lands in the box. Packs into
+  //! \ref touch_fling_active's byte.
+  bool touch_center_pin:1;
+
   //! Add some padding to keep track of the \ref MenuLayer size budget.
   //! As long as the size stays within this budget, 2.x apps can safely use the 3.x MenuLayer type.
   //! The actual size check is generated from applib_malloc.json, not asserted here.

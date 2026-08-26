@@ -47,6 +47,8 @@ static void prv_menu_touch_nav_register(MenuLayer *menu_layer);
 static void prv_menu_touch_nav_deregister(MenuLayer *menu_layer);
 static void prv_menu_touch_track_center_row(MenuLayer *menu_layer);
 static void prv_menu_update_overscroll_stretch(MenuLayer *menu_layer);
+static void prv_menu_touch_pin_center_highlight(MenuLayer *menu_layer);
+static void prv_menu_touch_update_center_pin(MenuLayer *menu_layer);
 #endif
 
 //! @return True if there was an animation to cancel, false otherwise
@@ -224,8 +226,12 @@ static void prv_menu_scroll_offset_changed_handler(ScrollLayer *scroll_layer,
     // contract).
     if (menu_layer->center_focused) {
       prv_menu_touch_track_center_row(menu_layer);
+      menu_layer->touch_center_pin = true;
     }
   }
+  // Re-derive the pinned centre highlight after any offset change (coast frames, the
+  // settle-to-center glide, and a cancel's instant re-centre alike).
+  prv_menu_touch_update_center_pin(menu_layer);
 #endif
 }
 
@@ -1478,6 +1484,8 @@ static void prv_apply_selection_change(MenuLayer *menu_layer, MenuRowAlign scrol
   // move invalidates the double-tap window, so a stale recorded row cannot be activated (or, if it
   // was deleted, passed out-of-range to select_click). The tap handler re-arms after this returns.
   menu_layer->double_tap_armed = false;
+  // The selection (and its animations) own the highlight again.
+  menu_layer->touch_center_pin = false;
 #endif
   if (menu_layer->center_focused && animated) {
     prv_schedule_center_focus_animation(menu_layer, up, prev_selection, was_animating);
@@ -1782,16 +1790,23 @@ bool menu_layer_touch_is_gesture_target(const MenuLayer *menu_layer) {
 
 static void prv_menu_touch_offset_bounds(MenuLayer *menu_layer, int16_t *min_y, int16_t *max_y) {
   // Coarse bounds: [min(frame_h - content_h, 0), 0]. With content shorter than the viewport the
-  // lower bound is 0 (via the min()). center_focused widens both ends by half a frame so the first
-  // and last rows can reach the centre (the scroll layer itself does not clip in that mode).
+  // lower bound is 0 (via the min()). center_focused widens both ends so the first and last rows
+  // can reach the centre (the scroll layer itself does not clip in that mode): exactly to the
+  // terminal row's centred rest offset when it is the selection -- the case whenever these
+  // bounds actually clamp, so free travel ends where a button step would rest -- and coarsely by
+  // half a frame otherwise (mid-list, where the bounds are not in play).
   const int16_t frame_h = menu_layer->scroll_layer.layer.frame.size.h;
   const int16_t content_h = scroll_layer_get_content_size(&menu_layer->scroll_layer).h;
   *min_y = MIN((int16_t)(frame_h - content_h), (int16_t)0);
   *max_y = 0;
   if (menu_layer->center_focused) {
-    const int16_t widen = frame_h / 2;
-    *min_y -= widen;
-    *max_y += widen;
+    const int16_t sel_rest_y = (int16_t)((frame_h - menu_layer->selection.h) / 2);
+    *max_y = prv_menu_index_is_first_index(menu_layer, &menu_layer->selection.index)
+        ? sel_rest_y
+        : (int16_t)(frame_h / 2);
+    *min_y = prv_menu_index_is_last_index(menu_layer, &menu_layer->selection.index)
+        ? (int16_t)(sel_rest_y - menu_layer->selection.y)
+        : (int16_t)(*min_y - (frame_h / 2));
   }
 }
 
@@ -2005,6 +2020,53 @@ static void prv_menu_touch_settle_to_center(MenuLayer *menu_layer, bool animated
 // ---------------------------------------------------------------------------------------------
 // Gesture handlers (also the unit-test entry surface)
 
+//! While a touch gesture (pan, coast, or the settle that follows) drives a carousel, the
+//! selection highlight is pinned to the viewport centre: rows slide through the fixed box, the
+//! way button steps look, instead of the box travelling with the selected row and jumping at
+//! every crossing. The pin releases itself lazily: the moment the pinned frame coincides with
+//! the settled selection's own frame (the row reached the centre), the highlight is back in its
+//! normal selection-owned state.
+static void prv_menu_touch_update_center_pin(MenuLayer *menu_layer) {
+  if (!menu_layer->touch_center_pin) {
+    return;
+  }
+  const GSize frame_size = menu_layer->scroll_layer.layer.frame.size;
+  const int16_t offset_y = scroll_layer_get_content_offset(&menu_layer->scroll_layer).y;
+  int16_t pinned_y = (int16_t)(-offset_y + ((frame_size.h - menu_layer->selection.h) / 2));
+  // Past the ends there is no next row to transit to: the box glues to the terminal row and
+  // moves together with the rubber-banded pull instead of hovering over the exposed gap. (In
+  // transit near a terminal row the inequality points the other way, so this never engages.)
+  if ((pinned_y < menu_layer->selection.y &&
+       prv_menu_index_is_first_index(menu_layer, &menu_layer->selection.index)) ||
+      (pinned_y > menu_layer->selection.y &&
+       prv_menu_index_is_last_index(menu_layer, &menu_layer->selection.index))) {
+    pinned_y = menu_layer->selection.y;
+  }
+  const GRect pinned = (GRect) {
+    .origin = { 0, pinned_y },
+    .size = { frame_size.w, menu_layer->selection.h },
+  };
+  if (pinned.origin.y == menu_layer->selection.y) {
+    // At rest: the selected row is centred, so the pinned frame and the natural frame are one.
+    menu_layer->touch_center_pin = false;
+  }
+  if (!grect_equal(&menu_layer->inverter.layer.frame, &pinned)) {
+    menu_layer->inverter.layer.frame = pinned;
+    menu_layer->inverter.layer.bounds.size = pinned.size;
+    layer_mark_dirty(&menu_layer->inverter.layer);
+  }
+}
+
+static void prv_menu_touch_pin_center_highlight(MenuLayer *menu_layer) {
+  if (!menu_layer->touch_center_pin) {
+    // Taking the highlight over also stops a running selection (bump) animation from fighting
+    // the pin.
+    prv_cancel_selection_animation(menu_layer);
+    menu_layer->touch_center_pin = true;
+  }
+  prv_menu_touch_update_center_pin(menu_layer);
+}
+
 void menu_layer_touch_handle_touchdown(MenuLayer *menu_layer) {
   // Finger down while the content is coasting: catch it. The tap this gesture may become is then a
   // stop, not a select. The flag is ASSIGNED (never OR-ed) so it always reflects this gesture: a
@@ -2045,6 +2107,7 @@ void menu_layer_touch_handle_pan_update(MenuLayer *menu_layer, GPoint base,
   scroll_layer_touch_set_content_offset_overscrolled(&menu_layer->scroll_layer, new_y);
   if (menu_layer->center_focused) {
     prv_menu_touch_track_center_row(menu_layer);
+    prv_menu_touch_pin_center_highlight(menu_layer);
   }
   // Plain menus: selection intentionally NOT touched — a pan scrolls, a tap selects.
 }
