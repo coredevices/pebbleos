@@ -65,7 +65,7 @@ static bool prv_cancel_selection_animation(MenuLayer *menu_layer);
 //! How long the scrollbar overlay stays visible after the last touch scroll movement.
 #define MENU_LAYER_SCROLLBAR_HIDE_TIMEOUT_MS 1000
 #define MENU_LAYER_SCROLLBAR_WIDTH 3
-#define MENU_LAYER_SCROLLBAR_MARGIN 2
+#define MENU_LAYER_SCROLLBAR_MARGIN 1
 #define MENU_LAYER_SCROLLBAR_MIN_THUMB_HEIGHT 8
 
 static void prv_scrollbar_cancel_hide_timer(MenuLayer *menu_layer) {
@@ -146,21 +146,34 @@ static void prv_scrollbar_fill_capped_arc(GContext *ctx, GPoint center, uint16_t
   }
 }
 
+//! The subdued color of the full-length track behind the thumb: the gray nearer the menu's
+//! background, so the track reads as a guide while the foreground-colored thumb pops.
+static GColor prv_scrollbar_track_color(MenuLayer *menu_layer) {
+  const GColor bg = menu_layer->normal_colors[MenuLayerColorBackground];
+  const int luminance = bg.r + bg.g + bg.b;  // 2-bit channels, 0..9
+  return (luminance >= 5) ? GColorLightGray : GColorDarkGray;
+}
+
 static void prv_scrollbar_draw(MenuLayer *menu_layer, GContext *ctx, int16_t content_top_y) {
   int32_t angle_start, angle_end;
   if (!prv_scrollbar_thumb_angles(menu_layer, content_top_y, &angle_start, &angle_end)) {
     return;
   }
-  const GSize frame_size = menu_layer->scroll_layer.layer.frame.size;
-  // Drawing happens in content space: the viewport center is offset by content_top_y.
-  const GPoint center = GPoint(frame_size.w / 2, content_top_y + (frame_size.h / 2));
-  const uint16_t radius_outer =
-      (MIN(frame_size.w, frame_size.h) / 2) - MENU_LAYER_SCROLLBAR_MARGIN;
-  // 1px halo around the thumb (rounded caps included) so it stays visible over both normal and
-  // highlighted cells
-  graphics_context_set_fill_color(ctx, menu_layer->normal_colors[MenuLayerColorBackground]);
-  prv_scrollbar_fill_capped_arc(ctx, center, radius_outer + 1, MENU_LAYER_SCROLLBAR_WIDTH + 2,
-                                angle_start, angle_end);
+  // The arc hugs the physical display circle, not the menu frame: a menu inset by a status bar
+  // would otherwise float the arc well into the content. Map the display centre into the content
+  // space this proc draws in (content_top_y cancels the scroll offset; the global frame supplies
+  // the menu's position on screen).
+  GRect global_frame;
+  layer_get_global_frame(&menu_layer->scroll_layer.layer, &global_frame);
+  const GPoint center = GPoint((DISP_COLS / 2) - global_frame.origin.x,
+                               content_top_y + ((DISP_ROWS / 2) - global_frame.origin.y));
+  const uint16_t radius_outer = (MIN(DISP_COLS, DISP_ROWS) / 2) - MENU_LAYER_SCROLLBAR_MARGIN;
+  // The full track first, subdued, so the thumb reads as a position within it; the track also
+  // provides the contrast backing for the thumb, so no halo is needed.
+  const int32_t track_start = DEG_TO_TRIGANGLE(90) - (MENU_LAYER_SCROLLBAR_TRACK_SWEEP / 2);
+  graphics_context_set_fill_color(ctx, prv_scrollbar_track_color(menu_layer));
+  prv_scrollbar_fill_capped_arc(ctx, center, radius_outer, MENU_LAYER_SCROLLBAR_WIDTH,
+                                track_start, track_start + MENU_LAYER_SCROLLBAR_TRACK_SWEEP);
   graphics_context_set_fill_color(ctx, menu_layer->normal_colors[MenuLayerColorForeground]);
   prv_scrollbar_fill_capped_arc(ctx, center, radius_outer, MENU_LAYER_SCROLLBAR_WIDTH,
                                 angle_start, angle_end);
