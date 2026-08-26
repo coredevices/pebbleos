@@ -79,7 +79,7 @@ def load_kconfig(ctx, config_path):
                     val = val == "y"
                 elif val.startswith('"') and val.endswith('"'):
                     val = val[1:-1]
-                elif val.startswith("0x") or val.startswith("0X"):
+                elif val.startswith(("0x", "0X")):
                     val = HexInt(val)
                 else:
                     try:

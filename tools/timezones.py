@@ -322,7 +322,7 @@ def build_zoneinfo_list(tzfile):
                     tz_abbr = f"{sign}{hours:02d}{minutes:02d}"
                 else:
                     tz_abbr = match.group("tz_abbr").replace("%s", "*")
-                    if tz_abbr.startswith("GMT/") or tz_abbr.startswith("IST/"):
+                    if tz_abbr.startswith(("GMT/", "IST/")):
                         tz_abbr = tz_abbr[4:]
 
                 zoneinfo_list.append(

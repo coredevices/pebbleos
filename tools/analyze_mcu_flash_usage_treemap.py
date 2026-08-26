@@ -71,7 +71,7 @@ def generate_tree(f, additional_symbols, config):
                 if symbol in additional_symbols[k]:
                     src_path = k
                     break
-                if symbol.startswith("sys_") or symbol.startswith("syscall"):
+                if symbol.startswith(("sys_", "syscall")):
                     src_path = "build/src/fw/syscall.auto.s"
                     break
         path = os.path.join(src_path, symbol)

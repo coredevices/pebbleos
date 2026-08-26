@@ -149,7 +149,7 @@ Examples:
 
     # Examine the file list
     for f in filelist:
-        if f.endswith(".json") or f.endswith(".elf"):
+        if f.endswith((".json", ".elf")):
             logger.debug("Loading dictionary from %s", f)
             d = newlogging.get_log_dict_from_file(f)
             loghash_dict = newlogging.merge_dicts(loghash_dict, d)
