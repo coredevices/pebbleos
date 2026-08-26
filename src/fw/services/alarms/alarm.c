@@ -595,6 +595,30 @@ static void prv_set_day_for_just_once_alarm(AlarmConfig *config, int hour, int m
 }
 
 // ----------------------------------------------------------------------------------------------
+//! Re-picks the day every enabled "just once" alarm should fire on. Their day is stored as a
+//! weekday, so an alarm whose firing was missed (the watch was off or rebooting) would otherwise
+//! stay armed for the same weekday a whole week later.
+static void prv_refresh_just_once_alarm_days(SettingsFile *file) {
+  for (int i = 0; i < MAX_CONFIGURED_ALARMS; ++i) {
+    AlarmConfig config;
+    if (!prv_alarm_get_config(file, i, &config) || config.kind != ALARM_KIND_JUST_ONCE ||
+        config.is_disabled) {
+      continue;
+    }
+
+    bool previous_days[DAYS_PER_WEEK];
+    memcpy(previous_days, config.scheduled_days, sizeof(previous_days));
+    prv_set_day_for_just_once_alarm(&config, config.hour, config.minute);
+    if (memcmp(previous_days, config.scheduled_days, sizeof(previous_days)) == 0) {
+      continue;
+    }
+
+    Alarm alarm = { .id = i, .config = config };
+    prv_persist_alarm(file, &alarm);
+  }
+}
+
+// ----------------------------------------------------------------------------------------------
 static void prv_assert_alarm_params(int hour, int minute) {
   PBL_ASSERT(hour < 24 && hour >= 0, "Invalid hour value, %d", hour);
   PBL_ASSERT(minute < 60 && minute >= 0, "Invalid minute value, %d", minute);
@@ -1199,20 +1223,7 @@ void alarm_handle_clock_change(void) {
     }
   }
 
-  // Update the day for any just once alarms
-  for (int i = 0; i < MAX_CONFIGURED_ALARMS; ++i) {
-    AlarmConfig config;
-    if (prv_alarm_get_config(&file, i, &config)) {
-      if (config.kind == ALARM_KIND_JUST_ONCE) {
-        prv_set_day_for_just_once_alarm(&config, config.hour, config.minute);
-        Alarm alarm = {
-          .id = i,
-          .config = config,
-        };
-        prv_persist_alarm(&file, &alarm);
-      }
-    }
-  }
+  prv_refresh_just_once_alarm_days(&file);
 
   prv_reload_alarms(&file);
 
@@ -1243,6 +1254,9 @@ void alarm_init(void) {
                         sizeof(snooze_delay_value)) == S_SUCCESS) {
     s_snooze_delay_m = snooze_delay_value;
   }
+
+  // A "just once" alarm which was missed is still armed for its original weekday, a week out.
+  prv_refresh_just_once_alarm_days(&file);
 
   prv_reload_alarms(&file);
   prv_file_close_and_unlock(&file);
