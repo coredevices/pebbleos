@@ -33,6 +33,10 @@ typedef enum {
   SpeakerSourceTone,
 } SpeakerSourceType;
 
+typedef uint32_t SpeakerStreamId;
+
+#define SPEAKER_STREAM_ID_INVALID ((SpeakerStreamId)0)
+
 //! Initialize the speaker service. Called once at boot.
 void speaker_service_init(void);
 
@@ -87,17 +91,32 @@ void speaker_service_register_finish(PebbleTask task);
 //! @return true if stream opened, false if blocked by higher priority
 bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt);
 
+//! Open a PCM stream and return a token for ownership-safe stream operations.
+SpeakerStreamId speaker_service_stream_open_session(SpeakerPriority pri, uint8_t vol,
+                                                    SpeakerPcmFormat fmt);
+
 //! Write PCM data to the active stream.
 //! @param data Source buffer
 //! @param num_bytes Number of bytes to write
 //! @return Number of bytes actually written (backpressure)
 uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes);
 
+//! Write only if the given stream session is still active.
+//! @return true if the session is active; false if it was stopped or preempted.
+bool speaker_service_stream_write_session(SpeakerStreamId id, const void *data, uint32_t num_bytes,
+                                          uint32_t *written_out);
+
 //! Close the active stream. Remaining buffered data will be drained.
 void speaker_service_stream_close(void);
 
+//! Close the stream only if the given session is still active.
+void speaker_service_stream_close_session(SpeakerStreamId id);
+
 //! Stop any active playback immediately.
 void speaker_service_stop(void);
+
+//! Stop playback only if the given stream session is still active.
+void speaker_service_stream_stop_session(SpeakerStreamId id);
 
 //! Set playback volume.
 //! @param vol Volume 0-100

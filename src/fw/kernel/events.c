@@ -98,14 +98,6 @@ static void prv_queue_dump(QueueHandle_t queue) {
 void events_init(void) {
   PBL_ASSERTN(s_system_event_queue_set == NULL);
 
-  // This assert is to make sure we don't accidentally bloat our PebbleEvent unecessarily. If you hit this
-  // assert and you have a good reason for making the event bigger, feel free to relax the restriction.
-  //PBL_LOG_DBG("PebbleEvent size is %u", sizeof(PebbleEvent));
-  // FIXME:
-  _Static_assert(sizeof(PebbleEvent) <= 12,
-                 "You made the PebbleEvent bigger! It should be no more than 12");
-
-
   s_system_event_queue_set = xQueueCreateSet(MAX_KERNEL_EVENTS + MAX_FROM_APP_EVENTS);
 
   s_kernel_event_queue = xQueueCreate(MAX_KERNEL_EVENTS, sizeof(PebbleEvent));

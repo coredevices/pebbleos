@@ -25,6 +25,9 @@
 #include "pbl/services/blob_db/pin_db.h"
 #include "pbl/services/persist.h"
 #include "pbl/services/process_management/app_storage.h"
+#ifdef CONFIG_MIC
+#include "pbl/services/voice/voice_recording.h"
+#endif
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/circular_cache.h"
@@ -437,6 +440,9 @@ static void app_install_launcher_task_callback(void *context) {
         persist_service_delete_file(s_install_callback_data.uuid);
 #if !defined(CONFIG_RECOVERY_FW)
         comm_session_app_session_capabilities_evict(s_install_callback_data.uuid);
+#ifdef CONFIG_MIC
+        voice_recording_delete_owned_by(s_install_callback_data.uuid);
+#endif
 #endif
       }
       break;

@@ -506,7 +506,8 @@ typedef enum {
   VoiceEventTypeSessionSetup,
   VoiceEventTypeSessionResult,
   VoiceEventTypeSilenceDetected,
-  VoiceEventTypeSpeechDetected
+  VoiceEventTypeSpeechDetected,
+  VoiceEventTypeSessionProgress,
 } VoiceEventType;
 
 typedef struct {
@@ -514,17 +515,24 @@ typedef struct {
   char sentence[];
 } PebbleVoiceServiceEventData;
 
-typedef struct PACKED { // 6 bytes
+typedef struct PACKED { // 7 bytes
   VoiceEventType type:8;
   VoiceStatus status:8;
+  uint8_t progress;  //!< 0-100 upload progress, valid for VoiceEventTypeSessionProgress
   PebbleVoiceServiceEventData *data;
 } PebbleVoiceServiceEvent;
 
 typedef struct PACKED { // 9 bytes
-  DictationSessionStatus result;
+  DictationSessionStatus result:4;
+  //! id of the emitting VoiceWindow (voice_window_get_event_id()); subscribers must ignore
+  //! results coming from a window that is not theirs. Valid ids are 1-15.
+  uint8_t source_id:4;
   time_t timestamp;
   char *text;
 } PebbleDictationEvent;
+
+_Static_assert(DictationSessionStatusFailureRecognizerError <= 0xf,
+               "DictationSessionStatus no longer fits in PebbleDictationEvent");
 
 //! Possible results that come back from the INSTALL_COMMAND
 typedef enum {
@@ -819,8 +827,9 @@ typedef struct PACKED {
   PebbleEventType type:8;
 } PebbleEvent;
 
-// Guard the on-target size. The bound assumes 4-byte pointers, so it only
-// applies to the firmware target; the host unit-test build has wider pointers.
+// PebbleEvent is copied into 61 statically sized FreeRTOS queue entries. Guard against silently
+// increasing their RAM cost. The bound assumes 4-byte pointers, so it only applies on target;
+// host unit tests use wider pointers.
 #if __SIZEOF_POINTER__ == 4
 _Static_assert(sizeof(PebbleEvent) <= 12, "PebbleEvent grew; check the event union layout");
 #endif

@@ -4,7 +4,7 @@
               "You should also make sure you are obeying our API design guidelines:",
               "https://pebbletechnology.atlassian.net/wiki/display/DEV/SDK+API+Design+Guidelines"
             ],
-  "revision" : "109",
+  "revision" : "110",
   "version" : "2.0",
   "files": [
     "include/pbl/drivers/ambient_light.h",
@@ -133,6 +133,7 @@
     "fw/applib/legacy2/ui/text_layer_legacy2.h",
     "fw/applib/app_smartstrap.h",
     "fw/applib/voice/dictation_session.h",
+    "fw/applib/voice/audio_recording.h",
     "fw/applib/ui/content_indicator.h",
     "fw/applib/rockyjs/rocky.h",
     "fw/applib/unobstructed_area_service.h"
@@ -1049,6 +1050,66 @@
             }, {
               "type": "define",
               "name": "PBL_IF_MICROPHONE_ELSE"
+            }
+          ]
+        }, {
+          "type": "group",
+          "name": "AudioRecording",
+          "appOnly": true,
+          "addedRevision": "110",
+          "exports": [
+            {
+              "type": "type",
+              "name": "AudioRecordingId"
+            }, {
+              "type": "define",
+              "name": "AUDIO_RECORDING_ID_INVALID"
+            }, {
+              "type": "type",
+              "name": "AudioRecordingInfo"
+            }, {
+              "type": "function",
+              "name": "audio_recording_start",
+              "addedRevision": "110"
+            }, {
+              "type": "function",
+              "name": "audio_recording_stop",
+              "addedRevision": "110"
+            }, {
+              "type": "function",
+              "name": "audio_recording_cancel",
+              "addedRevision": "110"
+            }, {
+              "type": "function",
+              "name": "audio_recording_is_active",
+              "addedRevision": "110"
+            }, {
+              "type": "function",
+              "name": "audio_recording_list",
+              "addedRevision": "110"
+            }, {
+              "type": "function",
+              "name": "audio_recording_delete",
+              "addedRevision": "110"
+            }, {
+              "type": "function",
+              "name": "audio_recording_play",
+              "addedRevision": "110"
+            }, {
+              "type": "function",
+              "name": "audio_recording_stop_playback",
+              "addedRevision": "110"
+            }, {
+              "type": "function",
+              "name": "audio_recording_is_playing",
+              "addedRevision": "110"
+            }, {
+              "type": "type",
+              "name": "AudioTranscriptionCallback"
+            }, {
+              "type": "function",
+              "name": "audio_recording_transcribe",
+              "addedRevision": "110"
             }
           ]
         }, {

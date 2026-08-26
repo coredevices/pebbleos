@@ -20,6 +20,7 @@ Doxygen reference.
 :maxdepth: 1
 
 recognizers.md
+voice_recordings.md
 ```
 
 ## External resources

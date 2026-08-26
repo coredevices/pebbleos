@@ -2253,7 +2253,9 @@ msgstr "アラーム解除"
 msgid ""
 "Your heart rate has been shared with an app on your phone for several hours. "
 "This could affect your battery. Stop sharing now?"
-msgstr "数時間にわたり、心拍数がスマートフォンのアプリとシェアされています。バッテリーに影響する可能性があります。今すぐシェアを停止しますか？"
+msgstr ""
+"数時間にわたり、心拍数がスマートフォンのアプリとシェアされています。バッテ"
+"リーに影響する可能性があります。今すぐシェアを停止しますか？"
 
 #: ../src/fw/popups/ble_hrm/ble_hrm_sharing_popup.c:31
 msgid "Sharing Heart Rate"
@@ -3472,6 +3474,21 @@ msgstr "削岩機"
 #: ../src/fw/services/vibes/vibes.def:15
 msgid "Gentle"
 msgstr "おだやか"
+
+#: ../src/fw/apps/system/settings/recordings.c:24
+#, c-format
+msgid "Used %u KB"
+msgstr ""
+
+#: ../src/fw/apps/system/settings/recordings.c:26
+#, c-format
+msgid "Free %u KB"
+msgstr ""
+
+#: ../src/fw/apps/system/settings/recordings.c:33
+#: ../src/fw/apps/system/settings/recordings.c:41
+msgid "Recordings"
+msgstr "録音一覧"
 
 #~ msgid "Scaled"
 #~ msgstr "拡大"

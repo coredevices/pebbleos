@@ -290,6 +290,44 @@ clar(ctx,
     override_includes=['dummy_board'])
 
 clar(ctx,
+    sources_ant_glob = " ".join([
+        " src/fw/services/voice/voice_recording_playback.c"]),
+    defines=["CONFIG_MIC"],
+    test_sources_ant_glob = "test_voice_recording_playback.c",
+    override_includes=['dummy_board'])
+
+clar(ctx,
+    sources_ant_glob = " ".join([
+        " src/fw/services/voice/voice.c"]),
+    defines=["CONFIG_MIC"],
+    test_sources_ant_glob = "test_voice.c",
+    override_includes=['dummy_board'])
+
+clar(ctx,
+    sources_ant_glob = " ".join([
+        " src/fw/services/voice/voice_recording.c"]),
+    defines=["CONFIG_MIC"],
+    test_sources_ant_glob = "test_voice_recording.c",
+    override_includes=['dummy_board'])
+
+clar(ctx,
+    sources_ant_glob = " ".join([
+        " src/fw/services/voice/voice_recording_storage.c",
+        " src/fw/services/filesystem/flash_translation.c",
+        " src/fw/services/filesystem/pfs.c",
+        " src/fw/system/hexdump.c",
+        " src/fw/flash_region/flash_region.c",
+        " src/fw/flash_region/filesystem_regions.c",
+        " tests/fakes/fake_spi_flash.c",
+        " src/fw/util/crc8.c",
+        " src/fw/util/legacy_checksum.c",
+        " tests/fakes/fake_rtc.c"]),
+    test_sources_ant_glob = "test_voice_recording_storage.c",
+    defines=['DUMA_DISABLED'],
+    override_includes=['dummy_board'],
+    platforms=['obelix'])
+
+clar(ctx,
     sources_ant_glob = \
     "  src/fw/flash_region/flash_region.c" \
     "  src/fw/flash_region/filesystem_regions.c" \

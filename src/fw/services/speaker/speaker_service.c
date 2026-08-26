@@ -60,6 +60,8 @@ typedef struct {
   // PCM stream source
   PcmStreamState pcm_stream;
   SpeakerPcmFormat pcm_format;
+  SpeakerStreamId stream_id;
+  SpeakerStreamId next_stream_id;
 
   // Previous decoded samples for cubic interpolation across chunk boundaries.
   // [0] = second-to-last sample (s_{n-2}), [1] = last sample (s_{n-1}).
@@ -115,6 +117,7 @@ static void prv_stop_internal(SpeakerFinishReason reason);
 static void prv_audio_trans_cb(uint32_t *free_size);
 static void prv_refill_bg(void *data);
 
+//! Combine the global speaker mute and active quiet-time policy.
 static bool prv_is_speaker_muted(void) {
   if (alerts_preferences_get_speaker_muted()) {
     return true;
@@ -125,6 +128,7 @@ static bool prv_is_speaker_muted(void) {
   return false;
 }
 
+//! Apply mute and the user volume cap unless the source requested absolute volume.
 static uint8_t prv_effective_volume(uint8_t vol) {
   if (prv_is_speaker_muted()) {
     return 0;
@@ -136,6 +140,7 @@ static uint8_t prv_effective_volume(uint8_t vol) {
   return (uint32_t)vol * cap / 100;
 }
 
+//! Accumulate the time-weighted volume between speaker state changes.
 static void prv_update_volume_analytics(uint8_t new_volume_pct) {
   RtcTicks now_ticks = rtc_get_ticks();
 
@@ -160,6 +165,7 @@ void speaker_service_init(void) {
   s_state.state = SpeakerStateIdle;
   s_state.source_type = SpeakerSourceNone;
   s_state.owner_task = PebbleTask_Unknown;
+  s_state.next_stream_id = 1;
   s_state.initialized = true;
 
   s_silence_reasons = 0;
@@ -197,6 +203,7 @@ static void prv_log_silence(uint8_t vol, uint8_t effective_vol) {
   }
 }
 
+//! Configure and start the audio driver for the active source.
 static void prv_start_audio(uint8_t vol) {
   const uint8_t effective_vol = prv_effective_volume(vol);
 
@@ -211,6 +218,7 @@ static void prv_start_audio(uint8_t vol) {
   audio_start((AudioDevice *)AUDIO, prv_audio_trans_cb);
 }
 
+//! Stop the audio driver and finish accounting for speaker-on time.
 static void prv_stop_audio(void) {
   PBL_ANALYTICS_TIMER_STOP(speaker_on_time_ms);
   prv_update_volume_analytics(0);
@@ -218,6 +226,7 @@ static void prv_stop_audio(void) {
   audio_stop((AudioDevice *)AUDIO);
 }
 
+//! Release all buffers and synthesis state owned by polyphonic tracks.
 static void prv_free_tracks(void) {
   for (uint32_t i = 0; i < s_state.num_tracks; i++) {
     track_deinit(&s_state.tracks[i]);
@@ -233,6 +242,7 @@ static void prv_free_tracks(void) {
   s_state.num_tracks = 0;
 }
 
+//! Notify the source owner that playback finished when notifications are enabled.
 static void prv_post_finish_event(SpeakerFinishReason reason) {
   if (!s_state.finish_enabled) {
     return;
@@ -247,7 +257,7 @@ static void prv_post_finish_event(SpeakerFinishReason reason) {
   event_put(&e);
 }
 
-//! Caller must hold s_lock.
+//! Stop the active source and release its source-specific state. Caller must hold s_lock.
 static void prv_stop_internal(SpeakerFinishReason reason) {
   if (s_state.state == SpeakerStateIdle) {
     return;
@@ -258,6 +268,7 @@ static void prv_stop_internal(SpeakerFinishReason reason) {
   s_state.owner_task = PebbleTask_Unknown;
   s_state.pipeline_draining = false;
   s_state.volume_absolute = false;
+  s_state.stream_id = SPEAKER_STREAM_ID_INVALID;
 
   if (reason == SpeakerFinishReasonPreempted) {
     PBL_ANALYTICS_ADD(speaker_preempted_count, 1);
@@ -285,6 +296,7 @@ static void prv_stop_internal(SpeakerFinishReason reason) {
   prv_post_finish_event(reason);
 }
 
+//! Decide whether a new source may replace the current one.
 static bool prv_can_preempt(SpeakerPriority new_pri) {
   if (s_state.state == SpeakerStateIdle) {
     return true;
@@ -408,7 +420,7 @@ static uint32_t prv_read_and_convert_pcm(int16_t *out, uint32_t max_out_samples)
   return out_pos;
 }
 
-//! Caller must hold s_lock.
+//! Generate and queue the next audio chunk for the active source. Caller must hold s_lock.
 static void prv_refill_locked(void) {
   if (s_state.state == SpeakerStateIdle) {
     return;
@@ -503,6 +515,7 @@ static void prv_refill_locked(void) {
   }
 }
 
+//! Run the deferred refill under the service lock.
 static void prv_refill_bg(void *data) {
   mutex_lock(s_lock);
   prv_refill_locked();
@@ -554,6 +567,7 @@ bool speaker_service_play_note_seq(const SpeakerNote *notes, uint32_t num_notes,
   return true;
 }
 
+//! Start a synthesized tone, optionally bypassing the user volume cap.
 static bool prv_play_tone_internal(uint16_t freq_hz, uint16_t duration_ms,
                                    uint8_t waveform, uint8_t velocity,
                                    SpeakerPriority pri, uint8_t vol,
@@ -714,17 +728,18 @@ alloc_fail:
   return false;
 }
 
-bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt) {
+//! Open a prioritized PCM session and return its ownership token.
+static SpeakerStreamId prv_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt) {
   mutex_lock(s_lock);
 
   if (!s_state.initialized) {
     mutex_unlock(s_lock);
-    return false;
+    return SPEAKER_STREAM_ID_INVALID;
   }
 
   if (!prv_can_preempt(pri)) {
     mutex_unlock(s_lock);
-    return false;
+    return SPEAKER_STREAM_ID_INVALID;
   }
 
   // Stop any existing playback
@@ -735,7 +750,7 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
   if (!pcm_stream_init(&s_state.pcm_stream, PCM_STREAM_DEFAULT_SIZE_BYTES)) {
     PBL_LOG_ERR("Failed to allocate PCM stream buffer");
     mutex_unlock(s_lock);
-    return false;
+    return SPEAKER_STREAM_ID_INVALID;
   }
 
   s_state.state = SpeakerStatePlaying;
@@ -743,13 +758,27 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
   s_state.priority = pri;
   s_state.volume = vol;
   s_state.pcm_format = fmt;
+  s_state.stream_id = s_state.next_stream_id++;
+  if (s_state.next_stream_id == SPEAKER_STREAM_ID_INVALID) {
+    s_state.next_stream_id = 1;
+  }
   s_state.prev_samples[0] = 0;
   s_state.prev_samples[1] = 0;
 
   prv_start_audio(vol);
 
+  const SpeakerStreamId id = s_state.stream_id;
   mutex_unlock(s_lock);
-  return true;
+  return id;
+}
+
+bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt) {
+  return prv_stream_open(pri, vol, fmt) != SPEAKER_STREAM_ID_INVALID;
+}
+
+SpeakerStreamId speaker_service_stream_open_session(SpeakerPriority pri, uint8_t vol,
+                                                    SpeakerPcmFormat fmt) {
+  return prv_stream_open(pri, vol, fmt);
 }
 
 uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes) {
@@ -766,6 +795,30 @@ uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes) {
   return written;
 }
 
+bool speaker_service_stream_write_session(SpeakerStreamId id, const void *data, uint32_t num_bytes,
+                                          uint32_t *written_out) {
+  if (!written_out) {
+    return false;
+  }
+  mutex_lock(s_lock);
+  const bool active = (id != SPEAKER_STREAM_ID_INVALID) && (s_state.state != SpeakerStateIdle) &&
+                      (s_state.source_type == SpeakerSourceStream) && (s_state.stream_id == id);
+  *written_out = active ? pcm_stream_write(&s_state.pcm_stream, data, num_bytes) : 0;
+  mutex_unlock(s_lock);
+  return active;
+}
+
+//! Finish a PCM stream after buffered samples drain. Caller must hold s_lock.
+static void prv_stream_close(void) {
+  if (s_state.pcm_stream.count > 0) {
+    // Data remaining - enter draining state
+    pcm_stream_mark_closing(&s_state.pcm_stream);
+    s_state.state = SpeakerStateDraining;
+  } else {
+    prv_stop_internal(SpeakerFinishReasonDone);
+  }
+}
+
 void speaker_service_stream_close(void) {
   mutex_lock(s_lock);
 
@@ -774,20 +827,31 @@ void speaker_service_stream_close(void) {
     return;
   }
 
-  if (s_state.pcm_stream.count > 0) {
-    // Data remaining - enter draining state
-    pcm_stream_mark_closing(&s_state.pcm_stream);
-    s_state.state = SpeakerStateDraining;
-  } else {
-    prv_stop_internal(SpeakerFinishReasonDone);
-  }
+  prv_stream_close();
+  mutex_unlock(s_lock);
+}
 
+void speaker_service_stream_close_session(SpeakerStreamId id) {
+  mutex_lock(s_lock);
+  if ((id != SPEAKER_STREAM_ID_INVALID) && (s_state.source_type == SpeakerSourceStream) &&
+      (s_state.stream_id == id)) {
+    prv_stream_close();
+  }
   mutex_unlock(s_lock);
 }
 
 void speaker_service_stop(void) {
   mutex_lock(s_lock);
   prv_stop_internal(SpeakerFinishReasonStopped);
+  mutex_unlock(s_lock);
+}
+
+void speaker_service_stream_stop_session(SpeakerStreamId id) {
+  mutex_lock(s_lock);
+  if ((id != SPEAKER_STREAM_ID_INVALID) && (s_state.source_type == SpeakerSourceStream) &&
+      (s_state.stream_id == id)) {
+    prv_stop_internal(SpeakerFinishReasonStopped);
+  }
   mutex_unlock(s_lock);
 }
 
@@ -895,12 +959,28 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
   return false;
 }
 
+SpeakerStreamId speaker_service_stream_open_session(SpeakerPriority pri, uint8_t vol,
+                                                    SpeakerPcmFormat fmt) {
+  return SPEAKER_STREAM_ID_INVALID;
+}
+
 uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes) {
   return 0;
 }
 
+bool speaker_service_stream_write_session(SpeakerStreamId id, const void *data, uint32_t num_bytes,
+                                          uint32_t *written_out) {
+  if (!written_out) {
+    return false;
+  }
+  *written_out = 0;
+  return false;
+}
+
 void speaker_service_stream_close(void) {}
+void speaker_service_stream_close_session(SpeakerStreamId id) {}
 void speaker_service_stop(void) {}
+void speaker_service_stream_stop_session(SpeakerStreamId id) {}
 void speaker_service_set_volume(uint8_t vol) {}
 
 SpeakerState speaker_service_get_state(void) {

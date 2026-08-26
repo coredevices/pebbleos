@@ -1,7 +1,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: 39.0\n"
+"Project-Id-Version: 40.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-07-17 13:14+0200\n"
 "PO-Revision-Date: 2026-05-15 00:00+0200\n"
@@ -3505,6 +3505,21 @@ msgstr "Marteau piqueur"
 #: ../src/fw/services/vibes/vibes.def:15
 msgid "Gentle"
 msgstr "Doux"
+
+#: ../src/fw/apps/system/settings/recordings.c:24
+#, c-format
+msgid "Used %u KB"
+msgstr ""
+
+#: ../src/fw/apps/system/settings/recordings.c:26
+#, c-format
+msgid "Free %u KB"
+msgstr ""
+
+#: ../src/fw/apps/system/settings/recordings.c:33
+#: ../src/fw/apps/system/settings/recordings.c:41
+msgid "Recordings"
+msgstr "Enregistrements"
 
 #~ msgid "Default"
 #~ msgstr "Normal"

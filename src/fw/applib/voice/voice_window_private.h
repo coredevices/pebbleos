@@ -19,6 +19,7 @@
 #include "applib/ui/dialogs/expandable_dialog.h"
 #include "applib/ui/kino/kino_layer.h"
 #include "applib/voice/dictation_session.h"
+#include "pbl/services/voice/voice_recording.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -86,6 +87,14 @@ typedef struct VoiceUiData {
 
   VoiceSessionId session_id;
   VoiceEndpointSessionType session_type;
+
+  // When non-zero, audio is streamed from this stored recording for transcription instead of the
+  // microphone: the mic capture phase is skipped and the progress bar tracks the real upload.
+  VoiceRecordingId recording_id;
+
+  // Tag carried by the PEBBLE_DICTATION_EVENTs this window emits, so subscribers can tell
+  // concurrent voice windows apart.
+  uint8_t event_id;
 } VoiceUiData;
 
 void voice_window_lose_focus(VoiceWindow *voice_window);

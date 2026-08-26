@@ -19,8 +19,13 @@
 static void prv_handle_transcription_result(PebbleEvent *e, void *context) {
   PBL_ASSERTN(context);
 
-  PBL_LOG_DBG("Exiting with status code: %"PRId8, e->dictation.result);
   DictationSession *session = context;
+  if (e->dictation.source_id != voice_window_get_event_id(session->voice_window)) {
+    // Result from another voice window (e.g. a concurrent recording transcription)
+    return;
+  }
+
+  PBL_LOG_DBG("Exiting with status code: %"PRId8, e->dictation.result);
 
   session->callback(session, e->dictation.result, e->dictation.text, session->context);
   voice_window_reset(session->voice_window);

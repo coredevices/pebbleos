@@ -2254,7 +2254,8 @@ msgstr "闹钟已关闭"
 msgid ""
 "Your heart rate has been shared with an app on your phone for several hours. "
 "This could affect your battery. Stop sharing now?"
-msgstr "您的心率已与手机上的应用共享数小时，可能会影响电池续航。要立即停止共享吗？"
+msgstr ""
+"您的心率已与手机上的应用共享数小时，可能会影响电池续航。要立即停止共享吗？"
 
 #: ../src/fw/popups/ble_hrm/ble_hrm_sharing_popup.c:31
 msgid "Sharing Heart Rate"
@@ -3454,6 +3455,21 @@ msgstr "钻孔机"
 #: ../src/fw/services/vibes/vibes.def:15
 msgid "Gentle"
 msgstr "Gentle"
+
+#: ../src/fw/apps/system/settings/recordings.c:24
+#, c-format
+msgid "Used %u KB"
+msgstr ""
+
+#: ../src/fw/apps/system/settings/recordings.c:26
+#, c-format
+msgid "Free %u KB"
+msgstr ""
+
+#: ../src/fw/apps/system/settings/recordings.c:33
+#: ../src/fw/apps/system/settings/recordings.c:41
+msgid "Recordings"
+msgstr "录音"
 
 #~ msgid "Default"
 #~ msgstr "Default"

@@ -7,6 +7,9 @@
 #include "menu.h"
 #include "notifications.h"
 #include "quick_launch.h"
+#ifdef CONFIG_MIC
+#include "recordings.h"
+#endif
 #include "quiet_time.h"
 #include "remote.h"
 #include "system.h"
@@ -31,6 +34,9 @@ static const SettingsModuleGetMetadata s_submodule_registry[] = {
   [SettingsMenuItemTimeline]      = settings_timeline_get_info,
   [SettingsMenuItemHealth]        = settings_health_get_info,
   [SettingsMenuItemActivity]      = settings_activity_tracker_get_info,
+#ifdef CONFIG_MIC
+  [SettingsMenuItemRecordings]    = settings_recordings_get_info,
+#endif
   [SettingsMenuItemQuickLaunch]   = settings_quick_launch_get_info,
   [SettingsMenuItemDateTime]      = settings_time_get_info,
   [SettingsMenuItemDisplay]       = settings_display_get_info,

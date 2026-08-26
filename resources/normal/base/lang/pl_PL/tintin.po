@@ -3495,6 +3495,21 @@ msgstr "Młot pneumatyczny"
 msgid "Gentle"
 msgstr "Delikatny"
 
+#: ../src/fw/apps/system/settings/recordings.c:24
+#, c-format
+msgid "Used %u KB"
+msgstr ""
+
+#: ../src/fw/apps/system/settings/recordings.c:26
+#, c-format
+msgid "Free %u KB"
+msgstr ""
+
+#: ../src/fw/apps/system/settings/recordings.c:33
+#: ../src/fw/apps/system/settings/recordings.c:41
+msgid "Recordings"
+msgstr "Nagrania"
+
 #~ msgid "Default"
 #~ msgstr "Domyślna"
 

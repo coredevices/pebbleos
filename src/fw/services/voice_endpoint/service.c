@@ -10,8 +10,10 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "util/generic_attribute.h"
+#include "pbl/util/math.h"
 #include "pbl/util/uuid.h"
 
+#include <stddef.h>
 #include <sys/types.h>
 
 #include "pbl/services/voice_endpoint_private.h"
@@ -19,8 +21,151 @@
 PBL_LOG_MODULE_DEFINE(service_voice_endpoint, CONFIG_SERVICE_VOICE_ENDPOINT_LOG_LEVEL);
 
 #define VOICE_CONTROL_ENDPOINT (11000)
+#define VOICE_RECORDING_PAGE_MAX (24)
 
 #ifdef CONFIG_MIC
+_Static_assert(sizeof(VoiceRecordingProtocolInfo) == 30,
+               "Voice recording protocol metadata layout changed");
+
+static void prv_send_recording_command_response(CommSession *session, MsgId msg_id,
+                                                uint8_t transaction_id,
+                                                VoiceRecordingEndpointResult result) {
+  const VoiceRecordingCommandResponse response = {
+    .msg_id = msg_id,
+    .transaction_id = transaction_id,
+    .result = result,
+  };
+  comm_session_send_data(session, VOICE_CONTROL_ENDPOINT, (const uint8_t *)&response,
+                         sizeof(response), COMM_SESSION_DEFAULT_TIMEOUT);
+}
+
+static void prv_send_recording_list_error(CommSession *session, uint8_t transaction_id,
+                                          VoiceRecordingEndpointResult result) {
+  const VoiceRecordingListResponse response = {
+    .msg_id = MsgIdRecordingListResponse,
+    .transaction_id = transaction_id,
+    .result = result,
+  };
+  comm_session_send_data(session, VOICE_CONTROL_ENDPOINT, (const uint8_t *)&response,
+                         sizeof(response), COMM_SESSION_DEFAULT_TIMEOUT);
+}
+
+static void prv_handle_recording_list_request(CommSession *session,
+                                              const VoiceRecordingListRequest *request,
+                                              size_t size) {
+  if ((size < sizeof(*request)) || (request->limit == 0)) {
+    const uint8_t transaction_id = (size > offsetof(VoiceRecordingListRequest, transaction_id)) ?
+        request->transaction_id : 0;
+    prv_send_recording_list_error(session, transaction_id,
+                                  VoiceRecordingEndpointResultInvalidRequest);
+    return;
+  }
+
+  const uint8_t limit = MIN(request->limit, VOICE_RECORDING_PAGE_MAX);
+  VoiceRecordingInfo infos[VOICE_RECORDING_PAGE_MAX];
+  bool has_more = false;
+  const uint32_t count = voice_recording_list_page(infos, limit, request->offset, &has_more);
+  const size_t response_size = sizeof(VoiceRecordingListResponse) +
+                               count * sizeof(VoiceRecordingProtocolInfo);
+  VoiceRecordingListResponse *response = kernel_zalloc_check(response_size);
+  *response = (VoiceRecordingListResponse) {
+    .msg_id = MsgIdRecordingListResponse,
+    .transaction_id = request->transaction_id,
+    .result = VoiceRecordingEndpointResultSuccess,
+    .has_more = has_more,
+    .count = count,
+  };
+  for (uint32_t i = 0; i < count; ++i) {
+    response->recordings[i] = (VoiceRecordingProtocolInfo) {
+      .id = infos[i].id,
+      .size_bytes = infos[i].size_bytes,
+      .duration_ms = infos[i].duration_ms,
+      .created = infos[i].created,
+      .app_uuid = infos[i].app_uuid,
+    };
+  }
+  comm_session_send_data(session, VOICE_CONTROL_ENDPOINT, (const uint8_t *)response,
+                         response_size, COMM_SESSION_DEFAULT_TIMEOUT);
+  kernel_free(response);
+}
+
+static void prv_handle_recording_delete_request(CommSession *session,
+                                                const VoiceRecordingIdRequest *request,
+                                                size_t size) {
+  if ((size < sizeof(*request)) || (request->recording_id == VOICE_RECORDING_ID_INVALID)) {
+    const uint8_t transaction_id = (size > offsetof(VoiceRecordingIdRequest, transaction_id)) ?
+        request->transaction_id : 0;
+    prv_send_recording_command_response(session, MsgIdRecordingDeleteResponse, transaction_id,
+                                        VoiceRecordingEndpointResultInvalidRequest);
+    return;
+  }
+  VoiceRecordingEndpointResult result = VoiceRecordingEndpointResultSuccess;
+  if (!voice_recording_delete(request->recording_id)) {
+    result = (voice_transcribing_recording_id() == request->recording_id) ?
+        VoiceRecordingEndpointResultBusy : VoiceRecordingEndpointResultNotFound;
+  }
+  prv_send_recording_command_response(session, MsgIdRecordingDeleteResponse,
+                                      request->transaction_id, result);
+}
+
+static void prv_handle_recording_playback_request(CommSession *session,
+                                                  const VoiceRecordingPlaybackRequest *request,
+                                                  size_t size) {
+  if (size < sizeof(*request)) {
+    const uint8_t transaction_id =
+        (size > offsetof(VoiceRecordingPlaybackRequest, transaction_id)) ?
+        request->transaction_id : 0;
+    prv_send_recording_command_response(session, MsgIdRecordingPlaybackResponse, transaction_id,
+                                        VoiceRecordingEndpointResultInvalidRequest);
+    return;
+  }
+
+  VoiceRecordingEndpointResult result = VoiceRecordingEndpointResultSuccess;
+  switch (request->action) {
+    case VoiceRecordingPlaybackActionPlay:
+      if ((request->recording_id == VOICE_RECORDING_ID_INVALID) ||
+          !voice_recording_play(request->recording_id)) {
+        result = (voice_recording_in_progress() || voice_recording_is_playing() ||
+                  (voice_transcribing_recording_id() != VOICE_RECORDING_ID_INVALID)) ?
+            VoiceRecordingEndpointResultBusy : VoiceRecordingEndpointResultNotFound;
+      }
+      break;
+    case VoiceRecordingPlaybackActionStop:
+      voice_recording_stop_playback();
+      break;
+    default:
+      result = VoiceRecordingEndpointResultInvalidRequest;
+      break;
+  }
+  prv_send_recording_command_response(session, MsgIdRecordingPlaybackResponse,
+                                      request->transaction_id, result);
+}
+
+static void prv_handle_recording_transcribe_request(CommSession *session,
+                                                    const VoiceRecordingIdRequest *request,
+                                                    size_t size) {
+  if ((size < sizeof(*request)) || (request->recording_id == VOICE_RECORDING_ID_INVALID)) {
+    const uint8_t transaction_id = (size > offsetof(VoiceRecordingIdRequest, transaction_id)) ?
+        request->transaction_id : 0;
+    prv_send_recording_command_response(session, MsgIdRecordingTranscribeResponse, transaction_id,
+                                        VoiceRecordingEndpointResultInvalidRequest);
+    return;
+  }
+
+  VoiceRecordingEndpointResult result = VoiceRecordingEndpointResultSuccess;
+  if (voice_session_is_active()) {
+    result = VoiceRecordingEndpointResultBusy;
+  } else if (voice_start_dictation_from_recording(request->recording_id) ==
+             VOICE_SESSION_ID_INVALID) {
+    result = (voice_session_is_active() || voice_recording_in_progress() ||
+              voice_recording_is_playing() ||
+              (voice_transcribing_recording_id() != VOICE_RECORDING_ID_INVALID)) ?
+        VoiceRecordingEndpointResultBusy : VoiceRecordingEndpointResultNotFound;
+  }
+  prv_send_recording_command_response(session, MsgIdRecordingTranscribeResponse,
+                                      request->transaction_id, result);
+}
+
 static bool prv_handle_result_common(VoiceEndpointResult result,
                                      bool app_initiated,
                                      AudioEndpointSessionId session_id,
@@ -131,6 +276,10 @@ static void prv_handle_nlp_result(VoiceSessionResultMsg *msg, size_t size) {
 
 #ifdef CONFIG_MIC
 void voice_endpoint_protocol_msg_callback(CommSession *session, const uint8_t* data, size_t size) {
+  if (size < 1) {
+    PBL_LOG_WRN("Empty voice endpoint message");
+    return;
+  }
   MsgId msg_id = data[0];
   switch (msg_id) {
     case MsgIdSessionSetup: {
@@ -170,6 +319,19 @@ void voice_endpoint_protocol_msg_callback(CommSession *session, const uint8_t* d
       }
       break;
     }
+    case MsgIdRecordingListRequest:
+      prv_handle_recording_list_request(session, (const VoiceRecordingListRequest *)data, size);
+      break;
+    case MsgIdRecordingDeleteRequest:
+      prv_handle_recording_delete_request(session, (const VoiceRecordingIdRequest *)data, size);
+      break;
+    case MsgIdRecordingPlaybackRequest:
+      prv_handle_recording_playback_request(session,
+                                            (const VoiceRecordingPlaybackRequest *)data, size);
+      break;
+    case MsgIdRecordingTranscribeRequest:
+      prv_handle_recording_transcribe_request(session, (const VoiceRecordingIdRequest *)data, size);
+      break;
     default:
       // Ignore invalid message ID
       PBL_LOG_WRN("Invalid message ID");
