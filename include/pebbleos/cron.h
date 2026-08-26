@@ -126,3 +126,9 @@ time_t cron_job_get_execute_time(const CronJob *job);
 //! @param local_epoch the epoch for getting the job's execution time.
 //! @returns time_t for when the job is destined to go off.
 time_t cron_job_get_execute_time_from_epoch(const CronJob *job, time_t local_epoch);
+
+//! Schedules a cron job to fire at the destined execution time calculated from a specific epoch.
+//! @params job pointer to the CronJob struct to be scheduled.
+//! @params from_epoch the epoch from which to compute the next execution time.
+//! @returns time_t for when the job is scheduled to go off.
+time_t cron_job_schedule_from_epoch(CronJob *job, time_t from_epoch);

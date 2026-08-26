@@ -33,6 +33,7 @@
 
 typedef enum DetailMenuItemIndex {
   DetailMenuItemIndexEnable = 0,
+  DetailMenuItemIndexSnoozeNext,
   DetailMenuItemIndexDelete,
   DetailMenuItemIndexChangeTime,
   DetailMenuItemIndexChangeDays,
@@ -70,12 +71,36 @@ static SimpleDialog *prv_snooze_set_confirm_dialog(void) {
   return simple_dialog;
 }
 
+static SimpleDialog *prv_snooze_next_confirm_dialog(bool snoozed) {
+  SimpleDialog *simple_dialog = simple_dialog_create("AlarmSnoozeNext");
+  Dialog *dialog = simple_dialog_get_dialog(simple_dialog);
+  const char *snooze_text = snoozed ? i18n_noop("Next Alarm Snoozed") : i18n_noop("Next Alarm Resumed");
+  dialog_set_text(dialog, i18n_get(snooze_text, dialog));
+  i18n_free(snooze_text, dialog);
+  dialog_set_icon(dialog, RESOURCE_ID_GENERIC_CONFIRMATION_LARGE);
+  dialog_set_background_color(dialog, GColorJaegerGreen);
+  dialog_set_timeout(dialog, DIALOG_TIMEOUT_DEFAULT);
+  return simple_dialog;
+}
+
 static void prv_edit_snooze_delay(ActionMenu *action_menu,
                                   const ActionMenuItem *item,
                                   void *context) {
   alarm_set_snooze_delay((uintptr_t)item->action_data);
   SimpleDialog *snooze_delay_dialog = prv_snooze_set_confirm_dialog();
   action_menu_set_result_window(action_menu, (Window *)snooze_delay_dialog);
+}
+
+static void prv_toggle_snooze_next_handler(ActionMenu *action_menu, const ActionMenuItem *item,
+                                           void *context) {
+  AlarmDetailData *data = (AlarmDetailData *) context;
+  bool new_snooze = !data->alarm_info.is_snoozed_next;
+  alarm_set_snoozed_next(data->alarm_id, new_snooze);
+  if (data->alarm_editor_callback) {
+    data->alarm_editor_callback(EDITED, data->alarm_id, data->callback_context);
+  }
+  SimpleDialog *snooze_next_dialog = prv_snooze_next_confirm_dialog(new_snooze);
+  action_menu_set_result_window(action_menu, (Window *)snooze_next_dialog);
 }
 
 static void prv_toggle_enable_alarm_handler(ActionMenu *action_menu, const ActionMenuItem *item,
@@ -281,6 +306,12 @@ void alarm_detail_window_push(AlarmId alarm_id, AlarmInfo *alarm_info,
   main_menu->items[DetailMenuItemIndexEnable] = (ActionMenuItem) {
     .label = data->alarm_info.enabled ? i18n_get("Disable", data) : i18n_get("Enable", data),
     .perform_action = prv_toggle_enable_alarm_handler,
+    .action_data = data,
+  };
+  main_menu->items[DetailMenuItemIndexSnoozeNext] = (ActionMenuItem) {
+    .label = data->alarm_info.is_snoozed_next ?
+        i18n_get("Resume Next", data) : i18n_get("Snooze Next", data),
+    .perform_action = prv_toggle_snooze_next_handler,
     .action_data = data,
   };
   main_menu->items[DetailMenuItemIndexChangeTime] = (ActionMenuItem) {

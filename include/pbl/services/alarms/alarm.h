@@ -59,6 +59,7 @@ typedef struct AlarmInfo {
   bool sound_enabled; //<! Whether the alarm should play a tone on speaker hardware
   bool vibrate_enabled; //<! Whether the alarm should vibrate
   AlarmTone tone; //<! Selected tone for this alarm (used when sound_enabled is true)
+  bool is_snoozed_next; //<! Whether only the next occurrence is snoozed/skipped
 } AlarmInfo;
 
 typedef void (*AlarmForEach)(AlarmId id, const AlarmInfo *info, void *context);
@@ -98,6 +99,14 @@ void alarm_set_vibrate_enabled(AlarmId id, bool enabled);
 //! @param tone The tone to play when sound is enabled
 void alarm_set_tone(AlarmId id, AlarmTone tone);
 
+//! @param id The alarm that should be updated
+//! @param snooze_next Whether only the next occurrence should be snoozed/skipped
+void alarm_set_snoozed_next(AlarmId id, bool snooze_next);
+
+//! @param id The alarm that is being queried
+//! @return True if only the next occurrence is snoozed/skipped, False otherwise
+bool alarm_get_snoozed_next(AlarmId id);
+
 //! @param id The alarm to look up
 //! @param info_out The AlarmInfo struct to fill in. The scheduled_days pointer is set to NULL;
 //! callers needing per-weekday flags should use alarm_get_custom_days() instead.
@@ -122,7 +131,7 @@ void alarm_set_enabled(AlarmId id, bool enable);
 void alarm_delete(AlarmId id);
 
 //! @param id The alarm that is being queried
-//! @return True if the alarm exists and is not disabled, Flase otherwise
+//! @return True if the alarm exists and is not disabled, False otherwise
 bool alarm_get_enabled(AlarmId id);
 
 //! @param id The alarm that should be deleted

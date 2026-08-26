@@ -284,7 +284,14 @@ static void prv_alarm_list_draw_row_callback(GContext *ctx, const Layer *cell_la
   char alarm_time_text[9];
   clock_format_time(alarm_time_text, sizeof(alarm_time_text),
                     node->info.hour, node->info.minute, true);
-  const char *enabled = node->info.enabled ? i18n_get("ON", data) : i18n_get("OFF", data);
+  const char *enabled;
+  if (!node->info.enabled) {
+    enabled = i18n_get("OFF", data);
+  } else if (node->info.is_snoozed_next) {
+    enabled = i18n_get("SNZ", data);
+  } else {
+    enabled = i18n_get("ON", data);
+  }
 
   graphics_context_set_compositing_mode(ctx, GCompOpTint);
   // If the alarm is not smart, use the icon as spacing but don't render it.

@@ -17,6 +17,10 @@ time_t cron_job_schedule(CronJob *job) {
   return 0;
 }
 
+time_t cron_job_schedule_from_epoch(CronJob *job, time_t from_epoch) {
+  return 0;
+}
+
 bool cron_job_unschedule(CronJob *job) {
   return true;
 }
