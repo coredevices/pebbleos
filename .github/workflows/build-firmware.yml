@@ -25,6 +25,9 @@ jobs:
               - 'boards/**'
               - 'platform/**'
               - 'resources/**'
+              # Release-suite-only PRs still need an exact-commit firmware artifact so the hardware
+              # run can prove the catalog and the firmware together before merge.
+              - 'qa/**'
               - 'sdk/**'
               - 'src/**'
               - 'stored_apps/**'

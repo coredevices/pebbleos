@@ -1,0 +1,3 @@
+appId: coredevices.coreapp
+---
+- runScript: scripts/final_version.js

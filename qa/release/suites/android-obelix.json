@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "pebbleos-release-a",
+  "platform": "android",
+  "board": "obelix_pvt",
+  "description": "Release firmware functional pass over Pebble Protocol on a real PT2 and Android phone.",
+  "steps": [
+    { "id": "watch-menus", "watch_flow": "watch/menus.yaml" },
+    { "id": "health", "watch_flow": "watch/health.yaml" },
+    { "id": "install-stride", "coreapp_capability": "store.install_stride" },
+    { "id": "run-stride", "watch_flow": "watch/stride.yaml" },
+    { "id": "install-weather-land", "coreapp_capability": "store.install_weather_land" },
+    { "id": "run-weather-land", "watch_flow": "watch/weather_land.yaml" },
+    { "id": "install-transit", "coreapp_capability": "store.install_transit" },
+    { "id": "run-transit", "watch_flow": "watch/transit.yaml" },
+    { "id": "locker-sync", "coreapp_capability": "locker.verify_release_apps" },
+    { "id": "post-notification", "coreapp_capability": "notifications.post_test" },
+    { "id": "receive-notification", "watch_flow": "watch/notification.yaml" },
+    { "id": "voice-model", "coreapp_capability": "speech.select_cloud_only" },
+    { "id": "bug-report", "coreapp_capability": "support.submit_qa_bug_report" },
+    { "id": "final-version", "watch_flow": "watch/final_version.yaml" }
+  ]
+}

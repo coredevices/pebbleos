@@ -1,0 +1,3 @@
+appId: coredevices.coreapp
+---
+- runScript: scripts/health.js

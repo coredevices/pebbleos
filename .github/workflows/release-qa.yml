@@ -58,6 +58,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
         run: |
+          sha=$(gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}" --jq .head_sha)
+          echo "pebbleos_sha=${sha}" >> "$GITHUB_OUTPUT"
           # Merged dual-slot bundles are uploaded as firmware-<board> (no _slot suffix);
           # none = Build Firmware skipped its builds (e.g. docs-only PR).
           if gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts?per_page=100" \
@@ -73,10 +75,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.UNICORN_DISPATCH_TOKEN }}
           RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+          PEBBLEOS_QA_REF: ${{ steps.check.outputs.pebbleos_sha }}
         run: |
           if [ -z "${GH_TOKEN:-}" ]; then
             echo "::warning::UNICORN_DISPATCH_TOKEN not set, skipping"
             exit 0
           fi
           gh workflow run one-off-pebbleos-test.yml -R coredevices/unicorn \
-            -f to_pbz_run_id="${RUN_ID}"
+            -f to_pbz_run_id="${RUN_ID}" \
+            -f pebbleos_qa_ref="${PEBBLEOS_QA_REF}"

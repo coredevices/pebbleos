@@ -88,6 +88,7 @@ development/getting_started.md
 development/options.md
 development/building_fw.md
 development/testing.md
+development/release_qa.md
 development/qemu.md
 development/debugging.md
 development/moddable.md

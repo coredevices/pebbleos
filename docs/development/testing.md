@@ -1,5 +1,8 @@
 # Running and writing tests
 
+This page covers host unit tests. The release firmware pass on real watches is cataloged separately
+in {doc}`release_qa`.
+
 Unit tests live under `tests/` and run on the host (not on device or QEMU),
 using a vendored copy of the [clar](https://github.com/clar-test/clar) test
 framework in `tools/clar/`. Code under test is compiled for the host together

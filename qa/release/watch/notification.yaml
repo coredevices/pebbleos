@@ -1,0 +1,4 @@
+appId: coredevices.coreapp
+---
+- runScript: scripts/notification_pp.js
+- assertTrue: ${output.notifArrived == 'yes'}

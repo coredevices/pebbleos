@@ -1,0 +1,4 @@
+appId: coredevices.coreapp
+---
+- runScript: scripts/transit_on_watch.js
+- assertTrue: ${output.transitCaltrain == 'yes'}

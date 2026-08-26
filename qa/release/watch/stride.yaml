@@ -1,0 +1,5 @@
+appId: coredevices.coreapp
+---
+- runScript: scripts/stride_on_watch_pp.js
+- assertTrue: ${output.strideInstalled == 'yes'}
+- assertTrue: ${output.faceRendered == 'yes'}

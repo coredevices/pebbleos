@@ -1,0 +1,4 @@
+appId: coredevices.coreapp
+---
+- runScript: scripts/weatherland_on_watch.js
+- assertTrue: ${output.weatherTemp == 'yes'}

@@ -1,0 +1,4 @@
+appId: coredevices.coreapp
+---
+- runScript: scripts/browse_menus_pp.js
+- assertTrue: ${output.mBluetooth != '' && output.mNotifications != '' && output.mSystem != ''}
