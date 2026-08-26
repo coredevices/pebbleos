@@ -48,6 +48,18 @@ PBL_LOG_MODULE_DEFINE(service_alarms, CONFIG_SERVICE_ALARMS_LOG_LEVEL);
 // need to be versioned and newer firmwares would need to know how to parse or
 // migrate older versions of the preference struct.
 #define ALARM_PREF_KEY_SNOOZE_DELAY "SnoozeDelayM"
+// The alarm that is currently armed, so that a firing missed while the watch was
+// down (a reboot landing on the alarm's time) can be caught up on the next boot.
+#define ALARM_PREF_KEY_ARMED "ArmedAlarm"
+
+// How late a missed alarm may be before it is no longer worth firing.
+#define ALARM_MISSED_MAX_DELAY_S (5 * SECONDS_PER_MINUTE)
+
+typedef struct PACKED AlarmArmedRecord {
+  //! Cron execute time of the armed alarm, 0 if no alarm is armed.
+  time_t time;
+  AlarmId id;
+} AlarmArmedRecord;
 
 // Multiple pieces of data need to be stored for each alarm. These are split
 // across multiple keys to keep the alarm configuration separate from
@@ -132,6 +144,13 @@ static bool s_user_snoozed;
 //! Number of times the most recent alarm was automatically smart snoozed.
 //! Used to determine an expired smart alarm avoiding issues with midnight rollover and DST.
 static int s_smart_snooze_counter;
+
+//! Mirrors what ALARM_PREF_KEY_ARMED holds, so it is only rewritten when it changes.
+static AlarmArmedRecord s_armed_record = { .id = ALARM_INVALID_ID };
+
+//! Alarm which should have fired while the watch was down. Fired once alarms are enabled.
+static AlarmId s_missed_alarm_id = ALARM_INVALID_ID;
+static time_t s_missed_alarm_time;
 
 //! Mutex used to guard our list of alarms
 static PebbleMutex *s_mutex;
@@ -342,6 +361,23 @@ static void prv_check_and_schedule_alarm(SettingsFile *fd, Alarm *alarm, bool re
 }
 
 // ----------------------------------------------------------------------------------------------
+//! Records which alarm is armed and when it is due, so that the next boot can tell whether a
+//! firing was missed while the watch was down.
+static void prv_persist_armed_alarm(SettingsFile *file) {
+  const AlarmArmedRecord record = {
+    .time = s_next_alarm_time,
+    .id = (s_next_alarm_time != 0) ? s_next_alarm.id : ALARM_INVALID_ID,
+  };
+  if (memcmp(&record, &s_armed_record, sizeof(record)) == 0) {
+    return;
+  }
+  if (settings_file_set(file, ALARM_PREF_KEY_ARMED, strlen(ALARM_PREF_KEY_ARMED),
+                        &record, sizeof(record)) == S_SUCCESS) {
+    s_armed_record = record;
+  }
+}
+
+// ----------------------------------------------------------------------------------------------
 //! Scans the all the configured alarms and re-adds them all.
 //! @return True if at least one alarm was found
 static bool prv_reload_alarms(SettingsFile *file) {
@@ -358,6 +394,8 @@ static bool prv_reload_alarms(SettingsFile *file) {
       alarm_found = true;
     }
   }
+
+  prv_persist_armed_alarm(file);
 
   timeline_event_refresh();
   return alarm_found;
@@ -507,6 +545,7 @@ static void prv_persist_alarm(SettingsFile *fd, Alarm *alarm) {
 static void prv_add_and_schedule_alarm(SettingsFile *file, Alarm *alarm) {
   prv_check_and_schedule_alarm(file, alarm, true /* refresh */);
   prv_persist_alarm(file, alarm);
+  prv_persist_armed_alarm(file);
 }
 
 // ----------------------------------------------------------------------------------------------
@@ -1255,6 +1294,23 @@ void alarm_init(void) {
     s_snooze_delay_m = snooze_delay_value;
   }
 
+  AlarmArmedRecord armed;
+  if (settings_file_get(&file, ALARM_PREF_KEY_ARMED, strlen(ALARM_PREF_KEY_ARMED),
+                        &armed, sizeof(armed)) == S_SUCCESS) {
+    s_armed_record = armed;
+
+    // An alarm which was armed for a time we have already passed never got the chance to fire:
+    // the watch was down (rebooting, or updating) when it was due.
+    const time_t now = rtc_get_time();
+    if (armed.time != 0 && armed.id != ALARM_INVALID_ID && now >= armed.time &&
+        (now - armed.time) <= ALARM_MISSED_MAX_DELAY_S) {
+      s_missed_alarm_id = armed.id;
+      s_missed_alarm_time = armed.time;
+      PBL_LOG_INFO("Alarm %d missed by %lds, firing once alarms are enabled", armed.id,
+              (long)(now - armed.time));
+    }
+  }
+
   // A "just once" alarm which was missed is still armed for its original weekday, a week out.
   prv_refresh_just_once_alarm_days(&file);
 
@@ -1265,6 +1321,19 @@ void alarm_init(void) {
 // ----------------------------------------------------------------------------------------------
 void alarm_service_enable_alarms(bool enable) {
   s_alarms_enabled = enable;
+
+  if (!enable || s_missed_alarm_id == ALARM_INVALID_ID) {
+    return;
+  }
+
+  const AlarmId id = s_missed_alarm_id;
+  s_missed_alarm_id = ALARM_INVALID_ID;
+
+  if ((rtc_get_time() - s_missed_alarm_time) > ALARM_MISSED_MAX_DELAY_S) {
+    PBL_LOG_DBG("Missed alarm %d is too late to fire", id);
+    return;
+  }
+  system_task_add_callback(prv_timer_kernel_bg_callback, (void *)(intptr_t)id);
 }
 
 
