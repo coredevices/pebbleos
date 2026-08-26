@@ -73,6 +73,7 @@ void battery_set_fast_charge(bool fast_charge_enabled);
 bool battery_is_usb_connected_impl(void);
 bool battery_charge_controller_thinks_we_are_charging_impl(void);
 void battery_force_charge_enable(bool is_charging);
+bool battery_is_charge_force_disabled(void);
 
 //! The current voltage numbers from the battery. These structs are created by
 //! the battery_read_voltage_monitor struct. Each _total value is a sum of 40 samples where

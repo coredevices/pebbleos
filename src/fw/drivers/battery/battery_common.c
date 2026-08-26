@@ -28,3 +28,7 @@ void battery_force_charge_enable(bool charging_enabled) {
 
   battery_set_charge_enable(charging_enabled);
 }
+
+bool battery_is_charge_force_disabled(void) {
+  return s_charging_forced_disable;
+}

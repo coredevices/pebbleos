@@ -41,6 +41,9 @@ PBL_LOG_MODULE_DECLARE(service_battery, CONFIG_SERVICE_BATTERY_LOG_LEVEL);
 // TODO: Adjust sample rate based on activity periods once we have good
 // power consumption profiles
 #define BATTERY_SAMPLE_RATE_MIN 1
+// While plugged in the system runs from USB power, so frequent sampling is
+// free and keeps charge state consumers (charge limit, UI) close to reality.
+#define BATTERY_PLUGGED_SAMPLE_RATE_MS (5 * 1000)
 
 #define LOG_MIN_SEC 30
 
@@ -88,9 +91,9 @@ static RtcTicks s_last_log;
 static bool s_charger_enabled;
 
 #if FUEL_GAUGE_STATEFUL
-#define FUEL_GAUGE_SAVE_INTERVAL_S 300
+#define FUEL_GAUGE_SAVE_INTERVAL_S (300 * 60)
 
-static uint32_t s_save_counter;
+static RtcTicks s_last_save_ticks;
 
 #ifdef CONFIG_MFG
 // In manufacturing firmware, use dedicated MFG_BATTERY_STATE flash region
@@ -303,11 +306,12 @@ static void prv_battery_state_put_change_event(PreciseBatteryChargeState state) 
 static void prv_update_state(void *force_update) {
   BatteryChargeStatus chg_status;
   BatteryConstants constants;
-  RtcTicks now, delta;
+  RtcTicks now;
   uint8_t pct_int;
   bool is_plugged;
   bool is_charging;
   bool update;
+  float delta_s;
   float pct;
   int ret;
 
@@ -364,11 +368,11 @@ static void prv_update_state(void *force_update) {
   s_last_temp_mc = constants.t_mc;
 
   now = rtc_get_ticks();
-  delta = (now - prv_ref_time) / RTC_TICKS_HZ;
+  delta_s = (float)(now - prv_ref_time) / RTC_TICKS_HZ;
   prv_ref_time = now;
 
   pct = nrf_fuel_gauge_process((float)constants.v_mv / 1000.0f, (float)constants.i_ua / 1000000.0f,
-                               (float)constants.t_mc / 1000.0f, (float)delta, NULL);
+                               (float)constants.t_mc / 1000.0f, delta_s, NULL);
 
   pct_int = (uint8_t)ceilf(pct);
   s_last_soc_cpct = (uint32_t)(pct * 100.0f);
@@ -400,15 +404,22 @@ static void prv_update_state(void *force_update) {
   }
 
 #if FUEL_GAUGE_STATEFUL
-  if (update || (++s_save_counter >= FUEL_GAUGE_SAVE_INTERVAL_S)) {
-    s_save_counter = 0;
+  if (update || ((now - s_last_save_ticks) / RTC_TICKS_HZ >= FUEL_GAUGE_SAVE_INTERVAL_S)) {
+    s_last_save_ticks = now;
     prv_save_state();
   }
 #endif
 
   PBL_LOG_VERBOSE("Battery state: v_mv: %ld, i_ua: %ld, t_mc: %ld, td: %lu, soc: %u, tte: %lu, ttf: %lu",
-          constants.v_mv, constants.i_ua, constants.t_mc, (uint32_t)delta,
+          constants.v_mv, constants.i_ua, constants.t_mc, (uint32_t)delta_s,
           s_last_battery_charge_state.pct, s_last_tte, s_last_ttf);
+
+  // Enable battery charging after the first fuel gauge update, before the state change
+  // event so a handler that disables charging is not overridden.
+  if (!s_charger_enabled) {
+    s_charger_enabled = true;
+    pmic_set_charger_state(true);
+  }
 
   if (update || (((now - s_last_log) / RTC_TICKS_HZ > LOG_MIN_SEC) &&
                  (s_last_battery_charge_state.is_charging || (pct < ALWAYS_UPDATE_PCT)))) {
@@ -421,10 +432,8 @@ static void prv_update_state(void *force_update) {
     s_last_log = now;
   }
 
-  // Enable battery charging after fuel gauge state has been updated for the first time
-  if (!s_charger_enabled) {
-    s_charger_enabled = true;
-    pmic_set_charger_state(true);
+  if (is_plugged) {
+    prv_schedule_update(BATTERY_PLUGGED_SAMPLE_RATE_MS, false);
   }
 }
 

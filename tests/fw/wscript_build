@@ -158,6 +158,11 @@ clar(ctx,
      override_includes=['dummy_board'])
 
 clar(ctx,
+     sources_ant_glob = " src/fw/services/battery/battery_charge_limit.c ",
+     test_sources_ant_glob = "test_battery_charge_limit.c",
+     override_includes=['dummy_board'])
+
+clar(ctx,
     sources_ant_glob = \
         " src/fw/flash_region/flash_region.c" \
         " src/fw/flash_region/filesystem_regions.c" \

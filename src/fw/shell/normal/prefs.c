@@ -21,6 +21,7 @@
 #include "process_management/app_install_manager.h"
 #include "process_management/process_manager.h"
 #include "pbl/services/accel_manager.h"
+#include "pbl/services/battery/battery_charge_limit.h"
 #include "pbl/services/touch/touch.h"
 #include "pbl/services/touch/touch_nav_service.h"
 #include "pbl/services/hrm/hrm_manager.h"
@@ -169,6 +170,9 @@ static uint32_t s_backlight_ambient_threshold = 0; // default set from board con
 
 #define PREF_KEY_STATIONARY "stationaryMode"
 static bool s_stationary_mode_enabled = true;
+
+#define PREF_KEY_CHARGE_LIMIT_PCT "chargeLimitPct"
+static uint8_t s_charge_limit_pct = CHARGE_LIMIT_PCT_DISABLED;
 
 #define PREF_KEY_DEFAULT_WORKER "workerId"
 static Uuid s_default_worker = UUID_INVALID_INIT;
@@ -546,6 +550,17 @@ static bool prv_set_s_display_orientation_left(bool *left) {
 
 static bool prv_set_s_stationary_mode_enabled(bool *enabled) {
   s_stationary_mode_enabled = *enabled;
+  return true;
+}
+
+static bool prv_set_s_charge_limit_pct(uint8_t *pct) {
+  if (*pct != CHARGE_LIMIT_PCT_DISABLED &&
+      (*pct < CHARGE_LIMIT_PCT_MIN || *pct > CHARGE_LIMIT_PCT_MAX)) {
+    s_charge_limit_pct = CHARGE_LIMIT_PCT_DISABLED;
+    return false;
+  }
+  s_charge_limit_pct = *pct;
+  battery_charge_limit_handle_pref_change();
   return true;
 }
 
@@ -1024,6 +1039,11 @@ void shell_prefs_init(void) {
   // The boot load above bypasses the validating setters, so clamp here.
   if (s_backlight_preset >= BacklightPresetCount) {
     s_backlight_preset = BacklightPreset_Advanced;
+  }
+
+  if (s_charge_limit_pct != CHARGE_LIMIT_PCT_DISABLED &&
+      (s_charge_limit_pct < CHARGE_LIMIT_PCT_MIN || s_charge_limit_pct > CHARGE_LIMIT_PCT_MAX)) {
+    s_charge_limit_pct = CHARGE_LIMIT_PCT_DISABLED;
   }
 
 #if defined(CONFIG_AMBIENT_LIGHT_W1160)
@@ -1505,6 +1525,10 @@ bool shell_prefs_get_stationary_enabled(void) {
 
 void shell_prefs_set_stationary_enabled(bool enabled) {
   prv_pref_set(PREF_KEY_STATIONARY, &enabled, sizeof(enabled));
+}
+
+uint8_t shell_prefs_get_charge_limit_pct(void) {
+  return s_charge_limit_pct;
 }
 
 AppInstallId worker_preferences_get_default_worker(void) {
