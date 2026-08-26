@@ -2252,3 +2252,85 @@ void test_menu_layer__overscroll_stretch_resets_on_cancel(void) {
   cl_assert_equal_i(l.inverter.layer.frame.size.h, cell_h);
   menu_layer_deinit(&l);
 }
+
+// Center-focused highlight pin during touch scrolling
+//////////////////////
+
+void test_menu_layer__touch_center_pin_holds_highlight_during_pan(void) {
+  MenuLayer l;
+  const int16_t frame_h = 180;
+  menu_layer_init(&l, &GRect(0, 0, 144, frame_h));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  const int16_t centered_pad = (frame_h - 44) / 2;  // 68: row 0 centred offset
+
+  // Mid-pan the highlight is pinned to the viewport centre, not to the selected row.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, centered_pad), GPoint(0, -30));
+  const int16_t offset_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert_equal_i(offset_y, centered_pad - 30);
+  cl_assert(l.touch_center_pin);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, -offset_y + centered_pad);
+  cl_assert(l.inverter.layer.frame.origin.y != l.selection.y);  // row 0 is mid-transit
+
+  // A centre crossing re-selects the row underneath but the box does not move with it.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, centered_pad), GPoint(0, -188));
+  const int16_t offset2_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert(menu_layer_get_selected_index(&l).row > 0);
+  cl_assert(l.touch_center_pin);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, -offset2_y + centered_pad);
+}
+
+void test_menu_layer__touch_center_pin_releases_when_row_lands(void) {
+  MenuLayer l;
+  const int16_t frame_h = 180;
+  menu_layer_init(&l, &GRect(0, 0, 144, frame_h));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  const int16_t centered_pad = (frame_h - 44) / 2;
+
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, centered_pad), GPoint(0, -188));
+  cl_assert(l.touch_center_pin);
+  const uint16_t row = menu_layer_get_selected_index(&l).row;
+
+  // The settle glide's final frame centres the selected row exactly: the pin releases and the
+  // highlight is back on the row's own frame.
+  const int16_t settled_y = (int16_t)(centered_pad - (44 * row));
+  prv_scroll_layer_set_content_offset_internal(&l.scroll_layer, GPoint(0, settled_y));
+  cl_assert(!l.touch_center_pin);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, l.selection.y);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, l.selection.h);
+}
+
+void test_menu_layer__touch_center_pin_cleared_by_button_step(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 68), GPoint(0, -30));
+  cl_assert(l.touch_center_pin);
+
+  // A button step hands the highlight back to the selection and its own animations.
+  menu_down_click_handler(NULL, &l);
+  cl_assert(!l.touch_center_pin);
+}
+
+void test_menu_layer__touch_center_pin_moves_with_row_past_the_edge(void) {
+  MenuLayer l;
+  const int16_t frame_h = 180;
+  menu_layer_init(&l, &GRect(0, 0, 144, frame_h));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  const int16_t rest_y = (frame_h - 44) / 2;  // row 0 centred
+
+  // Pulling past the first row's centred rest rubber-bands the offset; the box has no next row
+  // to transit to, so it glues to the row and moves together with the pull.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, rest_y), GPoint(0, 50));
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y > rest_y);
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 0);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, l.selection.y);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, l.selection.h);
+}
