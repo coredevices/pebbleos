@@ -46,6 +46,22 @@ void test_codepoint__is_unicode_space(void) {
   cl_assert(!codepoint_is_unicode_space(ELLIPSIS_CODEPOINT));
 }
 
+void test_codepoint__thai_combining_marks_are_zero_width(void) {
+  cl_assert(codepoint_is_zero_advance(0x0E31));
+  cl_assert(codepoint_is_zero_advance(0x0E35));
+  cl_assert(codepoint_is_zero_advance(0x0E48));
+  cl_assert(codepoint_is_zero_advance(0x0E4E));
+  cl_assert(!codepoint_is_zero_width(0x0E35));
+  cl_assert(!codepoint_is_zero_width(0x0E30));
+  cl_assert(!codepoint_is_zero_width(0x0E33));
+  cl_assert(!codepoint_is_zero_width(0x0E40));
+  cl_assert(!codepoint_is_zero_width(0x0E4F));
+  cl_assert(!codepoint_is_zero_advance(0x0E30));
+  cl_assert(!codepoint_is_zero_advance(0x0E33));
+  cl_assert(!codepoint_is_zero_advance(0x0E40));
+  cl_assert(!codepoint_is_zero_advance(0x0E4F));
+}
+
 void test_codepoint__end_of_word_breakable_spaces(void) {
   // Unicode spaces with TR14 class BA (Break After) should be word breaks
   cl_assert(codepoint_is_end_of_word(EN_QUAD_CODEPOINT));

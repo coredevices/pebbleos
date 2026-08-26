@@ -5,6 +5,7 @@
 
 #include "applib/fonts/fonts_private.h"
 #include "applib/fonts/codepoint.h"
+#include "applib/graphics/gtypes.h"
 #include "pbl/util/keyed_circular_cache.h"
 
 #include <stdint.h>
@@ -113,6 +114,12 @@ typedef struct FontCache {
 //! non-zero only when another font (emoji or system fallback) supplied the glyph
 const GlyphData *text_resources_get_glyph(FontCache *font_cache, Codepoint codepoint,
                                           FontInfo *font_info, int16_t *baseline_adjust_out);
+
+//! Look up an anchor offset for placing mark_codepoint relative to base_codepoint.
+//! Returns true and fills offset_out when an embedded GPOS anchor is available.
+bool text_resources_get_mark_anchor_offset(FontCache *font_cache, Codepoint base_codepoint,
+                                           Codepoint mark_codepoint, FontInfo *font_info,
+                                           GPoint *offset_out);
 
 int8_t text_resources_get_glyph_horiz_advance(FontCache *font_cache, Codepoint codepoint,
                                               FontInfo *font_info);

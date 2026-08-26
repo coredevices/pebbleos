@@ -1,6 +1,7 @@
 # Resource/font/image generation
 pillow
 freetype-py
+fonttools
 pypng
 svg.path
 bitarray

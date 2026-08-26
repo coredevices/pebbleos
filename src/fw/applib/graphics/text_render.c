@@ -10,10 +10,69 @@
 #include "text_resources.h"
 #include "util/bitset.h"
 #include "pbl/util/math.h"
+#include "applib/fonts/codepoint.h"
 
 #if !defined(__clang__)
 #pragma GCC optimize ("O2")
 #endif
+
+/// Applies static x/y offsets for Thai combining marks to reduce visual overlap.
+/// This is Phase 1 of Thai mark positioning: simple, empirical offsets per mark type.
+/// Later phases will use GPOS anchors for per-base-glyph positioning.
+struct ThaiMarkOffset {
+  uint32_t codepoint;
+  int8_t offset_x;
+  int8_t offset_y;
+};
+
+// Thai combining marks (U+0E35 "ี", U+0E48 "่", etc.) have zero advance width
+// but render at the base glyph's position plus left_offset. These static offsets
+// reposition common marks to reduce overlap with base consonants.
+// Tuned for Sarabun 12/14/17/20px at common bases (ก, ค, ส, ค, etc.)
+//
+// Phase 1: Basic offsets; Phase 2 will extract per-base anchors from GPOS.
+static const struct ThaiMarkOffset THAI_MARK_OFFSETS[] = {
+  // U+0E35: ี (vowel i / ee above)
+  // Typical wide base (ส, ค, etc.): render -2px left, +1px down
+  // Typical narrow base (ก, ข): render -4px left, +1px down
+  // Compromise for mixed: -3px left gives best result on most bases.
+  { .codepoint = 0x0E35, .offset_x = -3, .offset_y = 1 },
+
+  // U+0E48: ่ (tone mark mai tho / falling tone)
+  // Positioned above base; wide bases need different x than narrow.
+  // Compromise: -2px left, 0px vertical keeps mark visible.
+  { .codepoint = 0x0E48, .offset_x = -2, .offset_y = 0 },
+
+  // U+0E31: ◌ั (tone mark mai tham / short vowel)
+  // Similar to U+0E35 but positioned differently; try -2px.
+  { .codepoint = 0x0E31, .offset_x = -2, .offset_y = 0 },
+
+  // U+0E49: ◌้ (tone mark mai tri / rising tone)
+  // High tone; similar to U+0E48 but slightly different origin.
+  { .codepoint = 0x0E49, .offset_x = -2, .offset_y = 0 },
+};
+
+static const size_t THAI_MARK_OFFSETS_COUNT = sizeof(THAI_MARK_OFFSETS) / sizeof(THAI_MARK_OFFSETS[0]);
+
+// Track the last base glyph rendered so zero-advance marks can attach to it.
+static bool s_last_base_valid = false;
+static Codepoint s_last_base_codepoint = 0;
+static GPoint s_last_base_origin = { 0, 0 };
+static bool s_last_mark_valid = false;
+static GRect s_last_mark_target = GRectZero;
+static Codepoint s_last_mark_codepoint = 0;
+static int16_t s_last_cursor_x = 0;
+
+/// Get the static offset for a Thai combining mark, or (0, 0) if not found.
+static struct ThaiMarkOffset prv_get_thai_mark_offset(uint32_t codepoint) {
+  for (size_t i = 0; i < THAI_MARK_OFFSETS_COUNT; ++i) {
+    if (THAI_MARK_OFFSETS[i].codepoint == codepoint) {
+      return THAI_MARK_OFFSETS[i];
+    }
+  }
+  // No offset for this codepoint; return zero offset.
+  return (struct ThaiMarkOffset) { .codepoint = 0, .offset_x = 0, .offset_y = 0 };
+}
 
 static GRect get_glyph_rect(const GlyphData* glyph) {
   GRect r = {
@@ -71,13 +130,66 @@ void render_glyph(GContext* const ctx, const uint32_t codepoint, FontInfo* const
   // clipping rects are derived from it.
   glyph_metrics.origin.y += baseline_adjust;
 
-  // Calculate the box that we intend to draw to the screen, in screen coordinates
+  // Calculate the box that we intend to draw to the screen, in screen coordinates.
+  // For Thai combining marks, apply static offsets to reduce visual overlap with base glyphs.
   GRect glyph_target = {
     .origin = { .x = cursor.origin.x + glyph_metrics.origin.x,
                 .y = cursor.origin.y + glyph_metrics.origin.y },
     .size = { .w = glyph_metrics.size.w,
               .h = glyph_metrics.size.h }
   };
+
+  // If x moves backwards significantly, we likely started a new run/line.
+  if (cursor.origin.x < (s_last_cursor_x - 2)) {
+    s_last_base_valid = false;
+    s_last_mark_valid = false;
+  }
+  s_last_cursor_x = cursor.origin.x;
+
+  // For combining marks, try Phase 2 anchor lookup first, then keep Phase 1 fallback.
+  if (codepoint_is_zero_advance(codepoint)) {
+    bool applied_anchor = false;
+    if (s_last_mark_valid) {
+      GPoint mark_anchor_offset = { 0, 0 };
+      if (text_resources_get_mark_anchor_offset(&ctx->font_cache, s_last_mark_codepoint,
+                                                codepoint, font, &mark_anchor_offset)) {
+        glyph_target.origin.x = s_last_mark_target.origin.x + mark_anchor_offset.x;
+        glyph_target.origin.y = s_last_mark_target.origin.y + mark_anchor_offset.y;
+        applied_anchor = true;
+      }
+    }
+    if (s_last_base_valid) {
+      GPoint anchor_offset = { 0, 0 };
+      if (!applied_anchor && text_resources_get_mark_anchor_offset(&ctx->font_cache,
+                                                s_last_base_codepoint,
+                                                codepoint, font, &anchor_offset)) {
+        glyph_target.origin.x = s_last_base_origin.x + anchor_offset.x;
+        glyph_target.origin.y = s_last_base_origin.y + anchor_offset.y;
+        applied_anchor = true;
+      }
+    }
+
+    if (!applied_anchor) {
+      struct ThaiMarkOffset offset = prv_get_thai_mark_offset(codepoint);
+      glyph_target.origin.x += offset.offset_x;
+      glyph_target.origin.y += offset.offset_y;
+    }
+
+    // Multiple marks can share the same base anchor. Stack overlapping marks upward while
+    // preserving the font's glyph dimensions and advance metrics.
+    if (s_last_mark_valid && grect_overlaps_grect(&glyph_target, &s_last_mark_target)) {
+      glyph_target.origin.y = s_last_mark_target.origin.y - glyph_target.size.h - 1;
+    }
+    s_last_mark_target = glyph_target;
+    s_last_mark_codepoint = codepoint;
+    s_last_mark_valid = true;
+  } else {
+    s_last_base_valid = true;
+    s_last_base_codepoint = codepoint;
+    s_last_base_origin = glyph_target.origin;
+    s_last_mark_valid = false;
+    s_last_mark_codepoint = 0;
+  }
 
 
   // The destination bitmap's x-coordinate and row advance. Used in the loop below.

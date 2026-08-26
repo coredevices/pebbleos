@@ -38,7 +38,8 @@ unrelated runtime struct).
 - bit 0: glyph-table offsets are `uint16_t` if set, `uint32_t` if clear.
   The generator sets it when the glyph table fits in 64 KiB.
 - bit 1: glyph bitmaps are RLE4-compressed if set, plain bitmaps if clear.
-- bits 2–7: reserved.
+- bit 2: glyph records may include embedded GPOS anchor payloads.
+- bits 3–7: reserved.
 
 ## Hash table
 
@@ -82,6 +83,19 @@ Version 1 used a different 8-byte header (`GlyphHeaderDataV1`).
 Bitmap data is 1 bit per pixel: rows are concatenated unaligned into one
 continuous bit stream, packed LSB-first into 32-bit words and zero-padded
 to a multiple of 4 bytes.
+
+When feature bit 2 is set, a glyph may include an optional embedded anchor
+payload immediately after the aligned bitmap data. The current payload format
+is:
+
+- 2 bytes magic: `GA`
+- 1 byte payload version (currently 1)
+- 1 byte entry count
+- repeated entries: `uint16 mark_codepoint`, `int16 dx_fu`, `int16 dy_fu`
+
+`dx_fu`/`dy_fu` are signed font-unit offsets derived from GPOS MarkBasePos and
+MarkMarkPos extraction. The firmware scales them to pixels at runtime using
+the rendered font's ppem and the source font's units-per-em value.
 
 RLE4 compression is a stream of 4-bit units, two per byte (low nibble
 first): each unit is `[symbol:1][length:3]`, emitting `length + 1`

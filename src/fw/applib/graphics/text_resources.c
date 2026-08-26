@@ -22,6 +22,9 @@
 
 #define RLE4_UNITS_BIT_WIDTH (4)
 #define RLE4_UNITS_PER_BYTE  (8 / RLE4_UNITS_BIT_WIDTH)
+#define GPOS_ANCHOR_MAGIC_G ('G')
+#define GPOS_ANCHOR_MAGIC_A ('A')
+#define GPOS_ANCHOR_VERSION_1 (1)
 
 static const size_t s_font_md_size[] = {
   0, // There currently is no font version 0. This makes decoding much easier & consistent
@@ -534,6 +537,97 @@ static bool prv_load_font_res(ResAppNum app_num, uint32_t resource_id, FontResou
   return true;
 }
 
+static bool prv_font_has_gpos_anchors(const FontResource *font_res) {
+  if (FONT_VERSION(font_res->md.version) != FONT_VERSION_3) {
+    return false;
+  }
+
+  FontMetaDataV3 header;
+  const uint32_t bytes_read = sys_resource_load_range(font_res->app_num, font_res->resource_id,
+                                                      0, (uint8_t *)&header,
+                                                      sizeof(FontMetaDataV3));
+  if (bytes_read != sizeof(FontMetaDataV3)) {
+    return false;
+  }
+
+  return (header.features & FEATURE_GPOS_ANCHORS);
+}
+
+static bool prv_get_mark_anchor_from_glyph(const FontResource *font_res, uint32_t glyph_addr,
+                                           const GlyphHeaderData *base_header,
+                                           const GlyphHeaderData *mark_header,
+                                           Codepoint mark_codepoint,
+                                           GPoint *offset_out) {
+  if (!prv_font_has_gpos_anchors(font_res)) {
+    return false;
+  }
+
+  size_t glyph_size_bytes;
+  if (HAS_FEATURE(font_res->md.version, VERSION_FIELD_FEATURE_RLE4)) {
+    glyph_size_bytes = (base_header->height_px + (RLE4_UNITS_PER_BYTE - 1)) / RLE4_UNITS_PER_BYTE;
+  } else {
+    glyph_size_bytes = ((base_header->width_px * base_header->height_px) + (8 - 1)) / 8;
+  }
+
+  const size_t aligned_glyph_size = ((glyph_size_bytes + 3) / 4) * 4;
+  const uint32_t payload_addr = glyph_addr + sizeof(GlyphHeaderData) + aligned_glyph_size;
+
+  uint8_t payload_header[4] = { 0 };
+  const size_t payload_header_loaded = sys_resource_load_range(font_res->app_num,
+                                                               font_res->resource_id,
+                                                               payload_addr,
+                                                               payload_header,
+                                                               sizeof(payload_header));
+  if (payload_header_loaded != sizeof(payload_header)) {
+    return false;
+  }
+
+  if (payload_header[0] != GPOS_ANCHOR_MAGIC_G ||
+      payload_header[1] != GPOS_ANCHOR_MAGIC_A ||
+      payload_header[2] != GPOS_ANCHOR_VERSION_1) {
+    return false;
+  }
+
+  const uint8_t entry_count = payload_header[3];
+  for (uint8_t i = 0; i < entry_count; ++i) {
+    // Payload format: uint16 mark_codepoint, int16 dx_fu, int16 dy_fu (font units)
+    uint8_t entry[6] = { 0 };
+    const uint32_t entry_addr = payload_addr + sizeof(payload_header) + (i * sizeof(entry));
+    const size_t entry_loaded = sys_resource_load_range(font_res->app_num,
+                                                        font_res->resource_id,
+                                                        entry_addr,
+                                                        entry,
+                                                        sizeof(entry));
+    if (entry_loaded != sizeof(entry)) {
+      return false;
+    }
+
+    const Codepoint entry_mark_codepoint = ((Codepoint)entry[1] << 8) | entry[0];
+    if (entry_mark_codepoint == mark_codepoint) {
+      // Read int16 offsets in font units from payload
+      const int16_t dx_fu = ((int16_t)entry[3] << 8) | entry[2];
+      const int16_t dy_fu = ((int16_t)entry[5] << 8) | entry[4];
+
+      // Convert the font-relative anchor delta to bitmap top-left coordinates.
+      const float scale = (float)base_header->height_px / 2048.0f;  // Sarabun upem is 2048
+      // Apply scaling and round to nearest pixel, then clamp to int8 range [-128, 127]
+      const float scaled_dx = dx_fu * scale;
+      const float scaled_dy = dy_fu * scale;
+      const int16_t rounded_dx = (int16_t)((scaled_dx >= 0.0f) ? (scaled_dx + 0.5f) : (scaled_dx - 0.5f));
+      const int16_t rounded_dy = (int16_t)((scaled_dy >= 0.0f) ? (scaled_dy + 0.5f) : (scaled_dy - 0.5f));
+      const int16_t bearing_dx = base_header->left_offset_px - mark_header->left_offset_px;
+      const int16_t bearing_dy = base_header->top_offset_px - mark_header->top_offset_px;
+      const int16_t bitmap_dx = bearing_dx + rounded_dx;
+      const int16_t bitmap_dy = bearing_dy - rounded_dy;
+      offset_out->x = (int8_t)(bitmap_dx < -128 ? -128 : (bitmap_dx > 127 ? 127 : bitmap_dx));
+      offset_out->y = (int8_t)(bitmap_dy < -128 ? -128 : (bitmap_dy > 127 ? 127 : bitmap_dy));
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // @param owner_out if non-NULL, receives the FontInfo owning the returned resource. It is a font
 // other than font_info only when the emoji font takes over.
 static const FontResource *prv_font_res_for_codepoint(Codepoint codepoint,
@@ -717,4 +811,45 @@ const GlyphData *text_resources_get_glyph(FontCache *font_cache, const Codepoint
                                           FontInfo *font_info, int16_t *baseline_adjust_out) {
   return prv_get_glyph(font_cache, codepoint, font_info, true /* need_bitmap */,
                        baseline_adjust_out);
+}
+
+bool text_resources_get_mark_anchor_offset(FontCache *font_cache, const Codepoint base_codepoint,
+                                           const Codepoint mark_codepoint, FontInfo *font_info,
+                                           GPoint *offset_out) {
+  if (!offset_out || !font_info) {
+    return false;
+  }
+
+  if (!font_info->loaded) {
+    sys_font_reload_font(font_info);
+  }
+
+  const FontInfo *owner = NULL;
+  const FontResource *font_res = prv_font_res_for_codepoint(base_codepoint, font_info, &owner);
+  if (!prv_font_has_gpos_anchors(font_res)) {
+    return false;
+  }
+
+  prv_check_font_cache(font_cache, font_res);
+  const GlyphData *base_glyph = prv_get_glyph_metadata_from_spi(base_codepoint, font_cache,
+                                                                font_res,
+                                                                false /* need_bitmap */);
+  if (!base_glyph) {
+    return false;
+  }
+
+  const uint32_t glyph_addr = prv_get_glyph_data_offset(base_codepoint, font_cache, font_res);
+  if (!glyph_addr) {
+    return false;
+  }
+
+  const GlyphData *mark_glyph = prv_get_glyph_metadata_from_spi(mark_codepoint, font_cache,
+                                                                font_res,
+                                                                false /* need_bitmap */);
+  if (!mark_glyph) {
+    return false;
+  }
+
+  return prv_get_mark_anchor_from_glyph(font_res, glyph_addr, &base_glyph->header,
+                                        &mark_glyph->header, mark_codepoint, offset_out);
 }

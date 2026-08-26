@@ -51,6 +51,8 @@ bool codepoint_should_skip(const Codepoint codepoint);
 
 bool codepoint_is_zero_width(const Codepoint codepoint);
 
+bool codepoint_is_zero_advance(const Codepoint codepoint);
+
 bool codepoint_is_latin(const Codepoint codepoint);
 
 bool codepoint_is_emoji(const Codepoint codepoint);

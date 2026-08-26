@@ -79,12 +79,34 @@ ELLIPSIS_CODEPOINT = 0x2026
 # Features
 FEATURE_OFFSET_16 = 0x01
 FEATURE_RLE4 = 0x02
+FEATURE_GPOS_ANCHORS = 0x04
 
 
 HASH_TABLE_SIZE = 255
 OFFSET_TABLE_MAX_SIZE = 128
 MAX_GLYPHS_EXTENDED = HASH_TABLE_SIZE * OFFSET_TABLE_MAX_SIZE
 MAX_GLYPHS = 256
+
+# Thai combining marks currently in scope for Phase 2 anchor extraction.
+THAI_COMBINING_MARKS = (
+    0x0E31,
+    0x0E34,
+    0x0E35,
+    0x0E36,
+    0x0E37,
+    0x0E3A,
+    0x0E47,
+    0x0E48,
+    0x0E49,
+    0x0E4A,
+    0x0E4B,
+    0x0E4C,
+    0x0E4D,
+    0x0E4E,
+)
+
+GPOS_ANCHOR_MAGIC = b"GA"
+GPOS_ANCHOR_VERSION = 1
 
 
 def grouper(n, iterable, fillvalue=None):
@@ -133,6 +155,8 @@ class Font:
         self.offset_tables = [[] for i in range(self.table_size)]
         self.offset_size_bytes = 4
         self.features = 0
+        self.gpos_anchors_enabled = False
+        self.glyph_anchor_payload_by_gindex = {}
 
         self.glyph_header = "<BBbbb"
 
@@ -153,6 +177,9 @@ class Font:
 
     def set_tracking_adjust(self, adjust):
         self.tracking_adjust = adjust
+
+    def set_gpos_anchors(self, enabled):
+        self.gpos_anchors_enabled = bool(enabled)
 
     def set_regex_filter(self, regex_string):
         if regex_string != ".*":
@@ -358,7 +385,187 @@ class Font:
             self.glyph_header, width, height, left, bottom, advance
         )
 
-        return glyph_header + b"".join(glyph_packed)
+        glyph_blob = glyph_header + b"".join(glyph_packed)
+        payload = self.glyph_anchor_payload_by_gindex.get(gindex)
+        if payload:
+            glyph_blob += payload
+
+        return glyph_blob
+
+    @staticmethod
+    def _clip_int8(value):
+        return max(-127, min(127, value))
+
+    def _extract_gpos_anchor_payloads(self):
+        if not self.gpos_anchors_enabled:
+            return
+
+        try:
+            from fontTools.ttLib import TTFont
+        except ImportError as e:
+            raise Exception(
+                "GPOS anchor extraction requested but fontTools is unavailable. "
+                "Install dependency 'fonttools'. Font {}".format(self.ttf_path)
+            ) from e
+
+        with TTFont(self.ttf_path) as tt:
+            if "GPOS" not in tt or "head" not in tt:
+                return
+
+            cmap = tt.getBestCmap() or {}
+            if not cmap:
+                return
+
+            # Deterministic inverse cmap: first codepoint encountered per glyph name.
+            inv_cmap = {}
+            for cp in sorted(cmap.keys()):
+                glyph_name = cmap[cp]
+                if glyph_name not in inv_cmap:
+                    inv_cmap[glyph_name] = cp
+
+            thai_marks_in_font = set(THAI_COMBINING_MARKS).intersection(cmap.keys())
+            if not thai_marks_in_font:
+                return
+
+            units_per_em = float(tt["head"].unitsPerEm)
+            if units_per_em <= 0:
+                return
+            # Store font units; runtime scales based on actual glyph ppem.
+            # This ensures correct positioning across all font sizes.
+
+            lookup_list = getattr(getattr(tt["GPOS"], "table", None), "LookupList", None)
+            lookups = getattr(lookup_list, "Lookup", []) if lookup_list else []
+            gindex_to_entries = {}
+
+            for lookup in lookups:
+                if getattr(lookup, "LookupType", None) != 4:
+                    continue
+                for subtable in getattr(lookup, "SubTable", []):
+                    if getattr(subtable, "Format", None) != 1:
+                        continue
+
+                    mark_coverage = getattr(getattr(subtable, "MarkCoverage", None), "glyphs", [])
+                    base_coverage = getattr(getattr(subtable, "BaseCoverage", None), "glyphs", [])
+                    mark_records = getattr(getattr(subtable, "MarkArray", None), "MarkRecord", [])
+                    base_records = getattr(getattr(subtable, "BaseArray", None), "BaseRecord", [])
+
+                    if not mark_coverage or not base_coverage:
+                        continue
+
+                    for mark_index, mark_glyph_name in enumerate(mark_coverage):
+                        if mark_index >= len(mark_records):
+                            continue
+                        mark_cp = inv_cmap.get(mark_glyph_name)
+                        if mark_cp not in thai_marks_in_font:
+                            continue
+
+                        mark_record = mark_records[mark_index]
+                        mark_anchor = getattr(mark_record, "MarkAnchor", None)
+                        mark_class = getattr(mark_record, "Class", None)
+                        if mark_anchor is None or mark_class is None:
+                            continue
+
+                        for base_index, base_glyph_name in enumerate(base_coverage):
+                            if base_index >= len(base_records):
+                                continue
+                            base_cp = inv_cmap.get(base_glyph_name)
+                            if base_cp is None or base_cp not in self.codepoints:
+                                continue
+
+                            base_record = base_records[base_index]
+                            base_anchors = getattr(base_record, "BaseAnchor", None)
+                            if not base_anchors or mark_class >= len(base_anchors):
+                                continue
+
+                            base_anchor = base_anchors[mark_class]
+                            if base_anchor is None:
+                                continue
+
+                            dx_fu = base_anchor.XCoordinate - mark_anchor.XCoordinate
+                            dy_fu = base_anchor.YCoordinate - mark_anchor.YCoordinate
+                            # Store as font units (int16); runtime scales to pixels.
+                            dx_fu_clipped = max(-32768, min(32767, int(dx_fu)))
+                            dy_fu_clipped = max(-32768, min(32767, int(dy_fu)))
+
+                            base_gindex = self.face.get_char_index(base_cp)
+                            if not base_gindex:
+                                continue
+
+                            if base_gindex not in gindex_to_entries:
+                                gindex_to_entries[base_gindex] = {}
+                            # Keep first-seen deterministic placement for duplicate lookup coverage.
+                            if mark_cp not in gindex_to_entries[base_gindex]:
+                                gindex_to_entries[base_gindex][mark_cp] = (dx_fu_clipped, dy_fu_clipped)
+
+            for lookup in lookups:
+                if getattr(lookup, "LookupType", None) != 6:
+                    continue
+                for subtable in getattr(lookup, "SubTable", []):
+                    if getattr(subtable, "Format", None) != 1:
+                        continue
+
+                    mark1_coverage = getattr(getattr(subtable, "Mark1Coverage", None), "glyphs", [])
+                    mark2_coverage = getattr(getattr(subtable, "Mark2Coverage", None), "glyphs", [])
+                    mark1_records = getattr(getattr(subtable, "Mark1Array", None), "MarkRecord", [])
+                    mark2_records = getattr(getattr(subtable, "Mark2Array", None), "Mark2Record", [])
+                    if not mark1_coverage or not mark2_coverage:
+                        continue
+
+                    for mark1_index, mark1_glyph_name in enumerate(mark1_coverage):
+                        if mark1_index >= len(mark1_records):
+                            continue
+                        mark1_cp = inv_cmap.get(mark1_glyph_name)
+                        if mark1_cp not in thai_marks_in_font:
+                            continue
+                        mark1_record = mark1_records[mark1_index]
+                        mark1_anchor = getattr(mark1_record, "MarkAnchor", None)
+                        mark_class = getattr(mark1_record, "Class", None)
+                        if mark1_anchor is None or mark_class is None:
+                            continue
+
+                        for mark2_index, mark2_glyph_name in enumerate(mark2_coverage):
+                            if mark2_index >= len(mark2_records):
+                                continue
+                            mark2_cp = inv_cmap.get(mark2_glyph_name)
+                            if mark2_cp not in thai_marks_in_font:
+                                continue
+                            mark2_anchors = getattr(mark2_records[mark2_index], "Mark2Anchor", None)
+                            if not mark2_anchors or mark_class >= len(mark2_anchors):
+                                continue
+                            mark2_anchor = mark2_anchors[mark_class]
+                            if mark2_anchor is None:
+                                continue
+
+                            # Store as font units (int16); runtime scales to pixels.
+                            dx_fu = int(mark1_anchor.XCoordinate - mark2_anchor.XCoordinate)
+                            dy_fu = int(mark1_anchor.YCoordinate - mark2_anchor.YCoordinate)
+                            dx_fu_clipped = max(-32768, min(32767, dx_fu))
+                            dy_fu_clipped = max(-32768, min(32767, dy_fu))
+                            mark1_gindex = self.face.get_char_index(mark1_cp)
+                            if not mark1_gindex:
+                                continue
+                            if mark1_gindex not in gindex_to_entries:
+                                gindex_to_entries[mark1_gindex] = {}
+                            if mark2_cp not in gindex_to_entries[mark1_gindex]:
+                                gindex_to_entries[mark1_gindex][mark2_cp] = (dx_fu_clipped, dy_fu_clipped)
+
+            for gindex in sorted(gindex_to_entries.keys()):
+                mark_entries = gindex_to_entries[gindex]
+                if not mark_entries:
+                    continue
+
+                sorted_entries = sorted(mark_entries.items(), key=lambda item: item[0])
+                payload = bytearray()
+                payload += GPOS_ANCHOR_MAGIC
+                payload += struct.pack("<BB", GPOS_ANCHOR_VERSION, len(sorted_entries))
+                for mark_cp, (dx_fu, dy_fu) in sorted_entries:
+                    # Store font units as int16; runtime scales using glyph ppem.
+                    payload += struct.pack("<Hhh", mark_cp, dx_fu, dy_fu)
+
+                self.glyph_anchor_payload_by_gindex[gindex] = bytes(payload)
+
+        if self.glyph_anchor_payload_by_gindex:
+            self.features |= FEATURE_GPOS_ANCHORS
 
     def fontinfo_bits(self):
         if self.version == FONT_VERSION_2:
@@ -432,6 +639,10 @@ class Font:
                 if codepoint not in self.codepoints:
                     return False
             return True
+
+        self.glyph_anchor_payload_by_gindex = {}
+        self.features &= ~FEATURE_GPOS_ANCHORS
+        self._extract_gpos_anchor_payloads()
 
         glyph_entries = []
         # MJZ: The 0th offset of the glyph table is 32-bits of

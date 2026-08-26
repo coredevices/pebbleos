@@ -21,6 +21,8 @@ from PIL import Image
 # Feature flags
 FEATURE_OFFSET_16 = 0x01
 FEATURE_RLE4 = 0x02
+FEATURE_GPOS_ANCHORS = 0x04
+GPOS_ANCHOR_MAGIC = b"GA"
 
 
 def image_to_bitmap(img_path, expected_width=None, expected_height=None):
@@ -111,12 +113,15 @@ def build_pbf(manifest, output_path, use_rle4=False):
     # Feature flags
     use_offset_16 = manifest.get("features", {}).get("offset_16", True)
     use_rle4 = manifest.get("features", {}).get("rle4", False) or use_rle4
+    use_gpos_anchors = manifest.get("features", {}).get("gpos_anchors", False)
 
     features = 0
     if use_offset_16:
         features |= FEATURE_OFFSET_16
     if use_rle4:
         features |= FEATURE_RLE4
+    if use_gpos_anchors:
+        features |= FEATURE_GPOS_ANCHORS
 
     # Load and process all glyphs
     glyphs = []
@@ -152,10 +157,25 @@ def build_pbf(manifest, output_path, use_rle4=False):
         padding_needed = (4 - (len(bitmap_bytes) % 4)) % 4
         bitmap_bytes_aligned = bitmap_bytes + b"\x00" * padding_needed
 
+        anchor_payload = b""
+        anchor_rows = glyph_info.get("anchors", []) if use_gpos_anchors else []
+        if anchor_rows:
+            anchor_payload = bytearray()
+            anchor_payload += GPOS_ANCHOR_MAGIC
+            anchor_payload += struct.pack("<BB", 1, len(anchor_rows))
+            for row in sorted(anchor_rows, key=lambda x: x.get("mark_codepoint", 0)):
+                anchor_payload += struct.pack(
+                    "<Hhh",
+                    int(row["mark_codepoint"]),
+                    int(row["dx_fu"]),
+                    int(row["dy_fu"]),
+                )
+            anchor_payload = bytes(anchor_payload)
+
         glyphs.append(
             {
                 "codepoint": codepoint,
-                "data": glyph_header + bitmap_bytes_aligned,
+                "data": glyph_header + bitmap_bytes_aligned + anchor_payload,
                 "width": width,
                 "height": height,
             }

@@ -18,6 +18,7 @@
 #define FONT_VERSION_3 3
 #define FEATURE_OFFSET_16 (1 << 0)
 #define FEATURE_RLE4      (1 << 1)
+#define FEATURE_GPOS_ANCHORS (1 << 2)
 
 // HACK ALERT: Store the v3 FontMetaDataV3 feature bits in the top two bits of FontMetaData
 // version field. We need this information at the lowest levels and can't extend FontMetaData
