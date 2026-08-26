@@ -46,7 +46,7 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
   }
 
   if (peek_layer->show_dot) {
-    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
     GRect dot_rect = { .size = { peek_layer->dot_diameter, peek_layer->dot_diameter } };
     grect_align(&dot_rect, &peek_layer->layer.bounds, GAlignCenter, false /* clip */);
     graphics_fill_radial(ctx, dot_rect, GOvalScaleModeFitCircle, peek_layer->dot_diameter, 0,
@@ -166,6 +166,12 @@ void peek_layer_set_frame(PeekLayer *peek_layer, const GRect *frame) {
 
 void peek_layer_set_background_color(PeekLayer *peek_layer, GColor color) {
   peek_layer->bg_color = color;
+}
+
+void peek_layer_set_text_color(PeekLayer *peek_layer, GColor color) {
+  text_layer_set_text_color(&peek_layer->number.text_layer, color);
+  text_layer_set_text_color(&peek_layer->title.text_layer, color);
+  text_layer_set_text_color(&peek_layer->subtitle.text_layer, color);
 }
 
 static bool prv_is_dot_size(GSize size) {

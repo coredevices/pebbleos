@@ -79,6 +79,7 @@ void clock_get_since_time(char *buffer, int buf_size, time_t timestamp) {
 #include "stubs_property_animation.h"
 #include "stubs_serial.h"
 #include "stubs_shell_prefs.h"
+#include "stubs_system_theme.h"
 #include "stubs_sleep.h"
 #include "stubs_syscalls.h"
 #include "stubs_task_watchdog.h"

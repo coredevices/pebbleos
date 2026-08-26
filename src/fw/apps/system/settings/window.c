@@ -29,6 +29,7 @@
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/system_task.h"
 #include "system/bootbits.h"
+#include "shell/system_theme.h"
 #include "system/passert.h"
 #include "shell/prefs.h"
 
@@ -62,10 +63,18 @@ typedef struct SettingsData {
 // Pref change handler
 ///////////////////////
 
+static void prv_refresh_theme_colors(SettingsData *data) {
+  const GColor bg = system_theme_get_bg_color();
+  const GColor fg = system_theme_get_fg_color();
+  window_set_background_color(&data->window, bg);
+  status_bar_layer_set_colors(&data->status_layer, bg, fg);
+  menu_layer_set_normal_colors(&data->menu_layer, bg, fg);
+  layer_mark_dirty(menu_layer_get_layer(&data->menu_layer));
+}
+
 static void prv_pref_change_handler(PebbleEvent *event, void *context) {
   SettingsData *data = context;
-  // Refresh the menu when any pref changes
-  layer_mark_dirty(menu_layer_get_layer(&data->menu_layer));
+  prv_refresh_theme_colors(data);
 }
 
 // Filter category helpers
@@ -85,8 +94,8 @@ static void prv_set_sub_menu_colors(GContext *ctx, const Layer *cell_layer, bool
     graphics_context_set_fill_color(ctx, highlight_bg);
     graphics_context_set_text_color(ctx, gcolor_legible_over(highlight_bg));
   } else {
-    graphics_context_set_fill_color(ctx, GColorWhite);
-    graphics_context_set_text_color(ctx, GColorBlack);
+    graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
+    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   }
   graphics_fill_rect(ctx, &cell_layer->bounds);
 }
@@ -183,7 +192,7 @@ static void prv_settings_window_load(Window *window) {
       ? data->title_override
       : settings_menu_get_status_name(data->current_category);
   status_bar_layer_set_title(status_layer, i18n_get(title, data), false, false);
-  status_bar_layer_set_colors(status_layer, GColorWhite, GColorBlack);
+  status_bar_layer_set_colors(status_layer, system_theme_get_bg_color(), system_theme_get_fg_color());
   status_bar_layer_set_separator_mode(status_layer, OPTION_MENU_STATUS_SEPARATOR_MODE);
   layer_add_child(&data->window.layer, status_bar_layer_get_layer(status_layer));
 
@@ -203,9 +212,6 @@ static void prv_settings_window_load(Window *window) {
     .selection_changed = prv_selection_changed_callback,
     .selection_will_change = prv_selection_will_change_callback,
   });
-  menu_layer_set_normal_colors(menu_layer, GColorWhite, GColorBlack);
-  GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-  menu_layer_set_highlight_colors(menu_layer, highlight_bg, gcolor_legible_over(highlight_bg));
   menu_layer_set_click_config_onto_window(menu_layer, &data->window);
   menu_layer_set_scroll_wrap_around(menu_layer, shell_prefs_get_menu_scroll_wrap_around_enable());
   menu_layer_set_scroll_vibe_on_wrap(menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnWrapAround);
@@ -234,6 +240,8 @@ static void prv_settings_window_load(Window *window) {
 
 static void prv_settings_window_appear(Window *window) {
   SettingsData *data = window_get_user_data(window);
+  // Refresh colors in case the theme changed while this window was hidden
+  prv_refresh_theme_colors(data);
   SettingsCallbacks *callbacks = prv_get_current_callbacks(data);
   if (callbacks->appear) {
     callbacks->appear(data->callbacks);
@@ -312,7 +320,7 @@ void settings_window_destroy(Window *window) {
 void settings_menu_mark_dirty(SettingsMenuItem category) {
   SettingsData *data = app_state_get_user_data();
   if (data->current_category == category) {
-    layer_mark_dirty(menu_layer_get_layer(&data->menu_layer));
+    prv_refresh_theme_colors(data);
   }
 }
 

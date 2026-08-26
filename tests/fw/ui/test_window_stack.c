@@ -39,6 +39,7 @@
 #include "stubs_queue.h"
 #include "stubs_resources.h"
 #include "stubs_syscalls.h"
+#include "stubs_system_theme.h"
 #include "stubs_unobstructed_area.h"
 
 // Fakes

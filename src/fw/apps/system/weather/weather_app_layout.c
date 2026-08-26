@@ -297,7 +297,7 @@ static void prv_draw_weather_background(const GRect *circle_bounding_box, GConte
   // erases background chrome (the section rule) behind the icon art's
   // transparent edges while an icon crosses it — icons always read as in
   // front of the rule.
-  graphics_context_set_fill_color(context, GColorWhite);
+  graphics_context_set_fill_color(context, system_theme_get_bg_color());
   graphics_fill_circle(context, center, (uint16_t)(box.size.w / 2 + 4));
   if (!gcolor_equal(background_color, GColorClear)) {
     graphics_context_set_fill_color(context, background_color);
@@ -375,7 +375,7 @@ static int prv_round_rail(int ink_top_y) {
 // would clear at its top row and clip at its bottom (the circle narrows down).
 static void prv_draw_uv_bar_frame(GContext *ctx, GPoint gc, int by, int h,
                                   int r_out, int r_in) {
-  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
   for (int y = by; y < by + h; y++) {
     const int dy = y - gc.y;
     const int ho = (int)weather_isqrt(
@@ -527,8 +527,8 @@ static void prv_build_forecast_desc(const WeatherLocationForecast *f,
 
 // Little radiant sun for the UV bar: core disc + 8 rays.
 static void prv_draw_sun_glyph(GContext *ctx, GPoint c) {
-  graphics_context_set_fill_color(ctx, GColorBlack);
-  graphics_context_set_stroke_color(ctx, GColorBlack);
+  graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
+  graphics_context_set_stroke_color(ctx, system_theme_get_fg_color());
   graphics_context_set_stroke_width(ctx, 1);
   graphics_fill_circle(ctx, c, 3);
   for (int i = 0; i < 8; i++) {
@@ -618,12 +618,12 @@ void weather_app_layout_draw_uv_bar(GContext *ctx, GPoint gc, int by,
   const int num_w   = c ? WX_UVC_NUM_W   : 46;
   const char *hdr_font = WX_UV_HDR_FONT;   // both sizes use the report's label font
 
-  graphics_context_set_stroke_color(ctx, GColorBlack);
+  graphics_context_set_stroke_color(ctx, system_theme_get_fg_color());
   graphics_context_set_stroke_width(ctx, 1);
   prv_draw_uv_bar_frame(ctx, gc, by, h, r_out, r_in);
   prv_draw_sun_glyph(ctx, GPoint(gc.x + sun_dx,
                                  by + (c ? WX_UVC_SUN_DY : WEATHER_APP_LAYOUT_ROUND_UV_SUN_DY)));
-  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   graphics_draw_text(ctx, label, fonts_get_system_font(hdr_font),
                      GRect(gc.x + hdr_dx, by + hdr_dy, c ? 96 : 70, 20),
                      GTextOverflowModeFill, GTextAlignmentLeft, NULL);
@@ -645,7 +645,7 @@ void weather_app_layout_draw_uv_bar(GContext *ctx, GPoint gc, int by,
     graphics_draw_line(ctx, GPoint(px + 3, py - 3), GPoint(px + 3, py + 3));
     graphics_context_set_stroke_width(ctx, 1);
   }
-  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
   // The VALUE stays LECO_36 in both sizes — the compact bar shrinks its squares and pulls the
   // value box in, never the digit itself.
   graphics_draw_text(ctx, uv_text, fonts_get_system_font(WX_UV_NUM_FONT),
@@ -865,7 +865,7 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
   // LECO_36 +11, G18_BOLD/G18 +7, G14_BOLD +5. Label ink 42..55 then leaves a
   // 14px gap to the temp's ink at 70 -- emery's exact label->temp air. The rail is solved from the ink, not the
   // box, so the curve follows what the eye actually sees.
-  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_context_set_text_color(ctx, system_theme_get_fg_color());
 
   char caps[24];
   prv_upcase_into(caps, sizeof(caps), t->label);
@@ -950,7 +950,7 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
   // Label→temp air: 17px ink gap minus the user's −3 trim = 14 (gap param 3);
   // the rows below stay reference-tight (9/4) and ride with the temp.
   prv_draw_text(line, cw, ctx, caps, layout->location_font,
-                GColorBlack, GTextAlignmentLeft);
+                system_theme_get_fg_color(), GTextAlignmentLeft);
   line.y += fonts_get_font_height(fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   line.y += label_temp_gap;
   // Even ink gaps down the temp / hi-lo / condition stack (matching
@@ -961,15 +961,15 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
   // condition riding at 93. (The temp trim moves everything below it; only the hi/lo trim
   // moves the condition relative to the hi/lo.)
   line.y += prv_draw_text(line, cw, ctx, t->temp, layout->temperature_font,
-                          GColorBlack, GTextAlignmentLeft) - 1;
+                          system_theme_get_fg_color(), GTextAlignmentLeft) - 1;
   line.y += prv_draw_text(line, cw, ctx, t->highlow, layout->high_low_phrase_font,
-                          GColorBlack, GTextAlignmentLeft) - 1;
+                          system_theme_get_fg_color(), GTextAlignmentLeft) - 1;
   if (!WEATHER_APP_LAYOUT_RECT_SMALL && t->phrase && t->phrase[0]) {
     // Width-limited so a long phrase ellipsizes before the disc (disc's left
     // edge sits ~x116 in content coords). The small rects skip the phrase row
     // (the header icon carries the condition) to keep the description on-page.
     line.y += prv_draw_text(line, 112, ctx, t->phrase, layout->metrics_value_font,
-                            GColorBlack, GTextAlignmentLeft) - 2;
+                            system_theme_get_fg_color(), GTextAlignmentLeft) - 2;
   }
   // Forecast description ("High UV. Winds SW at 12mph. Precipitation 20%."):
   // warning, wind, precip. Measured and CENTERED in the band between the
@@ -985,7 +985,7 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
     const int band_bot = off->y + band_bot_anchor;  // the box's nominal top (keeps desc placement)
     int desc_y = band_top + (band_bot - band_top - dsz.h) / 2;
     if (desc_y < band_top) desc_y = band_top;
-    graphics_context_set_text_color(ctx, GColorBlack);
+    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
     graphics_draw_text(ctx, t->desc, layout->metrics_font,
                        GRect(off->x, desc_y, cw, dsz.h + 2),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
@@ -1016,7 +1016,7 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
       uvv = uvv * 10 + (*c - '0');
     }
     const int by = box_top;
-    graphics_context_set_stroke_color(ctx, GColorBlack);
+    graphics_context_set_stroke_color(ctx, system_theme_get_fg_color());
     graphics_context_set_stroke_width(ctx, 1);
     graphics_draw_rect(ctx, GRect(off->x, by, cw, 40));
     graphics_draw_rect(ctx, GRect(off->x + 1, by + 1, cw - 2, 38));
@@ -1050,7 +1050,7 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
       graphics_draw_line(ctx, GPoint(px + 3, py - 3), GPoint(px + 3, py + 3));
       graphics_context_set_stroke_width(ctx, 1);
     }
-    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
     graphics_draw_text(ctx, t->uv, layout->temperature_font,
                        GRect(off->x + cw - 52, by - 5, 46, 44),
                        GTextOverflowModeFill, GTextAlignmentRight, NULL);
@@ -1114,7 +1114,7 @@ static void prv_draw_bottom_rows(const WeatherAppLayout *layout, GPoint *off, in
   off->x += WEATHER_APP_LAYOUT_BOTTOM_TEXT_X_SHIFT;
   char rcaps[24];
   prv_upcase_into(rcaps, sizeof(rcaps), label);
-  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   const int r_icon_left = layout->tomorrow_icon_rest_frame.origin.x;
   const int r_w = r_icon_left - 4 - off->x;
   graphics_draw_text(ctx, rcaps, layout->tomorrow_font,
@@ -1138,7 +1138,7 @@ static void prv_draw_bottom_rows(const WeatherAppLayout *layout, GPoint *off, in
                                                   : layout->tomorrow_font;
   char caps[24];
   prv_upcase_into(caps, sizeof(caps), label);
-  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   const GSize lsz = graphics_text_layout_get_content_size(
       caps, foot_font, GRect(0, 0, 200, 20), GTextOverflowModeFill,
       GTextAlignmentLeft);
@@ -1455,8 +1455,8 @@ static void prv_render_layout(Layer *layer, GContext *context) {
     int in_dy  = prv_interpolate_text_moook(p, dir_down ? full_h : -full_h, 0);
 
     // ---- TOP HALF (region 0 → separator_y) ----
-    // Fill white first so it acts as a clip: any text drawn outside is invisible.
-    graphics_context_set_fill_color(context, GColorWhite);
+    // Fill background first so it acts as a clip: any text drawn outside is invisible.
+    graphics_context_set_fill_color(context, system_theme_get_bg_color());
     graphics_fill_rect(context, GRect(0, 0, bounds.size.w, separator_y), 0, GCornerNone);
     GPoint top_out = GPoint(content_x_offset, 0 + out_dy);
     prv_draw_snapshot_top(layout, &top_out, content_width, context);
@@ -1464,7 +1464,7 @@ static void prv_render_layout(Layer *layer, GContext *context) {
     prv_draw_top_half_text(layout, &top_in, content_width, context);
 
     // ---- BOTTOM HALF (region separator_y → full_h) ----
-    graphics_context_set_fill_color(context, GColorWhite);
+    graphics_context_set_fill_color(context, system_theme_get_bg_color());
     graphics_fill_rect(context, GRect(0, separator_y, bounds.size.w, full_h - separator_y),
                        0, GCornerNone);
     {
@@ -1518,7 +1518,7 @@ static void prv_render_layout(Layer *layer, GContext *context) {
   // #AAA the hardware offers). 2x2 dots (the darker tone alone carries the
   // "bigger/heavier" read — the taller 3px version was reverted),
   // pitch 4 keeps the reference's ~1:1 dot:gap rhythm.
-  graphics_context_set_fill_color(context, PBL_IF_COLOR_ELSE(GColorDarkGray, GColorBlack));
+  graphics_context_set_fill_color(context, PBL_IF_COLOR_ELSE(GColorDarkGray, system_theme_get_fg_color()));
   // Round sits the rule 3px higher than the region split (and the UV widget moved with it).
   // The split itself is deliberately NOT moved: separator_y also anchors the bottom-half fill
   // and the footer's content offset, so shifting it would carry the TOMORROW block up too.
@@ -1541,14 +1541,16 @@ static void prv_render_layout(Layer *layer, GContext *context) {
   // stepping onto the final day swaps the chevron out for the fin.
   if (layout->next_forecast) {
     const int chin_x = -layout->content_layer_origin.x;   // content coords -> screen 0
-    graphics_context_set_fill_color(context, GColorLightGray);
+    graphics_context_set_fill_color(context, PBL_IF_COLOR_ELSE(
+        system_theme_is_dark_mode() ? GColorDarkGray : GColorLightGray,
+        system_theme_get_bg_color()));
     graphics_fill_rect(context,
                        GRect(chin_x, WEATHER_APP_LAYOUT_ROUND_CHIN_Y, PBL_DISPLAY_WIDTH,
                              PBL_DISPLAY_HEIGHT - WEATHER_APP_LAYOUT_ROUND_CHIN_Y),
                        0, GCornerNone);
     // Solid chevron, built a scanline at a time so it stays a crisp odd-width
     // triangle at any size (13,11,9,...,1) rather than an antialiased path.
-    graphics_context_set_fill_color(context, GColorBlack);
+    graphics_context_set_fill_color(context, system_theme_get_fg_color());
     const int cx = PBL_DISPLAY_WIDTH / 2 + chin_x;
     for (int i = 0; i < WEATHER_APP_LAYOUT_ROUND_CHEV_H; i++) {
       const int half = WEATHER_APP_LAYOUT_ROUND_CHEV_W / 2 - i;
@@ -2049,6 +2051,7 @@ void weather_app_layout_init(WeatherAppLayout *layout, const GRect *frame) {
   if (fin_raw) {
     gdraw_command_image_destroy(fin_raw);  // munmaps the read-only flash mapping
   }
+  weather_recolor_pdc_image_for_dark_mode(layout->fin_pdc);
 #if WEATHER_APP_LAYOUT_USE_PDC_WEATHER_ICONS
   layout->weather_icon_pdc_sequence = NULL;
   layout->current_weather_escape_layer = NULL;
@@ -2193,6 +2196,7 @@ void weather_app_layout_init(WeatherAppLayout *layout, const GRect *frame) {
                                      WEATHER_APP_LAYOUT_ROUND_PDC_ART));
     }
   }
+  weather_recolor_pdc_sequence_for_dark_mode(layout->weather_icon_pdc_sequence);
   layout->current_weather_escape_layer =
       layer_create_with_data(GRect(0, 0, 1, 1), sizeof(WeatherAppLayout *));
   if (layout->current_weather_escape_layer) {

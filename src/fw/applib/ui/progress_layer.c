@@ -8,6 +8,7 @@
 #include "applib/graphics/graphics.h"
 #include "applib/ui/layer.h"
 #include "pbl/util/math.h"
+#include "shell/system_theme.h"
 
 #include <string.h>
 
@@ -49,8 +50,8 @@ void progress_layer_init(ProgressLayer* progress_layer, const GRect *frame) {
 
   layer_init(&progress_layer->layer, frame);
   progress_layer->layer.update_proc = (LayerUpdateProc) progress_layer_update_proc;
-  progress_layer->foreground_color = GColorBlack;
-  progress_layer->background_color = GColorWhite;
+  progress_layer->foreground_color = system_theme_get_fg_color();
+  progress_layer->background_color = system_theme_get_bg_color();
   progress_layer->corner_radius = 1;
 }
 

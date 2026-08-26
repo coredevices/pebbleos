@@ -72,6 +72,7 @@
 #include "util/time/time.h"
 #include "pbl/util/uuid.h"
 #include "pbl/logging/logging.h"
+#include "shell/system_theme.h"
 
 // --- Window-stack call-site shims: the SDK names map 1:1 to the app-window
 //     variants firmware apps must use. ---

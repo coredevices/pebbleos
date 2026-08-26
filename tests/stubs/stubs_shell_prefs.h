@@ -74,6 +74,23 @@ void WEAK shell_prefs_set_menu_scroll_wrap_around_enable(bool enable) {
   s_menu_scroll_enable = enable;
 }
 
+GColor WEAK shell_prefs_get_theme_highlight_color(void) {
+  return PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorBlack);
+}
+
+DarkMode WEAK shell_prefs_get_dark_mode(void) {
+  return DarkModeOff;
+}
+
+void WEAK shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule_out) {
+  if (schedule_out) {
+    *schedule_out = (DarkModeSchedule){ .from_hour = 19, .from_minute = 0, .to_hour = 7, .to_minute = 0 };
+  }
+}
+
+void WEAK shell_prefs_set_dark_mode_schedule(const DarkModeSchedule *schedule) {
+}
+
 static MenuScrollVibeBehavior s_menu_scroll_vibe_behavior = MenuScrollNoVibe;
 
 MenuScrollVibeBehavior WEAK shell_prefs_get_menu_scroll_vibe_behavior(void) {

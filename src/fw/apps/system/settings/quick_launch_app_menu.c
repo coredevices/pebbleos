@@ -156,7 +156,7 @@ void quick_launch_app_menu_window_push(ButtonId button, bool is_tap) {
   const OptionMenuConfig config = {
     .title = i18n_get(i18n_noop("Quick Launch"), data),
     .choice = (install_id == INSTALL_ID_INVALID) ? 0 : (app_index + NUM_CUSTOM_CELLS),
-    .status_colors = { GColorWhite, GColorBlack, },
+    .status_colors = { system_theme_get_bg_color(), system_theme_get_fg_color() },
     .highlight_colors = { highlight_bg, gcolor_legible_over(highlight_bg) },
     .icons_enabled = true,
   };

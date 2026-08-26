@@ -54,7 +54,7 @@ static void prv_squash_resample(GBitmap *fb, const uint8_t *scratch,
                                 AnimationProgress m, int mode) {
   GRect b = gbitmap_get_bounds(fb);
   const int W = b.size.w, H = b.size.h;
-  const uint8_t white = GColorWhite.argb;
+  const uint8_t bg_color = system_theme_get_bg_color().argb;
   if (mode == WEATHER_SQUASH_LEFT_EXIT) {
     // Horizontal jelly (the vertical grammar rotated 90°). RIGHT_IN (mode 7) was
     // trimmed with its last caller (the report's old squash-in entrance).
@@ -79,7 +79,7 @@ static void prv_squash_resample(GBitmap *fb, const uint8_t *scratch,
       uint8_t *dst = ri.data;                       // absolute-x
       const uint8_t *src = scratch + (uint32_t)y * W;
       for (int x = (int)ri.min_x; x <= (int)ri.max_x; x++) {
-        if (x < vis0 || x >= vis1) { weather_fb_row_set(dst, x, white); continue; }
+        if (x < vis0 || x >= vis1) { weather_fb_row_set(dst, x, bg_color); continue; }
         int sx = (int)((((int32_t)(x - left_edge)) * sx_step) >> 16);
         if (sx < 0) sx = 0; else if (sx >= W) sx = W - 1;
         weather_fb_row_set(dst, x, src[sx]);
@@ -129,10 +129,10 @@ static void prv_squash_resample(GBitmap *fb, const uint8_t *scratch,
       const uint8_t *src = scratch + (uint32_t)sy * W;
       for (int x = lo; x <= hi; x++) {
         weather_fb_row_set(ri.data, x,
-                           (x >= (int)sri.min_x && x <= (int)sri.max_x) ? src[x] : white);
+                           (x >= (int)sri.min_x && x <= (int)sri.max_x) ? src[x] : bg_color);
       }
     } else {
-      for (int x = lo; x <= hi; x++) weather_fb_row_set(ri.data, x, white);
+      for (int x = lo; x <= hi; x++) weather_fb_row_set(ri.data, x, bg_color);
     }
   }
 }
@@ -257,6 +257,7 @@ void weather_capture_framebuffer_rect(GBitmap *fb, GBitmap *dst,
   int sy = src_rect.origin.y;
   int w = src_rect.size.w;
   int h = src_rect.size.h;
+  const uint8_t bg_argb = system_theme_get_bg_color().argb;
 
   for (int row = 0; row < h; row++) {
     GBitmapDataRowInfo ri = gbitmap_get_data_row_info(fb, (uint16_t)(sy + row));
@@ -265,9 +266,9 @@ void weather_capture_framebuffer_rect(GBitmap *fb, GBitmap *dst,
     // The destination is 1-bit on the BW boards (8-bit blanks are refused
     // there), so both sides are packed. dst_x is a byte offset and stays 0
     // for the 1-bit callers.
-    memset(dst_row, 0xFF, dbpr);
+    memset(dst_row, bg_argb, dbpr);
 #else
-    memset(dst_row, 0xFF, (size_t)w);
+    memset(dst_row, bg_argb, (size_t)w);
 #endif
 
     int xs = sx > (int)ri.min_x ? sx : (int)ri.min_x;
@@ -277,12 +278,12 @@ void weather_capture_framebuffer_rect(GBitmap *fb, GBitmap *dst,
       for (int x = xs; x <= xe; x++) {
         bitset8_update(dst_row, (unsigned)(x - sx),
                        bitset8_get(ri.data, (unsigned)x));
-        weather_fb_row_set(ri.data, x, GColorWhiteARGB8);
+        weather_fb_row_set(ri.data, x, bg_argb);
       }
 #else
       size_t n = (size_t)(xe - xs + 1);
       memcpy(dst_row + (xs - sx), ri.data + xs, n);
-      memset(ri.data + xs, 0xFF, n);
+      memset(ri.data + xs, bg_argb, n);
 #endif
     }
   }
@@ -336,7 +337,7 @@ void weather_draw_lava_ring(GContext *ctx, GPoint center, int outer_r,
   int sy1 = center.y - (int)((int32_t)cos_lookup(phase) * outer_r / TRIG_MAX_RATIO);
   int sx2 = center.x + (int)((int32_t)sin_lookup(neg) * outer_r / TRIG_MAX_RATIO);
   int sy2 = center.y - (int)((int32_t)cos_lookup(neg) * outer_r / TRIG_MAX_RATIO);
-  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
   graphics_fill_circle(ctx, GPoint(sx1, sy1), 2);
   graphics_fill_circle(ctx, GPoint(sx2, sy2), 2);
 
@@ -350,5 +351,43 @@ void weather_draw_lava_ring(GContext *ctx, GPoint center, int outer_r,
     int bx = center.x + (int)((int32_t)sin_lookup(b_ang[b]) * outer_r / TRIG_MAX_RATIO);
     int by = center.y - (int)((int32_t)cos_lookup(b_ang[b]) * outer_r / TRIG_MAX_RATIO);
     graphics_fill_circle(ctx, GPoint(bx, by), 1);
+  }
+}
+
+static bool prv_recolor_pdc_command_cb(GDrawCommand *command, uint32_t index, void *context) {
+  (void)index;
+  (void)context;
+  GColor stroke = gdraw_command_get_stroke_color(command);
+  if (gcolor_equal(stroke, GColorBlack)) {
+    gdraw_command_set_stroke_color(command, GColorWhite);
+  } else if (gcolor_equal(stroke, GColorWhite)) {
+    gdraw_command_set_stroke_color(command, GColorBlack);
+  }
+  GColor fill = gdraw_command_get_fill_color(command);
+  if (gcolor_equal(fill, GColorWhite)) {
+    gdraw_command_set_fill_color(command, GColorBlack);
+  } else if (gcolor_equal(fill, GColorBlack)) {
+    gdraw_command_set_fill_color(command, GColorWhite);
+  }
+  return true;
+}
+
+void weather_recolor_pdc_image_for_dark_mode(GDrawCommandImage *image) {
+  if (!image || !system_theme_is_dark_mode()) return;
+  GDrawCommandList *list = gdraw_command_image_get_command_list(image);
+  if (list) {
+    gdraw_command_list_iterate(list, prv_recolor_pdc_command_cb, NULL);
+  }
+}
+
+void weather_recolor_pdc_sequence_for_dark_mode(GDrawCommandSequence *sequence) {
+  if (!sequence || !system_theme_is_dark_mode()) return;
+  const uint32_t nframes = gdraw_command_sequence_get_num_frames(sequence);
+  for (uint32_t i = 0; i < nframes; i++) {
+    GDrawCommandFrame *f = gdraw_command_sequence_get_frame_by_index(sequence, i);
+    if (f) {
+      gdraw_command_list_iterate(gdraw_command_frame_get_command_list(f),
+                                 prv_recolor_pdc_command_cb, NULL);
+    }
   }
 }

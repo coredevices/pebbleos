@@ -240,9 +240,6 @@ static Window *prv_init(void) {
   option_menu_init(&data->option_menu);
   // Not using option_menu_configure because prv_reload_menu_data already sets
   // icons_enabled and chosen row index
-  option_menu_set_status_colors(&data->option_menu, GColorWhite, GColorBlack);
-  GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-  option_menu_set_highlight_colors(&data->option_menu, highlight_bg, gcolor_legible_over(highlight_bg));
   option_menu_set_title(&data->option_menu, i18n_get("Background App", data));
   option_menu_set_content_type(&data->option_menu, OptionMenuContentType_SingleLine);
   option_menu_set_callbacks(&data->option_menu, &option_menu_callbacks, data);

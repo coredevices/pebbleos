@@ -9,6 +9,7 @@
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/activity/health_util.h"
+#include "shell/system_theme.h"
 
 #include <stdio.h>
 
@@ -89,7 +90,7 @@ Window *health_hr_detail_card_create(HealthData *health_data) {
     .num_headings = card_data->num_headings,
     .headings = card_data->headings,
     .weekly_max = max_progress,
-    .bg_color = GColorWhite,
+    .bg_color = system_theme_get_bg_color(),
     .num_zones = card_data->num_zones,
     .zones = card_data->zones,
     .data = card_data,

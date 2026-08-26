@@ -642,7 +642,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   // Transparent window bg on round (step 3) — the degenerate no-state frame must paint
   // the white itself, since this proc is what guarantees full coverage.
   if (!s_cf) {
-    graphics_context_set_fill_color(ctx, GColorWhite);
+    graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
     graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
     return;
   }
@@ -664,8 +664,8 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   int W = bounds.size.w;
   int H = bounds.size.h;
 
-  // White background — matches other screens
-  graphics_context_set_fill_color(ctx, GColorWhite);
+  // Background — matches other screens
+  graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 
   // Clock face centre — full screen, no bar offset
@@ -747,12 +747,15 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
 
       graphics_context_set_compositing_mode(ctx, GCompOpAssign);
       if (show_temp_side) {
-        graphics_context_set_fill_color(ctx, GColorWhite);
+        const GColor circle_bg = system_theme_is_dark_mode() ? GColorDarkGray : GColorWhite;
+        graphics_context_set_fill_color(ctx, circle_bg);
         graphics_fill_circle(ctx, GPoint(ix, iy), rr);
-        // Colour: soft grey outline. BW: strokes cannot dither (LightGray
-        // maps to White and vanishes) — solid black is the only visible ring.
-        graphics_context_set_stroke_color(ctx,
-                                          PBL_IF_BW_ELSE(GColorBlack, GColorLightGray));
+        // Colour: soft grey outline in light mode; match dark gray fill in dark mode.
+        // BW: strokes cannot dither (LightGray maps to White and vanishes) — solid black is the only visible ring.
+        const GColor stroke_color = system_theme_is_dark_mode()
+            ? GColorDarkGray
+            : PBL_IF_BW_ELSE(GColorBlack, GColorLightGray);
+        graphics_context_set_stroke_color(ctx, stroke_color);
         graphics_context_set_stroke_width(ctx, 1);
         graphics_draw_circle(ctx, GPoint(ix, iy), rr);
       } else {
@@ -785,7 +788,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
           GSize nsz = graphics_text_layout_get_content_size(
               nbuf, tfont, GRect(0, 0, 40, 18),
               GTextOverflowModeFill, GTextAlignmentCenter);
-          graphics_context_set_text_color(ctx, GColorBlack);
+          graphics_context_set_text_color(ctx, system_theme_get_fg_color());
           graphics_draw_text(ctx, nbuf, tfont,
               GRect(ix - nsz.w / 2, iy - 11, nsz.w, 18),
               GTextOverflowModeFill, GTextAlignmentCenter, NULL);
@@ -862,9 +865,9 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
       const int font_top_pad = -4;
       int ty_s = stg_cy - nsz.h / 2 + font_top_pad;
       // Clear staging area so no icon pixels bleed into the capture.
-      graphics_context_set_fill_color(ctx, GColorWhite);
+      graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
       graphics_fill_rect(ctx, GRect(stg_x, stg_y, stg_w, stg_h), 0, GCornerNone);
-      graphics_context_set_text_color(ctx, GColorBlack);
+      graphics_context_set_text_color(ctx, system_theme_get_fg_color());
       // Number: centred horizontally at stg_cx
       graphics_draw_text(ctx, stg_buf, centre_font,
           GRect(stg_x + left_pad, stg_y + ty_s, nsz.w + 2, nsz.h),
@@ -968,7 +971,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
             weather_fb_row_set(ri.data, ax, GColorBlackARGB8);
 #else
             uint8_t pixel = srow[sx];
-            if (pixel == 0xFF) continue;   // GColor8 white
+            if (pixel == system_theme_get_bg_color().argb) continue;
             weather_fb_row_set(ri.data, ax, pixel);
 #endif
           }
@@ -1237,7 +1240,7 @@ static void prv_window_load(Window *window) {
   // window with the bg colour every frame unless transparent, and prv_canvas_draw always
   // paints every pixel (its own white fill / the squash resample). See forecast_list's
   // matching change. The !s_cf early-return keeps a white guard.
-  window_set_background_color(window, PBL_IF_ROUND_ELSE(GColorClear, GColorWhite));
+  window_set_background_color(window, PBL_IF_ROUND_ELSE(GColorClear, system_theme_get_bg_color()));
   GRect bounds = layer_get_bounds(window_get_root_layer(window));
   s_cf->canvas = layer_create(bounds);
   layer_set_update_proc(s_cf->canvas, prv_canvas_draw);

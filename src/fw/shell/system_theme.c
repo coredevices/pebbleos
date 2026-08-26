@@ -5,12 +5,16 @@
 
 #include "applib/fonts/fonts.h"
 #include "apps/system/settings/notifications_private.h"
+#include "process_management/pebble_process_md.h"
 #include "process_management/process_manager.h"
 #include "pbl/services/analytics/analytics.h"
 #include "shell/prefs.h"
+#include "syscall/syscall.h"
 #include "syscall/syscall_internal.h"
 #include "system/passert.h"
 #include "pbl/util/size.h"
+#include <pbl/drivers/rtc.h>
+#include <pbl/drivers/ambient_light.h>
 
 #include <string.h>
 
@@ -168,6 +172,63 @@ GFont system_theme_get_font_for_size(PreferredContentSize size, TextStyleFont fo
 GFont system_theme_get_font_for_default_size(TextStyleFont font) {
   return fonts_get_system_font(system_theme_get_font_key_for_size(PreferredContentSizeDefault,
                                                                   font));
+}
+
+//! Returns true if the current (system) app context should render in dark mode.
+static bool prv_is_system_app(void) {
+  const PebbleTask task = pebble_task_get_current();
+  if (task != PebbleTask_App && task != PebbleTask_Worker) {
+    // Kernel / other tasks are always treated as system
+    return true;
+  }
+  const ProcessAppSDKType sdk_type =
+      process_metadata_get_app_sdk_type(sys_process_manager_get_current_process_md());
+  return sdk_type == ProcessAppSDKType_System;
+}
+
+bool system_theme_is_dark_mode(void) {
+  // Dark mode is only supported on color platforms, so treat all non-color platforms as light mode
+  if (PBL_IF_COLOR_ELSE(false, true)) {
+    return false;
+  }
+  if (!prv_is_system_app()) {
+    return false;
+  }
+  switch (shell_prefs_get_dark_mode()) {
+    case DarkModeOff:
+      return false;
+    case DarkModeOn:
+      return true;
+    case DarkModeAmbient:
+      return !ambient_light_is_light();
+    case DarkModeScheduled: {
+      DarkModeSchedule schedule;
+      shell_prefs_get_dark_mode_schedule(&schedule);
+      struct tm time_now;
+      rtc_get_time_tm(&time_now);
+      const int now_min = time_now.tm_hour * 60 + time_now.tm_min;
+      const int start_min = schedule.from_hour * 60 + schedule.from_minute;
+      const int end_min = schedule.to_hour * 60 + schedule.to_minute;
+      if (start_min == end_min) {
+        return false;
+      }
+      if (start_min < end_min) {
+        return (now_min >= start_min && now_min < end_min);
+      } else {
+        return (now_min >= start_min || now_min < end_min);
+      }
+    }
+    default:
+      return false;
+  }
+}
+
+GColor system_theme_get_bg_color(void) {
+  return system_theme_is_dark_mode() ? GColorBlack : GColorWhite;
+}
+
+GColor system_theme_get_fg_color(void) {
+  return system_theme_is_dark_mode() ? GColorWhite : GColorBlack;
 }
 
 static const PreferredContentSize s_platform_default_content_sizes[] = {
