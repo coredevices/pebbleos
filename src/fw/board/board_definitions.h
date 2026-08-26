@@ -8,7 +8,7 @@
 #include "boards/board_asterix.h"
 #elif defined(CONFIG_BOARD_OBELIX_DVT) || defined(CONFIG_BOARD_OBELIX_PVT) || defined(CONFIG_BOARD_OBELIX_BB2)
 #include "boards/board_obelix.h"
-#elif defined(CONFIG_BOARD_GETAFIX_EVT) || defined(CONFIG_BOARD_GETAFIX_DVT) || defined(CONFIG_BOARD_GETAFIX_DVT2)
+#elif defined(CONFIG_BOARD_GETAFIX_DVT) || defined(CONFIG_BOARD_GETAFIX_DVT2)
 #include "boards/board_getafix.h"
 #elif defined(CONFIG_BOARD_QEMU_EMERY)
 #include "boards/board_qemu_emery.h"

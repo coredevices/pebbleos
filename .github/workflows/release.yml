@@ -18,7 +18,6 @@ jobs:
           - asterix
           - obelix@dvt
           - obelix@pvt
-          - getafix@evt
           - getafix@dvt
           - getafix@dvt2
 
@@ -113,7 +112,6 @@ jobs:
           - asterix
           - obelix@dvt
           - obelix@pvt
-          - getafix@evt
           - getafix@dvt
           - getafix@dvt2
         slot:
@@ -157,7 +155,7 @@ jobs:
       - name: Set slot suffix
         id: slot_suffix
         run: |
-          NEEDS_SUFFIX="obelix_dvt obelix_pvt getafix_evt getafix_dvt getafix_dvt2"
+          NEEDS_SUFFIX="obelix_dvt obelix_pvt getafix_dvt getafix_dvt2"
 
           if echo $NEEDS_SUFFIX | grep -wq "${{ steps.artifact_board.outputs.NAME }}"; then
             echo "SLOT_SUFFIX=_slot${{ matrix.slot }}" >> "$GITHUB_OUTPUT"
@@ -289,7 +287,7 @@ jobs:
 
       - name: Merge slot-specific pbz files
         run: |
-          NEEDS_MERGE="obelix_dvt obelix_pvt getafix_evt getafix_dvt getafix_dvt2"
+          NEEDS_MERGE="obelix_dvt obelix_pvt getafix_dvt getafix_dvt2"
 
           mkdir artifacts-merged
           for board in $NEEDS_MERGE; do

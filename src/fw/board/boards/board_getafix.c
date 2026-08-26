@@ -281,11 +281,7 @@ static const LIS2DW12Config s_lis2dw12_config = {
     .state = &s_lis2dw12_state,
     .i2c = {
         .bus = &s_i2c_bus_1,
-#ifdef CONFIG_BOARD_GETAFIX_EVT
-        .address = 0x18,
-#else
         .address = 0x19,
-#endif
     },
     .int1 = {
       .peripheral = hwp_gpio1,

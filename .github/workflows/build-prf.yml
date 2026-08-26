@@ -46,7 +46,6 @@ jobs:
           - asterix
           - obelix@dvt
           - obelix@pvt
-          - getafix@evt
           - getafix@dvt
           - getafix@dvt2
         mode:
