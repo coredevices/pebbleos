@@ -582,6 +582,12 @@ bool hrm_enable(HRMDevice *dev, HRMFeature features, bool low_latency) {
     Gh3x2xDemoFunctionSampleRateSet(GH3X2X_FUNCTION_HRV, GH3X2X_HRV_SAMPLING_RATE);
   }
 #endif
+  // Pick the AFE drive settings for the path we're about to run. SpO2 needs more optical drive
+  // than the stock register set provides, and the slots involved are shared with green HR, so the
+  // higher drive is applied only for the red/IR-alone path and the stock values are restored for
+  // green. MFG samples a fixed combined mode, which stays on stock drive.
+  Gh3x2xSpo2AfeTuningSet(dev->state->work_mode == GH3X2X_FUNCTION_SPO2);
+
   Gh3x2xDemoStartSampling(dev->state->work_mode);
 
   dev->state->enabled = true;
