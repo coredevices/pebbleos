@@ -1166,6 +1166,39 @@ void test_alarm__skip_two_alarms(void) {
   cl_assert_equal_i(s_num_alarms_fired, 1);
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//! Alarms missed while the watch was down
+
+//! Restarts the alarm service the way a reboot would, leaving the settings file intact.
+static void prv_simulate_reboot(void) {
+  cron_service_deinit();
+  cron_service_init();
+  alarm_init();
+  alarm_service_enable_alarms(true);
+}
+
+void test_alarm__missed_just_once_alarm_rearmed_for_next_day(void) {
+  // It's currently Thursday @ 00:00
+  AlarmId id = alarm_create(&(AlarmInfo) { .hour = 6, .minute = 0, .kind = ALARM_KIND_JUST_ONCE });
+  bool just_once_schedule_thursday[7] = {false, false, false, false, true, false, false};
+  prv_assert_alarm_config(id, 6, 0, false, ALARM_KIND_JUST_ONCE, just_once_schedule_thursday);
+
+  // The watch was down over 06:00 and comes back up too late to catch the alarm up. The alarm
+  // must not stay armed for Thursday next week.
+  s_current_hour = 8;
+  prv_simulate_reboot();
+
+  cl_assert_equal_i(s_num_alarms_fired, 0);
+  bool just_once_schedule_friday[7] = {false, false, false, false, false, true, false};
+  prv_assert_alarm_config(id, 6, 0, false, ALARM_KIND_JUST_ONCE, just_once_schedule_friday);
+
+  s_current_day = s_friday;
+  s_current_hour = 6;
+  s_current_minute = 0;
+  cron_service_wakeup();
+  cl_assert_equal_i(s_num_alarms_fired, 1);
+}
+
 // TODO:
 // - Test disable while snoozing
 // - Test delete while snoozing
