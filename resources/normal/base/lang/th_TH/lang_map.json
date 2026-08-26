@@ -2,68 +2,78 @@
     "strings": {
         "lang": "th_TH",
         "name": "STRINGS",
-        "file": ""
+        "file": "tintin.po"
     },
     "fonts": [{
         "name": "GOTHIC_14_EXTENDED",
         "file": "Sarabun-Regular.ttf",
         "characterList": "thai_codepoints.json",
         "pixelHeight": 12,
-        "extended": true
+        "extended": true,
+        "gposAnchors": true
     }, {
         "name": "GOTHIC_14_BOLD_EXTENDED",
         "file": "Sarabun-Bold.ttf",
         "characterList": "thai_codepoints.json",
         "pixelHeight": 12,
-        "extended": true
+        "extended": true,
+        "gposAnchors": true
     }, {
         "name": "GOTHIC_18_EXTENDED",
         "file": "Sarabun-Regular.ttf",
         "characterList": "thai_codepoints.json",
         "pixelHeight": 14,
-        "extended": true
+        "extended": true,
+        "gposAnchors": true
     }, {
         "name": "GOTHIC_18_BOLD_EXTENDED",
         "file": "Sarabun-Bold.ttf",
         "characterList": "thai_codepoints.json",
         "pixelHeight": 14,
-        "extended": true
+        "extended": true,
+        "gposAnchors": true
     }, {
         "name": "GOTHIC_24_EXTENDED",
         "file": "Sarabun-Regular.ttf",
         "characterList": "thai_codepoints.json",
         "pixelHeight": 17,
-        "extended": true
+        "extended": true,
+        "gposAnchors": true
     }, {
         "name": "GOTHIC_24_BOLD_EXTENDED",
         "file": "Sarabun-Bold.ttf",
         "characterList": "thai_codepoints.json",
         "pixelHeight": 17,
-        "extended": true
+        "extended": true,
+        "gposAnchors": true
     }, {
         "name": "GOTHIC_28_EXTENDED",
         "file": "Sarabun-Regular.ttf",
         "characterList": "thai_codepoints.json",
         "pixelHeight": 20,
-        "extended": true
+        "extended": true,
+        "gposAnchors": true
     }, {
         "name": "GOTHIC_28_BOLD_EXTENDED",
         "file": "Sarabun-Bold.ttf",
         "characterList": "thai_codepoints.json",
         "pixelHeight": 20,
-        "extended": true
+        "extended": true,
+        "gposAnchors": true
     }, {
         "name": "GOTHIC_36_EXTENDED",
         "file": "Sarabun-Regular.ttf",
         "characterList": "thai_codepoints.json",
         "pixelHeight": 20,
-        "extended": true
+        "extended": true,
+        "gposAnchors": true
     }, {
         "name": "GOTHIC_36_BOLD_EXTENDED",
         "file": "Sarabun-Bold.ttf",
         "characterList": "thai_codepoints.json",
         "pixelHeight": 20,
-        "extended": true
+        "extended": true,
+        "gposAnchors": true
     }, {
         "name": "BITHAM_18_LIGHT_SUBSET_EXTENDED",
         "file": ""
