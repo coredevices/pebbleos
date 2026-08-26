@@ -51,6 +51,13 @@ jobs:
           - getafix@evt
           - getafix@dvt
           - getafix@dvt2
+        slot:
+          - 0
+          - 1
+
+        exclude:
+          - board: "asterix"
+            slot: 1
 
     steps:
       - name: Mark Github workspace as safe
@@ -83,8 +90,19 @@ jobs:
         env:
           BOARD: ${{ matrix.board }}
 
+      - name: Set slot suffix
+        id: slot_suffix
+        run: |
+          NEEDS_SUFFIX="obelix_dvt obelix_pvt getafix_evt getafix_dvt getafix_dvt2"
+
+          if echo $NEEDS_SUFFIX | grep -wq "${{ steps.artifact_board.outputs.NAME }}"; then
+            echo "SLOT_SUFFIX=_slot${{ matrix.slot }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "SLOT_SUFFIX=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure
-        run: ./waf configure --board '${{ matrix.board }}'
+        run: ./waf configure --board '${{ matrix.board }}' -DCONFIG_FIRMWARE_SLOT=${{ matrix.slot }} -DCONFIG_RELEASE=y
 
       - name: Build
         run: ./waf build
@@ -95,7 +113,7 @@ jobs:
       - name: Store
         uses: actions/upload-artifact@v7
         with:
-          name: firmware-${{ steps.artifact_board.outputs.NAME }}
+          name: firmware-${{ steps.artifact_board.outputs.NAME }}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}
           path: |
             build/**/*.elf
             build/**/*.pbz
@@ -118,121 +136,61 @@ jobs:
             "s3://${{ vars.LOG_HASH_BUCKET_NAME }}/${{ steps.build_id.outputs.BUILD_ID }}-${{ github.sha }}-normal.json" \
             --endpoint-url "${{ vars.LOG_HASH_BUCKET_ENDPOINT }}"
 
-  # Dual-slot RELEASE PBZ for the hardware-lab release-QA boards. The build-firmware job above is
-  # single-slot AND a debug build, so it cannot be the "to" of an upgrade test: OTA writes into the
-  # watch's *inactive* slot (needs both slots), and the watch refuses to apply a debug PBZ over the
-  # release "from". The release-QA dispatch (coredevices/unicorn) needs a merged dual-slot RELEASE
-  # PBZ, the same shape as a release asset — so build both slots (release) and merge, in one job per
-  # board, no cross-job artifact passing. Only the two QA-hardware boards; kept out of
-  # build-firmware-status so a QA-artifact hiccup never blocks a firmware PR.
-  build-qa-firmware:
-    needs: changes-firmware
-    if: needs.changes-firmware.outputs.should-build == 'true'
+  merge-firmware:
+    needs: build-firmware
     runs-on: ubuntu-24.04
-
-    container:
-      image: ghcr.io/coredevices/pebbleos-docker:v6
 
     strategy:
       matrix:
         board:
-          - obelix@pvt
-          - getafix@dvt
-          - getafix@dvt2
+          - obelix_dvt
+          - obelix_pvt
+          - getafix_evt
+          - getafix_dvt
+          - getafix_dvt2
 
     steps:
-      - name: Mark Github workspace as safe
-        run: git config --system --add safe.directory "${GITHUB_WORKSPACE}"
-
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
         with:
-          fetch-depth: 0
-          submodules: true
+          pattern: firmware-${{ matrix.board }}_slot*
 
-      - name: Rebase onto target branch
-        uses: ./.github/actions/rebase
-        with:
-          submodules: true
-
-      - name: Install Python dependencies
-        run: |
-          pip install -U pip
-          pip install -r requirements.txt
-
-      - name: Set artifact board name
-        id: artifact_board
-        run: echo "NAME=$(printf '%s' "$BOARD" | tr @ _)" >> "$GITHUB_OUTPUT"
+      - name: Merge slot-specific pbz files
         env:
           BOARD: ${{ matrix.board }}
-
-      - name: Build both release slots and merge into a dual-slot PBZ
-        shell: bash
         run: |
-          set -euo pipefail
-          name='${{ steps.artifact_board.outputs.NAME }}'
-          mkdir -p out
-          for slot in 0 1; do
-            ./waf configure --board '${{ matrix.board }}' -DCONFIG_FIRMWARE_SLOT=$slot -DCONFIG_RELEASE=y
-            ./waf build
-            ./waf bundle
-            cp build/normal_*_slot${slot}.pbz .
-          done
-          s0=$(ls normal_*_slot0.pbz | head -1)
-          s1=$(ls normal_*_slot1.pbz | head -1)
           # Version string is embedded in the bundle name (git describe), e.g.
           # normal_obelix_pvt_v4.35.0-2-gdeadbee_slot0.pbz -> v4.35.0-2-gdeadbee.
-          ver=$(basename "$s0" | sed -E "s/^normal_${name}_//; s/_slot0\.pbz$//")
-          python3 tools/merge_pbz.py --slot0-pbz "$s0" --slot1-pbz "$s1" \
-            --output "out/normal_${name}_${ver}.pbz"
-          # Ship the loghash dict alongside so the QA fwlog step can dehash release logs.
-          cp build/pebbleos_loghash_dict.json out/ 2>/dev/null || true
-          ls -la out
+          version=$(ls firmware-${BOARD}_slot0/normal_${BOARD}_*_slot0.pbz | \
+            sed -E "s/^.*normal_${BOARD}_//; s/_slot0\.pbz$//")
+          if [ ! -f "firmware-${BOARD}_slot1/normal_${BOARD}_${version}_slot1.pbz" ]; then
+            echo "::error::${BOARD} slot1 bundle $(ls firmware-${BOARD}_slot1/*.pbz) does not match slot0 version ${version}"
+            exit 1
+          fi
+          mkdir merged
+          python3 tools/merge_pbz.py \
+            --slot0-pbz "firmware-${BOARD}_slot0/normal_${BOARD}_${version}_slot0.pbz" \
+            --slot1-pbz "firmware-${BOARD}_slot1/normal_${BOARD}_${version}_slot1.pbz" \
+            --output "merged/normal_${BOARD}_${version}.pbz"
+          cp firmware-${BOARD}_slot0/pebbleos_loghash_dict.json merged/
 
-      - name: Store merged QA firmware
+      - name: Store
         uses: actions/upload-artifact@v7
         with:
-          name: qa-firmware-${{ steps.artifact_board.outputs.NAME }}
-          path: out/**
-
-  # Once the dual-slot QA firmware is built, kick off the hardware-lab release-QA in
-  # coredevices/unicorn against THIS run's qa-firmware artifact (erase -> PRF -> pair -> OTA ->
-  # functional pass on a real phone + watch), using the most recently tagged coreapp release. The
-  # unicorn run posts a `unicorn/release-qa` commit status back on this PR's commit. Internal PRs
-  # only (forks have no secrets); needs UNICORN_DISPATCH_TOKEN — a PAT with actions:write on unicorn.
-  dispatch-release-qa:
-    needs: build-qa-firmware
-    # Org members / collaborators only: author_association is MEMBER for org members, OWNER for the
-    # repo owner, COLLABORATOR for added collaborators — external contributors (CONTRIBUTOR/NONE) are
-    # excluded, so an outside PR can't spend the hardware lab.
-    if: >-
-      github.event_name == 'pull_request' &&
-      needs.build-qa-firmware.result == 'success' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
-    runs-on: ubuntu-24.04
-    # One in-flight QA per PR: a newer push supersedes the older dispatch instead of queueing extras.
-    concurrency:
-      group: release-qa-dispatch-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
-    steps:
-      - name: Dispatch the hardware-lab release-QA (coredevices/unicorn)
-        env:
-          GH_TOKEN: ${{ secrets.UNICORN_DISPATCH_TOKEN }}
-        run: |
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::warning::UNICORN_DISPATCH_TOKEN not set — add a PAT with actions:write on coredevices/unicorn to run the hardware release-QA automatically"
-            exit 0
-          fi
-          # to_pbz_run_id = this Build Firmware run (its qa-firmware-<board> artifact is the "to").
-          # coreapp_run_id omitted -> unicorn uses the most recently tagged coreapp release.
-          gh workflow run one-off-pebbleos-test.yml -R coredevices/unicorn \
-            -f to_pbz_run_id=${{ github.run_id }}
+          name: firmware-${{ matrix.board }}
+          path: merged
 
   build-firmware-status:
-    needs: [changes-firmware, build-firmware]
+    needs: [changes-firmware, build-firmware, merge-firmware]
     if: always()
     runs-on: ubuntu-24.04
     steps:
-      - if: needs.build-firmware.result == 'failure' || needs.build-firmware.result == 'cancelled'
+      - if: >-
+          needs.build-firmware.result == 'failure' ||
+          needs.build-firmware.result == 'cancelled' ||
+          needs.merge-firmware.result == 'failure' ||
+          needs.merge-firmware.result == 'cancelled'
         run: exit 1
