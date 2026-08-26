@@ -36,38 +36,7 @@ jobs:
       - name: Rebase onto target branch
         uses: ./.github/actions/rebase
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-
-      - name: Install ruff
-        run: pip install ruff
-
-      - name: Run ruff format check
-        run: |
-          base="origin/${GITHUB_BASE_REF}"
-
-          # collect submodule paths to skip
-          submodules=$(git config --file .gitmodules --get-regexp '\.path$' \
-            | awk '{print $2}')
-
-          files=()
-          for file in $(git diff --name-only --diff-filter=d "$base"...HEAD -- '*.py'); do
-            skip=false
-            for sm in $submodules; do
-              case "$file" in "$sm"/*) skip=true; break ;; esac
-            done
-            if $skip; then continue; fi
-            files+=("$file")
-          done
-
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No Python files changed."
-            exit 0
-          fi
-
-          ruff format --check "${files[@]}"
+      - uses: astral-sh/ruff-action@v4.1.0
 
   license:
     runs-on: ubuntu-24.04
