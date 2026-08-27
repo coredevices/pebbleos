@@ -4,6 +4,8 @@
 #include "pbl/services/notifications/notification_sounds.h"
 
 #include "pbl/services/i18n/i18n.h"
+#include "pbl/services/speaker/speaker_service.h"
+#include "pbl/services/speaker/track.h"
 
 #define NOTE(midi, wave, ms) \
   { .midi_note = (midi), .waveform = (wave), .duration_ms = (ms), .velocity = 0, .reserved = 0 }
@@ -38,10 +40,28 @@ static const SpeakerNote s_ascent[] = {
 
 #undef NOTE
 
+#include "notification_sounds_pcm.inc"
+
+// Bell — sampled strike played through the track player. The note pitches the
+// sample; at the sample's base note it plays unshifted.
+static const SpeakerSample s_bell_sample = {
+  .data = s_bell_pcm,
+  .num_bytes = sizeof(s_bell_pcm),
+  .format = SpeakerPcmFormat_16kHz_8bit,
+  .base_midi_note = 84,  // C6, the sample's own fundamental
+  .loop = false,
+};
+
+static const SpeakerNote s_bell_notes[] = {
+  // Waveform is ignored for sampled tracks; duration covers the full strike.
+  { .midi_note = 84, .waveform = 0, .duration_ms = 420, .velocity = 0, .reserved = 0 },
+};
+
 static const struct {
   const SpeakerNote *notes;
   uint32_t count;
   const char *name;
+  const SpeakerSample *sample;  // non-NULL: play via the track player
 } s_sounds[NotificationSound_Count] = {
   [NotificationSound_None]     = { NULL, 0, i18n_noop("Off") },
   [NotificationSound_Ping]     = { s_ping, sizeof(s_ping) / sizeof(s_ping[0]),
@@ -52,18 +72,30 @@ static const struct {
                                    i18n_noop("Trill") },
   [NotificationSound_Ascent]   = { s_ascent, sizeof(s_ascent) / sizeof(s_ascent[0]),
                                    i18n_noop("Ascent") },
+  [NotificationSound_Bell]     = { s_bell_notes, sizeof(s_bell_notes) / sizeof(s_bell_notes[0]),
+                                   i18n_noop("Bell"), &s_bell_sample },
 };
 
-_Static_assert(NotificationSound_Ascent + 1 == NotificationSound_Count,
+_Static_assert(NotificationSound_Bell + 1 == NotificationSound_Count,
                "notification_sounds table must cover every NotificationSound enum value");
 
-void notification_sounds_get(NotificationSound sound, const SpeakerNote **notes_out,
-                             uint32_t *count_out) {
-  if ((unsigned)sound >= NotificationSound_Count || sound == NotificationSound_None) {
+bool notification_sounds_play(NotificationSound sound, uint8_t volume) {
+  if (sound == NotificationSound_None) {
+    return false;
+  }
+  if ((unsigned)sound >= NotificationSound_Count) {
     sound = NotificationSound_Ping;
   }
-  *notes_out = s_sounds[sound].notes;
-  *count_out = s_sounds[sound].count;
+  if (s_sounds[sound].sample) {
+    const SpeakerTrack track = {
+      .notes = s_sounds[sound].notes,
+      .num_notes = s_sounds[sound].count,
+      .sample = s_sounds[sound].sample,
+    };
+    return speaker_service_play_tracks(&track, 1, SpeakerPriorityNotification, volume);
+  }
+  return speaker_service_play_note_seq(s_sounds[sound].notes, s_sounds[sound].count,
+                                       SpeakerPriorityNotification, volume);
 }
 
 const char *notification_sounds_get_name(NotificationSound sound) {

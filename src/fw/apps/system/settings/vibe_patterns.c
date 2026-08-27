@@ -215,11 +215,7 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       settings_menu_mark_dirty(SettingsMenuItemVibrations);
       if (sound != NotificationSound_None) {
         // Preview the newly selected sound
-        const SpeakerNote *notes;
-        uint32_t count;
-        notification_sounds_get(sound, &notes, &count);
-        speaker_service_play_note_seq(notes, count, SpeakerPriorityNotification,
-                                      NOTIFICATION_SOUND_PREVIEW_VOLUME);
+        notification_sounds_play(sound, NOTIFICATION_SOUND_PREVIEW_VOLUME);
       }
       return;
     }

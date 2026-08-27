@@ -39,7 +39,6 @@
 #include "pbl/services/notifications/alerts.h"
 #include "pbl/services/notifications/alerts_preferences.h"
 #include "pbl/services/notifications/notification_sounds.h"
-#include "pbl/services/speaker/speaker_service.h"
 #include "pbl/services/notifications/alerts_preferences_private.h"
 #include "pbl/services/notifications/alerts_private.h"
 #include "pbl/services/notifications/ancs/ancs_filtering.h"
@@ -1542,11 +1541,8 @@ static void prv_handle_notification_acted_upon(Uuid *id) {
 #define NOTIFICATION_SOUND_VOLUME 50
 
 static void prv_do_notification_sound(void) {
-  const SpeakerNote *notes;
-  uint32_t count;
-  notification_sounds_get(alerts_preferences_get_notification_sound(), &notes, &count);
-  if (speaker_service_play_note_seq(notes, count, SpeakerPriorityNotification,
-                                    NOTIFICATION_SOUND_VOLUME)) {
+  if (notification_sounds_play(alerts_preferences_get_notification_sound(),
+                               NOTIFICATION_SOUND_VOLUME)) {
     // Stamp the shared holdoff clock so sound-only setups (vibe disabled)
     // still get storm throttling. Callers evaluate both alert gates before
     // firing either, so this cannot suppress this notification's own vibe.

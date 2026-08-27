@@ -15,16 +15,16 @@ typedef enum NotificationSound {
   NotificationSound_Doorbell,
   NotificationSound_Trill,
   NotificationSound_Ascent,
+  NotificationSound_Bell,
   NotificationSound_Count,
 } NotificationSound;
 
-//! Look up the SpeakerNote sequence for a notification sound.
-//! @param sound The sound to look up. Must not be NotificationSound_None.
-//! @param notes_out Receives a pointer to the static note array.
-//! @param count_out Receives the number of notes in the array.
-//! Falls back to NotificationSound_Ping for out-of-range or None values.
-void notification_sounds_get(NotificationSound sound, const SpeakerNote **notes_out,
-                             uint32_t *count_out);
+//! Play a notification sound on the speaker at the given volume. Synthesized
+//! sounds go through the note-sequence source; sampled sounds (e.g. Bell)
+//! through the track player. Out-of-range values fall back to Ping;
+//! NotificationSound_None is a no-op.
+//! @return true if playback started.
+bool notification_sounds_play(NotificationSound sound, uint8_t volume);
 
 //! Get the i18n_noop()'d display name for a sound (including "Off" for None).
 //! Caller wraps with i18n_get() at display time.

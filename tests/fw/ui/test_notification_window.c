@@ -124,20 +124,11 @@ bool alerts_preferences_get_notification_vibe_delay(void) {
   return false;
 }
 
-#include "pbl/services/speaker/speaker_service.h"
-
 NotificationSound alerts_preferences_get_notification_sound(void) {
   return NotificationSound_None;
 }
 
-void notification_sounds_get(NotificationSound sound, const SpeakerNote **notes_out,
-                             uint32_t *count_out) {
-  *notes_out = NULL;
-  *count_out = 0;
-}
-
-bool speaker_service_play_note_seq(const SpeakerNote *notes, uint32_t num_notes,
-                                   SpeakerPriority pri, uint8_t vol) {
+bool notification_sounds_play(NotificationSound sound, uint8_t volume) {
   return false;
 }
 
