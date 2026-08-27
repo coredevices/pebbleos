@@ -1,9 +1,10 @@
-# Release QA on real hardware
+# `release-hw-android-obelix`
 
-PebbleOS release QA installs a shipping-style dual-slot firmware artifact on a real watch, pairs it
-with a real phone, upgrades through CoreApp's production sideload path, and then exercises the
-firmware over Pebble Protocol. The executable catalog lives in
-`qa/release/suites/android-obelix.json`; this page describes exactly what it covers and where each
+`release-hw-android-obelix` installs a shipping-style dual-slot firmware artifact on a real watch,
+pairs it with a real phone, upgrades through CoreApp's production sideload path, and then exercises
+the firmware over Pebble Protocol. The executable catalog lives in
+`qa/release/suites/android-obelix.json` (whose stable suite ID is
+`release-hw-android-obelix`); this page describes exactly what it covers and where each
 piece is maintained.
 
 ## Ownership
@@ -19,7 +20,7 @@ The catalog refers to phone behavior only by logical capability ID. This prevent
 from embedding CoreApp screen structure, while keeping the full end-to-end order visible beside the
 firmware it qualifies.
 
-## Android + obelix release suite
+## `release-hw-android-obelix` coverage
 
 Before the catalog runs, Unicorn erases the watch, installs the fixed debug PRF, clears phone and
 Bluetooth state, installs the selected CoreApp APK, onboards and pairs, discovers the default
@@ -48,10 +49,10 @@ An unmerged change is tested without copying definitions into Unicorn:
 
 1. Build the PebbleOS PR to get its merged dual-slot `firmware-obelix_pvt` artifact.
 2. Build the CoreApp PR to get its `app-release` APK.
-3. Manually dispatch PebbleOS `Release QA` from its integration branch with the Unicorn integration
-   ref, both run IDs, and the CoreApp source SHA. It resolves the PebbleOS SHA from the firmware run
-   and dispatches Unicorn through the same REST handoff used after merge. Unicorn checks out each
-   catalog at the exact SHA that produced its artifact.
+3. Manually dispatch PebbleOS `release-hw-android-obelix` from its integration branch with the
+   Unicorn integration ref, both run IDs, and the CoreApp source SHA. It resolves the PebbleOS SHA
+   from the firmware run and dispatches Unicorn through the same REST handoff used after merge.
+   Unicorn checks out each catalog at the exact SHA that produced its artifact.
 
 The recommended merge order is Unicorn executor first, CoreApp capabilities second, and PebbleOS
 catalog last. Older artifact commits without both catalogs continue through Unicorn's legacy flow

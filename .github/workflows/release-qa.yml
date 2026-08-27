@@ -1,4 +1,4 @@
-name: Release QA
+name: release-hw-android-obelix
 
 on:
   workflow_run:
@@ -22,14 +22,15 @@ on:
         required: false
         default: ""
 
-run-name: Release QA (${{ github.event.workflow_run.head_branch || format('run {0}', inputs.run_id) }})
+run-name: release-hw-android-obelix (${{ github.event.workflow_run.head_branch || format('run {0}', inputs.run_id) }})
 
 concurrency:
-  group: release-qa-${{ github.event.workflow_run.head_repository.full_name || 'manual' }}-${{ github.event.workflow_run.head_branch || inputs.run_id }}
+  group: release-hw-android-obelix-${{ github.event.workflow_run.head_repository.full_name || 'manual' }}-${{ github.event.workflow_run.head_branch || inputs.run_id }}
   cancel-in-progress: true
 
 jobs:
   dispatch-unicorn:
+    name: Dispatch release-hw-android-obelix
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
@@ -82,7 +83,7 @@ jobs:
             echo "FOUND=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Dispatch coredevices/unicorn one-off-pebbleos-test
+      - name: Dispatch release-hw-android-obelix to Unicorn
         if: steps.check.outputs.FOUND == 'true'
         env:
           GH_TOKEN: ${{ secrets.UNICORN_DISPATCH_TOKEN }}
@@ -100,6 +101,7 @@ jobs:
           # fine-grained dispatch token intentionally has Actions access but not Contents access,
           # so that preflight fails even though the REST workflow-dispatch permission is present.
           # Call the dispatch endpoint directly and pin every definition ref passed to Unicorn.
+          # one-off-pebbleos-test.yml is the compatibility API path for release-hw-android-obelix.
           gh api --method POST \
             "repos/coredevices/unicorn/actions/workflows/one-off-pebbleos-test.yml/dispatches" \
             -f ref="$UNICORN_REF" \

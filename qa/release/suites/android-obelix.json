@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "id": "pebbleos-release-a",
+  "id": "release-hw-android-obelix",
   "platform": "android",
   "board": "obelix_pvt",
-  "description": "Release firmware functional pass over Pebble Protocol on a real PT2 and Android phone.",
+  "description": "release-hw-android-obelix: firmware functional pass over Pebble Protocol on a real PT2 and Android phone.",
   "steps": [
     { "id": "watch-menus", "watch_flow": "watch/menus.yaml" },
     { "id": "health", "watch_flow": "watch/health.yaml" },
