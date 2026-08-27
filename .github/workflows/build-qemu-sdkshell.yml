@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
 
 jobs:
   changes-qemu-sdkshell:
@@ -55,6 +56,9 @@ jobs:
           fetch-depth: 0
           submodules: true
 
+      - name: Fetch tags
+        run: git fetch --tags --force
+
       - name: Rebase onto target branch
         uses: ./.github/actions/rebase
         with:
@@ -76,13 +80,18 @@ jobs:
       - name: Build
         run: ./waf build qemu_image_micro qemu_image_spi
 
+      - name: Copy artifacts
+        run: |
+          version=$(git describe)
+          mkdir artifacts
+          cp build/qemu_micro_flash.bin "artifacts/sdkshell_${{ matrix.board }}_${version}_micro_flash.bin"
+          cp build/qemu_spi_flash.bin "artifacts/sdkshell_${{ matrix.board }}_${version}_spi_flash.bin"
+
       - name: Store
         uses: actions/upload-artifact@v7
         with:
-          name: firmware-${{ matrix.board }}-qemu
-          path: |
-            build/qemu_micro_flash.bin
-            build/qemu_spi_flash.bin
+          name: firmware-${{ matrix.board }}-qemu-sdkshell
+          path: artifacts
 
   build-qemu-sdkshell-status:
     needs: [changes-qemu-sdkshell, build-qemu-sdkshell]
