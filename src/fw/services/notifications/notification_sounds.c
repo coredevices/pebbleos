@@ -42,19 +42,31 @@ static const SpeakerNote s_ascent[] = {
 
 #include "notification_sounds_pcm.inc"
 
-// Bell — sampled strike played through the track player. The note pitches the
-// sample; at the sample's base note it plays unshifted.
-static const SpeakerSample s_bell_sample = {
-  .data = s_bell_pcm,
-  .num_bytes = sizeof(s_bell_pcm),
+// Sampled sounds play through the track player. The note pitches the sample;
+// at the sample's base note it plays unshifted, and its duration covers the
+// full one-shot (waveform is ignored for sampled tracks).
+static const SpeakerSample s_glass_sample = {
+  .data = s_glass_pcm,
+  .num_bytes = sizeof(s_glass_pcm),
   .format = SpeakerPcmFormat_16kHz_8bit,
-  .base_midi_note = 84,  // C6, the sample's own fundamental
+  .base_midi_note = 95,  // B6, the sample's own fundamental
   .loop = false,
 };
 
-static const SpeakerNote s_bell_notes[] = {
-  // Waveform is ignored for sampled tracks; duration covers the full strike.
-  { .midi_note = 84, .waveform = 0, .duration_ms = 420, .velocity = 0, .reserved = 0 },
+static const SpeakerNote s_glass_notes[] = {
+  { .midi_note = 95, .waveform = 0, .duration_ms = 280, .velocity = 0, .reserved = 0 },
+};
+
+static const SpeakerSample s_pop_sample = {
+  .data = s_pop_pcm,
+  .num_bytes = sizeof(s_pop_pcm),
+  .format = SpeakerPcmFormat_16kHz_8bit,
+  .base_midi_note = 91,  // G6, the ding the chirp lands on
+  .loop = false,
+};
+
+static const SpeakerNote s_pop_notes[] = {
+  { .midi_note = 91, .waveform = 0, .duration_ms = 270, .velocity = 0, .reserved = 0 },
 };
 
 static const struct {
@@ -72,11 +84,13 @@ static const struct {
                                    i18n_noop("Trill") },
   [NotificationSound_Ascent]   = { s_ascent, sizeof(s_ascent) / sizeof(s_ascent[0]),
                                    i18n_noop("Ascent") },
-  [NotificationSound_Bell]     = { s_bell_notes, sizeof(s_bell_notes) / sizeof(s_bell_notes[0]),
-                                   i18n_noop("Bell"), &s_bell_sample },
+  [NotificationSound_Glass]    = { s_glass_notes, sizeof(s_glass_notes) / sizeof(s_glass_notes[0]),
+                                   i18n_noop("Glass"), &s_glass_sample },
+  [NotificationSound_Pop]      = { s_pop_notes, sizeof(s_pop_notes) / sizeof(s_pop_notes[0]),
+                                   i18n_noop("Pop"), &s_pop_sample },
 };
 
-_Static_assert(NotificationSound_Bell + 1 == NotificationSound_Count,
+_Static_assert(NotificationSound_Pop + 1 == NotificationSound_Count,
                "notification_sounds table must cover every NotificationSound enum value");
 
 bool notification_sounds_play(NotificationSound sound, uint8_t volume) {
