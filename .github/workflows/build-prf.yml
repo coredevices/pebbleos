@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
 
 jobs:
   changes-prf:
@@ -62,6 +63,9 @@ jobs:
           fetch-depth: 0
           submodules: true
 
+      - name: Fetch tags
+        run: git fetch --tags --force
+
       - name: Rebase onto target branch
         uses: ./.github/actions/rebase
         with:
@@ -89,6 +93,10 @@ jobs:
             OPTS="-DCONFIG_MFG=y -DCONFIG_LOG_HASHED=n"
           fi
 
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            OPTS="${OPTS} -DCONFIG_RELEASE=y"
+          fi
+
           ./waf configure --board '${{ matrix.board }}' --variant=prf $OPTS
 
       - name: Build
@@ -97,14 +105,32 @@ jobs:
       - name: Bundle
         run: ./waf bundle
 
+      - name: Copy artifacts
+        env:
+          BOARD: ${{ steps.artifact_board.outputs.NAME }}
+          MODE: ${{ matrix.mode }}
+        run: |
+          pbz=$(ls build/recovery_${BOARD}_*.pbz)
+          version=$(basename "$pbz" | sed -E "s/^recovery_${BOARD}_//; s/\.pbz$//")
+
+          mkdir artifacts
+          if [ "$MODE" = "mfg" ]; then
+            prefix="prf_mfg"
+          else
+            prefix="prf"
+            cp "$pbz" artifacts/
+            cp build/pebbleos_loghash_dict.json \
+              "artifacts/prf_${BOARD}_${version}_loghash_dict.json"
+          fi
+          cp build/pebbleos.hex "artifacts/${prefix}_${BOARD}_${version}.hex"
+          cp build/pebbleos.bin "artifacts/${prefix}_${BOARD}_${version}.bin"
+          cp build/pebbleos.elf "artifacts/${prefix}_${BOARD}_${version}.elf"
+
       - name: Store
         uses: actions/upload-artifact@v7
         with:
           name: prf-${{ steps.artifact_board.outputs.NAME }}-${{ matrix.mode }}
-          path: |
-            build/**/*.elf
-            build/**/*.pbz
-            build/pebbleos_loghash_dict.json
+          path: artifacts
 
       - name: Get Build ID
         id: build_id
