@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
 
 jobs:
   changes-firmware:
@@ -68,6 +69,9 @@ jobs:
           fetch-depth: 0
           submodules: true
 
+      - name: Fetch tags
+        run: git fetch --tags --force
+
       - name: Rebase onto target branch
         uses: ./.github/actions/rebase
         with:
@@ -109,14 +113,27 @@ jobs:
       - name: Bundle
         run: ./waf bundle
 
+      - name: Copy artifacts
+        env:
+          BOARD: ${{ steps.artifact_board.outputs.NAME }}
+          SLOT_SUFFIX: ${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}
+        run: |
+          pbz=$(ls build/normal_${BOARD}_*.pbz)
+          version=$(basename "$pbz" | sed -E "s/^normal_${BOARD}_//; s/(_slot[01])?\.pbz$//")
+
+          mkdir artifacts
+          cp "$pbz" artifacts/
+          cp build/pebbleos.hex "artifacts/firmware_${BOARD}_${version}${SLOT_SUFFIX}.hex"
+          cp build/pebbleos.bin "artifacts/firmware_${BOARD}_${version}${SLOT_SUFFIX}.bin"
+          cp build/pebbleos.elf "artifacts/firmware_${BOARD}_${version}${SLOT_SUFFIX}.elf"
+          cp build/pebbleos_loghash_dict.json \
+            "artifacts/firmware_${BOARD}_${version}${SLOT_SUFFIX}_loghash_dict.json"
+
       - name: Store
         uses: actions/upload-artifact@v7
         with:
           name: firmware-${{ steps.artifact_board.outputs.NAME }}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}
-          path: |
-            build/**/*.elf
-            build/**/*.pbz
-            build/pebbleos_loghash_dict.json
+          path: artifacts
 
       - name: Get Build ID
         id: build_id
@@ -173,7 +190,8 @@ jobs:
             --slot0-pbz "firmware-${BOARD}_slot0/normal_${BOARD}_${version}_slot0.pbz" \
             --slot1-pbz "firmware-${BOARD}_slot1/normal_${BOARD}_${version}_slot1.pbz" \
             --output "merged/normal_${BOARD}_${version}.pbz"
-          cp firmware-${BOARD}_slot0/pebbleos_loghash_dict.json merged/
+          cp "firmware-${BOARD}_slot0/firmware_${BOARD}_${version}_slot0_loghash_dict.json" \
+            "merged/firmware_${BOARD}_${version}_loghash_dict.json"
 
       - name: Store
         uses: actions/upload-artifact@v7
