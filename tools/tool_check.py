@@ -23,7 +23,7 @@ VERSION_PATTERN = re.compile(VERSION_REGEX)
 
 
 def tool_check():
-    Logs.pprint("CYAN", "Checking %s" % REQUIREMENTS)
+    Logs.pprint("CYAN", f"Checking {REQUIREMENTS}")
 
     with open(REQUIREMENTS) as file:
         req_list = text_to_req_list(file.read())
@@ -36,11 +36,11 @@ def tool_check():
 
     if sys.platform.startswith("darwin"):
         if not shutil.which("brew") and os.environ.get("IN_NIX_SHELL"):
-            Logs.pprint("CYAN", "Skipping %s (in nix shell)" % REQUIREMENTS_BREW)
+            Logs.pprint("CYAN", f"Skipping {REQUIREMENTS_BREW} (in nix shell)")
         elif not shutil.which("brew"):
             Logs.pprint("RED", "brew not found! Install Homebrew or use nix develop.")
         else:
-            Logs.pprint("CYAN", "Checking %s" % REQUIREMENTS_BREW)
+            Logs.pprint("CYAN", f"Checking {REQUIREMENTS_BREW}")
 
             with open(REQUIREMENTS_BREW) as file:
                 brew_req_text = file.read()
@@ -92,7 +92,7 @@ def text_to_req_list(req_list_text):
             # Muliple requirements
             match2 = VERSION_PATTERN.match(match.group("package").strip(","))
             if not match2:
-                Logs.pprint("RED", "Don't understand line '%s'" % raw_line)
+                Logs.pprint("RED", f"Don't understand line '{raw_line}'")
                 continue
             req_list.append(
                 (
@@ -124,7 +124,7 @@ def check_requirement(req, installed):
     if req[0] not in installed:
         if req[0] in BINARY_PACKAGES and shutil.which(req[0]):
             return
-        Logs.pprint("RED", "Package '%s' not installed" % req[0])
+        Logs.pprint("RED", f"Package '{req[0]}' not installed")
         return
 
     if not req[1]:
@@ -145,13 +145,12 @@ def check_requirement(req, installed):
     elif req[1] == ">":
         success = ver > version.parse(req[2])
     else:
-        Logs.pprint("RED", "Don't understand comparison '%s'" % req[1])
+        Logs.pprint("RED", f"Don't understand comparison '{req[1]}'")
 
     if not success:
         Logs.pprint(
             "RED",
-            "Package '%s' installed = %s, needed %s %s "
-            % (req[0], ver, req[1], req[2]),
+            f"Package '{req[0]}' installed = {ver}, needed {req[1]} {req[2]} ",
         )
 
 

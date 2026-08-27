@@ -23,7 +23,7 @@ try:
     import zopfli.zlib as _zopfli
 
     _HAVE_ZOPFLI = True
-except Exception:
+except ImportError:
     _HAVE_ZOPFLI = False
 
 _SIG = b"\x89PNG\r\n\x1a\n"
@@ -143,7 +143,7 @@ def optimize_png_bytes(data):
     """Return a smaller, pixel-identical PNG, or `data` unchanged on any doubt."""
     try:
         ch = _chunks(data)
-        ihdr = dict((t, p) for t, p in ch)[b"IHDR"]
+        ihdr = {t: p for t, p in ch}[b"IHDR"]
         w, h, bd, ct, comp, filt, inter = struct.unpack(">IIBBBBB", ihdr)
         # only single-channel indexed/gray, non-interlaced input (pblpng output)
         if inter != 0 or comp != 0 or filt != 0 or ct not in (0, 3) or bd > 8:
@@ -197,5 +197,5 @@ def optimize_png_bytes(data):
         if plte is not None and nplte != plte[: len(nplte)]:
             return data
         return out if len(out) < len(data) else data
-    except Exception:
+    except Exception:  # noqa: BLE001
         return data

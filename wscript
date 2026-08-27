@@ -161,7 +161,7 @@ def configure(conf):
 
     try:
         board = tools.waf.boards.parse_board(conf.srcnode.abspath(), conf.options.board)
-    except ValueError as e:
+    except (TypeError, ValueError) as e:
         conf.fatal(str(e))
 
     # Has to be 'tools.waf.gettext' as unadorned 'gettext' will find the gettext

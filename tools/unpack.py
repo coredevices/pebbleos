@@ -15,7 +15,8 @@ def main():
     args = parser.parse_args()
 
     if os.path.exists(args.pbpack):
-        resource_pack = ResourcePack().deserialize(open(args.pbpack, "rb"))
+        with open(args.pbpack, "rb") as pbpack_file:
+            resource_pack = ResourcePack().deserialize(pbpack_file)
         for idx, resource_data in enumerate(resource_pack.contents):
             with open(str(idx) + ".dat", "wb") as outfile:
                 outfile.write(resource_data)

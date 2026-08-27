@@ -58,7 +58,7 @@ class PromptResponse(
         result = cls.response_struct.unpack(response[: cls.response_struct.size])
 
         response_type = result[0]
-        timestamp = datetime.fromtimestamp(result[1] / 1000.0)
+        timestamp = datetime.fromtimestamp(result[1] / 1000.0).astimezone()
         message = response[cls.response_struct.size :]
 
         return cls(response_type, timestamp, message)

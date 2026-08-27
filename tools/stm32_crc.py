@@ -45,6 +45,7 @@ def crc32(data):
 
 if __name__ == "__main__":
     import sys
+    from pathlib import Path
 
     assert 0x89F3BAB2 == process_buffer(b"123 567 901 34")
     assert 0xAFF19057 == process_buffer(b"123456789")
@@ -57,8 +58,9 @@ if __name__ == "__main__":
     # arg2 == only crc first N bytes of file specified in arg 1
     if len(sys.argv) >= 2:
         if len(sys.argv) >= 3:
-            b = open(sys.argv[1], "rb").read(int(sys.argv[2]))
+            with open(sys.argv[1], "rb") as f:
+                b = f.read(int(sys.argv[2]))
         else:
-            b = open(sys.argv[1], "rb").read()
+            b = Path(sys.argv[1]).read_bytes()
         crc = crc32(b)
-        print("%u or 0x%x" % (crc, crc))
+        print(f"{crc:d} or 0x{crc:x}")

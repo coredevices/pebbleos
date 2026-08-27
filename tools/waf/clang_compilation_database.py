@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
@@ -39,8 +38,8 @@ def write_compilation_database(ctx):
         with open(file_path, "w") as f:
             f.write("[]")
 
-    Logs.info("Store compile comands in %s" % file_path)
-    clang_db = dict((x["file"], x) for x in json.load(database_file))
+    Logs.info(f"Store compile comands in {file_path}")
+    clang_db = {x["file"]: x for x in json.load(database_file)}
 
     for task in getattr(ctx, "clang_compilation_database_tasks", []):
         # we need only to generate last_cmd, so override

@@ -64,14 +64,14 @@ def scan_file_content_for_groups(content, groups):
                     group_comment = ""
             elif block_end_re.search(line) is not None:
                 if len(group_stack) == 0:
-                    raise Exception("Unbalanced groups!")
+                    raise RuntimeError("Unbalanced groups!")
 
                 group_stack.pop()
             elif in_group_description:
                 group_comment += line + "\n"
 
     if len(group_stack) != 0:
-        raise Exception("Unbalanced groups!")
+        raise RuntimeError("Unbalanced groups!")
 
 
 def scan_file_content_for_defines(content, defines):

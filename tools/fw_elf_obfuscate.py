@@ -418,13 +418,13 @@ class ELFFile(ELFObjectBase):
         for index, section in enumerate(self.sections):
             if section.name == name:
                 return index
-        raise Exception(f"Could not find section: {name}")
+        raise RuntimeError(f"Could not find section: {name}")
 
     def get_section(self, name):
         for section in self.sections:
             if section.name == name:
                 return section
-        raise Exception(f"Could not find section: {name}")
+        raise RuntimeError(f"Could not find section: {name}")
 
 
 def _get_preserved_symbols():

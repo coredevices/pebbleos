@@ -207,7 +207,7 @@ def dstrules_parse(tzfile):
                         elif modech == "w":  # Wall time
                             flag |= 8
                         else:
-                            raise Exception("hurf char")
+                            raise RuntimeError("hurf char")
 
                     if "last" in wday_stuff:  # Last wday of the month
                         # pick the last day of the month
@@ -312,7 +312,7 @@ def build_zoneinfo_list(tzfile):
                         match.group("offset"),
                     )
                     if not m:
-                        raise Exception(
+                        raise RuntimeError(
                             f"Unsupported offset {match.group('offset')} for region {region}"
                         )
 
@@ -431,18 +431,14 @@ def zoneinfo_to_bin(zoneinfo_list, dstrule_list, zonelink_list, output_bin):
         if dst_zone not in dstzone_dict:
             tz_abbr = tz_abbr.replace("*", "S")
         if len(tz_abbr) > 5:
-            raise Exception(f"Timezone abbreviation too long: {tz_abbr}")
+            raise RuntimeError(f"Timezone abbreviation too long: {tz_abbr}")
         output_bin.write(
             tz_abbr.ljust(5, "\0").encode("utf8")
         )  # 5-character region zero padded
 
         # dst table entry, 0 for NONE (ie. dash '-')
-        if dst_zone in dstzone_dict:
-            dstzone_index = dstzone_dict[dst_zone]
-        else:
-            dstzone_index = (
-                0  # Includes '-', 'SA', 'CR', ... that no longer support DST
-            )
+        # Default includes '-', 'SA', 'CR', ... that no longer support DST
+        dstzone_index = dstzone_dict.get(dst_zone, 0)
         output_bin.write(struct.pack("B", dstzone_index))
 
     # Each DST rule is serialised as 8 bytes (see TimezoneDSTRule). The reader in

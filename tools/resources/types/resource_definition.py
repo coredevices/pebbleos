@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+from resources.find_resource_filename import find_most_specific_filename
 from resources.types.resource_declaration import ResourceDeclaration
 
 
@@ -46,4 +47,4 @@ class ResourceDefinition(ResourceDeclaration):
         )
 
     def __repr__(self):
-        return "<ResourceDefinition %r>" % self.__dict__
+        return f"<ResourceDefinition {self.__dict__!r}>"

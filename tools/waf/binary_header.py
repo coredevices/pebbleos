@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import binascii
+import os
+import re
 
 import sparse_length_encoding
 from waflib import Errors, Node, Task, TaskGen, Utils
@@ -36,10 +38,10 @@ class binary_header(Task.Task):
             code = encoded_code
 
         output = ["#pragma once", "#include <stdint.h>"]
-        output += ["static const uint8_t %s[] = {" % array_name]
+        output += [f"static const uint8_t {array_name}[] = {{"]
         line = []
         for n, b in enumerate(code):
-            line += ["0x%.2x," % b]
+            line += [f"0x{b:02x},"]
             if n % 16 == 15:
                 output += ["".join(line)]
                 line = []
@@ -118,11 +120,11 @@ def process_binary_header(self):
     if isinstance(tgt, Node.Node):
         tgt = [tgt]
     if len(src) != len(tgt):
-        raise Errors.WafError("invalid number of source/target for %r" % self)
+        raise Errors.WafError(f"invalid number of source/target for {self!r}")
 
     for x, y in zip(src, tgt):
         if not x or not y:
-            raise Errors.WafError("null source or target for %r" % self)
+            raise Errors.WafError(f"null source or target for {self!r}")
         a, b = None, None
 
         if isinstance(x, str) and isinstance(y, str) and x == y:
@@ -142,14 +144,12 @@ def process_binary_header(self):
                 b = y
 
         if not a:
-            raise Errors.WafError("could not find %r for %r" % (x, self))
+            raise Errors.WafError(f"could not find {x!r} for {self!r}")
 
-        has_constraints = False
         tsk = self.create_task("binary_header", a, b)
         for k in ("after", "before", "ext_in", "ext_out"):
             val = getattr(self, k, None)
             if val:
-                has_constraints = True
                 setattr(tsk, k, val)
 
         tsk.before = [k for k in ("c", "cxx") if k in Task.classes]

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
+import io
 import threading
 import time
 
@@ -28,10 +29,10 @@ class SerialPortWrapper(threading.Thread):
         # if a logfile is specified log serial output.  If a file descriptor
         # is provided log to the descriptor but do not close the descriptor.
         if logfile is not None:
-            if isinstance(logfile, basestring):
-                self.debug_out = open(logfile, "wb")
+            if isinstance(logfile, str):
+                self.debug_out = open(logfile, "wb")  # noqa: SIM115
                 self._close_debug = True
-            elif isinstance(logfile, file):
+            elif isinstance(logfile, io.IOBase):
                 self.debug_out = logfile
                 self._close_debug = False
             else:

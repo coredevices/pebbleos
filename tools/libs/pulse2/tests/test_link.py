@@ -97,9 +97,9 @@ class TestInterface(unittest.TestCase):
         self.assertTrue(socket.closed)
 
     def test_opening_two_sockets_on_same_protocol_is_an_error(self):
-        socket1 = self.uut.connect(0xF0F1)
+        self.uut.connect(0xF0F1)
         with self.assertRaisesRegex(ValueError, "socket is already bound"):
-            socket2 = self.uut.connect(0xF0F1)
+            self.uut.connect(0xF0F1)
 
     def test_closing_socket_allows_another_to_be_opened(self):
         socket1 = self.uut.connect(0xF0F1)

@@ -23,13 +23,12 @@ def read_gif(obj):
 
 def convert_to_apng(gif):
     # Write data to temporary file
-    gif_file = tempfile.NamedTemporaryFile(delete=False)
-    gif_file.write(gif)
-    gif_file.close()
+    with tempfile.NamedTemporaryFile(delete=False) as gif_file:
+        gif_file.write(gif)
 
     # Map onto Pebble colors
-    mod_file = tempfile.NamedTemporaryFile(delete=False)
-    mod_file.close()
+    with tempfile.NamedTemporaryFile(delete=False) as mod_file:
+        pass
     p = subprocess.Popen(
         [
             "gifsicle",
@@ -45,7 +44,7 @@ def convert_to_apng(gif):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    out, err = p.communicate()
+    _out, err = p.communicate()
     # Deal with https://github.com/kohler/gifsicle/issues/28
     # Which still exists in some of the packages out there
     if p.returncode not in [0, 1]:
@@ -53,14 +52,14 @@ def convert_to_apng(gif):
         raise Gif2ApngError(p.returncode)
 
     # Convert to APNG
-    apng_file = tempfile.NamedTemporaryFile(delete=False)
-    apng_file.close()
+    with tempfile.NamedTemporaryFile(delete=False) as apng_file:
+        pass
     p = subprocess.Popen(
         [GIF2APNG_PATH, "-z0", mod_file.name, apng_file.name],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    out, err = p.communicate()
+    _out, err = p.communicate()
     if p.returncode != 0:
         print(err, file=sys.stderr)
         raise Gif2ApngError(p.returncode)

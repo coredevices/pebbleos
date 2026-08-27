@@ -138,7 +138,7 @@ def get_dehasher(loghash_dict_path):
             _dehasher = logdehash.LogDehash("", monitor_dict_file=False)
             with open(loghash_dict_path) as f:
                 _dehasher.load_log_strings_from_dict(json.load(f))
-        except Exception as e:
+        except (OSError, ValueError) as e:
             print(f"Warning: Failed to load dehash dictionary: {e}")
             _dehasher = None
     return _dehasher
@@ -146,9 +146,9 @@ def get_dehasher(loghash_dict_path):
 
 def format_log_message(log_msg, dehasher=None):
     try:
-        dt = datetime.fromtimestamp(log_msg["timestamp"])
+        dt = datetime.fromtimestamp(log_msg["timestamp"]).astimezone()
         ts = dt.strftime("%H:%M:%S.%f")[:-3]
-    except:
+    except (KeyError, OverflowError, OSError, ValueError):
         ts = f"0x{log_msg['timestamp']:08X}"
 
     level = {0: "A", 1: "E", 2: "W", 3: "I", 4: "D"}.get(log_msg["log_level"], "?")
@@ -202,7 +202,7 @@ def main():
     output_lines = [format_log_message(l, dehasher) for l in logs]
     output_text = "\n".join(output_lines)
 
-    current_ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    current_ts = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
     out_file = (
         args.output or os.path.splitext(args.file)[0] + f"_parsed_{current_ts}.txt"
     )

@@ -10,6 +10,8 @@ except ImportError:
     from unittest import mock
 
 
+from typing import ClassVar
+
 from pebble.pulse2 import exceptions, ppp
 
 from . import timer_helper
@@ -224,7 +226,7 @@ class TestControlProtocolRestartTimer(unittest.TestCase):
 
 
 class InstrumentedControlProtocol(ppp.ControlProtocol):
-    methods_to_mock = ["this_layer_up", "this_layer_down", "this_layer_started", "this_layer_finished", "send_packet", "start_restart_timer", "stop_restart_timer"]
+    methods_to_mock: ClassVar = ["this_layer_up", "this_layer_down", "this_layer_started", "this_layer_finished", "send_packet", "start_restart_timer", "stop_restart_timer"]
     attributes_to_mock = ("restart_timer",)
 
     def __init__(self):

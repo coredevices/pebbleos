@@ -31,8 +31,7 @@ def find_most_specific_filename(bld, env, root_node, general_filename):
         valid_tags = set(pebble_platforms[env.PLATFORM_NAME]["TAGS"])
     except KeyError:
         bld.fatal(
-            "Unrecognized platform %s. Did you mean to configure with --internal_sdk_build?"
-            % env.PLATFORM_NAME
+            f"Unrecognized platform {env.PLATFORM_NAME}. Did you mean to configure with --internal_sdk_build?"
         )
 
     for option in options:

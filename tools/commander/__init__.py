@@ -3,3 +3,9 @@
 
 from . import _commands
 from .commander import InteractivePebbleCommander, PebbleCommander
+
+__all__ = [
+    "InteractivePebbleCommander",
+    "PebbleCommander",
+    "_commands",
+]

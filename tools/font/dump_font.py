@@ -28,7 +28,7 @@ def dec_and_hex(i):
 def grouper(n, iterable, fillvalue=None):
     """grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"""
     args = [iter(iterable)] * n
-    return itertools.zip_longest(fillvalue=fillvalue, *args)
+    return itertools.zip_longest(*args, fillvalue=fillvalue)
 
 
 def get_glyph(features, tbl, offset_bytes):
@@ -63,7 +63,7 @@ def hasher(codepoint, table_size):
 def print_hash_table(hash_table):
     print("index\tcount\toffset")
     for idx, sz, off in hash_table:
-        print("%d\t%d\t%s" % (idx, sz, str(dec_and_hex(off))))
+        print(f"{idx:d}\t{sz:d}\t{dec_and_hex(off)!s}")
 
 
 def print_glyph(features, glyph_table, offset, raw, show_image):
@@ -142,7 +142,7 @@ def print_glyph(features, glyph_table, offset, raw, show_image):
     bitlist, height = glyph_bitmap_to_bitlist(g)
 
     if raw:
-        header_offset = offset + struct.calcsize(GLYPH_MD_STRUCT)
+        offset + struct.calcsize(GLYPH_MD_STRUCT)
         draw_glyph_raw(header, bitlist, g["width"], height)
     else:
         output = []
@@ -199,7 +199,7 @@ def main(pfo_path, show_hash_table, offset_table, glyph, all_glyphs, show_image,
         wildcard_cp,
         table_size,
         cp_bytes,
-        struct_size,
+        _struct_size,
         features,
     ) = struct.unpack(font_md_format[version], font[:font_md_size])
     if version == 3:
@@ -209,7 +209,7 @@ def main(pfo_path, show_hash_table, offset_table, glyph, all_glyphs, show_image,
         font_md_size = struct.calcsize(font_md_format[version])
         features = 0
     else:
-        raise Exception(f"Error: Unexpected font file version {version}")
+        raise RuntimeError(f"Error: Unexpected font file version {version}")
 
     # Build up the offset entry struct
     offset_table_format = "<"
@@ -250,7 +250,7 @@ def main(pfo_path, show_hash_table, offset_table, glyph, all_glyphs, show_image,
                 "font_header_size": font_md_size,
                 "features": features,
                 "features - offset size": 16 if (features & FEATURE_OFFSET_16) else 32,
-                "features - RLE4": True if (features & FEATURE_RLE4) else False,
+                "features - RLE4": bool(features & FEATURE_RLE4),
             }
         )
 

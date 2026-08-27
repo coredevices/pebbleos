@@ -53,12 +53,11 @@ def process_resource_definition(task_gen, resource_definition):
         source_node = task_gen.path.make_node(s)
         if source_node is None:
             task_gen.bld.fatal(
-                "Could not find resource at %s"
-                % task_gen.bld.path.find_node(s).abspath()
+                f"Could not find resource at {task_gen.bld.path.find_node(s).abspath()}"
             )
         sources.append(source_node)
 
-    output_name = "%s.%s.%s" % (
+    output_name = "{}.{}.{}".format(
         sources[0].relpath(),
         str(resource_definition.name),
         "reso",

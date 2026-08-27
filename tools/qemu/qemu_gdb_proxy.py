@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
@@ -26,6 +27,9 @@ import logging
 import select
 import socket
 import time
+from typing import ClassVar
+
+logger = logging.getLogger(__name__)
 
 CTRL_C_CHARACTER = b"\3"
 
@@ -51,7 +55,7 @@ class PebbleThread:
     """This class encapsulates the information about a thread on the Pebble"""
 
     # Mapping of register name to register index
-    reg_name_to_index = {
+    reg_name_to_index: ClassVar = {
         name: num
         for num, name in enumerate(
             ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "sp", "lr", "pc", "xpsr"]
@@ -60,7 +64,7 @@ class PebbleThread:
 
     # Offset of each register on the thread's stack
     # stack_offset -> register_index
-    stack_offset_to_reg_index_v2 = [  # Used in Snowy, Cortex-M4
+    stack_offset_to_reg_index_v2: ClassVar = [  # Used in Snowy, Cortex-M4
         (0x28, 0),  # r0
         (0x2C, 1),  # r1
         (0x30, 2),  # r2
@@ -80,7 +84,7 @@ class PebbleThread:
     ]
     thread_state_size_v2 = 0x48
 
-    stack_offset_to_reg_index_v3 = [  # CM33 with PSPLIM
+    stack_offset_to_reg_index_v3: ClassVar = [  # CM33 with PSPLIM
         (0x2C, 0),  # r0
         (0x30, 1),  # r1
         (0x34, 2),  # r2
@@ -100,7 +104,7 @@ class PebbleThread:
     ]
     thread_state_size_v3 = 0x4C
 
-    stack_offset_to_reg_index_v1 = [  # Used in Tintin, Cortex-M3
+    stack_offset_to_reg_index_v1: ClassVar = [  # Used in Tintin, Cortex-M3
         (0x24, 0),  # r0
         (0x28, 1),  # r1
         (0x2C, 2),  # r2
@@ -134,13 +138,7 @@ class PebbleThread:
         return self.registers[reg_index]
 
     def __repr__(self):
-        return "<Thread id:%d, ptr:0x%08X, running:%r, name:%s, registers:%r" % (
-            self.id,
-            self.ptr,
-            self.running,
-            self.name,
-            self.registers,
-        )
+        return f"<Thread id:{self.id:d}, ptr:0x{self.ptr:08X}, running:{self.running!r}, name:{self.name}, registers:{self.registers!r}"
 
 
 ##########################################################################################
@@ -217,10 +215,10 @@ class QemuGdbProxy:
             else:
                 read_list = [self.target_socket, self.client_accept_socket]
 
-            readable, writable, errored = select.select(read_list, [], [], timeout)
+            readable, _writable, _errored = select.select(read_list, [], [], timeout)
             # If nothing ready, we must have timed out
             if not readable:
-                logging.debug("read timeout")
+                logger.debug("read timeout")
                 break
 
             # Data available from target?
@@ -228,8 +226,8 @@ class QemuGdbProxy:
                 target_data = self.target_socket.recv(self.packet_size)
                 if not target_data:
                     raise QemuGdbError("target system disconnected")
-                logging.debug(
-                    "got target data: '%s' (0x%s) " % (target_data, target_data.hex())
+                logger.debug(
+                    f"got target data: '{target_data}' (0x{target_data.hex()}) "
                 )
 
             # Data available from client?
@@ -237,19 +235,18 @@ class QemuGdbProxy:
                 if self.client_conn_socket in readable:
                     client_data = self.client_conn_socket.recv(self.packet_size)
                     if not client_data:
-                        logging.info("client connection closed")
+                        logger.info("client connection closed")
                         self.client_conn_socket.close()
                         self.client_conn_socket = None
-                    logging.debug(
-                        "got client data: '%s' (0x%s) "
-                        % (client_data, client_data.hex())
+                    logger.debug(
+                        f"got client data: '{client_data}' (0x{client_data.hex()}) "
                     )
 
             # Connection request from client?
             else:
                 if self.client_accept_socket in readable:
                     self.client_conn_socket, _ = self.client_accept_socket.accept()
-                    logging.info("Connected to client")
+                    logger.info("Connected to client")
 
         return (target_data, client_data)
 
@@ -258,7 +255,7 @@ class QemuGdbProxy:
         checksum = sum(data) % 256
         packet = b"$%s#%02X" % (data, checksum)
 
-        logging.debug("--<<<<<<<<<<<< GDB packet: %s", packet)
+        logger.debug("--<<<<<<<<<<<< GDB packet: %s", packet)
         return packet
 
     ##########################################################################################
@@ -282,7 +279,7 @@ class QemuGdbProxy:
 
     ##########################################################################################
     def _target_read_memory(self, address, bytes):
-        request = self._create_packet("m %08X,%08X" % (address, bytes))
+        request = self._create_packet(f"m {address:08X},{bytes:08X}")
         self.target_socket.send(request)
 
         # read response
@@ -296,7 +293,7 @@ class QemuGdbProxy:
                 break
 
         _, data = data.split("$", 1)
-        logging.debug("Received target response: %s" % (data))
+        logger.debug(f"Received target response: {data}")
 
         resp = data.split("#", 1)[0]
         if resp.startswith("E "):
@@ -356,8 +353,7 @@ class QemuGdbProxy:
             thread_state_size = PebbleThread.thread_state_size_v3
         else:
             raise QemuGdbError(
-                "Unsupported uxFreeRTOSRegisterStackingVersion of %d"
-                % reg_stacking_version
+                f"Unsupported uxFreeRTOSRegisterStackingVersion of {reg_stacking_version:d}"
             )
 
         # Get total number of threads and current thread ID
@@ -432,7 +428,7 @@ class QemuGdbProxy:
                     registers=registers,
                 )
                 self.threads[thread_id] = thread
-                logging.debug("Got thread info: %r" % (thread))
+                logger.debug(f"Got thread info: {thread!r}")
 
                 # Another thread in this list?
                 prev_elem_ptr = elem_ptr
@@ -497,10 +493,10 @@ class QemuGdbProxy:
     def _handle_query_req(self, msg):
         msg = msg.split(b"#")[0]
         query = msg.split(b":")
-        logging.debug("GDB received query: %s", query)
+        logger.debug("GDB received query: %s", query)
 
         if query is None:
-            logging.error("GDB received query packet malformed")
+            logger.error("GDB received query packet malformed")
             return None
 
         elif query[0] == b"C":
@@ -516,7 +512,7 @@ class QemuGdbProxy:
             # For some strange reason, if the active thread is first, the first "i thread" gdb
             # command only displays that one thread, so reverse sort to put it at the end
             id_strs = (
-                "%016x" % id for id in sorted(list(self.threads.keys()), reverse=True)
+                f"{id:016x}" for id in sorted(self.threads.keys(), reverse=True)
             )
             return self._create_packet(b"m" + b",".join(id_strs))
 
@@ -529,11 +525,11 @@ class QemuGdbProxy:
 
             found_thread = self.threads.get(id, None)
             if found_thread is None:
-                resp = "<INVALID THREAD ID: %d>" % (id)
+                resp = f"<INVALID THREAD ID: {id:d}>"
             elif found_thread.running:
-                resp = "%s 0x%08X: Running" % (found_thread.name, found_thread.ptr)
+                resp = f"{found_thread.name} 0x{found_thread.ptr:08X}: Running"
             else:
-                resp = "%s 0x%08X" % (found_thread.name, found_thread.ptr)
+                resp = f"{found_thread.name} 0x{found_thread.ptr:08X}"
             return self._create_packet(resp.encode("hex"))
 
         elif b"Symbol" in query[0]:
@@ -541,12 +537,12 @@ class QemuGdbProxy:
                 sym_name = query[2].decode("hex")
                 if query[1] != b"":
                     sym_value = int(query[1], 16)
-                    logging.debug(
-                        "Setting value of symbol '%s' to 0x%08x" % (sym_name, sym_value)
+                    logger.debug(
+                        f"Setting value of symbol '{sym_name}' to 0x{sym_value:08x}"
                     )
                     self.symbol_dict[sym_name] = sym_value
                 else:
-                    logging.debug("Could not find value of symbol '%s'" % (sym_name))
+                    logger.debug(f"Could not find value of symbol '{sym_name}'")
                     self.symbol_dict[sym_name] = ""
 
             # Anymore we need to look up?
@@ -556,7 +552,7 @@ class QemuGdbProxy:
                     symbol = x
                     break
             if symbol is not None:
-                logging.debug("Asking gdb to lookup symbol %s" % (symbol))
+                logger.debug(f"Asking gdb to lookup symbol {symbol}")
                 return self._create_packet(b"qSymbol:%s" % (symbol.encode("hex")))
             else:
                 self.got_all_symbols = True
@@ -574,7 +570,7 @@ class QemuGdbProxy:
                 if None, proxy doesn't deal with the request directly
         """
 
-        logging.debug("-->>>>>>>>>>>> GDB req packet: %s", msg)
+        logger.debug("-->>>>>>>>>>>> GDB req packet: %s", msg)
 
         msg = msg.split(b"#")[0]
 
@@ -608,7 +604,7 @@ class QemuGdbProxy:
                 msg = msg[2:]
                 reg_num = int(msg, 16)
                 value = self._target_read_register(reg_num)
-                return self._create_packet("%08X" % (byte_swap_uint32(value)))
+                return self._create_packet(f"{byte_swap_uint32(value):08X}")
 
         elif msg[1] == b"P":
             # 'P <n>=<r>' : set value of register n to r
@@ -633,9 +629,8 @@ class QemuGdbProxy:
         """Run the proxy"""
 
         # Connect to the target system first
-        logging.info(
-            "Connecting to target system on %s:%s"
-            % (self.target_host, self.target_port)
+        logger.info(
+            f"Connecting to target system on {self.target_host}:{self.target_port}"
         )
 
         start_time = time.time()
@@ -652,12 +647,12 @@ class QemuGdbProxy:
 
         if not connected:
             raise QemuGdbError(
-                "Unable to connect to target system on %s:%s. Is the emulator"
-                " running?" % (self.target_host, self.target_port)
+                f"Unable to connect to target system on {self.target_host}:{self.target_port}. Is the emulator"
+                " running?"
             )
 
-        logging.info(
-            "Connected to target system on %s:%s" % (self.target_host, self.target_port)
+        logger.info(
+            f"Connected to target system on {self.target_host}:{self.target_port}"
         )
 
         # Open up our socket to accept connect requests from the client (gdb)
@@ -693,19 +688,19 @@ class QemuGdbProxy:
             # Process all complete packets we have received from the client
             while b"$" in data and b"#" in data:
                 data = data[data.index(b"$") :]
-                logging.debug("Processing remaining data: %s" % (data))
+                logger.debug(f"Processing remaining data: {data}")
                 end = data.index(b"#") + 3  # 2 bytes of checksum
                 packet = data[0:end]
                 data = data[end:]
 
                 # decode and prepare resp
-                logging.debug("Processing packet: %s" % (packet))
+                logger.debug(f"Processing packet: {packet}")
                 resp = self._handle_request(packet)
 
                 # If it's nothing we care about, pass to target and return the response back to
                 #  client
                 if resp is None:
-                    logging.debug("Sending request to target: %s" % (packet))
+                    logger.debug(f"Sending request to target: {packet}")
                     self.target_socket.send(packet)
 
                 # else, we generated our own response that needs to go to the client
@@ -718,9 +713,9 @@ class QemuGdbProxy:
                         self.client_conn_socket.send(target_data)
 
                     if client_data[0] != b"+":
-                        logging.debug("gdb client did not ack")
+                        logger.debug("gdb client did not ack")
                     else:
-                        logging.debug("gdb client acked")
+                        logger.debug("gdb client acked")
 
                     # Add to our accumulated content
                     data += client_data[1:]

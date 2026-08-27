@@ -6,7 +6,7 @@ import uuid
 try:
     import gdb
 except ImportError:
-    raise Exception(
+    raise RuntimeError(
         "This file is a GDB script.\n"
         "It is not intended to be run outside of GDB.\n"
         "Hint: to load a script in GDB, use `source this_file.py`"
@@ -46,7 +46,7 @@ class gpathInfoPrinter:
             point_val = array_val[i]
             if points_code:
                 points_code += ", "
-            points_code += "{ %i, %i }" % (point_val["x"], point_val["y"])
+            points_code += "{{ {:d}, {:d} }}".format(point_val["x"], point_val["y"])
         outer_code_fmt = "(GPathInfo) { .num_points = %i, .points = (GPoint[]) {%s} }"
         return outer_code_fmt % (num_points, points_code)
 
@@ -55,11 +55,11 @@ class UuidPrinter:
     """Print a UUID."""
 
     def __init__(self, val):
-        data = bytes(int(val["byte%d" % n]) for n in range(16))
+        data = bytes(int(val[f"byte{n:d}"]) for n in range(16))
         self.uuid = uuid.UUID(bytes=data)
 
     def to_string(self):
-        return "{%s}" % self.uuid
+        return f"{{{self.uuid}}}"
 
 
 pp = gdb.printing.RegexpCollectionPrettyPrinter("tintin")

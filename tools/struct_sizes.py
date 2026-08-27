@@ -11,13 +11,15 @@ from elftools.common.utils import preserve_stream_pos
 from elftools.dwarf.die import DIE
 from elftools.elf.elffile import ELFFile
 
+logger = logging.getLogger(__name__)
+
 
 def _extract_struct_sizes(die, struct_names_by_size):
     def add(name, size):
         if size not in struct_names_by_size:
             struct_names_by_size[size] = set()
         struct_names_by_size[size].add(name)
-        logging.debug(f"{name} => {size} Bytes")
+        logger.debug(f"{name} => {size} Bytes")
 
     # Handle typedef'd anonymous structs:
     if die.tag == "DW_TAG_typedef":
@@ -37,25 +39,27 @@ def _extract_struct_sizes(die, struct_names_by_size):
         return
 
     # Handle named structs:
-    if die.tag == "DW_TAG_structure_type":
-        if "DW_AT_name" in die.attributes and "DW_AT_byte_size" in die.attributes:
-            size = int(die.attributes["DW_AT_byte_size"].value)
-            name = die.attributes["DW_AT_name"].value
-            add(name, size)
+    if (
+        die.tag == "DW_TAG_structure_type"
+        and "DW_AT_name" in die.attributes
+        and "DW_AT_byte_size" in die.attributes
+    ):
+        size = int(die.attributes["DW_AT_byte_size"].value)
+        name = die.attributes["DW_AT_name"].value
+        add(name, size)
 
 
 def get_struct_names_by_size(elffile, print_progress=False):
     if not elffile.has_dwarf_info():
-        logging.error("File has no DWARF info")
+        logger.error("File has no DWARF info")
         return None
 
     dwarfinfo = elffile.get_dwarf_info()
-    struct_names_by_size = dict()
+    struct_names_by_size = {}
 
     for CU in dwarfinfo.iter_CUs():
-        logging.debug(
-            "Found a compile unit at offset %s, length %s"
-            % (CU.cu_offset, CU["unit_length"])
+        logger.debug(
+            "Found a compile unit at offset {}, length {}".format(CU.cu_offset, CU["unit_length"])
         )
         if print_progress:
             sys.stdout.write(".")
@@ -75,7 +79,7 @@ def get_struct_names_by_size(elffile, print_progress=False):
 
 
 def _process_elf(filename, verbose=False):
-    logging.info("Processing .elf file: %s" % filename)
+    logger.info(f"Processing .elf file: {filename}")
 
     with open(filename, "rb") as f:
         elffile = ELFFile(f)
@@ -83,7 +87,7 @@ def _process_elf(filename, verbose=False):
         print_progress = not (verbose)
         struct_names_by_size = get_struct_names_by_size(elffile, print_progress)
         for size in sorted(struct_names_by_size.keys(), reverse=True):
-            logging.info("%6u bytes: %s", size, " ".join(struct_names_by_size[size]))
+            logger.info("%6u bytes: %s", size, " ".join(struct_names_by_size[size]))
 
 
 if __name__ == "__main__":

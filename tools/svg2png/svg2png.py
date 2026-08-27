@@ -11,6 +11,8 @@ import sys
 
 from generate_pdcs import pdc_gen
 
+logger = logging.getLogger(__name__)
+
 
 def find_pdc2png():
     if os.path.exists(
@@ -33,7 +35,7 @@ def find_pdc2png():
         pdc2png = os.path.abspath("./pdc2png")
     else:
         pdc2png = None
-        logging.warning("Can't find pdc2png")
+        logger.warning("Can't find pdc2png")
 
     return pdc2png
 
@@ -45,7 +47,7 @@ def set_path_to_svg2pdc():
     elif os.path.exists(os.path.abspath("./generate_pdcs/pdc_gen.py")):
         sys.path.insert(0, os.path.abspath("."))
     else:
-        logging.warning("Can't find generate_pdcs/pdc_gen.py")
+        logger.warning("Can't find generate_pdcs/pdc_gen.py")
 
 
 def log_exception(filename, exc_type, exc_value, exc_traceback):
@@ -54,7 +56,7 @@ def log_exception(filename, exc_type, exc_value, exc_traceback):
     lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
     s = f"Exception while processing {filename}\n"
     s += "".join(lines)
-    logging.error(s)
+    logger.error(s)
 
 
 # process_svg_files finds all the SVGs in the root and converts them to individual PDCs and then converts them to PNGs.
@@ -79,7 +81,7 @@ def process_svg_files(path):
                 precise=True,
                 raise_error=True,
             )
-        except:
+        except Exception:  # noqa: BLE001
             exc_type, exc_value, exc_traceback = sys.exc_info()
             log_exception(f, exc_type, exc_value, exc_traceback)
 
@@ -95,7 +97,7 @@ def process_svg_files(path):
                 precise=True,
                 raise_error=True,
             )
-        except:
+        except Exception:  # noqa: BLE001
             exc_type, exc_value, exc_traceback = sys.exc_info()
             log_exception(f, exc_type, exc_value, exc_traceback)
 
@@ -119,16 +121,16 @@ def process_pdc_files(path):
             )
             stdout, stderr = p.communicate()
             if stdout:
-                logging.info(stdout)
+                logger.info(stdout)
             if stderr:
-                logging.error(stderr)
+                logger.error(stderr)
         except OSError:
-            logging.warning("Can't find pdc2png executable")
+            logger.warning("Can't find pdc2png executable")
 
         for f in pdc_files:
             os.remove(f)
     else:
-        print(logging.info("No .pdc files found in " + path))
+        print(logger.info("No .pdc files found in " + path))
 
 
 # If any files contain invalid points, the images are moved to the 'failed' subdirectory to highlight this for the
@@ -145,11 +147,11 @@ def copy_error_files_to_failed_subdir(path, error_files):
         png_base = ".".join(base.split(".")[:-1]) + ".png"
         png_error = os.path.join(dir_name, png_base)
         png_copy = os.path.join(fail_dir, png_base)
-        logging.debug(png_error + " => " + png_copy)
+        logger.debug(png_error + " => " + png_copy)
         try:
             shutil.copy(png_error, png_copy)
         except OSError:
-            logging.error(f"Failed to copy {f} to failed directory")
+            logger.error(f"Failed to copy {f} to failed directory")
 
 
 def main(path=None):
@@ -176,7 +178,7 @@ def main(path=None):
         process_pdc_files(path)
         copy_error_files_to_failed_subdir(path, error_files)
     else:
-        logging.warning("No path specified")
+        logger.warning("No path specified")
 
 
 if __name__ == "__main__":

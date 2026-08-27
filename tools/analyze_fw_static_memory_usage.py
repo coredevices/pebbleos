@@ -165,11 +165,11 @@ def print_groups(text_section, verbose):
 
     sorted_items = sorted(group_sizes.iteritems(), key=lambda x: -x[1].total_size)
     for group_name, group in sorted_items:
-        print("%-20s %u" % (group_name, group.total_size))
+        print(f"{group_name:<20} {group.total_size:d}")
         if verbose:
             sorted_files = sorted(group.files, key=lambda x: -x.size)
             for f in sorted_files:
-                print("  %6u %-20s" % (f.size, f.filename))
+                print(f"  {f.size:6d} {f.filename:<20}")
 
 
 if __name__ == "__main__":

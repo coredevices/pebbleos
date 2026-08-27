@@ -15,7 +15,7 @@ def find_clang_path(conf):
     paths = out.splitlines()
     for path in paths:
         # Make sure clang is at least version 3.3
-        out = conf.cmd_and_log("%s --version" % path)
+        out = conf.cmd_and_log(f"{path} --version")
         r = re.findall(r"clang version (\d+)\.(\d+)", out)
         if len(r):
             version_major = int(r[0][0])
@@ -157,22 +157,23 @@ def configure(conf):
         # compatibility with the future; at some point we should take this out
         c_warnings.append("-Wno-address-of-packed-member")
 
-        if not ("13", "0") <= conf.env.CC_VERSION <= ("14", "2", "1"):
-            # Verify the toolchain we're using is allowed. This is to prevent us from accidentally
-            # building and releasing firmwares that are built in ways we haven't tested.
-
-            if not conf.options.relax_toolchain_restrictions:
-                TOOLCHAIN_ERROR_MSG = """=== INVALID TOOLCHAIN ===
+        # Verify the toolchain we're using is allowed. This is to prevent us from
+        # accidentally building and releasing firmwares that are built in ways we
+        # haven't tested.
+        if not (
+            ("13", "0") <= conf.env.CC_VERSION <= ("14", "2", "1")
+        ) and not conf.options.relax_toolchain_restrictions:
+            TOOLCHAIN_ERROR_MSG = """=== INVALID TOOLCHAIN ===
 Either upgrade your toolchain using the process listed here:
     https://pebbletechnology.atlassian.net/wiki/display/DEV/Firmware+Toolchain
 Or re-configure with the --relax_toolchain_restrictions option. """
 
-                conf.fatal(
-                    "Invalid toolchain detected!\n"
-                    + repr(conf.env.CC_VERSION)
-                    + "\n"
-                    + TOOLCHAIN_ERROR_MSG
-                )
+            conf.fatal(
+                "Invalid toolchain detected!\n"
+                + repr(conf.env.CC_VERSION)
+                + "\n"
+                + TOOLCHAIN_ERROR_MSG
+            )
 
     conf.env.CFLAGS.append("-I" + conf.path.abspath() + "/src/fw/util/time")
 

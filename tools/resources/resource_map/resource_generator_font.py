@@ -3,6 +3,7 @@
 
 import os
 import re
+from pathlib import Path
 from threading import Lock
 
 from font.fontgen import MAX_GLYPHS, MAX_GLYPHS_EXTENDED, Font
@@ -72,9 +73,9 @@ class FontResourceGenerator(ResourceGenerator):
         if font_ext.lower() in (".ttf", ".otf", ".bdf"):
             font_data = cls.build_font_data(font_path, definition)
         elif font_ext.lower() == ".pbf":
-            font_data = open(font_path, "rb").read()
+            font_data = Path(font_path).read_bytes()
         else:
-            raise Exception(f"Unsupported font format: {font_ext}")
+            raise RuntimeError(f"Unsupported font format: {font_ext}")
 
         return ResourceObject(definition, font_data)
 

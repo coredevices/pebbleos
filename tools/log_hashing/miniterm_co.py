@@ -81,7 +81,7 @@ def socket_serial_read(self, size=1):
             continue
         except OSError as e:
             # connection fails -> terminate loop
-            raise SerialException("connection failed (%s)" % e)
+            raise SerialException(f"connection failed ({e})")
     return bytes(data)
 
 
@@ -100,7 +100,7 @@ def dehash_socket_read(self, size):
 
 
 def yes_no_to_bool(arg):
-    return True if arg == "yes" else False
+    return arg == "yes"
 
 
 # Process "arguments"
@@ -130,7 +130,7 @@ if arglist:
         elif key == "--core":
             arg_core = yes_no_to_bool(value)
         else:
-            raise Exception(
+            raise RuntimeError(
                 "Unknown console argument '{}'. Choices are ({})".format(
                     key, ["--justify", "--color", "--bold", "--dict", "--core"]
                 )
@@ -145,7 +145,7 @@ SocketSerial.read = dehash_socket_read
 
 # Make sure that the target is set
 if sys.argv[1] == "None":
-    raise Exception("No tty specified. Do you have a device attached?")
+    raise RuntimeError("No tty specified. Do you have a device attached?")
 
 # Fire it up as usual
 sys.argv.extend(["--filter", "colorize"])

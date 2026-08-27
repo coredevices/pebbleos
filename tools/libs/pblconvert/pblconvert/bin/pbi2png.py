@@ -2,6 +2,7 @@
 
 import sys
 from ctypes import *
+from typing import ClassVar
 
 from PIL import Image
 
@@ -16,7 +17,7 @@ format_dict = {
 
 # NOTE: If this changes, please update the GBitmapDump gdb command.
 class pbi_struct(Structure):
-    _fields_ = [
+    _fields_: ClassVar = [
         ("stride", c_uint16),
         ("info", c_uint16),
         ("bounds_x", c_uint16),
@@ -149,7 +150,7 @@ def main():
         print("Usage suggestion:")
         print("python " + sys.argv[0] + " <in_image.pbi> <out_image.png>")
         print("********************")
-        exit()
+        sys.exit()
 
     input_filename = sys.argv[1]
     output_filename = sys.argv[2]
@@ -159,9 +160,9 @@ def main():
     pixel_bytearray = bytearray()
     with open(input_filename, "rb") as afile:
         afile.readinto(pbi)
-        print("x:%d y:%d" % (pbi.bounds_x, pbi.bounds_y))
-        print("Width:%d Height:%d" % (pbi.bounds_w, pbi.bounds_h))
-        print("row stride:%d" % (pbi.stride))
+        print(f"x:{pbi.bounds_x:d} y:{pbi.bounds_y:d}")
+        print(f"Width:{pbi.bounds_w:d} Height:{pbi.bounds_h:d}")
+        print(f"row stride:{pbi.stride:d}")
         pixel_bytearray = bytearray(afile.read())
 
     png = pbi_to_png(pbi, pixel_bytearray)

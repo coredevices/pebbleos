@@ -64,18 +64,18 @@ def parse_args(args):
                 # avoid accidental overrides
                 for i in range(2, LIMIT_WHEN_AVOIDING_OVERRIDE):
                     split = os.path.splitext(outfile_path)
-                    avoiding_path = "%s_%d%s" % (split[0], i, split[1])
+                    avoiding_path = f"{split[0]}_{i:d}{split[1]}"
                     if not os.path.exists(avoiding_path):
                         outfile_path = avoiding_path
                         break
 
                 if outfile_path != avoiding_path:
                     raise OSError(
-                        "File %s and (%d similar alternatives) "
-                        "already exists" % (outfile_path, LIMIT_WHEN_AVOIDING_OVERRIDE)
+                        f"File {outfile_path} and ({LIMIT_WHEN_AVOIDING_OVERRIDE:d} similar alternatives) "
+                        "already exists"
                     )
 
-            parsed.outfile = open(outfile_path, "w")
+            parsed.outfile = open(outfile_path, "w")  # noqa: SIM115
 
     return parsed
 

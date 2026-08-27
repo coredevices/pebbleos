@@ -27,6 +27,6 @@ def factory_reset(cmdr, fast=False):
     else:
         fast = ""
 
-    ret = cmdr.send_prompt_command("factory reset%s" % fast)
+    ret = cmdr.send_prompt_command(f"factory reset{fast}")
     if ret:
         raise exceptions.PromptResponseError(ret)

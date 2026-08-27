@@ -210,7 +210,7 @@ def setup_pebble_c(task_gen):
                         and not d.startswith(".")
                     ]
                     platforms_str = ", ".join(available) if available else "none"
-                except:
+                except OSError:
                     platforms_str = "unknown"
 
                 raise WafError(
@@ -356,12 +356,11 @@ def _get_entry_point(ctx, js_type, waf_js_entry_point):
     :return: the JS entry point for the bundled JS file
     """
     fallback_entry_point = waf_js_entry_point
-    if not fallback_entry_point:
-        if js_type == "pkjs":
-            if ctx.path.find_node("src/pkjs/index.js"):
-                fallback_entry_point = "src/pkjs/index.js"
-            else:
-                fallback_entry_point = "src/js/app.js"
+    if not fallback_entry_point and js_type == "pkjs":
+        if ctx.path.find_node("src/pkjs/index.js"):
+            fallback_entry_point = "src/pkjs/index.js"
+        else:
+            fallback_entry_point = "src/js/app.js"
     project_info = ctx.env.PROJECT_INFO
 
     if not project_info.get("main"):

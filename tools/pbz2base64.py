@@ -7,6 +7,7 @@ import argparse
 import base64
 import json
 import os
+import sys
 import zipfile
 
 CHUNK_SIZE = (1024 * 3) / 4

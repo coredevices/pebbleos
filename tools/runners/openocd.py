@@ -99,12 +99,12 @@ class OpenOcdRunner(Runner):
             import telnetlib
 
             t = telnetlib.Telnet("", OPENOCD_TELNET_PORT)
-            print("Sending commands to OpenOCD daemon:\n%s\n..." % cmd)
+            print(f"Sending commands to OpenOCD daemon:\n{cmd}\n...")
             t.write(b"%s\n" % cmd.encode())
             for regex in expect:
                 idx, _match, _text = t.expect([regex.encode()], 40)
                 if enforce_expect and idx == -1:
-                    raise RunnerError("OpenOCD expectation '%s' unfulfilled" % regex)
+                    raise RunnerError(f"OpenOCD expectation '{regex}' unfulfilled")
             t.close()
             return
 
@@ -114,19 +114,14 @@ class OpenOcdRunner(Runner):
                 # out of debug in DHCSR, and then shut down the AP to get back
                 # down to baseline power.
                 cmd = (
-                    "%s ; mww 0xe000edfc 0x0; mww 0xe000edf0 0xa05f0000 ; "
-                    "nrf52.dap dpreg 4 0 ; shutdown" % cmd
+                    f"{cmd} ; mww 0xe000edfc 0x0; mww 0xe000edf0 0xa05f0000 ; "
+                    "nrf52.dap dpreg 4 0 ; shutdown"
                 )
             else:
-                cmd = "%s ; shutdown" % cmd
+                cmd = f"{cmd} ; shutdown"
 
         fail_handling = " || true " if ignore_fail else ""
-        shell_cmd = 'openocd -f %s -c "%s" 2>&1 | tee %s %s' % (
-            self._cfg_file,
-            cmd,
-            OPENOCD_LOG,
-            fail_handling,
-        )
+        shell_cmd = f'openocd -f {self._cfg_file} -c "{cmd}" 2>&1 | tee {OPENOCD_LOG} {fail_handling}'
         if self.cfg.dry_run:
             print("[dry-run] " + shell_cmd)
             return
@@ -140,5 +135,5 @@ class OpenOcdRunner(Runner):
             for regex in expect:
                 expect_match = re.search(regex, result[match_start:])
                 if not expect_match:
-                    raise RunnerError("OpenOCD expectation '%s' unfulfilled" % regex)
+                    raise RunnerError(f"OpenOCD expectation '{regex}' unfulfilled")
                 match_start = expect_match.end()

@@ -24,7 +24,7 @@ def create_root(s):
 
 
 def create_element(s):
-    return list(create_root(s))[0]
+    return next(iter(create_root(s)))
 
 
 class MyTestCase(unittest.TestCase):

@@ -46,8 +46,9 @@ def check_dict_log_strings(log_dict):
         file_line = ":".join(log_line[x] for x in ["file", "line", "msg"])
 
         # Make sure that 'level' is being generated correctly
-        if "level" in log_line:
-            if not log_line["level"].isdigit() or int(log_line["level"]) not in LOG_LEVELS:
+        if "level" in log_line and (
+            not log_line["level"].isdigit() or int(log_line["level"]) not in LOG_LEVELS
+        ):
                 output.append(
                     "'{}' PBL_LOG contains a non-constant LOG_LEVEL_ value '{}'".format(
                         file_line, log_line["level"]

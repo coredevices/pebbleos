@@ -5,12 +5,12 @@ from pdc import bounding_box_around_points
 NS_ANNOTATION = "http://www.pebble.com/2015/pdc"
 PREFIX_ANNOTATION = "pdc"
 
-TAG_HIGHLIGHT = "{%s}highlight" % NS_ANNOTATION
-TAG_ANNOTATION = "{%s}annotation" % NS_ANNOTATION
+TAG_HIGHLIGHT = f"{{{NS_ANNOTATION}}}highlight"
+TAG_ANNOTATION = f"{{{NS_ANNOTATION}}}annotation"
 
 
 def to_str(value):
-    return "%.2f" % float(value)
+    return f"{float(value):.2f}"
 
 
 class Annotation:

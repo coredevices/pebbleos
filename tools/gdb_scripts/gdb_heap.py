@@ -4,7 +4,7 @@
 try:
     import gdb
 except ImportError:
-    raise Exception(
+    raise RuntimeError(
         "This file is a GDB module.\n"
         "It is not intended to be run outside of GDB.\n"
         "Hint: to load a script in GDB, use `source this_file.py`"

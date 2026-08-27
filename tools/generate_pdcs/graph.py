@@ -38,9 +38,9 @@ def is_line_segment_in_path(path, vertex_1, vertex_2):
 
 
 class Graph:
-    def __init__(self, graph_dict={}):
+    def __init__(self, graph_dict=None):
         """initializes a graph object"""
-        self.__graph_dict = graph_dict
+        self.__graph_dict = graph_dict if graph_dict is not None else {}
 
     def get_vertices(self):
         """returns the vertices of a graph"""
@@ -98,7 +98,7 @@ class Graph:
             res += str(edge) + " "
         return res
 
-    def find_all_paths(self, start_vertex, end_vertex, path=[]):
+    def find_all_paths(self, start_vertex, end_vertex, path=None):
         """Recursive function that finds all paths from the start vertex to the end vertex.
         Starts from the start vertex and traverses through vertices until the end vertex is reached.
         If there are untraversed edges when the end vertex is reached, will continue traversing
@@ -108,7 +108,7 @@ class Graph:
         """
         graph = self.__graph_dict
         paths = []
-        path = path + [start_vertex]
+        path = (path or []) + [start_vertex]
         if start_vertex == end_vertex:
             # Check if additional traversals is possible
             neighbours = self.get_neighbours(end_vertex)
@@ -125,9 +125,7 @@ class Graph:
             return []
         for vertex in graph[start_vertex]:
             if not is_line_segment_in_path(path, vertex, start_vertex):
-                extended_paths = self.find_all_paths(vertex, end_vertex, path)
-                for p in extended_paths:
-                    paths.append(p)
+                paths.extend(self.find_all_paths(vertex, end_vertex, path))
         return paths
 
     def prettyprint(self):

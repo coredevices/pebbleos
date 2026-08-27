@@ -25,7 +25,7 @@ class FakeFileType:
             elif "w" in self._mode:
                 return sys.stdout
             else:
-                msg = _('argument "-" with mode %r') % self._mode
+                msg = f'argument "-" with mode {self._mode!r}'
                 raise ValueError(msg)
 
         return FakeFile(string)
@@ -33,10 +33,7 @@ class FakeFileType:
 
 class ParseArgsTests(unittest.TestCase):
     def fake_path_exists(self, path):
-        if path in self.files:
-            return True
-        else:
-            return False
+        return path in self.files
 
     def setUp(self):
         self.files = []

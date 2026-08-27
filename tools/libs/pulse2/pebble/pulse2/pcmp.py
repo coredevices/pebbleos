@@ -65,7 +65,7 @@ class PulseControlMessageProtocol:
     def __init__(self, transport, port):
         assert port == self.PORT
         self.logger = pulse2_logging.TaggedAdapter(
-            logger, {"tag": "PCMP(%s)" % (type(transport).__name__)}
+            logger, {"tag": f"PCMP({type(transport).__name__})"}
         )
         self.transport = transport
         self.closed = False

@@ -75,7 +75,7 @@ class FlashLogsCommand(PebbleCommand):
             # Save to file
             import datetime
 
-            filename = datetime.datetime.now().strftime(
+            filename = datetime.datetime.now().astimezone().strftime(
                 f"flash_logs_{board}_%Y-%m-%d_%H-%M-%S.bin"
             )
             filepath = os.path.abspath(filename)

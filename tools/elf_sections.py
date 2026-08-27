@@ -22,13 +22,12 @@ def _get_sections(elf, all_sections):
     headers = []
 
     for nsec, section in enumerate(elf.iter_sections()):
-        if not all_sections:
-            if (
-                section["sh_addr"] == 0
-                or section["sh_size"] == 0
-                or section.name in EXCLUDED_SECTIONS
-            ):
-                continue
+        if not all_sections and (
+            section["sh_addr"] == 0
+            or section["sh_size"] == 0
+            or section.name in EXCLUDED_SECTIONS
+        ):
+            continue
         headers.append((section.name, section["sh_addr"], section["sh_size"]))
 
     return headers
@@ -45,8 +44,7 @@ def _process_elf(filename, verbose=False, all_sections=False, bt=False):
             sections.append(BT_DIALOG_SECTION_END)
 
         print(
-            "%-20s   %10s   %7s   %16s\n"
-            % ("Section Name", "Start Addr", "Size", "Gap Before Section")
+            "{:<20}   {:>10}   {:>7}   {:>16}\n".format("Section Name", "Start Addr", "Size", "Gap Before Section")
         )
         previous_section_end_addr = None
         for s in sections:
@@ -58,17 +56,15 @@ def _process_elf(filename, verbose=False, all_sections=False, bt=False):
                 gap = s[1] - previous_section_end_addr - 1
 
             if gap == 0:
-                print("%-20s   0x%08X   0x%05X" % (s[0], s[1], s[2]))
+                print(f"{s[0]:<20}   0x{s[1]:08X}   0x{s[2]:05X}")
             elif gap > 0:
                 print(
-                    "%-20s   0x%08X   0x%05X             0x%06X"
-                    % (s[0], s[1], s[2], gap)
+                    f"{s[0]:<20}   0x{s[1]:08X}   0x{s[2]:05X}             0x{gap:06X}"
                 )
             elif gap < 0:
                 gap *= -1
                 print(
-                    "%-20s   0x%08X   0x%05X             0x%06X *** OVERLAP ***"
-                    % (s[0], s[1], s[2], gap)
+                    f"{s[0]:<20}   0x{s[1]:08X}   0x{s[2]:05X}             0x{gap:06X} *** OVERLAP ***"
                 )
 
             previous_section_end_addr = s[1] + s[2] - 1

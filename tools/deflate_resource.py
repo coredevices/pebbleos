@@ -22,6 +22,7 @@ import argparse
 import struct
 import sys
 import zlib
+from pathlib import Path
 
 
 def best_deflate(data: bytes) -> bytes:
@@ -46,7 +47,7 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    data = open(args.infile, "rb").read()
+    data = Path(args.infile).read_bytes()
     if args.pdc_payload:
         if data[:4] not in (b"PDCS", b"PDCI"):
             print(f"error: {args.infile} lacks a PDC magic", file=sys.stderr)
@@ -58,7 +59,7 @@ def main() -> int:
     assert zlib.decompress(stream, wbits=-15) == data, "round-trip mismatch"
 
     blob = struct.pack("<I", len(data)) + stream
-    open(args.outfile, "wb").write(blob)
+    Path(args.outfile).write_bytes(blob)
     print(
         f"{args.infile}: {len(data)} -> {len(blob)} bytes "
         f"({len(blob) * 100 // len(data)}%)"

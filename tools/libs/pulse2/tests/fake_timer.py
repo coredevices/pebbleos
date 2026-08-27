@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
+from typing import ClassVar
+
 # SPDX-License-Identifier: Apache-2.0
 
 
 class FakeTimer:
-    TIMERS = []
+    TIMERS: ClassVar = []
 
     def __init__(self, interval, function):
         self.interval = interval

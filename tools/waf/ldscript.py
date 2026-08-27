@@ -23,8 +23,7 @@ def linker_sources(self, location, *sources, sort_key="default"):
     Fragments are included sorted by (sort_key, registration order)."""
     if location not in LINKER_SNIPPET_LOCATIONS:
         raise Errors.WafError(
-            "unknown linker snippet location %r (must be one of %s)"
-            % (location, ", ".join(LINKER_SNIPPET_LOCATIONS))
+            "unknown linker snippet location {!r} (must be one of {})".format(location, ", ".join(LINKER_SNIPPET_LOCATIONS))
         )
     snippets = getattr(self, "linker_snippets", None)
     if snippets is None:
@@ -33,7 +32,7 @@ def linker_sources(self, location, *sources, sort_key="default"):
         node = self.path.find_node(src)
         if node is None:
             raise Errors.WafError(
-                "could not find linker fragment %r in %s" % (src, self.path)
+                f"could not find linker fragment {src!r} in {self.path}"
             )
         snippets.setdefault(location, []).append((sort_key, node))
 
@@ -48,8 +47,8 @@ def _write_linker_snippets(bld):
     fragment_nodes = []
     for location in LINKER_SNIPPET_LOCATIONS:
         entries = sorted(registered.get(location, []), key=lambda e: e[0])
-        content = "".join('#include "%s"\n' % node.abspath() for _, node in entries)
-        node = dirnode.make_node("snippets-%s.ld" % location)
+        content = "".join(f'#include "{node.abspath()}"\n' for _, node in entries)
+        node = dirnode.make_node(f"snippets-{location}.ld")
         if not node.exists() or node.read() != content:
             node.write(content)
         snippet_nodes.append(node)
@@ -82,7 +81,7 @@ def process_ldscript(self):
         else:
             return node_or_path_str
 
-    if isinstance(self.ldscript, str) or isinstance(self.ldscript, list):
+    if isinstance(self.ldscript, (str, list)):
         ldscripts = Utils.to_list(self.ldscript)
     else:  # Assume Nod3
         ldscripts = [self.ldscript]
@@ -103,7 +102,7 @@ def process_ldscript(self):
 
     for node in nodes:
         if not node:
-            raise Errors.WafError("could not find %r" % self.ldscript)
+            raise Errors.WafError(f"could not find {self.ldscript!r}")
 
         if self.env.AUTOCONF_H:
             preprocessed = node.parent.find_or_declare(node.name + ".pre")
@@ -113,5 +112,5 @@ def process_ldscript(self):
             tsk.dep_nodes.extend(dep_nodes)
             node = preprocessed
 
-        self.link_task.env.append_value("LINKFLAGS", "-T%s" % node.abspath())
+        self.link_task.env.append_value("LINKFLAGS", f"-T{node.abspath()}")
         self.link_task.dep_nodes.append(node)

@@ -56,7 +56,7 @@ class CoredumpCommand(PebbleCommand):
 
     @classmethod
     def _generate_filename(cls):
-        return datetime.datetime.now().strftime(
+        return datetime.datetime.now().astimezone().strftime(
             "pebble_coredump_%Y-%m-%d_%H-%M-%S.core"
         )
 

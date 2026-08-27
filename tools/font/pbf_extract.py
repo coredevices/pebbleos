@@ -15,6 +15,7 @@ import array
 import json
 import os
 import struct
+import sys
 
 from PIL import Image
 
@@ -66,7 +67,7 @@ def extract_pbf(pbf_path, output_dir):
         wildcard_cp,
         table_size,
         cp_bytes,
-        struct_size,
+        _struct_size,
         features,
     ) = header
 
@@ -231,4 +232,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

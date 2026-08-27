@@ -83,6 +83,6 @@ def gettext(self, *args, **kwargs):
 
 
 @Configure.conf
-def msgcat(self, *args, **kwargs):
+def msgcat(self, *args, **kwargs):  # noqa: F811
     kwargs["features"] = "msgcat"
     return self(*args, **kwargs)

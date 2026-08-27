@@ -110,7 +110,7 @@ def generate_resources(bld, resource_source_path):
                 # their own resource ids, so we need two entries in our definitions list.
                 for suffix in ("WHITE", "BLACK"):
                     new_definition = copy.deepcopy(d)
-                    new_definition.name = "%s_%s" % (d.name, suffix)
+                    new_definition.name = f"{d.name}_{suffix}"
                     resource_definitions.append(new_definition)
 
                 continue
@@ -174,9 +174,11 @@ def generate_resources(bld, resource_source_path):
 
         for lib_resource in bld.env.LIB_RESOURCES_JSON.get(lib["name"], []):
             # Skip resources that specify targetPlatforms other than this one
-            if "targetPlatforms" in lib_resource:
-                if bld.env.PLATFORM_NAME not in lib_resource["targetPlatforms"]:
-                    continue
+            if (
+                "targetPlatforms" in lib_resource
+                and bld.env.PLATFORM_NAME not in lib_resource["targetPlatforms"]
+            ):
+                continue
 
             reso_file = "{}.{}.reso".format(lib_resource["file"], lib_resource["name"])
             resource_node = resources_path.find_node(reso_file)
@@ -212,9 +214,8 @@ def generate_resources(bld, resource_source_path):
         project_resource_ball = bld_dir.make_node("project_resources.resball")
         bld.env.PROJECT_RESBALL = project_resource_ball
 
-    if published_media_json:
-        # Only create TLUT for non-packages
-        if build_type != "lib":
+    # Only create TLUT for non-packages
+    if published_media_json and build_type != "lib":
             timeline_resource_table = bld_dir.make_node("timeline_resource_table.reso")
             resources_list.append(timeline_resource_table)
             _preprocess_resource_ids(bld, resources_list, True)

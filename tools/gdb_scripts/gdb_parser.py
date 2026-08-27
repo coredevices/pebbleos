@@ -4,7 +4,7 @@
 try:
     import gdb
 except ImportError:
-    raise Exception(
+    raise RuntimeError(
         "This file is a GDB module.\n"
         "It is not intended to be run outside of GDB.\n"
         "Hint: to load a script in GDB, use `source this_file.py`"
@@ -59,7 +59,7 @@ def parse_heap(heap, recognizer_subset=None):
                 )
                 if _f
             ]
-        except:
+        except Exception:  # noqa: BLE001
             print(name + " hit an exception. Skipping")
 
     for dependency in hidden:
@@ -191,7 +191,7 @@ class PebbleMutex(Recognizer):
             return (not mutex.locked()) == (pebble_mutex["lr"] == 0) and (
                 0 <= mutex.num_waiters() <= 10
             )
-        except:
+        except Exception:  # noqa: BLE001
             return False
 
 
@@ -210,7 +210,7 @@ class Queue(Recognizer):
     def is_type(self, data, search_blocks):
         queue_type = gdb.lookup_type("Queue_t")
         queue = data.cast(queue_type.pointer())
-        queue_size = int(queue_type.sizeof)
+        int(queue_type.sizeof)
 
         storage_size = queue["uxLength"] * queue["uxItemSize"]
         correct_head = queue["pcHead"] >= data
@@ -303,7 +303,7 @@ class SettingsFile(Recognizer):
     def is_type(self, settings, search_blocks):
         try:
             timestamp = int(settings["last_modified"])
-            date = datetime.datetime.fromtimestamp(timestamp)
+            date = datetime.datetime.fromtimestamp(timestamp).astimezone()
         except ValueError:
             return False
 
@@ -382,12 +382,12 @@ class CommSession(Recognizer):
         try:
             var_ref = get_static_variable(var_name)
             return gdb.parse_and_eval(var_ref).address
-        except:
+        except Exception:  # noqa: BLE001
             return None
 
     def is_type(self, session, search_blocks):
         meta = TintinMetadata()
-        hw_platform = meta.hw_platform()
+        meta.hw_platform()
 
         transport_imp = session["transport_imp"].dereference().address
 

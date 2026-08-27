@@ -3,3 +3,8 @@
 
 from . import _commands
 from .commander import PebbleCommander
+
+__all__ = [
+    "PebbleCommander",
+    "_commands",
+]

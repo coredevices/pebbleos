@@ -54,7 +54,7 @@ class PebblePackage:
             rmtree(package_path)
         except OSError as e:
             if e.errno != errno.ENOENT:
-                raise e
+                raise
         with zipfile.ZipFile(self.package_filename, "r") as zip_file:
             zip_file.extractall(package_path)
 

@@ -4,7 +4,6 @@
 
 
 import base64
-import sys
 import zlib
 
 
@@ -12,14 +11,10 @@ def compress_file(filename):
     with open(filename) as f:
         contents = f.read()
 
-    if sys.version_info >= (3, 0):
-        bin = zlib.compress(bytes(contents, "utf-8"))
-        return (
-            ('"%s" : r"""' % filename) + base64.b64encode(bin).decode("utf-8") + '"""'
-        )
-    else:
-        bin = zlib.compress(contents)
-        return ('"%s" : r"""' % filename) + base64.b64encode(bin) + '"""'
+    bin = zlib.compress(bytes(contents, "utf-8"))
+    return (
+        (f'"{filename}" : r"""') + base64.b64encode(bin).decode("utf-8") + '"""'
+    )
 
 
 def decompress_file(content):

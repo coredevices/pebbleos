@@ -97,24 +97,25 @@ def hash_line(line, file_name, line_num, force_hash=False):
     hash_dict = {}
 
     # Only match lines that contain one of the following substrings
-    if force_hash or any(x in line for x in LINES_TO_HASH):
-        if force_hash or not any(x in line for x in ["PBL_CROAK_OOM"]):
-            match = STR_LITERAL_PATTERN.search(line)
+    if (force_hash or any(x in line for x in LINES_TO_HASH)) and (
+        force_hash or not any(x in line for x in ["PBL_CROAK_OOM"])
+    ):
+        match = STR_LITERAL_PATTERN.search(line)
 
-            if match:
-                # Strip all double quotes from the string
-                str_literal = re.sub('"', "", match.group(2))
+        if match:
+            # Strip all double quotes from the string
+            str_literal = re.sub('"', "", match.group(2))
 
-                str_literal = inttype_conversion(str_literal)
+            str_literal = inttype_conversion(str_literal)
 
-                # Hash the file name and line number in as well
-                line_to_hash = f"{os.path.basename(file_name)}:{line_num}:{str_literal}"
+            # Hash the file name and line number in as well
+            line_to_hash = f"{os.path.basename(file_name)}:{line_num}:{str_literal}"
 
-                hashed_msg = hash_string(line_to_hash)
+            hashed_msg = hash_string(line_to_hash)
 
-                hash_dict[hashed_msg] = line_to_hash
+            hash_dict[hashed_msg] = line_to_hash
 
-                line = f"{match.group(1)}{hashed_msg}{match.group(3)}\n"
+            line = f"{match.group(1)}{hashed_msg}{match.group(3)}\n"
 
     return (line, hash_dict)
 
@@ -181,7 +182,7 @@ def create_lookup_function(lookup_dict, output_file_name):
 
     index = 1
 
-    format_map = [[x, string_formats(lookup_dict[x])] for x in lookup_dict.keys()]
+    format_map = [[x, string_formats(lookup_dict[x])] for x in lookup_dict]
 
     for line, formats in format_map:
         # Only make an entry if there's a format string!

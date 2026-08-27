@@ -38,6 +38,6 @@ static const ResourceVersion SYSTEM_RESOURCE_VERSION = {{
 @TaskGen.feature("generate_version_header")
 @TaskGen.before_method("process_source", "process_rule")
 def process_generate_version_header(self):
-    task = self.create_task(
+    self.create_task(
         "generate_version_header", self.pbpack, self.version_header_target
     )

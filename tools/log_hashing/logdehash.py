@@ -176,10 +176,9 @@ class LogDehash:
             output.append(f"[{timestamp}]")
         elif "support" not in line_dict:
             # Use the current time if one isn't provided by the system
-            now = datetime.now()
+            now = datetime.now().astimezone()
             output.append(
-                "[%02d:%02d:%02d.%03d]"
-                % (now.hour, now.minute, now.second, now.microsecond / 1000)
+                f"[{now.hour:02d}:{now.minute:02d}:{now.second:02d}.{now.microsecond / 1000:03d}]"
             )
 
         if "support" not in line_dict and line_dict.get("re_level"):
@@ -220,9 +219,8 @@ class LogDehash:
             color = line_dict["color"]
             if color in COLOR_DICT:
                 output.append(COLOR_DICT[color])
-        if "level" in line_dict:
-            if int(line_dict["level"]) <= self.arg_bold:
-                output.append(BOLD)
+        if "level" in line_dict and int(line_dict["level"]) <= self.arg_bold:
+            output.append(BOLD)
         output.append(CLEAR_LINE)
         output.append(self.basic_format_line(line_dict))
         output.append("\n")
@@ -236,9 +234,8 @@ class LogDehash:
             color = line_dict["color"]
             if color in COLOR_DICT:
                 output.append(COLOR_DICT[color])
-        if "level" in line_dict:
-            if int(line_dict["level"]) <= self.arg_bold:
-                output.append(BOLD)
+        if "level" in line_dict and int(line_dict["level"]) <= self.arg_bold:
+            output.append(BOLD)
         output.append(self.basic_format_line(line_dict))
         output.append(COLOR_BOLD_RESET)
 

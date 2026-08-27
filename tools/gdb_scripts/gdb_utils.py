@@ -4,7 +4,7 @@
 try:
     import gdb
 except ImportError:
-    raise Exception(
+    raise RuntimeError(
         "This file is a GDB script.\n"
         "It is not intended to be run outside of GDB.\n"
         "Hint: to load a script in GDB, use `source this_file.py`"
@@ -43,7 +43,7 @@ def addr2line(addr_value):
     filename = None
     line = None
     if s and s.symtab:
-        filename = s.symtab.filename.lstrip("../")
+        filename = re.sub(r"^[./]+", "", s.symtab.filename)
         line = s.line
     if not filename:
         filename = "?"
@@ -82,7 +82,7 @@ class Address(int):
         return super().__new__(cls, *args, **kwargs)
 
     def __repr__(self):
-        return "0x%08x" % self
+        return f"0x{self:08x}"
 
     def __str__(self):
         return self.__repr__()
@@ -125,7 +125,7 @@ class ActionBreakpoint(gdb.Breakpoint):
         self, action_callable, symbol_name=None, addr=None, auto_continue=True
     ):
         if addr and symbol_name:
-            raise Exception(
+            raise RuntimeError(
                 "Can't use arguments `symbol_name` and `addr` simultaneously!"
             )
         if addr:
@@ -166,9 +166,9 @@ class MonkeyPatch(ActionBreakpoint):
 
     def handle_break(self):
         return_value_str = self.action_callable(self)
-        gdb.write("Hit monkey patch %s, returning `%s`" % (self, return_value_str))
+        gdb.write(f"Hit monkey patch {self}, returning `{return_value_str}`")
         if return_value_str:
-            gdb.execute("return (%s)" % return_value_str)
+            gdb.execute(f"return ({return_value_str})")
         else:
             gdb.execute("return")
         gdb.execute("continue")

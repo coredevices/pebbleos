@@ -32,7 +32,7 @@ class LogMessage(
 
         log_level = result[2]
         task = result[3]
-        timestamp = datetime.fromtimestamp(result[4] / 1000.0)
+        timestamp = datetime.fromtimestamp(result[4] / 1000.0).astimezone()
         file_name = result[1].split("\x00", 1)[0]  # NUL terminated
         line_number = result[5]
 

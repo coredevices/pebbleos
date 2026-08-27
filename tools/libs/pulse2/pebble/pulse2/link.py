@@ -4,6 +4,7 @@
 
 import logging
 import threading
+from typing import ClassVar
 
 import serial
 
@@ -13,9 +14,9 @@ from . import logging as pulse2_logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-DBGSERIAL_PORT_SETTINGS = dict(
-    baudrate=1000000, timeout=0.1, interCharTimeout=0.0001, rtscts=False
-)
+DBGSERIAL_PORT_SETTINGS = {
+    "baudrate": 1000000, "timeout": 0.1, "interCharTimeout": 0.0001, "rtscts": False
+}
 
 
 class Interface:
@@ -87,7 +88,7 @@ class Interface:
         of a specific protocol number.
         """
         if protocol in self.sockets and not self.sockets[protocol].closed:
-            raise ValueError("A socket is already bound to protocol 0x%04x" % protocol)
+            raise ValueError(f"A socket is already bound to protocol 0x{protocol:04x}")
         self.sockets[protocol] = socket = InterfaceSocket(self, protocol)
         return socket
 
@@ -251,7 +252,7 @@ class InterfaceSocket:
 class Link:
     """The connectionful portion of a PULSE2 interface."""
 
-    TRANSPORTS = {}
+    TRANSPORTS: ClassVar = {}
 
     on_close = None
 
@@ -260,8 +261,8 @@ class Link:
         """Register a PULSE transport."""
         if name in cls.TRANSPORTS:
             raise ValueError(
-                "transport name %r is already registered "
-                "with %r" % (name, cls.TRANSPORTS[name])
+                f"transport name {name!r} is already registered "
+                f"with {cls.TRANSPORTS[name]!r}"
             )
         cls.TRANSPORTS[name] = factory
 
@@ -280,12 +281,12 @@ class Link:
         if self.closed:
             raise ValueError("Cannot open socket on closed Link")
         if transport not in self.transports:
-            raise KeyError("Unknown transport %r" % transport)
+            raise KeyError(f"Unknown transport {transport!r}")
         return self.transports[transport].open_socket(port, timeout)
 
     def down(self):
         self.closed = True
         if self.on_close:
             self.on_close()
-        for _, transport in self.transports.items():
+        for transport in self.transports.values():
             transport.down()

@@ -47,10 +47,10 @@ def indent(elem, level=0):
             elem.text = i + "  "
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
-        for elem in elem:
-            indent(elem, level + 1)
-        if not elem.tail or not elem.tail.strip():
-            elem.tail = i
+        for child in elem:
+            indent(child, level + 1)
+        if not child.tail or not child.tail.strip():
+            child.tail = i
     else:
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
@@ -123,14 +123,14 @@ class PDCSurface(cairosvg.surface.PNGSurface):
 
         # register PDC namespace and add temporary fake attribute to propagate prefix
         etree.register_namespace(PREFIX_ANNOTATION, NS_ANNOTATION)
-        ns_fake_attr = "{%s}foo" % NS_ANNOTATION
+        ns_fake_attr = f"{{{NS_ANNOTATION}}}foo"
         tree.node.set(ns_fake_attr, "bar")
 
         # remove all PDC elements (annotations in case we're processing an annotated SVG)
         def remove_pdc_elements(elem):
             for child in elem:
                 if isinstance(child.tag, str) and child.tag.startswith(
-                    "{%s}" % NS_ANNOTATION
+                    f"{{{NS_ANNOTATION}}}"
                 ):
                     elem.remove(child)
                 else:
@@ -192,7 +192,7 @@ class PDCSurface(cairosvg.surface.PNGSurface):
     def element_tree(self):
         indent(self.svg_tree.node)
         # ensure that viewbox is always set
-        view_box = self.svg_tree.node.get("viewBox", "0 0 %d %d" % self.size())
+        view_box = self.svg_tree.node.get("viewBox", "0 0 {} {}".format(*self.size()))
         self.svg_tree.node.set("viewBox", view_box)
 
         return etree.ElementTree(self.svg_tree.node)
@@ -393,10 +393,8 @@ class PathSurfaceContext(cairo.Context):
         box = bounding_box_around_points(points)
 
         if self.approximate_bezier:
-            description = "Curved command(s) were approximated."
             self.points.extend(points[1:])
         else:
-            description = "Element contains unsupported curved command(s)."
             self.add_current_point()
 
         link = "https://pebbletechnology.atlassian.net/wiki/display/DEV/Pebble+Draw+Commands#PebbleDrawCommands-issue-bezier"

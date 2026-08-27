@@ -26,13 +26,12 @@ class EraseCommand:
 
     def parse_response(self, response):
         if ord(response[0]) != self.response_type:
-            raise exceptions.ResponseParseError("Unexpected response: %r" % response)
+            raise exceptions.ResponseParseError(f"Unexpected response: {response!r}")
         unpacked = self.Response._make(self.response_struct.unpack(response))
         if unpacked.address != self.address or unpacked.length != self.length:
             raise exceptions.ResponseParseError(
                 "Response does not match command: "
-                "address=%#.08x legnth=%d (expected %#.08x, %d)"
-                % (unpacked.address, unpacked.length, self.address, self.length)
+                f"address={unpacked.address:#010x} length={unpacked.length} (expected {self.address:#010x}, {self.length})"
             )
         return unpacked
 
@@ -60,7 +59,7 @@ class WriteResponse:
     @classmethod
     def parse(cls, response):
         if ord(response[0]) != cls.response_type:
-            raise exceptions.ResponseParseError("Unexpected response: %r" % response)
+            raise exceptions.ResponseParseError(f"Unexpected response: {response!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
@@ -82,13 +81,12 @@ class CrcCommand:
 
     def parse_response(self, response):
         if ord(response[0]) != self.response_type:
-            raise exceptions.ResponseParseError("Unexpected response: %r" % response)
+            raise exceptions.ResponseParseError(f"Unexpected response: {response!r}")
         unpacked = self.Response._make(self.response_struct.unpack(response))
         if unpacked.address != self.address or unpacked.length != self.length:
             raise exceptions.ResponseParseError(
                 "Response does not match command: "
-                "address=%#.08x legnth=%d (expected %#.08x, %d)"
-                % (unpacked.address, unpacked.length, self.address, self.length)
+                f"address={unpacked.address:#010x} length={unpacked.length} (expected {self.address:#010x}, {self.length})"
             )
         return unpacked
 
@@ -113,7 +111,7 @@ class QueryFlashRegionCommand:
 
     def parse_response(self, response):
         if ord(response[0]) != self.response_type:
-            raise exceptions.ResponseParseError("Unexpected response: %r" % response)
+            raise exceptions.ResponseParseError(f"Unexpected response: {response!r}")
         unpacked = self.Response._make(self.response_struct.unpack(response))
         if unpacked.address == 0 and unpacked.length == 0:
             raise exceptions.RegionDoesNotExist(self.region)
@@ -136,12 +134,12 @@ class FinalizeFlashRegionCommand:
 
     def parse_response(self, response):
         if ord(response[0]) != self.response_type:
-            raise exceptions.ResponseParseError("Unexpected response: %r" % response)
+            raise exceptions.ResponseParseError(f"Unexpected response: {response!r}")
         (region,) = self.response_struct.unpack(response)
         if region != self.region:
             raise exceptions.ResponseParseError(
                 "Response does not match command: "
-                "response is for region %d (expected %d)" % (region, self.region)
+                f"response is for region {region:d} (expected {self.region:d})"
             )
 
 
@@ -180,7 +178,7 @@ class FlashImagingProtocol:
         mtu = self.socket.mtu - WriteCommand.header_len
         assert mtu > 0
         unsent = collections.OrderedDict()
-        for offset in xrange(0, len(data), mtu):
+        for offset in range(0, len(data), mtu):
             segment = data[offset : offset + mtu]
             assert len(segment)
             seg_address = address + offset
@@ -197,12 +195,11 @@ class FlashImagingProtocol:
                         cmd, _, _ = in_flight[ack.address]
                     except KeyError:
                         raise exceptions.WriteError(
-                            "Received ACK for an unknown segment: %#.08x" % ack.address
+                            f"Received ACK for an unknown segment: {ack.address:#08x}"
                         )
                     if len(cmd.data) != ack.length:
                         raise exceptions.WriteError(
-                            "ACK length %d != data length %d"
-                            % (ack.length, len(cmd.data))
+                            f"ACK length {ack.length:d} != data length {len(cmd.data):d}"
                         )
                     assert ack.complete
                     del in_flight[ack.address]
@@ -226,8 +223,7 @@ class FlashImagingProtocol:
                 del in_flight[seg_address]
                 if retry_count >= max_retries:
                     raise exceptions.WriteError(
-                        "Segment %#.08x exceeded the max retry count (%d)"
-                        % (seg_address, max_retries)
+                        f"Segment {seg_address:#010x} exceeded the max retry count ({max_retries})"
                     )
                 retry_count += 1
                 self.socket.send(cmd.packet)
@@ -249,7 +245,7 @@ class FlashImagingProtocol:
         return retries
 
     def _command_and_response(self, cmd, timeout=0.5):
-        for attempt in xrange(5):
+        for attempt in range(5):
             self.socket.send(cmd.packet)
             try:
                 packet = self.socket.receive(timeout=timeout)

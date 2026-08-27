@@ -28,6 +28,8 @@
 #
 # Columns are task name, count, total percentage, total time, average time per task
 
+from functools import reduce
+
 tasks_by_thread = {}
 
 
@@ -55,7 +57,7 @@ with open("pdebug.dat") as f:
 
 # assign durations
 for thread_tasks in tasks_by_thread.values():
-    for i in xrange(len(thread_tasks) - 1):
+    for i in range(len(thread_tasks) - 1):
         thread_tasks[i].duration = (
             thread_tasks[i + 1].start_time - thread_tasks[i].start_time
         )
@@ -111,12 +113,5 @@ for tt in task_types:
     percentage_of_total = (tt.total_duration / total_duration) * 100
 
     print(
-        "%-60s %5u  %05.2f%% %7.2fs %6.2fs"
-        % (
-            tt.name[:58],
-            tt.count,
-            percentage_of_total,
-            tt.total_duration,
-            tt.average_duration,
-        )
+        f"{tt.name[:58]:<60} {tt.count:5d}  {percentage_of_total:05.2f}% {tt.total_duration:7.2f}s {tt.average_duration:6.2f}s"
     )

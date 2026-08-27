@@ -4,6 +4,7 @@
 import re
 
 import waflib.Context
+import waflib.Errors
 import waflib.Logs
 
 
@@ -19,7 +20,7 @@ def get_git_revision(ctx):
         tag = ctx.cmd_and_log(
             ["git", "describe", "--dirty"], quiet=waflib.Context.BOTH
         ).strip()
-    except Exception:
+    except waflib.Errors.WafError:
         tag = "v9.9.9-dev"
         waflib.Logs.warn(f"Git tag not found, using {tag}")
 

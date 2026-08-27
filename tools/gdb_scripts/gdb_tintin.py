@@ -24,7 +24,7 @@ import sh
 try:
     import gdb
 except ImportError:
-    raise Exception(
+    raise RuntimeError(
         "This file is a GDB script.\n"
         "It is not intended to be run outside of GDB.\n"
         "Hint: to load a script in GDB, use `source this_file.py`"
@@ -82,7 +82,7 @@ class PebbleTaskBitSet:
         task_names = []
         for value in range(32):
             if self.bitset & (1 << value):
-                task_name = self.enum[value] if value in self.enum else "???"
+                task_name = self.enum.get(value, "???")
                 task_names.append(task_name)
         if not task_names:
             return ""
@@ -104,7 +104,7 @@ class FreeRTOSMutex:
         waiter_name_list = ""
 
         for waiter_name in self.waiter_task_list():
-            waiter_name_list += indent + ("%s\n" % waiter_name)
+            waiter_name_list += indent + (f"{waiter_name}\n")
 
         return waiter_name_list
 
@@ -160,7 +160,7 @@ class FreeRTOSQueue:
         elif type(item_type_or_string) is gdb.Type:
             self.item_type = item_type_or_string
         else:
-            raise Exception("Unexpected type: %s" % type(item_type_or_string))
+            raise RuntimeError(f"Unexpected type: {type(item_type_or_string)}")
 
         self.num_waiting = int(self.queue["uxMessagesWaiting"])
         self.item_size = int(self.queue["uxItemSize"])
@@ -212,7 +212,7 @@ class FreeRTOSQueue:
     def pretty_print_pebble_event_queue(self, items):
         descr = ""
         for item in items:
-            descr += "\n<0x%08x> %s " % (item.dereference().address, item["type"])
+            descr += "\n<0x{:08x}> {} ".format(item.dereference().address, item["type"])
             probable_type = ""
             prev_underscore = False
             # Attempt to convert PebbleEventType enum into the struct type it corresponds to
@@ -233,26 +233,21 @@ class FreeRTOSQueue:
             elif "Blobdb" in probable_type:
                 probable_type = "PebbleBlobDBEvent"
 
-            event_type = None
             try:
-                event_type = gdb.lookup_type(probable_type)
+                gdb.lookup_type(probable_type)
                 descr += str(item.dereference().cast(gdb.lookup_type(probable_type)))
-            except:
-                descr += "\n\tUnknown Type %s" % probable_type
+            except Exception:  # noqa: BLE001
+                descr += f"\n\tUnknown Type {probable_type}"
 
         return descr
 
     def get_queue_item_description(self, items):
-        descr = "Queue <0x%x> with (%u / %u) items:\n" % (
-            self.queue,
-            len(items),
-            self.size,
-        )
+        descr = f"Queue <0x{self.queue:x}> with ({len(items):d} / {self.size:d}) items:\n"
         # if self.item_type == gdb.lookup_type("PebbleEvent").pointer():
         #     descr += self.pretty_print_pebble_event_queue(items)
         # else: # generic dump
         deref_items = [
-            "<0x%08x> %s" % (item.dereference().address, item.dereference())
+            f"<0x{item.dereference().address:08x}> {item.dereference()}"
             for item in items
         ]
         descr += "\n".join(deref_items)
@@ -399,11 +394,11 @@ class QueueStats(gdb.Command):
             "Worker": [[get_static_variable("s_to_worker_event_queue"), "PebbleEvent"]],
         }
 
-        for owner in owners_of_queues_to_dump:
-            print("Dumping queue(s) used by %s" % owner)
+        for owner, owner_queues in owners_of_queues_to_dump.items():
+            print(f"Dumping queue(s) used by {owner}")
             print_line()
-            for queues in owners_of_queues_to_dump[owner]:
-                print("\n--Queue Name: %s--\n" % queues[0])
+            for queues in owner_queues:
+                print(f"\n--Queue Name: {queues[0]}--\n")
                 freertos_queue = FreeRTOSQueue(queues[0], queues[1])
                 print(str(freertos_queue))
 
@@ -449,7 +444,7 @@ class PrintList(gdb.Command):
                 node_value = node_value.cast(cast_type)
             else:
                 node_value = node_value["next"]
-        print("%u list nodes" % num_nodes)
+        print(f"{num_nodes:d} list nodes")
 
 
 PrintList()
@@ -482,7 +477,7 @@ class StackRecover(gdb.Command):
         def tcb_addr_current_thread():
             return gdb.selected_thread().ptid[2]
 
-        args = self.parser.parse_args(unicode_args)
+        self.parser.parse_args(unicode_args)
 
         tcb_ptr_type = gdb.lookup_type("TCB_t").pointer()
         uint32_type = gdb.lookup_type("uint32_t")
@@ -497,14 +492,14 @@ class StackRecover(gdb.Command):
         if thread_addr == 0:
             thread_addr = gdb.parse_and_eval("pxCurrentTCB")
 
-        addr = "(uint8_t *)0x%x" % thread_addr
+        addr = f"(uint8_t *)0x{thread_addr:x}"
         tcb = gdb.parse_and_eval(addr).cast(tcb_ptr_type)
 
         pxBottomStackAddr = tcb["pxStack"].cast(uint32_type)
 
         last_pc_addr = 0
 
-        print("Examining stack starting at 0x%x ..." % pxBottomStackAddr)
+        print(f"Examining stack starting at 0x{pxBottomStackAddr:x} ...")
 
         # This algorithm is pretty naive. It effectively assumes that the only
         # time a code address is on the stack is because it was what was stored
@@ -526,21 +521,19 @@ class StackRecover(gdb.Command):
                     sp = stack_addr - 4
                     sp = sp.cast(uint32_type)
 
-                    gdb.execute("set $lr=0x%x" % lr)
-                    gdb.execute("set $sp=0x%x" % sp)
+                    gdb.execute(f"set $lr=0x{lr:x}")
+                    gdb.execute(f"set $sp=0x{sp:x}")
 
                     # we've found a potential match. Does it give us a reasonable backtrace?
                     if count_frames() > 4:
                         print(
-                            "Potential backtrace found %d bytes above stack bottom!"
-                            % (last_pc_addr - int(pxBottomStackAddr.cast(uint32_type)))
+                            f"Potential backtrace found {last_pc_addr - int(pxBottomStackAddr.cast(uint32_type)):d} bytes above stack bottom!"
                         )
                         print("~" * 80)
                         gdb.execute("backtrace")
                         break
 
-                pc = stack_val
-                gdb.execute("set $pc=0x%x" % stack_val)
+                gdb.execute(f"set $pc=0x{stack_val:x}")
                 last_pc_addr = int(stack_addr.cast(uint32_type))
 
 
@@ -563,7 +556,7 @@ class StackStats(gdb.Command):
         cur_frame = gdb.newest_frame()
         tot_depth = 0
         if cur_frame.name() is not None:
-            print("     - %s" % cur_frame.name())
+            print(f"     - {cur_frame.name()}")
 
         while cur_frame and cur_frame.is_valid():
             # Parses the following string to pull out the $sp:
@@ -582,9 +575,9 @@ class StackStats(gdb.Command):
                     tot_depth += stack_use
                     name = cur_frame.older().name()
                     if name is not None:
-                        print("%4d - %s" % (stack_use, name))
+                        print(f"{stack_use:4d} - {name}")
             cur_frame = cur_frame.older()
-        print("Total Stack Depth: %d bytes" % tot_depth)
+        print(f"Total Stack Depth: {tot_depth:d} bytes")
 
 
 StackStats()
@@ -657,7 +650,7 @@ class HeapParser(gdb.Command):
 
         prefer = ["Semaphore", "AppMessageBuffer", "AnalyticsStopwatch"]
 
-        block_data = dict([(str(block.data), []) for block in heap])
+        block_data = {str(block.data): [] for block in heap}
         for name, blocks in data.items():
             addresses = [str(block.data) for block in blocks]
             for address in addresses:
@@ -688,9 +681,10 @@ class HeapParser(gdb.Command):
         print("~" * 60)
         print("Summary:")
 
-        for struct, blocks in OrderedDict(sorted(data.items())).items():
+        for struct_name, blocks in OrderedDict(sorted(data.items())).items():
             print(
-                f"{struct:<30}: {len(blocks):<3} ({sum(block.size for block in blocks)} bytes)"
+                f"{struct_name:<30}: {len(blocks):<3} "
+                f"({sum(block.size for block in blocks)} bytes)"
             )
 
         if args.dump_strings:
@@ -769,7 +763,7 @@ class LockStats(gdb.Command):
 
         mutexes = [FreeRTOSMutex(block.data) for block in data["LightMutex"]]
         mutexes = [mutex for mutex in mutexes if mutex.owner()]
-        message.append("Found %s owned mutexes." % len(mutexes))
+        message.append(f"Found {len(mutexes)} owned mutexes.")
 
         # Search for PebbleMutexes
         pebble_mutexes = [block.data for block in data["PebbleMutex"]]
@@ -880,7 +874,7 @@ class HeapStats(gdb.Command):
                     filesize_dict["FREE"] += size_bytes
 
             filesize_dict_sorted = OrderedDict(
-                sorted(list(filesize_dict.items()), key=lambda x: x[1], reverse=True)
+                sorted(filesize_dict.items(), key=lambda x: x[1], reverse=True)
             )
             print("File: Heap usage (bytes)")
             for filename, size in filesize_dict_sorted.items():
@@ -895,7 +889,7 @@ class HeapStats(gdb.Command):
         if args.dump_freq:
             heap_size_dict = Counter(self.alloc_segments)
             heaps_dict_sorted = OrderedDict(
-                sorted(list(heap_size_dict.items()), key=lambda x: x[1], reverse=True)
+                sorted(heap_size_dict.items(), key=lambda x: x[1], reverse=True)
             )
             print("Freq: Size (bytes)")
             for size, freq in list(heaps_dict_sorted.items()):
@@ -1056,7 +1050,7 @@ def setup_task_symbols(cmd, args, task_name):
 
     elf_file = split_args[0]
     load_addr = gdb_utils.Address(
-        str(gdb.parse_and_eval("&__%s_flash_load_start__" % (task_name)))
+        str(gdb.parse_and_eval(f"&__{task_name}_flash_load_start__"))
     )
 
     # Get the offsets to the text, data and bss sections
@@ -1071,13 +1065,7 @@ def setup_task_symbols(cmd, args, task_name):
 
     # Load in the symbols now
     gdb.execute(
-        "add-symbol-file %s %d -s .data %d -s .bss %d"
-        % (
-            elf_file,
-            load_addr + offsets[".text"],
-            load_addr + offsets[".data"],
-            load_addr + offsets[".bss"],
-        )
+        "add-symbol-file {} {:d} -s .data {:d} -s .bss {:d}".format(elf_file, load_addr + offsets[".text"], load_addr + offsets[".data"], load_addr + offsets[".bss"])
     )
 
 
@@ -1159,13 +1147,13 @@ class SharedCircularBuffer:
             # of the arm toolchain.
             if circular_buffer.type.name != "SharedCircularBuffer":
                 raise ValueError(
-                    "circular_buffer is of type %s, not "
-                    "SharedCircularBuffer." % circular_buffer.type.name
+                    f"circular_buffer is of type {circular_buffer.type.name}, not "
+                    "SharedCircularBuffer."
                 )
             if client.type.name != "SharedCircularBufferClient":
                 raise ValueError(
-                    "client is of type %s, not "
-                    "SharedCircularBufferClient." % client.type.name
+                    f"client is of type {client.type.name}, not "
+                    "SharedCircularBufferClient."
                 )
 
         self.buffer = circular_buffer["buffer"]
@@ -1212,11 +1200,11 @@ class DumpLogBuffer(gdb.Command):
         length = int(id_struct["data_length"])
         offset = int(id_struct["name_length"])
         return "".join(
-            "%02x" % int(id_struct["data"][x]) for x in range(offset, offset + length)
+            "{:02x}".format(int(id_struct["data"][x])) for x in range(offset, offset + length)
         )
 
     def invoke(self, arg, from_tty):
-        gdb.write("Build ID: %s\n" % self._get_build_id())
+        gdb.write(f"Build ID: {self._get_build_id()}\n")
         s_buffer = get_static_variable("s_buffer", _file="advanced_logging.c")
         s_buffer_client = get_static_variable(
             "s_buffer_client", _file="advanced_logging.c"
@@ -1235,7 +1223,7 @@ class DumpLogBuffer(gdb.Command):
             header = self.LogMessage._make(self.LogMessageStruct.unpack(header_bytes))
             message = reader.read_and_consume(length)
             gdb.write(
-                f"{datetime.datetime.utcfromtimestamp(header.timestamp):%Y-%m-%d %H:%M:%S}:000GMT {ctypes.c_char_p(header.filename).value}:{header.line_number} {ctypes.c_char_p(message).value}\n"
+                f"{datetime.datetime.fromtimestamp(header.timestamp, tz=datetime.timezone.utc):%Y-%m-%d %H:%M:%S}:000GMT {ctypes.c_char_p(header.filename).value}:{header.line_number} {ctypes.c_char_p(message).value}\n"
             )
 
 
@@ -1271,7 +1259,7 @@ class DumpNotificationsApp(gdb.Command):
             uuid_bytes = u.cast(uint8_ptr_type)
             s = ""
             for n in range(16):
-                s += "%02x" % int(uuid_bytes[n])
+                s += f"{int(uuid_bytes[n]):02x}"
             return s
 
         uuid_set = set()
@@ -1283,9 +1271,9 @@ class DumpNotificationsApp(gdb.Command):
         while node:
             u = node["id"]
             uuid_str = string_from_uuid(u)
-            print("UUID: %s" % uuid_str)
+            print(f"UUID: {uuid_str}")
             if uuid_str in uuid_set:
-                print("WARNING: Dupe UUID %s" % uuid_str)
+                print(f"WARNING: Dupe UUID {uuid_str}")
             else:
                 uuid_set.add(uuid_str)
             node = node["node"]["next"].cast(node_type)
@@ -1298,7 +1286,7 @@ class DumpNotificationsApp(gdb.Command):
             u = node["notification"]["header"]["id"]
             ts = node["notification"]["header"]["timestamp"]
             ancs_uid = node["notification"]["header"]["ancs_uid"]
-            print("UUID: %s TS: %u ANCS_UID: %u" % (string_from_uuid(u), ts, ancs_uid))
+            print(f"UUID: {string_from_uuid(u)} TS: {ts:d} ANCS_UID: {ancs_uid:d}")
 
             attr_list = node["notification"]["attr_list"]
             for n in range(attr_list["num_attributes"]):
@@ -1360,7 +1348,7 @@ class FilesInfo(gdb.Command):
         memory_ranges.sort()
 
         for memory_range in memory_ranges:
-            print("\t%s" % str(memory_range))
+            print(f"\t{memory_range!s}")
 
 
 FilesInfo()
@@ -1404,7 +1392,7 @@ class PNGDump(gdb.Command):
         filename = split_args[1] if (len(split_args) == 2) else "out.png"
 
         source_value = gdb.parse_and_eval(split_args[0])
-        gbitmap_type = gdb.lookup_type("struct GBitmap")
+        gdb.lookup_type("struct GBitmap")
 
         source_type = source_value.type
         source_type = source_type.strip_typedefs()
@@ -1472,17 +1460,17 @@ class FaultWizard(gdb.Command):
         )
 
     def get_and_set_reg(self, reg_name):
-        reg_var = get_static_variable("s_fault_saved_%s" % reg_name)
+        reg_var = get_static_variable(f"s_fault_saved_{reg_name}")
         reg_val = gdb.parse_and_eval(reg_var)
 
         # Check if the register is set
         if int(reg_val) == 0:
-            print("Register %s was zero. Did not set it" % reg_name)
+            print(f"Register {reg_name} was zero. Did not set it")
             return
 
         # Set the frame's register
-        gdb.execute("set $%s=%s" % (reg_name, reg_val))
-        print("Set register %s to 0x%x" % (reg_name, reg_val))
+        gdb.execute(f"set ${reg_name}={reg_val}")
+        print(f"Set register {reg_name} to 0x{reg_val:x}")
 
     def invoke(self, unicode_args, from_tty):
         self.get_and_set_reg("sp")

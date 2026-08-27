@@ -37,9 +37,10 @@ def configure(conf):
     :param conf: the ConfigureContext
     :return: N/A
     """
-    if conf.env.BUILD_TYPE != "lib":
-        if not dict(conf.env.PROJECT_INFO).get("enableMultiJS", False):
-            Logs.pprint(
+    if conf.env.BUILD_TYPE != "lib" and not dict(conf.env.PROJECT_INFO).get(
+        "enableMultiJS", False
+    ):
+        Logs.pprint(
                 "CYAN",
                 "WARNING: enableMultiJS is not enabled for this project. message_keys.json "
                 "will not be included in your project unless you add it to your "
@@ -193,7 +194,7 @@ class message_key_header(Task.Task):
         self.outputs[0].parent.mkdir()
         with open(self.outputs[0].abspath(), "w") as f:
             f.write(header)
-            f.writelines(f"extern uint32_t MESSAGE_KEY_{k};\n" for k, v in sorted(list(self.message_keys.items()), key=lambda x: x[0]))
+            f.writelines(f"extern uint32_t MESSAGE_KEY_{k};\n" for k, v in sorted(self.message_keys.items(), key=lambda x: x[0]))
 
 
 class message_key_definitions(Task.Task):
@@ -209,7 +210,7 @@ class message_key_definitions(Task.Task):
         self.outputs[0].parent.mkdir()
         with open(self.outputs[0].abspath(), "w") as f:
             f.write(definitions_file)
-            f.writelines(f"uint32_t MESSAGE_KEY_{k} = {v};\n" for k, v in sorted(list(self.message_keys.items()), key=lambda x: x[0]))
+            f.writelines(f"uint32_t MESSAGE_KEY_{k} = {v};\n" for k, v in sorted(self.message_keys.items(), key=lambda x: x[0]))
 
 
 class message_key_json(Task.Task):

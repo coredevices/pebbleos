@@ -88,30 +88,30 @@ class IntervalPowerSystem(PowerSystem):
 # Special case for the battery
 class BattPowerSystem(PowerSystem):
     def addPower(self, timestamp, data):
-        chg_state = data[0]
-        voltage = data[1]
+        data[0]
+        data[1]
 
 
 # Special case for the accelerometer
 class AccelPowerSystem(PowerSystem):
     def addPower(self, timestamp, data):
-        state = data[0]
-        frequency = data[1]
+        data[0]
+        data[1]
 
 
 # Special case for the magnetometer
 class MagPowerSystem(PowerSystem):
     def addPower(self, timestamp, data):
-        state = data[0]
-        adc_rate = data[1]
+        data[0]
+        data[1]
 
 
 # Special case for the vibe motor
 class VibePowerSystem(PowerSystem):
     def addPower(self, timestamp, data):
-        state = data[0]
-        freq = data[1]
-        duty = data[2]
+        data[0]
+        data[1]
+        data[2]
 
 
 # Special case for the backlight
@@ -122,7 +122,7 @@ class BacklightPowerSystem(PowerSystem):
 
     def addPower(self, timestamp, data):
         state = data[0]
-        freq = int(data[1])
+        int(data[1])
         duty = int(data[2])
 
         if state == "OFF":
@@ -191,7 +191,6 @@ powerSystems = {
     "AccelLowPower": IntervalPowerSystem(),
     "AccelNormal": IntervalPowerSystem(),
     "Mfi": IntervalPowerSystem(),
-    "Mag": IntervalPowerSystem(),
     "BtShutdown": IntervalPowerSystem(),
     "BtDeepSleep": IntervalPowerSystem(),
     "BtActive": IntervalPowerSystem(activePower=2.5),
@@ -236,7 +235,7 @@ def gatherData(tty, outfile):
     else:
         s = sys.stdin
 
-    f = open(outfile, "w")
+    f = open(outfile, "w")  # noqa: SIM115
 
     systemKeys = powerSystems.keys()
 
@@ -245,7 +244,7 @@ def gatherData(tty, outfile):
         outString = '"ticks"'
         for system in plottedSystems:
             outString = f'{outString},"{system}"'
-        f.write("%s\n" % outString)
+        f.write(f"{outString}\n")
 
         while True:
             powerLine = pwr_regex.search(s.readline())
@@ -273,11 +272,11 @@ def gatherData(tty, outfile):
             latency = 4 * 1024
 
             for ts in range(lastOutputTimestamp, timestamp - 1 - latency, 1024):
-                outString = "%d" % ts
+                outString = f"{ts:d}"
                 for system in plottedSystems:
                     avgPower = powerSystems[system].getAvgPowerBetween(ts, ts + 1024)
                     outString = f"{outString},{avgPower:f}"
-                f.write("%s\n" % outString)
+                f.write(f"{outString}\n")
                 lastOutputTimestamp = ts + 1024
 
     except KeyboardInterrupt:

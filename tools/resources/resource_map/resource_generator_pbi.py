@@ -83,7 +83,7 @@ class PngTransResourceGenerator(ResourceGenerator):
         else:
             task.generator.bld.fatal(
                 "png-trans with neither white nor black in the name: "
-                + resource_definition.name
+                + definition.name
             )
 
         pb = bitmapgen.PebbleBitmap(task.inputs[0].abspath(), color_map=color_map)

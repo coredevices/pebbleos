@@ -4,7 +4,7 @@
 try:
     import gdb
 except ImportError:
-    raise Exception(
+    raise RuntimeError(
         "This file is a GDB script.\n"
         "It is not intended to be run outside of GDB.\n"
         "Hint: to load a script in GDB, use `source this_file.py`"
@@ -23,7 +23,7 @@ class TintinMetadata:
         try:
             platform_enum = gdb.lookup_type("enum FirmwareMetadataPlatform")
             platform_types = gdb.types.make_enum_dict(platform_enum)
-        except:
+        except Exception:  # noqa: BLE001
             return None, None
 
         for k, v in platform_types.items():
@@ -40,9 +40,9 @@ class TintinMetadata:
         }
 
         platform_name = None
-        for platform_key in platforms:
+        for platform_key, name in platforms.items():
             if platform_key.lower() in board_name.lower():
-                platform_name = platforms[platform_key]
+                platform_name = name
         return platform_name, board_name
 
     def __init__(self):
@@ -51,7 +51,7 @@ class TintinMetadata:
     def version_timestamp(self, convert=True):
         val = int(self.metadata["version_timestamp"])
         if convert:
-            return datetime.fromtimestamp(val)
+            return datetime.fromtimestamp(val).astimezone()
         else:
             return val
 
@@ -69,12 +69,12 @@ class TintinMetadata:
 
     def hw_platform(self):
         val = int(self.metadata["hw_platform"])
-        platform_name, board_name = self.parse_hw_version(val)
+        platform_name, _board_name = self.parse_hw_version(val)
         return platform_name
 
     def hw_board_name(self):
         val = int(self.metadata["hw_platform"])
-        platform_name, board_name = self.parse_hw_version(val)
+        _platform_name, board_name = self.parse_hw_version(val)
         return board_name
 
     def hw_board_number(self):

@@ -10,6 +10,7 @@ import traceback
 import uuid
 import weakref
 from queue import Queue
+from typing import ClassVar
 
 import serial
 import stm32_crc
@@ -19,7 +20,7 @@ from . import exceptions
 
 logger = logging.getLogger(__name__)
 
-DBGSERIAL_PORT_SETTINGS = dict(baudrate=115200, timeout=0.1, interCharTimeout=0.01)
+DBGSERIAL_PORT_SETTINGS = {"baudrate": 115200, "timeout": 0.1, "interCharTimeout": 0.01}
 
 
 def frame_splitter(istream, size=1024, timeout=1, delimiter="\0"):
@@ -59,7 +60,7 @@ def decode_frame(frame):
     fcs = struct.unpack("<I", data[-4:])[0]
     crc = stm32_crc.crc32(data[:-4])
     if fcs != crc:
-        raise exceptions.FrameDecodeError("FCS 0x%.08x != CRC 0x%.08x" % (fcs, crc))
+        raise exceptions.FrameDecodeError(f"FCS 0x{fcs:08x} != CRC 0x{crc:08x}")
     protocol = ord(data[0])
     return (protocol, data[1:-4])
 
@@ -88,7 +89,7 @@ class Connection:
     LLC_LINK_CLOSED = 0x04
     LLC_ECHO_REPLY = 0x06
 
-    EXTENSIONS = {}
+    EXTENSIONS: ClassVar = {}
 
     # Maximum round-trip time
     rtt = 0.4
@@ -135,7 +136,7 @@ class Connection:
             cls.EXTENSIONS[name] = factory
         else:
             raise ValueError(
-                "extension name %r clashes with existing attribute" % (name,)
+                f"extension name {name!r} clashes with existing attribute"
             )
 
     @classmethod
@@ -178,7 +179,7 @@ class Connection:
                 protocol, payload = decode_frame(next(receiver))
             except exceptions.FrameDecodeError:
                 continue
-            except:
+            except Exception:  # noqa: BLE001
                 # Probably a PySerial exception complaining about reading from a
                 # closed port. Eat the exception and shut down the thread; users
                 # don't need to see the stack trace.
@@ -227,8 +228,7 @@ class Connection:
             return
         if protocol in self.protocol_handlers:
             raise exceptions.ProtocolAlreadyRegistered(
-                "Protocol %d is already registered by %r"
-                % (protocol, self.protocol_handlers[protocol])
+                f"Protocol {protocol:d} is already registered by {self.protocol_handlers[protocol]!r}"
             )
         if not hasattr(handler, "on_receive"):
             raise ValueError("%r does not have an on_receive method")
@@ -319,12 +319,11 @@ class Connection:
                         else:
                             next_state = OPEN
             else:
-                assert False, "Invalid state %d" % state
+                assert False, f"Invalid state {state:d}"
 
-            if next_state != state:
-                if next_state == TEST_LIVENESS:
-                    ping_attempts = 0
-                    ping_wait = self.rtt
+            if next_state != state and next_state == TEST_LIVENESS:
+                ping_attempts = 0
+                ping_wait = self.rtt
             state = next_state
 
     def _open_link(self):
@@ -352,7 +351,7 @@ class Connection:
     def close(self):
         self._link_open.clear()
         if not self._link_closed.is_set():
-            for attempt in xrange(3):
+            for attempt in range(3):
                 self.send(self.PROTOCOL_LLC, self.LLC_LINK_CLOSE_REQUEST)
                 if self._link_closed.wait(self.rtt):
                     break
@@ -380,7 +379,6 @@ class Connection:
 
     def change_baud_rate(self, new_baud):
         # Fail fast if the IO object doesn't support changing the baud rate
-        old_baud = self.iostream.baudrate
         self.send(self.PROTOCOL_LLC, self.LLC_CHANGE_BAUD + struct.pack("<I", new_baud))
         # Be extra sure that the message has been sent and it's safe to adjust
         # the baud rate on the port.
@@ -423,7 +421,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     with Connection.open_dbgserial(sys.argv[1]) as sock:
         sock.change_baud_rate(921600)
-        for _ in xrange(20):
+        for _ in range(20):
             time.sleep(0.5)
             send_time = time.time()
             if sock.ping():

@@ -78,10 +78,10 @@ def generate_header(data, output_filename):
 def generate_implementation(data, output_filename, min_sdk, disable_size_checks=False):
     all_types = get_types(data)
     with open(output_filename, "w") as f:
-        includes = ['#include "%s"' % h for h in data["headers"]]
-        applib_enum_types = ["ApplibType_%s" % t.name for t in all_types]
+        includes = [f'#include "{h}"' for h in data["headers"]]
+        applib_enum_types = [f"ApplibType_{t.name}" for t in all_types]
         applib_malloc_types = [
-            "{ sizeof(%s), %u, %u }" % (t.name, t.size_2x, t.size_3x) for t in all_types
+            f"{{ sizeof({t.name}), {t.size_2x:d}, {t.size_3x:d} }}" for t in all_types
         ]
 
         write_template(
@@ -123,14 +123,14 @@ def _get_sizeof_type(elf_filename, typename):
 
         return result.strip()
 
-    gdb_output = _run_gdb("p sizeof(%s)" % typename)
+    gdb_output = _run_gdb(f"p sizeof({typename})")
 
     if len(gdb_output) == 0:
         # Sometimes gdb is dumb and fails at interpreting a typedef, try again with a struct prefix
-        gdb_output = _run_gdb("p sizeof(struct %s)" % typename)
+        gdb_output = _run_gdb(f"p sizeof(struct {typename})")
 
     if len(gdb_output) == 0:
-        raise Exception("Failed to get sizeof for type %s" % typename)
+        raise RuntimeError(f"Failed to get sizeof for type {typename}")
 
     # Looks like "$1 = 44", we want the "44"
     return int(gdb_output.split()[2])
@@ -164,10 +164,7 @@ def dump_sizes(json_filename, elf_filename):
         if not t.size_3x or calculated_size == t.size_3x:
             calculated_size_str = str(calculated_size)
         else:
-            calculated_size_str = "%u <%u>" % (
-                calculated_size,
-                (calculated_size - t.size_3x),
-            )
+            calculated_size_str = f"{calculated_size:d} <{calculated_size - t.size_3x:d}>"
 
         print(
             fmt_str

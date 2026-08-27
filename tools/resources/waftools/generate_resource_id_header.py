@@ -160,7 +160,7 @@ def process_generate_resource_id_header(self):
 
 @TaskGen.feature("generate_resource_id_definitions")
 @TaskGen.before_method("process_source", "process_rule")
-def generate_resource_id_definitions(self):
+def create_resource_id_definitions_task(self):
     task = self.create_task(
         "generate_resource_id_definitions",
         self.resource_ball,

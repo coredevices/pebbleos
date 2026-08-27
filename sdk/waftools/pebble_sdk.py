@@ -197,12 +197,11 @@ def configure(conf):
     else:
         conf.env.BUILD_TYPE = "app"
 
-    if getattr(conf.env.PROJECT_INFO, "enableMultiJS", False):
-        if not conf.env.WEBPACK:
-            conf.fatal(
-                f"'enableMultiJS' is set to true, but unable to locate webpack module at {conf.env.NODE_PATH} "
-                "Please set enableMultiJS to false, or reinstall the SDK."
-            )
+    if getattr(conf.env.PROJECT_INFO, "enableMultiJS", False) and not conf.env.WEBPACK:
+        conf.fatal(
+            f"'enableMultiJS' is set to true, but unable to locate webpack module at {conf.env.NODE_PATH} "
+            "Please set enableMultiJS to false, or reinstall the SDK."
+        )
 
     if "resources" in project_info and "media" in project_info["resources"]:
         conf.env.RESOURCES_JSON = project_info["resources"]["media"]

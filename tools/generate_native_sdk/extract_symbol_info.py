@@ -12,7 +12,7 @@ import clang
 from generate_native_sdk import parse_c_decl
 
 
-def extract_exported_functions(node, functions=[], types=[], defines=[]):
+def extract_exported_functions(node, functions=(), types=(), defines=()):
     def update_matching_export(exports, node):
         spelling = parse_c_decl.get_node_spelling(node)
         for e in exports:
@@ -37,9 +37,12 @@ def extract_exported_functions(node, functions=[], types=[], defines=[]):
             # with @internal (meaning the whole docstring is internal).
             if spelling == e.name or (impl_name and spelling == impl_name):
                 comment = parse_c_decl.get_comment_string_for_decl(node)
-                if comment is not None and not comment.startswith("//! @internal"):
-                    if e.comment is None or len(comment) > len(e.comment):
-                        e.comment = comment
+                if (
+                    comment is not None
+                    and not comment.startswith("//! @internal")
+                    and (e.comment is None or len(comment) > len(e.comment))
+                ):
+                    e.comment = comment
 
 
     if node.kind == clang.cindex.CursorKind.FUNCTION_DECL:
@@ -70,7 +73,7 @@ def extract_symbol_info(
     # parsing each one individually
     all_headers_file = os.path.join(output_dir, "all_sdk_headers.h")
     with open(all_headers_file, "w") as outfile:
-        outfile.writelines('#include "%s"\n' % f for f in filenames)
+        outfile.writelines(f'#include "{f}"\n' for f in filenames)
 
     parse_c_decl.parse_file(
         all_headers_file,

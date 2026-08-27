@@ -4,6 +4,7 @@
 
 
 import argparse
+from pathlib import Path
 
 from pbpack import ResourcePack
 
@@ -11,7 +12,7 @@ from pbpack import ResourcePack
 def cmd_manifest(args):
     pack = ResourcePack(args.is_system)
     for f in args.pack_file_list:
-        pack.add_resource(open(f, "rb").read())
+        pack.add_resource(Path(f).read_bytes())
 
     pack.finalize()
     with open(args.manifest_file, "wb") as manifest:
@@ -22,7 +23,7 @@ def cmd_manifest(args):
 def cmd_table(args):
     pack = ResourcePack(args.is_system)
     for f in args.pack_file_list:
-        pack.add_resource(open(f, "rb").read())
+        pack.add_resource(Path(f).read_bytes())
 
     pack.finalize()
     with open(args.table_file, "wb") as table_file:
@@ -33,7 +34,7 @@ def cmd_table(args):
 def cmd_content(args):
     pack = ResourcePack(args.is_system)
     for f in args.pack_file_list:
-        pack.add_resource(open(f, "rb").read())
+        pack.add_resource(Path(f).read_bytes())
 
     pack.finalize()
     with open(args.content_file, "wb") as content_file:

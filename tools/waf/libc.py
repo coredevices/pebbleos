@@ -23,7 +23,7 @@ configure time, after pebble_arm_gcc has set the architecture flags.
 import os
 import subprocess
 
-from waflib import Logs
+from waflib import Errors, Logs
 
 # newlib defaults time_t to 64-bit; keep it 32-bit (long) to match the
 # firmware's RTC/storage and %ld format strings.
@@ -113,7 +113,7 @@ def _build_picolibc(conf):
     install = out.make_node("install")
     override = _picolibc_time_override(conf, out)
     arch = _arch_flags(conf) + ["-include", override]
-    arch_lit = ", ".join("'%s'" % a for a in arch)
+    arch_lit = ", ".join(f"'{a}'" for a in arch)
 
     out.make_node("cross.txt").write(
         "[binaries]\n"
@@ -158,7 +158,7 @@ def _find_prebuilt_picolibc(conf):
     cc = conf.env.CC[-1] if isinstance(conf.env.CC, list) else conf.env.CC
     try:
         out = conf.cmd_and_log([cc, "-print-file-name=picolibc.specs"]).strip()
-    except Exception:
+    except Errors.WafError:
         out = "picolibc.specs"
     # gcc echoes the name back unchanged when it can't find the file.
     if out and out != "picolibc.specs" and os.path.isfile(out):
@@ -193,7 +193,7 @@ def configure(conf):
         conf.msg("libc", "newlib-nano" if nano else "newlib")
     elif conf.env.CONFIG_LIBC_PICOLIBC:
         origin = _select_picolibc(conf)
-        conf.msg("libc", "picolibc (%s)" % origin)
+        conf.msg("libc", f"picolibc ({origin})")
     else:
         conf.fatal("No C library selected (see lib/c/Kconfig)")
 

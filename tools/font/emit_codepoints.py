@@ -23,7 +23,7 @@ class Font:
         m = re.search("([0-9]+)", self.basename)
         if m == None:
             sys.stderr.write(
-                f"Font {filename}: no size found in file name...\n"
+                f"Font {self.basename}: no size found in file name...\n"
             )
             return
         self.max_height = int(m.group(0))
@@ -36,26 +36,24 @@ class Font:
 
     def is_supported_glyph(self, codepoint):
         return self.face.get_char_index(codepoint) > 0 or (
-            codepoint == unichr(self.wildcard_codepoint)
+            codepoint == chr(self.wildcard_codepoint)
         )
 
     def emit_codepoints(self):
         to_file = os.path.splitext(self.ttf_path)[0] + ".codepoints"
-        f = open(to_file, "wb")
-        for codepoint in xrange(MIN_CODEPOINT, MAX_CODEPOINT + 1):
-            self.face.load_char(unichr(codepoint))
-            if self.is_supported_glyph(codepoint):
-                print >> f, "U+%08d" % (codepoint,)
-        f.close()
+        with open(to_file, "wb") as f:
+            for codepoint in range(MIN_CODEPOINT, MAX_CODEPOINT + 1):
+                self.face.load_char(chr(codepoint))
+                if self.is_supported_glyph(codepoint):
+                    f.write(f"U+{codepoint:08d}\n".encode())
 
     def emit_codepoints_as_utf8(self):
         to_file = os.path.splitext(self.ttf_path)[0] + ".utf8"
-        f = open(to_file, "wb")
-        for codepoint in xrange(MIN_CODEPOINT, MAX_CODEPOINT + 1):
-            self.face.load_char(unichr(codepoint))
-            if self.is_supported_glyph(codepoint):
-                f.write(unichr(codepoint).encode("utf-8"))
-        f.close()
+        with open(to_file, "wb") as f:
+            for codepoint in range(MIN_CODEPOINT, MAX_CODEPOINT + 1):
+                self.face.load_char(chr(codepoint))
+                if self.is_supported_glyph(codepoint):
+                    f.write(chr(codepoint).encode("utf-8"))
 
 
 def main():

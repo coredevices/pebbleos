@@ -8,6 +8,7 @@ import sys
 import traceback
 from binascii import crc32
 from functools import reduce
+from typing import ClassVar
 
 import pebble.pulse2.exceptions
 
@@ -17,7 +18,7 @@ from ..util import stm32_crc
 
 class PebbleFirmwareBinaryInfo:
     V1_STRUCT_VERSION = 1
-    V1_STRUCT_DEFINTION = [
+    V1_STRUCT_DEFINTION: ClassVar = [
         ("20s", "build_id"),
         ("L", "version_timestamp"),
         ("32s", "version_tag"),
@@ -27,7 +28,7 @@ class PebbleFirmwareBinaryInfo:
         ("B", "metadata_version"),
     ]
     # The platforms which use a legacy defective crc32
-    LEGACY_CRC_PLATFORMS = [
+    LEGACY_CRC_PLATFORMS: ClassVar = [
         0,  # unknown (assume legacy)
         1,  # OneEV1
         2,  # OneEV2
@@ -164,10 +165,10 @@ def _load(connection, image, progress, verbose, address):
     if progress or verbose:
         print()
     if verbose:
-        print("Retries: %d" % retries)
+        print(f"Retries: {retries:d}")
 
     if result_crc != image_crc:
-        print("CRC mismatch, got 0x%08X but expected %08X" % (result_crc, image_crc))
+        print(f"CRC mismatch, got 0x{result_crc:08X} but expected {image_crc:08X}")
 
     return result_crc == image_crc
 
@@ -175,7 +176,7 @@ def _load(connection, image, progress, verbose, address):
 def load_firmware(connection, fin, progress, verbose, address=None):
     if address is None:
         # If address is unspecified, assume we want the prf address
-        _, address, length = connection.flash.query_region_geometry(
+        _, address, _length = connection.flash.query_region_geometry(
             connection.flash.REGION_PRF
         )
     address = int(address)

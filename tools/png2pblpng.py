@@ -70,7 +70,7 @@ def _convert_png_to_pebble_png_writer(
     input_png.sbit = None
 
     # open as RGBA 32-bit (allows for simpler parsing cases)
-    width, height, pixels, metadata = input_png.asRGBA8()
+    width, height, pixels, _metadata = input_png.asRGBA8()
 
     # convert RGBA 32-bit boxed rows to list for output
     rgba32_list = grouper(itertools.chain.from_iterable(pixels), 4)
@@ -84,7 +84,7 @@ def _convert_png_to_pebble_png_writer(
 
     if force_bitdepth is not None:
         if bitdepth > force_bitdepth:
-            raise Exception(
+            raise RuntimeError(
                 f"Tried to force {force_bitdepth} bits; need at least {bitdepth}."
             )
 
@@ -157,7 +157,7 @@ def get_palette_for_png(input_filename, palette_name, color_reduction_method):
     input_png.sbit = None
 
     # open as RGBA 32-bit (allows for simpler parsing cases)
-    width, height, pixels, metadata = input_png.asRGBA8()
+    _width, _height, pixels, _metadata = input_png.asRGBA8()
 
     palette = []  # rgba32 image palette
     is_grey = (
@@ -227,7 +227,7 @@ def grouper(iterable, n, fillvalue=None):
     from itertools import zip_longest
 
     args = [iter(iterable)] * n
-    return zip_longest(fillvalue=fillvalue, *args)
+    return zip_longest(*args, fillvalue=fillvalue)
 
 
 def get_ideal_palette(is_color=False):

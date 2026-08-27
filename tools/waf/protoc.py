@@ -5,6 +5,7 @@
 # Matt Clarkson, 2012
 
 import re
+from typing import ClassVar
 
 from waflib.Task import Task
 from waflib.TaskGen import extension
@@ -42,7 +43,7 @@ class protoc(Task):
     # protoc expects the input proto file to be an absolute path.
     run_str = "${NANOPB_GENERATOR} -I ${SRC[0].parent.abspath()} -D ${TGT[0].parent.abspath()} ${SRC[0].abspath()}"
     color = "BLUE"
-    ext_out = [".h", "pb.c"]
+    ext_out: ClassVar = [".h", "pb.c"]
 
     def scan(self):
         """

@@ -23,8 +23,8 @@ def app_launch(cmdr, idnum):
     """Launch an application."""
     idnum = int(str(idnum), 0)
     if idnum == 0:
-        raise exceptions.ParameterError("idnum out of range: %d" % idnum)
-    ret = cmdr.send_prompt_command("app launch %d" % idnum)
+        raise exceptions.ParameterError(f"idnum out of range: {idnum:d}")
+    ret = cmdr.send_prompt_command(f"app launch {idnum:d}")
     if not ret[0].startswith("OK"):
         raise exceptions.PromptResponseError(ret)
 
@@ -34,8 +34,8 @@ def app_remove(cmdr, idnum):
     """Remove an application."""
     idnum = int(str(idnum), 0)
     if idnum == 0:
-        raise exceptions.ParameterError("idnum out of range: %d" % idnum)
-    ret = cmdr.send_prompt_command("app remove %d" % idnum)
+        raise exceptions.ParameterError(f"idnum out of range: {idnum:d}")
+    ret = cmdr.send_prompt_command(f"app remove {idnum:d}")
     if not ret[0].startswith("OK"):
         raise exceptions.PromptResponseError(ret)
 
@@ -45,8 +45,8 @@ def app_resource_bank(cmdr, idnum=0):
     """Get resource bank info for an application."""
     idnum = int(str(idnum), 0)
     if idnum < 0:
-        raise exceptions.ParameterError("idnum out of range: %d" % idnum)
-    ret = cmdr.send_prompt_command("resource bank info %d" % idnum)
+        raise exceptions.ParameterError(f"idnum out of range: {idnum:d}")
+    ret = cmdr.send_prompt_command(f"resource bank info {idnum:d}")
     if not ret[0].startswith("OK "):
         raise exceptions.PromptResponseError(ret)
     return [ret[0][3:]]
@@ -63,5 +63,5 @@ def app_available(cmdr, idnum):
     """Check if an application is available."""
     idnum = int(str(idnum), 0)
     if idnum == 0:
-        raise exceptions.ParameterError("idnum out of range: %d" % idnum)
-    return cmdr.send_prompt_command("app available %d" % idnum)
+        raise exceptions.ParameterError(f"idnum out of range: {idnum:d}")
+    return cmdr.send_prompt_command(f"app available {idnum:d}")

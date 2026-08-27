@@ -39,11 +39,6 @@ LOG_CORE_ID_OFFSET_SHIFT = 30
 class LogDict:
     def __init__(self):
         self.log_dict = {}
-        key_list = []
-        core_id = 0
-        core_id_offset = 0
-        core_name = ""
-        log_line_regex = None
 
     def parse_header_from_section(self, section):
         # Split the header string from the log strings, which follow
@@ -59,12 +54,12 @@ class LogDict:
             elif tag.startswith("CORE_NAME"):
                 self.core_name = key
             else:
-                raise Exception(f"Unknown header tag '{line}'")
+                raise RuntimeError(f"Unknown header tag '{line}'")
 
         if self.log_dict[LOG_DICT_KEY_VERSION] != NEW_LOGGING_VERSION:
             version = self.log_dict[LOG_DICT_KEY_VERSION]
             # Worthy of an exception! Something bad has happened with the tools configuration.
-            raise Exception(
+            raise RuntimeError(
                 f"Expected log strings version {NEW_LOGGING_VERSION} not {version}"
             )
 
@@ -168,13 +163,13 @@ def get_elf_build_id(filename):
 def merge_dicts(dict1, dict2):
     # Check to make sure that the versions exist and are identical
     if len(dict1) and LOG_DICT_KEY_VERSION not in dict1:
-        raise Exception("First log_dict does not contain version info")
+        raise RuntimeError("First log_dict does not contain version info")
 
         if LOG_DICT_KEY_VERSION not in dict2:
-            raise Exception("Second log_dict does not contain version info")
+            raise RuntimeError("Second log_dict does not contain version info")
 
         if dict1[LOG_DICT_KEY_VERSION] != dict2[LOG_DICT_KEY_VERSION]:
-            raise Exception(
+            raise RuntimeError(
                 f"log dicts have different versions! {dict1[LOG_DICT_KEY_VERSION]} != {dict2[LOG_DICT_KEY_VERSION]}"
             )
 
@@ -189,13 +184,13 @@ def merge_dicts(dict1, dict2):
             core_list_dict2.append(key)
 
     if len(dict1) and len(core_list_dict1) == 0:
-        raise Exception("First log_dict does not specify a core_id")
+        raise RuntimeError("First log_dict does not specify a core_id")
     if len(core_list_dict2) == 0:
-        raise Exception("Second log_dict does not specify a core_id")
+        raise RuntimeError("Second log_dict does not specify a core_id")
 
     intersection = set(core_list_dict1).intersection(core_list_dict2)
     if len(intersection) != 0:
-        raise Exception(
+        raise RuntimeError(
             f"Both log_dicts specify the following cores: {list(intersection)}"
         )
 
@@ -240,7 +235,7 @@ def merge_loghash_dict_json_files(out_file, merge_list):
             out_dict = merge_dicts(out_dict, in_dict)
 
     if LOG_DICT_KEY_BUILD_ID_LEGACY not in out_dict:
-        raise Exception("build_id missing from loghash_dict.json")
+        raise RuntimeError("build_id missing from loghash_dict.json")
 
     with open(out_file.abspath(), "w") as json_file:
         json.dump(out_dict, json_file, indent=2, sort_keys=True)

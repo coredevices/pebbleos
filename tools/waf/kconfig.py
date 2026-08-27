@@ -120,7 +120,7 @@ def configure(conf):
     blddir = conf.bldnode.abspath()
     try:
         board = tools.waf.boards.parse_board(srcdir, conf.options.board)
-    except ValueError as e:
+    except (TypeError, ValueError) as e:
         conf.fatal(str(e))
 
     defconfig = os.path.join(srcdir, "boards", board.name, "defconfig")
@@ -248,4 +248,5 @@ class menuconfig(BuildContext):
         subprocess.run(
             [sys.executable, "-m", "menuconfig", os.path.join(srcdir, "Kconfig")],
             env=env,
+            check=False,
         )

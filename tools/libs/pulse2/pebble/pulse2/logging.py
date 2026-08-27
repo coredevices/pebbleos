@@ -16,4 +16,4 @@ class TaggedAdapter(logging.LoggerAdapter):
     """
 
     def process(self, msg, kwargs):
-        return "[%s] %s" % (self.extra["tag"], msg), kwargs
+        return "[{}] {}".format(self.extra["tag"], msg), kwargs

@@ -33,7 +33,6 @@ def _get_type_die(die):
     while True:
         if "DW_AT_type" not in die.attributes:
             return die
-        ref = die.attributes["DW_AT_type"].value
         die = die.get_DIE_from_attribute("DW_AT_type")
     return die
 

@@ -16,3 +16,19 @@ from . import (
     time,
     windows,
 )
+
+__all__ = [
+    "app",
+    "battery",
+    "bluetooth",
+    "clicks",
+    "flash",
+    "help",
+    "imaging",
+    "misc",
+    "pfs",
+    "resets",
+    "system",
+    "time",
+    "windows",
+]

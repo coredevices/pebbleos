@@ -36,7 +36,7 @@ class ResourceGeneratorPdc(ResourceGenerator):
         node = task.generator.path.make_node(definition.file)
 
         if os.path.isdir(node.abspath()):
-            output, errors = pdc_gen.create_pdc_data_from_path(
+            output, _errors = pdc_gen.create_pdc_data_from_path(
                 node.abspath(),
                 viewbox_size=(0, 0),
                 verbose=False,
@@ -45,7 +45,7 @@ class ResourceGeneratorPdc(ResourceGenerator):
                 precise=False,
             )
         else:
-            output, errors = pdc_gen.create_pdc_data_from_path(
+            output, _errors = pdc_gen.create_pdc_data_from_path(
                 task.inputs[0].abspath(),
                 viewbox_size=(0, 0),
                 verbose=False,

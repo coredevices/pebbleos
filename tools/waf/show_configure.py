@@ -3,6 +3,7 @@
 
 
 import os
+import sys
 from shlex import quote
 
 from waflib import ConfigSet, Options
@@ -18,8 +19,8 @@ def load_lockfile(env, basepath):
         raise ValueError(
             f"{os.path.basename(os.getcwd())} is not configured yet"
         )
-    except Exception:
-        raise ValueError(f"Could not load {lockfile_path}")
+    except Exception as e:
+        raise ValueError(f"Could not load {lockfile_path}") from e
 
 
 @conf
@@ -62,4 +63,4 @@ class show_configure(BuildContext):
 
         # Print and force waf to complete without further output
         print(" ".join(argv))
-        exit()
+        sys.exit()

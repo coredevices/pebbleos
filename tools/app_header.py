@@ -4,13 +4,14 @@
 import struct
 import uuid
 from functools import reduce
+from typing import ClassVar
 
 
 class PebbleAppHeader:
     MAGIC = b"PBLAPP\x00\x00"
 
     # 10 bytes
-    HEADER_STRUCT_DEFINITION = [
+    HEADER_STRUCT_DEFINITION: ClassVar = [
         "8s",  # header
         "2B",  # struct version
     ]
@@ -18,7 +19,7 @@ class PebbleAppHeader:
 
     # 116 bytes
     V1_STRUCT_VERSION = (0x08, 0x01)
-    V1_STRUCT_DEFINTION = [
+    V1_STRUCT_DEFINTION: ClassVar = [
         # format, name, deserialization transform, serialization transform
         ("B", "sdk_version_major", None, None),
         ("B", "sdk_version_minor", None, None),
@@ -39,7 +40,7 @@ class PebbleAppHeader:
 
     # 120 bytes
     V2_STRUCT_VERSION = (0x10, 0x00)
-    V2_STRUCT_DEFINTION = list(V1_STRUCT_DEFINTION)
+    V2_STRUCT_DEFINTION: ClassVar = list(V1_STRUCT_DEFINTION)
     del V2_STRUCT_DEFINTION[12]  # relocation list was dropped in v2.x
     V2_STRUCT_DEFINTION += [
         ("I", "resource_crc", None, None),
@@ -48,7 +49,7 @@ class PebbleAppHeader:
     ]
     V2_HEADER_LENGTH = 10 + 120
 
-    DEFINITION_MAP = {
+    DEFINITION_MAP: ClassVar = {
         V1_STRUCT_VERSION: V1_STRUCT_DEFINTION,
         V2_STRUCT_VERSION: V2_STRUCT_DEFINTION,
     }
@@ -57,7 +58,7 @@ class PebbleAppHeader:
     def get_def_and_struct(cls, struct_version):
         definition = cls.DEFINITION_MAP.get(struct_version)
         if not definition:
-            raise Exception("Unsupported struct version %s" % str(struct_version))
+            raise RuntimeError(f"Unsupported struct version {struct_version!s}")
         fmt = "<" + reduce(lambda s, t: s + t[0], definition, "")
         s = struct.Struct(fmt)
         return definition, s
@@ -75,7 +76,7 @@ class PebbleAppHeader:
         }
 
         if info["sentinel"] != cls.MAGIC:
-            raise Exception("This is not a pebble watchapp")
+            raise RuntimeError("This is not a pebble watchapp")
 
         definition, s = cls.get_def_and_struct(struct_version)
         values = s.unpack(app_bin[header_size : header_size + s.size])
@@ -111,7 +112,7 @@ class PebbleAppHeader:
     def __getattr__(self, name):
         value = self._info.get(name)
         if value is None:
-            raise Exception("Unknown field %s" % name)
+            raise RuntimeError(f"Unknown field {name}")
         return value
 
     def __setattr__(self, name, value):

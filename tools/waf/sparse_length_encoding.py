@@ -72,7 +72,7 @@ def encode(source):
                 yield bytes([escape])
                 yield bytes([count])
             elif count < 0:
-                raise Exception("Encoding malfunctioned")
+                raise RuntimeError("Encoding malfunctioned")
         else:
             # simply insert the characters (and escape the escape character)
             for _ in g:
@@ -112,6 +112,7 @@ def decode(stream):
 
 if __name__ == "__main__":
     import sys
+    from pathlib import Path
 
     if len(sys.argv) == 1:
         # run unit tests
@@ -121,19 +122,19 @@ if __name__ == "__main__":
             def test_empty(self):
                 raw_data = b""
                 encoded_data = b"".join(encode(raw_data))
-                decoded_data = b"".join(decode(encoded_data))
+                b"".join(decode(encoded_data))
                 self.assertEqual(encoded_data, b"\x01\x01\x00")
 
             def test_no_zeros(self):
                 raw_data = b"\x02\xff\xef\x99"
                 encoded_data = b"".join(encode(raw_data))
-                decoded_data = b"".join(decode(encoded_data))
+                b"".join(decode(encoded_data))
                 self.assertEqual(encoded_data, b"\x01\x02\xff\xef\x99\x01\x00")
 
             def test_one_zero(self):
                 raw_data = b"\x00"
                 encoded_data = b"".join(encode(raw_data))
-                decoded_data = b"".join(decode(encoded_data))
+                b"".join(decode(encoded_data))
                 self.assertEqual(encoded_data, b"\x01\x00\x01\x00")
 
             def test_small_number_of_zeros(self):
@@ -171,10 +172,10 @@ if __name__ == "__main__":
         unittest.main()
     elif len(sys.argv) == 2:
         # encode the specified file
-        data = open(sys.argv[1], "rb").read()
+        data = Path(sys.argv[1]).read_bytes()
         encoded = b"".join(encode(data))
         if b"".join(decode(encoded)) != data:
-            raise Exception("Invalid encoding")
+            raise RuntimeError("Invalid encoding")
         sys.stdout.buffer.write(encoded)
     else:
-        raise Exception("Invalid arguments")
+        raise RuntimeError("Invalid arguments")

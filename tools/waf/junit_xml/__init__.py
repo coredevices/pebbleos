@@ -1,7 +1,7 @@
-#!/usr/bin/env python
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import xml.dom.minidom
 import xml.etree.ElementTree as ET
 
@@ -58,7 +58,7 @@ class TestSuite:
         try:
             iter(test_cases)
         except TypeError:
-            raise Exception("test_cases must be a list of test cases")
+            raise RuntimeError("test_cases must be a list of test cases")
         self.test_cases = test_cases
         self.hostname = hostname
         self.id = id
@@ -69,7 +69,7 @@ class TestSuite:
     def build_xml_doc(self):
         """Builds the XML document for the JUnit test suite"""
         # build the test suite element
-        test_suite_attributes = dict()
+        test_suite_attributes = {}
         test_suite_attributes["name"] = str(self.name)
         test_suite_attributes["failures"] = str(
             len([c for c in self.test_cases if c.is_failure()])
@@ -99,10 +99,10 @@ class TestSuite:
 
         # test cases
         for case in self.test_cases:
-            test_case_attributes = dict()
+            test_case_attributes = {}
             test_case_attributes["name"] = str(case.name)
             if case.elapsed_sec:
-                test_case_attributes["time"] = "%f" % case.elapsed_sec
+                test_case_attributes["time"] = f"{case.elapsed_sec:f}"
             if case.classname:
                 test_case_attributes["classname"] = str(case.classname)
 
@@ -150,7 +150,7 @@ class TestSuite:
         try:
             iter(test_suites)
         except TypeError:
-            raise Exception("test_suites must be a list of test suites")
+            raise RuntimeError("test_suites must be a list of test suites")
 
         xml_element = ET.Element("testsuites")
         for ts in test_suites:
@@ -158,10 +158,8 @@ class TestSuite:
 
         xml_string = ET.tostring(xml_element)
         if prettyprint:
-            try:
+            with contextlib.suppress(Exception):
                 xml_string = xml.dom.minidom.parseString(xml_string).toprettyxml()
-            except:
-                pass
         return xml_string
 
     @staticmethod

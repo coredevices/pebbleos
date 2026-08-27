@@ -7,13 +7,14 @@ import os
 import struct
 from binascii import crc32
 from functools import reduce
+from typing import ClassVar
 
 import stm32_crc
 
 
 class PebbleFirmwareBinaryInfo:
     V1_STRUCT_VERSION = 1
-    V1_STRUCT_DEFINTION = [
+    V1_STRUCT_DEFINTION: ClassVar = [
         ("20s", "build_id"),
         ("L", "version_timestamp"),
         ("32s", "version_tag"),
@@ -23,7 +24,7 @@ class PebbleFirmwareBinaryInfo:
         ("B", "metadata_version"),
     ]
     # The platforms which use a legacy defective crc32
-    LEGACY_CRC_PLATFORMS = [
+    LEGACY_CRC_PLATFORMS: ClassVar = [
         0,  # unknown (assume legacy)
         1,  # OneEV1
         2,  # OneEV2

@@ -35,8 +35,11 @@ import logging
 import os
 import re
 import struct
+from pathlib import Path
 
 from jira.client import JIRA
+
+logger = logging.getLogger(__name__)
 
 # Create a ~/.triage JSON file and override/configure these keys:
 SETTINGS = {
@@ -84,7 +87,7 @@ class JIRASupport:
         self.issue_id = issue_id
 
     def issue_url(self, issue_id):
-        return "%s/browse/%s" % (SETTINGS["server_url"], issue_id)
+        return "{}/browse/{}".format(SETTINGS["server_url"], issue_id)
 
     def issue_download_path(self, issue_id):
         return os.path.join(SETTINGS["download_path"], issue_id)
@@ -95,11 +98,11 @@ class JIRASupport:
     def load_user_settings(self):
         settings_path = "~/.triage"
         try:
-            user_settings_file = open(os.path.expanduser(settings_path), "rb")
-            user_settings = json.load(user_settings_file)
+            with open(os.path.expanduser(settings_path), "rb") as settings_file:
+                user_settings = json.load(settings_file)
         except OSError as e:
             if e.errno == 2:
-                logging.error(
+                logger.error(
                     """Please create %s with credentials: """
                     """'{ "user": "$USER", "password": "$PASSWORD" }'""",
                     settings_path,
@@ -115,17 +118,18 @@ class JIRASupport:
     def download_attachments(self, issue_path, issue):
         attachments = issue.fields.attachment
         if not attachments:
-            raise Exception("No attachments found.")
+            raise RuntimeError("No attachments found.")
         local_paths = []
         for attachment in attachments:
             filename = attachment.raw["filename"]
             local_path = os.path.join(issue_path, filename)
             local_paths.append(local_path)
             if os.path.exists(local_path):
-                logging.debug("Skipping %s: file already exists.", filename)
+                logger.debug("Skipping %s: file already exists.", filename)
                 continue
-            logging.info("Downloading %s..." % filename)
-            open(local_path, "wb").write(attachment.get())
+            logger.info(f"Downloading {filename}...")
+            with open(local_path, "wb") as attachment_file:
+                attachment_file.write(attachment.get())
         return set(local_paths)
 
     def unzip_android_logs(self, paths):
@@ -138,7 +142,7 @@ class JIRASupport:
                     try:
                         f_out.writelines(f_in)
                     except OSError:
-                        logging.error("Error writing unzipped android log")
+                        logger.error("Error writing unzipped android log")
                     finally:
                         f_out.close()
                 ungz_paths.append(ungz_path)
@@ -182,16 +186,16 @@ class JIRASupport:
         # Create /tmp/ISSUE_ID to download attachments to:
         issue_path = self.issue_download_path(self.issue_id)
         if not os.path.exists(issue_path):
-            logging.info("Creating %s" % issue_path)
+            logger.info(f"Creating {issue_path}")
             os.makedirs(issue_path)
         else:
-            logging.info("Using %s" % issue_path)
+            logger.info(f"Using {issue_path}")
 
         # Download attachments:
         try:
             local_attachment_paths = self.download_attachments(issue_path, issue)
-        except:
-            logging.info("No attachments to process")
+        except Exception:  # noqa: BLE001
+            logger.info("No attachments to process")
             return []
 
         # Android attaches a .gz with all the logs:
@@ -246,20 +250,18 @@ class ParseAccelSamplesFile:
             print("\n\n")
             print("// ----------------------------------------------------------------")
             print(
-                "// Sample captured: %s local"
-                % (datetime.datetime.utcfromtimestamp(self.session_start_time_local))
+                f"// Sample captured: {datetime.datetime.fromtimestamp(self.session_start_time_local, tz=datetime.timezone.utc)} local"
             )
             print(
-                "AccelRawData *activity_sample_%s_%d(int *len) {"
-                % (self.sample_prefix, self.session_id)
+                f"AccelRawData *activity_sample_{self.sample_prefix}_{self.session_id:d}(int *len) {{"
             )
             print(
                 "  // The unit tests parse the //> TEST_.* lines below for test values"
             )
-            print("  //> TEST_NAME %s_%d" % (self.sample_prefix, self.session_id))
-            print("  //> TEST_EXPECTED %d" % (self.expected[0]))
-            print("  //> TEST_EXPECTED_MIN %d" % (self.expected[1]))
-            print("  //> TEST_EXPECTED_MAX %d" % (self.expected[2]))
+            print(f"  //> TEST_NAME {self.sample_prefix}_{self.session_id:d}")
+            print(f"  //> TEST_EXPECTED {self.expected[0]:d}")
+            print(f"  //> TEST_EXPECTED_MIN {self.expected[1]:d}")
+            print(f"  //> TEST_EXPECTED_MAX {self.expected[2]:d}")
             print("  //> TEST_WEIGHT 1.0")
             print("  static AccelRawData samples[] = {")
 
@@ -267,17 +269,16 @@ class ParseAccelSamplesFile:
             print("\n\n\n")
             print("###################################################################")
             print(
-                "##### Start of sample %d. Place this section in a new file ########"
-                % (self.session_id)
+                f"##### Start of sample {self.session_id:d}. Place this section in a new file ########"
             )
             print("###################################################################")
 
     #############################################################################################
     def _output_sample(self, x, y, z):
         if self.format == "c":
-            print("    { %d, %d, %d}," % (x, y, z))
+            print(f"    {{ {x:d}, {y:d}, {z:d}}},")
         else:
-            print("%d, %d, %d" % (x, y, z))
+            print(f"{x:d}, {y:d}, {z:d}")
 
     #############################################################################################
     def _output_end_of_session(self):
@@ -299,29 +300,22 @@ class ParseAccelSamplesFile:
             session_id,
             session_start_time_local,
             flags,
-            len,
+            _len,
             num_samples,
             num_entries,
         ) = struct.unpack_from(hdr_format, self.image, self.offset)
         self.offset += pack_size
 
-        logging.debug(
-            "Got timestamp: %s, session %d, flags: 0x%x, num_entries: %d, "
-            "num_samples: %d"
-            % (
-                datetime.datetime.utcfromtimestamp(session_start_time_local),
-                session_id,
-                flags,
-                num_entries,
-                num_samples,
-            )
+        logger.debug(
+            f"Got timestamp: {datetime.datetime.fromtimestamp(session_start_time_local, tz=datetime.timezone.utc)}, session {session_id:d}, flags: 0x{flags:x}, num_entries: {num_entries:d}, "
+            f"num_samples: {num_samples:d}"
         )
 
         if (
             version != self.ACTIVITY_RAW_SAMPLES_VERSION_1
             and version != self.ACTIVITY_RAW_SAMPLES_VERSION_2
         ):
-            raise RuntimeError("Invalid record version: %d" % (version))
+            raise RuntimeError(f"Invalid record version: {version:d}")
 
         if session_id != self.session_id:
             # New session about to start
@@ -334,8 +328,8 @@ class ParseAccelSamplesFile:
 
             if not (flags & self.ACTIVITY_RAW_SAMPLE_FLAG_FIRST_RECORD):
                 print(
-                    "WARNING: Invalid record detected. Start of new session (%d) without"
-                    " the first record flag" % (session_id)
+                    f"WARNING: Invalid record detected. Start of new session ({session_id:d}) without"
+                    " the first record flag"
                 )
 
             self._output_start_of_session()
@@ -349,11 +343,10 @@ class ParseAccelSamplesFile:
         for i in range(num_entries):
             (encoded,) = struct.unpack_from(sample_format, self.image, offset)
             offset += pack_size
-            logging.debug("Got encoded sample %d: 0x%x" % (i, encoded))
+            logger.debug(f"Got encoded sample {i:d}: 0x{encoded:x}")
 
-            if (self.session_num_samples % 25) == 0:
-                if self.format == "c":
-                    print("    // %d seconds" % (self.session_num_samples / 25))
+            if (self.session_num_samples % 25) == 0 and self.format == "c":
+                print(f"    // {self.session_num_samples / 25:d} seconds")
 
             # Decode it
             if version == self.ACTIVITY_RAW_SAMPLES_VERSION_1:
@@ -393,8 +386,7 @@ class ParseAccelSamplesFile:
                     and (self.session_num_samples % samples_per_minute) == 0
                 ):
                     print(
-                        "    // elapsed: %d minutes"
-                        % (self.session_num_samples / samples_per_minute)
+                        f"    // elapsed: {self.session_num_samples / samples_per_minute:d} minutes"
                     )
                 self._output_sample(x, y, z)
                 num_samples_decoded += 1
@@ -438,7 +430,7 @@ class ParseAccelSamplesFile:
         while self.offset < image_len:
             try:
                 self._parse_binary_item()
-            except:
+            except Exception:
                 if first_line:
                     self.offset = 0
                     self.image = self.image[second_line_offset:]
@@ -500,13 +492,8 @@ class ParseMinuteStatsFile:
         )
         self.offset += hdr_pack_size
 
-        logging.debug(
-            "Got blob: local time: %s, utc time: %s, num_samples: %d"
-            % (
-                datetime.datetime.utcfromtimestamp(time_local),
-                datetime.datetime.utcfromtimestamp(time_utc),
-                num_samples,
-            )
+        logger.debug(
+            f"Got blob: local time: {datetime.datetime.fromtimestamp(time_local, tz=datetime.timezone.utc)}, utc time: {datetime.datetime.fromtimestamp(time_utc, tz=datetime.timezone.utc)}, num_samples: {num_samples:d}"
         )
 
         # See if this is a continuation of a previous session, or a new one
@@ -522,7 +509,7 @@ class ParseMinuteStatsFile:
         else:
             printing_on = False
 
-        timestamp = datetime.datetime.utcfromtimestamp(time_local)
+        timestamp = datetime.datetime.fromtimestamp(time_local, tz=datetime.timezone.utc)
         if self.session_start_time_utc is None:
             if self.format == "c":
                 self.session_minute_idx = 0
@@ -532,17 +519,15 @@ class ParseMinuteStatsFile:
                     "// ----------------------------------------------------------------"
                 )
                 print(
-                    "// Sample captured at: %s local, %s GMT"
-                    % (timestamp, datetime.datetime.utcfromtimestamp(time_utc))
+                    f"// Sample captured at: {timestamp} local, {datetime.datetime.fromtimestamp(time_utc, tz=datetime.timezone.utc)} GMT"
                 )
                 print(
-                    "AlgDlsMinuteData *activity_sample_%s(int *len) {"
-                    % (timestamp.strftime("%Y_%m_%d_%H_%M_%S"))
+                    "AlgDlsMinuteData *activity_sample_{}(int *len) {{".format(timestamp.strftime("%Y_%m_%d_%H_%M_%S"))
                 )
                 print(
                     "  // The unit tests parse the //> TEST_.* lines below for test values"
                 )
-                print("  //> TEST_NAME %s" % (self.sample_prefix))
+                print(f"  //> TEST_NAME {self.sample_prefix}")
                 print(SLEEP_DEFAULT_EXPECTED_TEXT)
                 print("  // list of: {steps, orientation, vmc, ligh}")
                 print("  static AlgDlsMinuteData samples[] = {")
@@ -552,11 +537,7 @@ class ParseMinuteStatsFile:
         else:
             if printing_on:
                 print(
-                    "    // %d: Local time: %s"
-                    % (
-                        self.session_minute_idx,
-                        timestamp.strftime("%Y-%m-%d %I:%M:%S %p"),
-                    )
+                    "    // {:d}: Local time: {}".format(self.session_minute_idx, timestamp.strftime("%Y-%m-%d %I:%M:%S %p"))
                 )
         # Save the params from the header
         self.session_start_time_utc = time_utc
@@ -573,7 +554,7 @@ class ParseMinuteStatsFile:
         )
         if blob_len != expected_len:
             raise RuntimeError(
-                "Invalid len in header (%d). Expected %d" % (blob_len, expected_len)
+                f"Invalid len in header ({blob_len:d}). Expected {expected_len:d}"
             )
 
         for i in range(num_samples):
@@ -581,11 +562,11 @@ class ParseMinuteStatsFile:
                 sample_format, self.image, self.offset
             )
             self.offset += sample_pack_size
-            logging.debug(
-                "Got sample %d: %d, %d, %d, %d" % (i, steps, orient, vmc, light)
+            logger.debug(
+                f"Got sample {i:d}: {steps:d}, {orient:d}, {vmc:d}, {light:d}"
             )
             if printing_on:
-                print("    { %d, 0x%x, %d, 0x%x}," % (steps, orient, vmc, light))
+                print(f"    {{ {steps:d}, 0x{orient:x}, {vmc:d}, 0x{light:x}}},")
 
         if not printing_on:
             self.session_minute_idx = 0
@@ -634,18 +615,13 @@ class ParseMinuteStatsFile:
             )
             self.offset += struct.calcsize(hdr_aux_format)
             if num_samples != 15:
-                raise RuntimeError("Invalid num_samples value of %d" % (num_samples))
+                raise RuntimeError(f"Invalid num_samples value of {num_samples:d}")
             if sample_size != sample_pack_size:
-                raise RuntimeError("Invalid sample size of %d" % (sampleSize))
+                raise RuntimeError(f"Invalid sample size of {sample_size:d}")
 
         # Print header info
-        logging.debug(
-            "Got blob: local time: %s, utc time: %s, num_samples: %d"
-            % (
-                datetime.datetime.utcfromtimestamp(time_local),
-                datetime.datetime.utcfromtimestamp(time_utc),
-                num_samples,
-            )
+        logger.debug(
+            f"Got blob: local time: {datetime.datetime.fromtimestamp(time_local, tz=datetime.timezone.utc)}, utc time: {datetime.datetime.fromtimestamp(time_utc, tz=datetime.timezone.utc)}, num_samples: {num_samples:d}"
         )
 
         # See if this is a continuation of a previous session, or a new one
@@ -661,7 +637,7 @@ class ParseMinuteStatsFile:
         else:
             printing_on = False
 
-        timestamp = datetime.datetime.utcfromtimestamp(time_local)
+        timestamp = datetime.datetime.fromtimestamp(time_local, tz=datetime.timezone.utc)
         if self.session_start_time_utc is None:
             if self.format == "c":
                 self.session_minute_idx = 0
@@ -671,17 +647,15 @@ class ParseMinuteStatsFile:
                     "// ----------------------------------------------------------------"
                 )
                 print(
-                    "// Sample captured at: %s local, %s GMT"
-                    % (timestamp, datetime.datetime.utcfromtimestamp(time_utc))
+                    f"// Sample captured at: {timestamp} local, {datetime.datetime.fromtimestamp(time_utc, tz=datetime.timezone.utc)} GMT"
                 )
                 print(
-                    "AlgDlsMinuteData *activity_sample_%s(int *len) {"
-                    % (timestamp.strftime("%Y_%m_%d_%H_%M_%S"))
+                    "AlgDlsMinuteData *activity_sample_{}(int *len) {{".format(timestamp.strftime("%Y_%m_%d_%H_%M_%S"))
                 )
                 print(
                     "  // The unit tests parse the //> TEST_.* lines below for test values"
                 )
-                print("  //> TEST_NAME %s" % (self.sample_prefix))
+                print(f"  //> TEST_NAME {self.sample_prefix}")
                 print(SLEEP_DEFAULT_EXPECTED_TEXT)
                 print("  // list of: {steps, orientation, vmc, light, plugged_in}")
                 print("  static AlgDlsMinuteData samples[] = {")
@@ -691,11 +665,7 @@ class ParseMinuteStatsFile:
         else:
             if printing_on:
                 print(
-                    "    // %d: Local time: %s"
-                    % (
-                        self.session_minute_idx,
-                        timestamp.strftime("%Y-%m-%d %I:%M:%S %p"),
-                    )
+                    "    // {:d}: Local time: {}".format(self.session_minute_idx, timestamp.strftime("%Y-%m-%d %I:%M:%S %p"))
                 )
 
         # Save the params from the header
@@ -717,15 +687,13 @@ class ParseMinuteStatsFile:
                     sample_format, self.image, self.offset
                 )
             self.offset += sample_pack_size
-            logging.debug(
-                "Got sample %d: %d, %d, %d, %d, 0x%x"
-                % (i, steps, orient, vmc, light, flags)
+            logger.debug(
+                f"Got sample {i:d}: {steps:d}, {orient:d}, {vmc:d}, {light:d}, 0x{flags:x}"
             )
             plugged_in = flags & 0x01
             if printing_on:
                 print(
-                    "    { %d, 0x%x, %d, %d, %d},"
-                    % (steps, orient, vmc, light, plugged_in)
+                    f"    {{ {steps:d}, 0x{orient:x}, {vmc:d}, {light:d}, {plugged_in:d}}},"
                 )
 
         if not printing_on:
@@ -763,7 +731,7 @@ class ParseMinuteStatsFile:
 
         else:
             raise RuntimeError(
-                "This blob has version %d, which is unrecognized" % (version)
+                f"This blob has version {version:d}, which is unrecognized"
             )
 
     #############################################################################################
@@ -775,7 +743,7 @@ class ParseMinuteStatsFile:
             prefix = "SLP: "
             for line in lines:
                 if prefix in line:
-                    logging.debug("Converting %s to binary" % (line))
+                    logger.debug(f"Converting {line} to binary")
                     base64_str = line[line.index(prefix) + len(prefix) :]
                     content = base64.b64decode(base64_str)
                     bin_data += content
@@ -881,12 +849,12 @@ if __name__ == "__main__":
 
     for file in infiles:
         if args.input == "accel_samples":
-            sample_prefix = "%s_%s" % (
+            sample_prefix = "{}_{}".format(
                 args.name_prefix,
                 sample_prefix.replace("-", "_"),
             )
             parser = ParseAccelSamplesFile(
-                image=open(file, "r").read(),
+                image=Path(file).read_text(),
                 bin_file=input_is_bin,
                 sample_prefix=sample_prefix,
                 format=args.output,
@@ -895,9 +863,9 @@ if __name__ == "__main__":
                 exp_max=args.expected_max,
             )
         else:
-            sample_prefix = "%s" % (sample_prefix.replace("-", "_"))
+            sample_prefix = "{}".format(sample_prefix.replace("-", "_"))
             parser = ParseMinuteStatsFile(
-                image=open(file, "r").read(),
+                image=Path(file).read_text(),
                 bin_file=input_is_bin,
                 sample_prefix=sample_prefix,
                 format=args.output,

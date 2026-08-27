@@ -9,9 +9,9 @@ CRC_POLY = 0xEDB88320
 
 def crc_table(bits):
     lookup_table = []
-    for i in xrange(2**bits):
+    for i in range(2**bits):
         rr = i * 16
-        for x in xrange(8):
+        for x in range(8):
             rr = (rr >> 1) ^ (-(rr & 1) & CRC_POLY)
         lookup_table.append(rr & 0xFFFFFFFF)
     return lookup_table

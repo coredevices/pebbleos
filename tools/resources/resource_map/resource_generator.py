@@ -35,7 +35,7 @@ class ResourceGenerator(ResourceGeneratorBase):
         resource = {
             "name": definition_dict["name"],
             "filename": str(
-                definition_dict["file"] if "file" in definition_dict else None
+                definition_dict.get("file", None)
             ),
         }
         resources = [resource]
@@ -84,7 +84,7 @@ class ResourceGenerator(ResourceGeneratorBase):
         """
         Stub implementation of generate_object. Subclasses must override this method.
         """
-        raise NotImplementedError("%r missing a generate_object implementation" % cls)
+        raise NotImplementedError(f"{cls!r} missing a generate_object implementation")
 
 
 def definitions_from_dict(bld, definition_dict, resource_source_path):

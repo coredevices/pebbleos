@@ -25,11 +25,11 @@ def process_include_files(self):
         elif isinstance(include_file, str):
             node = self.path.find_node(include_file)
             if not node:
-                self.bld.fatal("%s does not exist." % include_file)
+                self.bld.fatal(f"{include_file} does not exist.")
         else:
             self.bld.fatal("Expecting str or Nod3 in `inject_include_files` list")
         include_file_path = node.abspath()
-        include_flags.append("-include%s" % include_file_path)
+        include_flags.append(f"-include{include_file_path}")
 
     self.env.append_unique("CFLAGS", include_flags)
     self.env.append_unique("ASFLAGS", include_flags)

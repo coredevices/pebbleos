@@ -31,7 +31,7 @@ class CoredumpAnalyzer:
         self.coredump_file = coredump_file
         self.output_file = (
             output_file
-            or f"coredump_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            or f"coredump_analysis_{datetime.now().astimezone().strftime('%Y%m%d_%H%M%S')}.txt"
         )
         self.gdb_executable = find_gdb_executable()
         if not self.gdb_executable:
@@ -171,7 +171,7 @@ class CoredumpAnalyzer:
             output_lines.append("=" * 80)
             output_lines.append("COREDUMP ANALYSIS REPORT")
             output_lines.append(
-                f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                f"Generated: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S')}"
             )
             output_lines.append(f"ELF File: {self.elf_file}")
             output_lines.append(
@@ -221,7 +221,7 @@ class CoredumpAnalyzer:
                 "Please ensure arm-none-eabi-gdb-py or arm-none-eabi-gdb-py3 is installed and in PATH."
             )
             return False
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Error during analysis: {e}")
             return False
 

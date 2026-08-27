@@ -5,8 +5,11 @@
 import collections
 import logging
 import struct
+from typing import ClassVar
 
 from ..exceptions import PebbleCommanderError
+
+logger = logging.getLogger(__name__)
 
 
 class ResponseParseError(PebbleCommanderError):
@@ -136,7 +139,7 @@ class OpenResponse:
     def parse(cls, response):
         response_type = ord(response[0])
         if response_type != cls.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
@@ -151,7 +154,7 @@ class CloseResponse:
     def parse(cls, response):
         response_type = ord(response[0])
         if response_type != cls.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
@@ -165,7 +168,7 @@ class ReadResponse:
     @classmethod
     def parse(cls, response):
         if ord(response[0]) != cls.response_type:
-            raise ResponseParseError("Unexpected response: %r" % response)
+            raise ResponseParseError(f"Unexpected response: {response!r}")
         header = response[: cls.header_size]
         body = response[cls.header_size :]
         (
@@ -186,7 +189,7 @@ class WriteResponse:
     def parse(cls, response):
         response_type = ord(response[0])
         if response_type != cls.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
@@ -201,7 +204,7 @@ class CRCResponse:
     def parse(cls, response):
         response_type = ord(response[0])
         if response_type != cls.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
@@ -216,7 +219,7 @@ class StatResponse:
     def parse(self, response):
         response_type = ord(response[0])
         if response_type != self.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return self.tuple._make(self.struct.unpack(response))
 
     def __repr__(self):
@@ -234,7 +237,7 @@ class EraseResponse:
     def parse(cls, response):
         response_type = ord(response[0])
         if response_type != cls.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
@@ -298,7 +301,7 @@ class PULSEIO_Base:
             options = struct.pack("<" + cls.ERASE_FORMAT, *args)
         else:
             raise NotImplementedError(
-                "Erase is not supported for domain %d" % cls.DOMAIN
+                f"Erase is not supported for domain {cls.DOMAIN:d}"
             )
         cmd = EraseCommand(cls.DOMAIN, options)
         socket.send(cmd.packet)
@@ -306,7 +309,7 @@ class PULSEIO_Base:
         while status > 0:
             ret = socket.receive(block=True)
             resp = EraseResponse.parse(ret)
-            logging.debug("ERASE: domain %d status %d", resp.domain, resp.status)
+            logger.debug("ERASE: domain %d status %d", resp.domain, resp.status)
             status = resp.status
 
         if status < 0:
@@ -318,7 +321,7 @@ class PULSEIO_Base:
 
         mss = self.socket.mtu - WriteCommand.header_size
 
-        for offset in xrange(0, len(data), mss):
+        for offset in range(0, len(data), mss):
             segment = data[offset : offset + mss]
             resp = self._send_and_receive(
                 WriteCommand, WriteResponse, self.fd, self.pos, segment
@@ -338,7 +341,7 @@ class PULSEIO_Base:
         bytes_left = length
         while bytes_left > 0:
             packet = self.socket.receive(block=True)
-            fd, chunk_offset, chunk = ReadResponse.parse(packet)
+            fd, _chunk_offset, chunk = ReadResponse.parse(packet)
             assert fd == self.fd
             data.extend(chunk)
 
@@ -360,7 +363,7 @@ class PULSEIO_Base:
 
         if not self.STAT_FORMAT:
             raise NotImplementedError(
-                "Stat is not supported for domain %d" % self.DOMAIN
+                f"Stat is not supported for domain {self.DOMAIN:d}"
             )
 
         return self._send_and_receive(StatCommand, self.STAT_FORMAT, self.fd)
@@ -418,7 +421,7 @@ class PULSEIO_PFS(PULSEIO_Base):
 
 class BulkIO:
     PROTOCOL_NUMBER = 0x3E21
-    DOMAIN_MAP = {"pfs": PULSEIO_PFS, "framebuffer": PULSEIO_Framebuffer}
+    DOMAIN_MAP: ClassVar = {"pfs": PULSEIO_PFS, "framebuffer": PULSEIO_Framebuffer}
 
     def __init__(self, link):
         self.socket = link.open_socket("reliable", self.PROTOCOL_NUMBER)

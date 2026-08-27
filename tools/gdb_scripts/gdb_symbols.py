@@ -49,7 +49,7 @@ def _find_match_for_file(gdb_output, _file):
     if len(matches) == 0:
         return (None, None)
     if len(matches) > 1:
-        raise Exception("Error: Multiple statics by same name")
+        raise RuntimeError("Error: Multiple statics by same name")
     return matches[0]
 
 
@@ -64,7 +64,7 @@ def _find_match(gdb_output, _file=None):
     if len(matches) == 0:
         return (None, None)
     if len(matches) > 1:
-        raise Exception("Error: Multiple statics by same name")
+        raise RuntimeError("Error: Multiple statics by same name")
     return matches[0]
 
 
@@ -80,7 +80,7 @@ def get_static_variable(variable_name, _file=None, ref=False):
     out = _run_info(variable_name, "variables")
     (_type, symbol) = _find_match(out, _file)
     if symbol is None:
-        raise Exception(f'Error: Symbol matching "{variable_name}" DNE.')
+        raise RuntimeError(f'Error: Symbol matching "{variable_name}" DNE.')
     if ref:
         symbol = "&" + symbol
         if _type is not None:
@@ -96,6 +96,6 @@ get_static_variable.cache = defaultdict(lambda: defaultdict(dict))
 
 
 def get_static_function(function_name):
-    out = _run_info(function_name, "functions")
+    _run_info(function_name, "functions")
     # TODO: Figure out what we need to do to properly find matches here.
-    raise Exception("Not yet implemented.")
+    raise RuntimeError("Not yet implemented.")

@@ -9,5 +9,5 @@ def write(output_file, bytes, var_name):
     for byte, index in zip(bytes, list(range(len(bytes)))):
         if index != 0 and index % 16 == 0:
             output_file.write(f"/* bytes {index - 16} - {index} */\n  ")
-        output_file.write("0x%02x, " % byte)
+        output_file.write(f"0x{byte:02x}, ")
     output_file.write("\n};\n")

@@ -116,16 +116,16 @@ class ResourcePack:
                 break
 
             if file_id != n + 1:
-                raise Exception(
-                    "File ID is expected to be %u, but was %u" % (n + 1, file_id)
+                raise RuntimeError(
+                    f"File ID is expected to be {n + 1:d}, but was {file_id:d}"
                 )
 
             resource_pack.table_entries.append(entry)
 
         if len(resource_pack.table_entries) != num_files:
-            raise Exception(
-                "Number of files in manifest is %u, but actual"
-                "number is %u" % (num_files, n)
+            raise RuntimeError(
+                f"Number of files in manifest is {num_files:d}, but actual"
+                f"number is {n:d}"
             )
 
         # Figure out which content_index to assign to each table entry. Find all unique offset and
@@ -155,10 +155,9 @@ class ResourcePack:
             calculated_crc = stm32_crc.crc32(content)
 
             if calculated_crc != entry.crc:
-                raise Exception(
-                    "Entry %s does not match CRC of content (%u). "
-                    "Hint: try with%s the --app flag"
-                    % (entry, calculated_crc, "" if is_system else "out")
+                raise RuntimeError(
+                    ("Entry {} does not match CRC of content ({:d}). "
+                    "Hint: try with{} the --app flag").format(entry, calculated_crc, "" if is_system else "out")
                 )
 
             resource_pack.contents.append(content)
@@ -174,9 +173,9 @@ class ResourcePack:
         """
 
         if len(self.table_entries) > self.table_size:
-            raise Exception(
-                "Exceeded max number of resources. Must have %d or "
-                "fewer" % self.table_size
+            raise RuntimeError(
+                f"Exceeded max number of resources. Must have {self.table_size:d} or "
+                "fewer"
             )
 
         # Assign offsets to each of the entries in reverse order. The reason we do this in reverse
@@ -215,7 +214,7 @@ class ResourcePack:
 
     def add_resource(self, content):
         if self.finalized:
-            raise Exception(
+            raise RuntimeError(
                 "Cannot add additional resource, "
                 + "resource pack has already been finalized"
             )
@@ -242,13 +241,12 @@ class ResourcePack:
         Dump a bunch of information about this pbpack to stdout
         """
 
-        print("Manifest CRC: 0x%x" % self.crc)
-        print("Calculated CRC: 0x%x" % self.get_content_crc())
-        print("Num Items: %u" % len(self.table_entries))
+        print(f"Manifest CRC: 0x{self.crc:x}")
+        print(f"Calculated CRC: 0x{self.get_content_crc():x}")
+        print(f"Num Items: {len(self.table_entries):d}")
         for i, entry in enumerate(self.table_entries, start=1):
             print(
-                "  %u: Offset %u Length %u CRC 0x%x"
-                % (i, entry.offset, entry.length, entry.crc)
+                f"  {i:d}: Offset {entry.offset:d} Length {entry.length:d} CRC 0x{entry.crc:x}"
             )
 
     def __init__(self, is_system):

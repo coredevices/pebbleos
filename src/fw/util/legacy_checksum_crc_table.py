@@ -10,9 +10,9 @@ CRC_WIDTH = 32
 
 def precompute_table(bits):
     lookup_table = []
-    for i in xrange(2**bits):
+    for i in range(2**bits):
         rr = i << (CRC_WIDTH - bits)
-        for x in xrange(bits):
+        for x in range(bits):
             if rr & 0x80000000:
                 rr = (rr << 1) ^ CRC_POLY
             else:

@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import struct
+import sys
 
 from PIL import Image
 
@@ -196,14 +197,14 @@ def build_pbf(manifest, output_path, use_rle4=False):
         hash_buckets[bucket_id].append(glyph["codepoint"])
 
     # Sort each bucket by codepoint
-    for bucket_id in hash_buckets:
-        hash_buckets[bucket_id].sort()
+    for bucket in hash_buckets.values():
+        bucket.sort()
 
     # Determine offset entry format
     cp_format = "I" if codepoint_bytes == 4 else "H"
     off_format = "H" if use_offset_16 else "I"
     offset_entry_format = "<" + cp_format + off_format
-    offset_entry_size = struct.calcsize(offset_entry_format)
+    struct.calcsize(offset_entry_format)
 
     # Build offset table (ordered by hash bucket)
     offset_table = b""
@@ -290,4 +291,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

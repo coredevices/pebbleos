@@ -88,12 +88,12 @@ def main() -> int:
         while True:
             if not _is_available(args.tty):
                 print(
-                    "--- Waiting for %s (Ctrl-C to quit) ---" % args.tty,
+                    f"--- Waiting for {args.tty} (Ctrl-C to quit) ---",
                     flush=True,
                 )
                 _wait_for_transport(args.tty)
 
-            print("--- Connected to %s ---" % args.tty, flush=True)
+            print(f"--- Connected to {args.tty} ---", flush=True)
             subprocess.run(inner_cmd, check=False)
 
             if _is_available(args.tty):

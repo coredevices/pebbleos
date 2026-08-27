@@ -184,7 +184,7 @@ def make_pbl_bundle(task_gen):
 
         app_elf_file = task_gen.bld.path.get_bld().make_node(binary["app_elf"])
         if app_elf_file is None:
-            raise Exception("Must specify elf argument to bundle")
+            raise RuntimeError("Must specify elf argument to bundle")
 
         worker_bin_file = None
         if "worker_elf" in binary:

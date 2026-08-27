@@ -87,7 +87,7 @@ def receive_hdlc_data(s, sample_size):
             elif sample_size == 2:
                 d = data[i] | (data[i + 1] << 8)
             samples.append(d)
-        except:
+        except IndexError:
             print(f"conversion failed on word {i / sample_size}")
 
     return samples
@@ -207,7 +207,7 @@ if __name__ == "__main__":
         tty_accessory = args.tty_accessory
         tty_prompt = args.tty_accessory
     elif args.tty_prompt and not args.tty_accessory:
-        raise Exception(
+        raise RuntimeError(
             "If the prompt tty is specified, the accessory port tty must be specified "
             "too!"
         )

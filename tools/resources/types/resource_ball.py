@@ -44,6 +44,5 @@ if __name__ == "__main__":
 
     for i, o in enumerate(rb.resource_objects, start=1):
         print(
-            "%4u: %-50s %-10s %6u"
-            % (i, o.definition.name, o.definition.type, len(o.data))
+            f"{i:4d}: {o.definition.name:<50} {o.definition.type:<10} {len(o.data):6d}"
         )

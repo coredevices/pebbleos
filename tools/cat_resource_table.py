@@ -22,7 +22,7 @@ def main(pack_path, manifest_path):
         header = f.read(4116)
 
     def resource_generator(tbl, num):
-        for i in xrange(0, num * 16, 16):
+        for i in range(0, num * 16, 16):
             yield struct.unpack("<IIII", tbl[i : i + 16])
 
     (num_resources, res_version) = struct.unpack("<I16s", header[:20])

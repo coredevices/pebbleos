@@ -94,7 +94,7 @@ class PebbleBitmap:
             self.bitdepth = 0
         self.bitmap_format = bitmap_format
         self.color_reduction_method = color_reduction_method
-        width, height, pixels, metadata = png.Reader(filename=path).asRGBA8()
+        width, height, pixels, _metadata = png.Reader(filename=path).asRGBA8()
 
         # convert planar boxed row flat pixel to 2d array of (R, G, B, A)
         self._im_pixels = []
@@ -277,7 +277,7 @@ class PebbleBitmap:
         f.write(f"static const GBitmap s_{self.name}_bitmap = {{\n")
         f.write(f"  .addr = (void*) &{bytes_var_name},\n")
         f.write(f"  .row_size_bytes = {self.row_size_bytes()},\n")
-        f.write("  .info_flags = 0x%02x,\n" % self.info_flags())
+        f.write(f"  .info_flags = 0x{self.info_flags():02x},\n")
         f.write("  .bounds = {\n")
         f.write(f"    .origin = {{ .x = {self.x}, .y = {self.y} }},\n")
         f.write(f"    .size = {{ .w = {self.w}, .h = {self.h} }},\n")
@@ -342,7 +342,7 @@ class PebbleBitmap:
         if self.bitdepth is None:
             self.bitdepth = min_bitdepth
         if self.bitdepth < min_bitdepth:
-            raise Exception(
+            raise RuntimeError(
                 f"Required bitdepth {self.bitdepth} is lower than required depth {min_bitdepth}."
             )
 
@@ -394,18 +394,17 @@ def process_all_bitmaps():
         to_file = b.convert_to_h()
         header_paths.append(os.path.basename(to_file))
 
-    f = open(os.path.join(directory, "bitmaps.h"), "w")
-    print("#pragma once", file=f)
-    for h in header_paths:
-        print(f'#include "{h}"', file=f)
-    f.close()
+    with open(os.path.join(directory, "bitmaps.h"), "w") as f:
+        print("#pragma once", file=f)
+        for h in header_paths:
+            print(f'#include "{h}"', file=f)
 
 
 def grouper(iterable, n, fillvalue=None):
     from itertools import zip_longest
 
     args = [iter(iterable)] * n
-    return zip_longest(fillvalue=fillvalue, *args)
+    return zip_longest(*args, fillvalue=fillvalue)
 
 
 def process_cmd_line_args():

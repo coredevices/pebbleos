@@ -51,7 +51,7 @@ if __name__ == "__main__":
     use_colors = True
     formatter_string = "%(name)-12s: %(levelname)-8s %(message)s"
     if use_colors:
-        formatter_string = "\x1b[33m%s\x1b[m" % formatter_string
+        formatter_string = f"\x1b[33m{formatter_string}\x1b[m"
 
     formatter = logging.Formatter(formatter_string)
     handler = reattach_handler(logging.getLogger(), formatter, None)

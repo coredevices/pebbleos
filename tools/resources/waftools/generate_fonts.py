@@ -57,11 +57,11 @@ static const struct {
 @TaskGen.feature("generate_fonts")
 @TaskGen.before_method("process_source", "process_rule")
 def process_generate_fonts(self):
-    task = self.create_task(
+    self.create_task(
         "generate_font_header", self.resource_ball, self.font_key_header
     )
 
     if self.font_key_table is not None:
-        task = self.create_task(
+        self.create_task(
             "generate_font_table", self.resource_ball, self.font_key_table
         )

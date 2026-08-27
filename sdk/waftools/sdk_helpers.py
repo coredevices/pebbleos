@@ -82,13 +82,12 @@ def _get_supported_platforms(ctx):
             platform
         )
         for node in sdk_check_nodes:
-            if pebble_sdk_platform.find_node(node) is None:
-                if (
-                    ctx.root.find_node(ctx.env.PEBBLE_SDK_COMMON).find_node(node)
-                    is None
-                ):
-                    invalid_platforms.append(platform)
-                    break
+            if pebble_sdk_platform.find_node(node) is None and (
+                ctx.root.find_node(ctx.env.PEBBLE_SDK_COMMON).find_node(node)
+                is None
+            ):
+                invalid_platforms.append(platform)
+                break
     for platform in invalid_platforms:
         supported_platforms.remove(platform)
 
@@ -252,14 +251,16 @@ def process_package(ctx, package, root_lib_node=None):
                     "runtime behavior:\n"
                 )
                 packages_str = ""
-                for package in lib_node.find_node(ctx.env.LIB_DIR).ant_glob(
+                for package_json in lib_node.find_node(ctx.env.LIB_DIR).ant_glob(
                     "**/package.json"
                 ):
-                    with open(package.abspath()) as f:
+                    with open(package_json.abspath()) as f:
                         info = json.load(f)
-                    if not dict(ctx.env.PROJECT_INFO).get("enableMultiJS", False):
-                        if "pebble" not in info:
-                            continue
+                    if (
+                        not dict(ctx.env.PROJECT_INFO).get("enableMultiJS", False)
+                        and "pebble" not in info
+                    ):
+                        continue
                     packages_str += "      '{}': '{}'\n".format(
                         info["name"], info["version"]
                     )
@@ -271,9 +272,8 @@ def process_package(ctx, package, root_lib_node=None):
 
             if "pebble" in libinfo:
                 libinfo["path"] = lib_node.make_node("dist").path_from(ctx.path)
-                if "resources" in libinfo["pebble"]:
-                    if "media" in libinfo["pebble"]["resources"]:
-                        resources_json = libinfo["pebble"]["resources"]["media"]
+                if "media" in libinfo["pebble"].get("resources", {}):
+                    resources_json = libinfo["pebble"]["resources"]["media"]
 
                 # Extract package into "dist" folder
                 dist_node = lib_node.find_node("dist.zip")
@@ -413,4 +413,4 @@ def wrap_task_name_with_platform(self):
     if self.env.PLATFORM_NAME:
         name = self.env.PLATFORM_NAME + " | " + name
 
-    return "%s: %s%s%s" % (name, src_str, sep, tgt_str)
+    return f"{name}: {src_str}{sep}{tgt_str}"

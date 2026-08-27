@@ -143,9 +143,9 @@ def convert_to_png(pdc_data):
         with open(pdc_path, "wb") as pdc_file:
             pdc_file.write(pdc_data)
 
-        cmd = "%s %s" % (PDC2PNG, pdc_path)
+        cmd = f"{PDC2PNG} {pdc_path}"
         p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-        stdout, stderr = p.communicate()
+        _stdout, stderr = p.communicate()
         if p.returncode != 0:
             raise OSError(stderr)
 
@@ -180,12 +180,12 @@ class Command:
         return False
 
     def transform(self, transformer):
-        self.points = list([transformer.transform_point(p) for p in self.points])
+        self.points = [transformer.transform_point(p) for p in self.points]
 
     def finalize(self, annotator):
         grid_annotation = None
         for p in self.points:
-            converted, problem = convert_to_pebble_coordinates(p, self.is_precise())
+            _converted, problem = convert_to_pebble_coordinates(p, self.is_precise())
 
             if problem is not None:
                 if grid_annotation is None:
@@ -305,7 +305,7 @@ class CircleCommand(Command):
 
 def serialize_header(size):
     return pack(
-        "<BBhh", DRAW_COMMAND_VERSION, 0, int(round(size[0])), int(round(size[1]))
+        "<BBhh", DRAW_COMMAND_VERSION, 0, round(size[0]), round(size[1])
     )
 
 

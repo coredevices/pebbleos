@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import contextlib
 import re
 import threading
 import tokenize
@@ -40,14 +41,14 @@ class PebbleCommander:
     def __init__(self, tty=None, interactive=False, capfile=None):
         if capfile is not None:
             interface = pulse2.Interface.open_dbgserial(
-                url=tty, capture_stream=open(capfile, "wb")
+                url=tty, capture_stream=open(capfile, "wb")  # noqa: SIM115
             )
         else:
             interface = pulse2.Interface.open_dbgserial(url=tty)
 
         try:
             self.connection = Pulse2ConnectionAdapter(interface)
-        except:
+        except BaseException:
             interface.close()
             raise
 
@@ -96,10 +97,10 @@ class PebbleCommander:
                 cmdname = fn.__name__.replace("_", "-")
             funcname = cmdname.replace("-", "_")
             if not re.match(tokenize.Name + "$", funcname):
-                raise ValueError("command name %s isn't a valid name" % funcname)
+                raise ValueError(f"command name {funcname} isn't a valid name")
             if hasattr(cls, funcname):
                 raise ValueError(
-                    "function name %s clashes with existing attribute" % funcname
+                    f"function name {funcname} clashes with existing attribute"
                 )
             fn.is_command = True
             fn.name = cmdname
@@ -123,10 +124,8 @@ class PebbleCommander:
             with self.log_listeners_lock:
                 # TODO: Buffer log messages if no listeners attached?
                 for listener in self.log_listeners:
-                    try:
+                    with contextlib.suppress(Exception):
                         listener(msg)
-                    except:
-                        pass
 
     def attach_log_listener(self, listener):
         """Attaches a listener for log messages.

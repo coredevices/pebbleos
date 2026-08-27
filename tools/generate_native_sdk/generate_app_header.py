@@ -84,9 +84,9 @@ def make_app_header(exports_tree, output_filename, header_type, inject_text):
             )
             if isinstance(e, exports.Group):
                 if not skip:
-                    line = "//! @addtogroup %s" % e.name
+                    line = f"//! @addtogroup {e.name}"
                     if e.display_name is not None:
-                        line += " %s" % e.display_name
+                        line += f" {e.display_name}"
                     writeline(f, line)
 
                     if e.comment is not None:
@@ -96,7 +96,7 @@ def make_app_header(exports_tree, output_filename, header_type, inject_text):
                     writeline(f)
                 format_export_list(e.exports)
                 if not skip:
-                    writeline(f, "//! @} // group %s" % e.name)
+                    writeline(f, f"//! @}} // group {e.name}")
                     writeline(f)
                 return
             elif e.type == "forward_struct":
@@ -112,9 +112,9 @@ def make_app_header(exports_tree, output_filename, header_type, inject_text):
                     if e.stub_definition is not None:
                         writeline(f, e.stub_definition)
                     elif e.stub_return == "void":
-                        writeline(f, "#define %s(...) do {} while(0)" % e.name)
+                        writeline(f, f"#define {e.name}(...) do {{}} while(0)")
                     else:
-                        writeline(f, "#define %s(...) (%s)" % (e.name, e.stub_return))
+                        writeline(f, f"#define {e.name}(...) ({e.stub_return})")
                     writeline(f)
             elif e.type == "function":
                 if skip:
@@ -139,7 +139,7 @@ def make_app_header(exports_tree, output_filename, header_type, inject_text):
                 writeline(f, strip_internal_subcomments(e.full_definition + ";"))
                 writeline(f)
             else:
-                raise Exception("Unknown type: %s", e.type)
+                raise RuntimeError("Unknown type: %s", e.type)
 
             if not skip and e.include_after:
                 for header in e.include_after:

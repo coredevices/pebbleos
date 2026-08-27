@@ -44,14 +44,14 @@ class CommonTransportTestCases:
             socket.send(b"foo")
 
     def test_opening_two_sockets_on_same_port_is_an_error(self):
-        socket1 = self.uut.open_socket(0xABCD, timeout=0)
+        self.uut.open_socket(0xABCD, timeout=0)
         with self.assertRaises(KeyError):
-            socket2 = self.uut.open_socket(0xABCD, timeout=0)
+            self.uut.open_socket(0xABCD, timeout=0)
 
     def test_closing_a_socket_allows_another_to_be_opened(self):
         socket1 = self.uut.open_socket(0xABCD, timeout=0)
         socket1.close()
-        socket2 = self.uut.open_socket(0xABCD, timeout=0)
+        self.uut.open_socket(0xABCD, timeout=0)
 
     def test_opening_socket_fails_after_transport_down(self):
         self.uut.this_layer_down()
@@ -623,7 +623,7 @@ class TestSocket(unittest.TestCase):
             thread_started.set()
             try:
                 self.uut.receive(timeout=0.3)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 result[0] = e
 
         thread = threading.Thread(target=test_thread)

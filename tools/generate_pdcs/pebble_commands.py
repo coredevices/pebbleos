@@ -308,7 +308,7 @@ def serialize_frame(frame, duration):
 
 def pack_header(size):
     return pack(
-        "<BBhh", DRAW_COMMAND_VERSION, 0, int(round(size[0])), int(round(size[1]))
+        "<BBhh", DRAW_COMMAND_VERSION, 0, round(size[0]), round(size[1])
     )
 
 

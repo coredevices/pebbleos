@@ -14,6 +14,8 @@ import logdehash
 import newlogging
 import requests
 
+logger = logging.getLogger(__name__)
+
 DICT_FIRMWARE = "build/src/fw/loghash_dict.json"
 DICT_PRF = "build/prf/src/fw/loghash_dict.json"
 
@@ -36,11 +38,11 @@ class AuthException(Exception):
 def load_user_settings():
     settings_path = "~/.triage"
     try:
-        user_settings_file = open(os.path.expanduser(settings_path), "rb")
-        user_settings = json.load(user_settings_file)
+        with open(os.path.expanduser(settings_path), "rb") as settings_file:
+            user_settings = json.load(settings_file)
     except OSError as e:
         if e.errno == 2:
-            logging.error(
+            logger.error(
                 """Please create %s with credentials: """
                 """'{ "user": "$USER", "password": "$PASSWORD" }'""",
                 settings_path,
@@ -52,9 +54,9 @@ def load_user_settings():
         msg = (
             "Missing 'hd_session' token in user settings.\n"
             "1. Get the cookie from https://auth.pebblecorp.com/show\n"
-            "2. Add as value with key 'hd_session' to %s" % settings_path
+            f"2. Add as value with key 'hd_session' to {settings_path}"
         )
-        logging.error(msg)
+        logger.error(msg)
         sys.exit(-1)
 
 
@@ -62,14 +64,13 @@ def get_loghash_dict_from_hagen_daas_files(hash):
     load_user_settings()
 
     url = SETTINGS["files"] + hash
-    r = requests.get(url, headers={"Cookie": "hd_session=%s" % SETTINGS["hd_session"]})
+    r = requests.get(url, headers={"Cookie": "hd_session={}".format(SETTINGS["hd_session"])})
     if r.status_code > 400:
         r.raise_for_status()
     if "accounts.google.com" in r.url:
         raise AuthException(
-            "Not authenticated, see instructions at the top of %s"
-            % "https://pebbletechnology.atlassian.net/wiki/"
-            "display/DEV/Quickly+triaging+JIRA+FW+issues+with+pbldebug"
+            "Not authenticated, see instructions at the top of {}".format("https://pebbletechnology.atlassian.net/wiki/"
+            "display/DEV/Quickly+triaging+JIRA+FW+issues+with+pbldebug")
         )
     return r.text
 
@@ -157,12 +158,12 @@ Examples:
             logger.debug("Loading dictionary from %s", f)
             d = get_dict_from_pbz(f)
             if not d:
-                raise Exception("Unable to load loghash_dict.json from %s" % f)
+                raise RuntimeError(f"Unable to load loghash_dict.json from {f}")
             loghash_dict = newlogging.merge_dicts(loghash_dict, json.loads(d))
         else:
             logger.debug("Log file %s", f)
             if log:
-                raise Exception("More than one log file specified")
+                raise RuntimeError("More than one log file specified")
             log = f
 
     # Now consider the --fw option. Don't fail unless it was explicitly specified
@@ -179,7 +180,7 @@ Examples:
     dehash.load_log_strings_from_dict(loghash_dict)
 
     # Input file or stdin?
-    infile = open(log) if log else sys.stdin
+    infile = open(log) if log else sys.stdin  # noqa: SIM115
 
     # Dehash the log
     for line in infile:
@@ -214,7 +215,7 @@ Examples:
             AuthException,
         ) as error:
             sys.stderr.write(
-                "Could not get build id %s from files. %s\r\n" % (build_id, error)
+                f"Could not get build id {build_id} from files. {error}\r\n"
             )
             continue
 
@@ -222,7 +223,7 @@ Examples:
             loghash_dict = json.loads(d)
             dehash.load_log_strings_from_dict(loghash_dict)
         else:
-            sys.stderr.write("Could not get build id %s from files.\r\n" % build_id)
+            sys.stderr.write(f"Could not get build id {build_id} from files.\r\n")
 
     if infile is not sys.stdin:
         infile.close()

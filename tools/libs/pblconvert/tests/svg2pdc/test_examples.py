@@ -75,21 +75,19 @@ class RenderExamplesTest(unittest.TestCase):
         cmp = dircmp(actual_dir, expected_dir, ignore=[".DS_Store"])
         self.assertTrue(
             len(cmp.left_only) == 0,
-            "'%s' missing in %s" % (",".join(cmp.left_only), cmp.right),
+            "'{}' missing in {}".format(",".join(cmp.left_only), cmp.right),
         )
         self.assertTrue(
             len(cmp.right_only) == 0,
-            "'%s' unexpected in %s" % (",".join(cmp.right_only), cmp.left),
+            "'{}' unexpected in {}".format(",".join(cmp.right_only), cmp.left),
         )
         self.assertTrue(
             len(cmp.diff_files) == 0,
-            "'%s' different between %s and %s"
-            % (",".join(cmp.diff_files), cmp.left, cmp.right),
+            "'{}' different between {} and {}".format(",".join(cmp.diff_files), cmp.left, cmp.right),
         )
         self.assertTrue(
             len(cmp.funny_files) == 0,
-            "'%s' funny between %s and %s"
-            % (",".join(cmp.funny_files), cmp.left, cmp.right),
+            "'{}' funny between {} and {}".format(",".join(cmp.funny_files), cmp.left, cmp.right),
         )
 
 

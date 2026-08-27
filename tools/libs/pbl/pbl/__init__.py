@@ -41,3 +41,11 @@ class PebbleTransportPULSE(pebble_tool.commands.base.PebbleTransportConfiguratio
 
 def run_tool(args=None):
     pebble_tool.run_tool(args)
+
+__all__ = [
+    "coredump",
+    "flash_logs",
+    "install_firmware",
+    "install_lang",
+    "test",
+]

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import contextlib
 import shlex
 import traceback
 
@@ -33,10 +34,8 @@ class InteractivePebbleCommander:
         self.close()
 
     def close(self):
-        try:
+        with contextlib.suppress(Exception):
             self.cmdr.close()
-        except:
-            pass
 
     def attach_prompt_toolkit(self):
         """Attaches prompt_toolkit things"""
@@ -92,7 +91,7 @@ class InteractivePebbleCommander:
             resp = self.dispatch_command(string)
             if resp is not None:
                 print("\x1b[1m" + "\n".join(resp) + "\x1b[m")
-        except:
+        except Exception:  # noqa: BLE001
             print("An error occurred!")
             traceback.print_exc()
 

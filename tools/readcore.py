@@ -484,22 +484,20 @@ class Coredump:
                 )
             )
 
-            callbacks.append(
-                (lambda data: lambda: data)(m.data)
-            )  # avoid capturing m accidentally
+            callbacks.append(lambda data=m.data: data)  # avoid capturing m accidentally
             position += len(m.data)
 
         ### Actually write out program and section headers...
         phoff = position
         for phdr in phdrs:
             d = structs.Elf_Phdr.build(phdr)
-            callbacks.append((lambda data: lambda: data)(d))
+            callbacks.append(lambda data=d: data)
             position += len(d)
 
         shoff = position
         for shdr in shdrs:
             d = structs.Elf_Shdr.build(shdr)
-            callbacks.append((lambda data: lambda: data)(d))
+            callbacks.append(lambda data=d: data)
             position += len(d)
 
         ### ... then write it all out to disk.

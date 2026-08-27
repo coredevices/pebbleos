@@ -103,8 +103,7 @@ class BestEffortTransportBase:
     def send(self, port, information):
         if len(information) > self.mtu:
             raise ValueError(
-                "Packet length (%d) exceeds transport MTU (%d)"
-                % (len(information), self.mtu)
+                f"Packet length ({len(information):d}) exceeds transport MTU ({self.mtu:d})"
             )
         packet = BestEffortPacket.build(
             construct.Container(
@@ -142,7 +141,7 @@ class BestEffortTransportBase:
         if self.closed:
             raise ValueError("Cannot open socket on closed transport")
         if port in self.sockets and not self.sockets[port].closed:
-            raise KeyError("Another socket is already opened on port 0x%04x" % port)
+            raise KeyError(f"Another socket is already opened on port 0x{port:04x}")
         socket = factory(self, port)
         self.sockets[port] = socket
         return socket
@@ -432,7 +431,7 @@ class ReliableTransport:
         if self.closed:
             raise ValueError("Cannot open socket on closed transport")
         if port in self.sockets and not self.sockets[port].closed:
-            raise KeyError("Another socket is already opened on port 0x%04x" % port)
+            raise KeyError(f"Another socket is already opened on port 0x{port:04x}")
         if not self.opened.wait(timeout):
             return None
         socket = factory(self, port)
@@ -484,24 +483,22 @@ class ReliableTransport:
             )
         if len(information) > self.mtu:
             raise ValueError(
-                "Packet length (%d) exceeds transport MTU (%d)"
-                % (len(information), self.mtu)
+                f"Packet length ({len(information):d}) exceeds transport MTU ({self.mtu:d})"
             )
         self.send_queue.put((port, information))
         self.pump_send_queue()
 
     def process_ack(self, ack_number):
         with self.transmit_lock:
-            if not self.waiting_for_ack:
+            if not self.waiting_for_ack and self.retransmit_timer:
                 # Could be in the timer recovery condition (waiting for
                 # a response to an RR Poll command). This is a bit
                 # hacky and should probably be changed to use an
                 # explicit state machine when this transport is
                 # extended to support Go-Back-N ARQ.
-                if self.retransmit_timer:
-                    self.retransmit_timer.cancel()
-                    self.retransmit_timer = None
-                    self.retransmit_count = 0
+                self.retransmit_timer.cancel()
+                self.retransmit_timer = None
+                self.retransmit_count = 0
             if (ack_number - 1) % self.MODULUS == self.send_variable:
                 if self.retransmit_timer:
                     self.retransmit_timer.cancel()

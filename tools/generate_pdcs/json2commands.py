@@ -33,10 +33,10 @@ def parse_color(color_opacity, truncate):
     if color_opacity is None:
         return 0
 
-    r = int(round(255 * color_opacity[0]))
-    g = int(round(255 * color_opacity[1]))
-    b = int(round(255 * color_opacity[2]))
-    a = int(round(255 * color_opacity[3]))
+    r = round(255 * color_opacity[0])
+    g = round(255 * color_opacity[1])
+    b = round(255 * color_opacity[2])
+    a = round(255 * color_opacity[3])
 
     return pebble_commands.convert_color(r, g, b, a, truncate)
 
@@ -146,22 +146,19 @@ def process_unique_group_of_lines(
     while bidirectional_lines:
         longest_path = determine_longest_path(bidirectional_lines)
 
-        try:
-            c = pebble_commands.PathCommand(
-                longest_path,
-                path_open,
-                translate,
-                stroke_width,
-                stroke_color,
-                fill_color,
-                precise,
-                raise_error,
-            )
+        c = pebble_commands.PathCommand(
+            longest_path,
+            path_open,
+            translate,
+            stroke_width,
+            stroke_color,
+            fill_color,
+            precise,
+            raise_error,
+        )
 
-            if c is not None:
-                unique_group_commands.append(c)
-        except pebble_commands.InvalidPointException:
-            raise
+        if c is not None:
+            unique_group_commands.append(c)
 
     return unique_group_commands
 
@@ -282,13 +279,11 @@ def get_commands(
     # The 'fillGroup' property describes the type of group: A unique letter
     # (e.g. "A", "B", "C" etc.) for a unique fill, and a special identifier
     # for ALL open paths (non-fills)
-    only_fills = list([d for d in fillGroups_data if d["fillGroup"] != OPEN_PATH_TAG])
+    only_fills = [d for d in fillGroups_data if d["fillGroup"] != OPEN_PATH_TAG]
     only_fills = sorted(
         only_fills, key=lambda f: f["fillGroup"]
     )  # Don't assume data is sorted
-    only_open_paths = list(
-        [d for d in fillGroups_data if d["fillGroup"] == OPEN_PATH_TAG]
-    )
+    only_open_paths = [d for d in fillGroups_data if d["fillGroup"] == OPEN_PATH_TAG]
     # Fills must be drawn before open paths, so place them first
     ordered_fill_groups = only_fills + only_open_paths
 

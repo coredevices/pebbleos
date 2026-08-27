@@ -203,7 +203,7 @@ def real_value_fft(x):
 
     # Make sure we have a power of 2 length input
     n = len(x)
-    m = int(math.log(n, 2))
+    m = int(math.log2(n))
     if math.pow(2, m) != n:
         raise RuntimeError("Length must be a power of 2")
 
@@ -321,7 +321,7 @@ def print_graph(x):
     min_value = -extent
 
     for i in range(len(x)):
-        print("%4d:  %10.3f: " % (i, x[i]), end=" ")
+        print(f"{i:4d}:  {x[i]:10.3f}: ", end=" ")
         position = int((x[i] - min_value) * 80 / scale)
         if position < 40:
             print(" " * position, end=" ")

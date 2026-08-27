@@ -40,7 +40,7 @@ def _load_manifest(board_dir, board):
         data = yaml.safe_load(f)
 
     if not isinstance(data, dict):
-        raise ValueError(f"Invalid revision manifest {manifest}: expected mapping")
+        raise TypeError(f"Invalid revision manifest {manifest}: expected mapping")
 
     return manifest, data
 
@@ -48,7 +48,7 @@ def _load_manifest(board_dir, board):
 def _validate_string_list(manifest, data, key):
     values = data.get(key, [])
     if not isinstance(values, list):
-        raise ValueError(f"Invalid revision manifest {manifest}: expected {key} list")
+        raise TypeError(f"Invalid revision manifest {manifest}: expected {key} list")
 
     for value in values:
         if not isinstance(value, str) or not value:
@@ -72,7 +72,7 @@ def load_revisions(board_dir, board):
         return []
 
     if not isinstance(revisions, list):
-        raise ValueError(
+        raise TypeError(
             f"Invalid revision manifest {manifest}: expected revisions list"
         )
 

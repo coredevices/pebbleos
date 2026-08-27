@@ -11,24 +11,19 @@ def objcopy(task, mode, extra_args=None):
     cmd = "arm-none-eabi-objcopy -S -R .stack -R .priv_bss -R .bss -R .retained "
 
     if hasattr(task.generator, "extra_args"):
-        cmd += "%s " % (task.generator.extra_args)
+        cmd += f"{task.generator.extra_args} "
 
     if extra_args is not None:
-        cmd += "%s " % (extra_args)
+        cmd += f"{extra_args} "
 
-    cmd += '-O %s "%s" "%s"' % (
-        mode,
-        task.inputs[0].abspath(),
-        task.outputs[0].abspath(),
-    )
+    cmd += f'-O {mode} "{task.inputs[0].abspath()}" "{task.outputs[0].abspath()}"'
     return task.exec_command(cmd)
 
 
 def objcopy_fill_bss(task, mode):
     return task.exec_command(
-        "arm-none-eabi-objcopy -O %s -j .text -j .data "
-        '-j .bss --set-section-flags .bss=alloc,load,contents "%s" "%s"'
-        % (mode, task.inputs[0].abspath(), task.outputs[0].abspath())
+        f"arm-none-eabi-objcopy -O {mode} -j .text -j .data "
+        f'-j .bss --set-section-flags .bss=alloc,load,contents "{task.inputs[0].abspath()}" "{task.outputs[0].abspath()}"'
     )
 
 

@@ -17,7 +17,7 @@ from tools.waf import junit_xml
 @after("apply_link")
 def make_test(self):
     if "cprogram" not in self.features and "cxxprogram" not in self.features:
-        Logs.error("test cannot be executed %s" % self)
+        Logs.error(f"test cannot be executed {self}")
         return
 
     if getattr(self, "link_task", None):
@@ -58,7 +58,7 @@ class run_test(Task.Task):
             if filename.endswith(".js"):
                 args.insert(0, "node")
             if self.generator.bld.options.test_name:
-                args.append("-t%s" % (self.generator.bld.options.test_name))
+                args.append(f"-t{self.generator.bld.options.test_name}")
             if self.generator.bld.options.list_tests:
                 self.generator.bld.options.show_output = True
                 args.append("-l")
@@ -70,7 +70,7 @@ class run_test(Task.Task):
             )
             (stdout, stderr) = proc.communicate()
         except OSError:
-            Logs.pprint("RED", "Failed to run test: %s" % filename)
+            Logs.pprint("RED", f"Failed to run test: {filename}")
             return
 
         if self.generator.bld.options.show_output:
@@ -162,17 +162,17 @@ def summary(bld):
     fail = len([x for x in lst if x[1]])
 
     Logs.pprint("CYAN", "test summary")
-    Logs.pprint("CYAN", "  tests that pass %d/%d" % (total - fail, total))
+    Logs.pprint("CYAN", f"  tests that pass {total - fail:d}/{total:d}")
 
     for node, code, out, err, duration in lst:
         if not code:
-            Logs.pprint("GREEN", "    %s" % node.abspath())
+            Logs.pprint("GREEN", f"    {node.abspath()}")
 
     if fail > 0:
-        Logs.pprint("RED", "  tests that fail %d/%d" % (fail, total))
+        Logs.pprint("RED", f"  tests that fail {fail:d}/{total:d}")
         for node, code, out, err, duration in lst:
             if code:
-                Logs.pprint("RED", "    %s" % node.abspath())
+                Logs.pprint("RED", f"    {node.abspath()}")
                 # FIXME: Make UTF-8 print properly, see PBL-29528
                 print(ud.normalize("NFKD", out.decode("utf-8")))
                 print(ud.normalize("NFKD", err.decode("utf-8")))
@@ -277,7 +277,7 @@ def add_clar_test(
         if not re.match(bld.options.regex, filename):
             return
 
-    platform_set = set(["default", "asterix", "obelix", "gabbro"])
+    platform_set = {"default", "asterix", "obelix", "gabbro"}
 
     # validate platforms specified
     if platform not in platform_set:
@@ -303,7 +303,6 @@ def add_clar_test(
         platform_defines.append("PLATFORM_DEFAULT=0")
 
     def _generate_clar_harness(task):
-        bld = task.generator.bld
         clar_dir = task.generator.env.CLAR_DIR
         test_src_file = task.inputs[0].abspath()
         test_bld_dir = task.outputs[0].get_bld().parent.abspath()
@@ -380,7 +379,7 @@ def add_clar_test(
     # we force include these per platform so platform specific code using
     # ifdefs are triggered correctly without reconfiguring/rebuilding all unit tests per platform
     board_path = bld.srcnode.find_node("src/fw/board").abspath()
-    util_path = bld.srcnode.find_node("src/fw/util").abspath()
+    bld.srcnode.find_node("src/fw/util").abspath()
 
     bitdepth = get_bitdepth_for_platform(bld, platform)
 
@@ -391,8 +390,8 @@ def add_clar_test(
         "-include" + board_path + "/displays/display_" + display_header + ".h"
     )
     platform_defines += [
-        'PLATFORM_NAME="%s"' % platform,
-    ] + ["CONFIG_SCREEN_COLOR_DEPTH_BITS=%d" % bitdepth]
+        f'PLATFORM_NAME="{platform}"',
+    ] + [f"CONFIG_SCREEN_COLOR_DEPTH_BITS={bitdepth:d}"]
 
     # app_manager.c sizes app segments from CONFIG_APP_RAM_*_SEGMENT_SIZE.
     # Tests don't load a board defconfig, so inject fixed sizes (the values
@@ -450,14 +449,14 @@ def add_clar_test(
             node = bld.srcnode.find_node(s)
             if node is None:
                 raise Errors.WafError(
-                    'Error: Source file "%s" not found for "%s"' % (s, test_name)
+                    f'Error: Source file "{s}" not found for "{test_name}"'
                 )
 
             if node not in platform_product_sources:
                 platform_product_sources.append(node)
             else:
                 raise Errors.WafError(
-                    'Error: Duplicate source file "%s" found for "%s"' % (s, test_name)
+                    f'Error: Duplicate source file "{s}" found for "{test_name}"'
                 )
 
     program_sources = [test_source, clar_harness]
@@ -490,8 +489,8 @@ def clar(
     sources_ant_glob=None,
     test_sources_ant_glob=None,
     test_sources=None,
-    test_libs=[],
-    override_includes=[],
+    test_libs=None,
+    override_includes=None,
     add_includes=None,
     defines=None,
     test_name=None,
@@ -500,8 +499,13 @@ def clar(
     use=None,
 ):
 
+    if test_libs is None:
+        test_libs = []
+    if override_includes is None:
+        override_includes = []
+
     if test_sources_ant_glob is None and not test_sources:
-        raise Exception()
+        raise RuntimeError()
 
     if test_sources_ant_glob in bld.env.BROKEN_TESTS:
         Logs.pprint(
@@ -545,7 +549,7 @@ def clar(
 
     Logs.debug("ut: Test sources %r", test_sources)
     if len(test_sources) == 0:
-        Logs.pprint("RED", "No tests found for glob: %s" % test_sources_ant_glob)
+        Logs.pprint("RED", f"No tests found for glob: {test_sources_ant_glob}")
 
     for test_source in test_sources:
         if test_name is None:

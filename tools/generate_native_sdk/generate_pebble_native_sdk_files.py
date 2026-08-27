@@ -66,7 +66,7 @@ def generate_shim_files(
     try:
         platform_info = pebble_platforms.get(platform_name)
     except KeyError:
-        raise Exception("Unsupported platform: %s" % platform_name)
+        raise RuntimeError(f"Unsupported platform: {platform_name}")
 
     frozen_revision = platform_info.get("FROZEN_AT_REVISION")
     files, exports_tree = exports.parse_export_file(
@@ -132,10 +132,9 @@ def generate_shim_files(
     # Make sure we found all the exported items
     def check_complete(e):
         if not e.complete():
-            raise Exception(
-                """Missing export: %s %s.
+            raise RuntimeError(
+                f"""Missing export: {e} {e.__dict__!s}.
 Hint: Add appropriate headers to the \"files\" array in exported_symbols.json"""
-                % (e, str(e.__dict__))
             )
 
     exports.walk_tree(exports_tree, check_complete)
@@ -232,7 +231,7 @@ if __name__ == "__main__":
     sdk_lib_dir = path.join(path.abspath(options.sdk_dir), LIB_DIR)
 
     if not path.isdir(pbl_src_dir):
-        raise RuntimeError("'%s' does not exist" % pbl_src_dir)
+        raise RuntimeError(f"'{pbl_src_dir}' does not exist")
 
     for d in (sdk_include_dir, sdk_lib_dir):
         if not path.isdir(d):

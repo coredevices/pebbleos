@@ -1,10 +1,9 @@
-#!/usr/bin/env python
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 
@@ -46,7 +45,9 @@ for line in r.iter_lines():
         # match for tasks
         match = task_regex.search(line)
         if match:
-            dt = datetime.strptime(match.group(1), "%d-%B-%Y %H:%M:%S")
+            dt = datetime.strptime(match.group(1), "%d-%B-%Y %H:%M:%S").replace(
+                tzinfo=timezone.utc
+            )
             if match.group(2) == "Starting":
                 task_start = dt
                 print(match.group(3))
@@ -57,7 +58,9 @@ for line in r.iter_lines():
         if args.verbose:
             match = waf_build_regex.search(line)
             if match:
-                dt = datetime.strptime(match.group(1), "%d-%B-%Y %H:%M:%S")
+                dt = datetime.strptime(match.group(1), "%d-%B-%Y %H:%M:%S").replace(
+                tzinfo=timezone.utc
+            )
                 if match.group(2) == "Entering":
                     waf_start = dt
                 elif match.group(2) == "Leaving":

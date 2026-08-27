@@ -43,28 +43,28 @@ def show_log(s):
 
 def boot_bit_set(s, bit, value):
     if value != 0 and value != 1:
-        raise Exception("Value can only be 1 or 0.")
+        raise RuntimeError("Value can only be 1 or 0.")
     if bit > 31 or bit < 0:
-        raise Exception("Bit needs to be between 0 and 31.")
+        raise RuntimeError("Bit needs to be between 0 and 31.")
     go_to_prompt(s)
-    s.write("boot bit set %u %u\x0d" % (bit, value))
+    s.write(f"boot bit set {bit:d} {value:d}\r")
     response = s.readline(1)  # echo line
     response = s.readline(1)
     words = response.split(" ")
     if words[0] != "OK":
-        raise Exception(f"non-OK response for set bits: {response}")
+        raise RuntimeError(f"non-OK response for set bits: {response}")
 
 
 def resource_bank_info(s, bank_num, verbose=False):
     if verbose:
         print("Getting bank locations...")
     go_to_prompt(s)
-    s.write("resource bank info %d\x0d" % bank_num)
+    s.write(f"resource bank info {bank_num:d}\r")
     response = s.readline(1)  # echo line
     response = s.readline(1)
     words = response.split(" ")
     if words[0] != "OK":
-        raise Exception(f"non-OK response for bank info: {response}")
+        raise RuntimeError(f"non-OK response for bank info: {response}")
     start = int(words[1])
     length = int(words[2])
     return (start, length)

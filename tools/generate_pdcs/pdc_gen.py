@@ -22,7 +22,7 @@ def create_pdc_data_from_path(
     output = b""
     errors = []
     if not os.path.exists(path):
-        raise Exception("Invalid path")
+        raise RuntimeError("Invalid path")
 
     if verbose:
         print(path + ":")
@@ -100,11 +100,13 @@ def create_pdc_from_path(
 
     if output != b"":
         if out_path is None:
-            if sequence:
-                f = os.path.basename(dir_name.rstrip("/")) + ".pdc"
-            else:
+            if os.path.isfile(path):
+                dir_name = os.path.dirname(path)
                 base = os.path.basename(path)
                 f = ".".join(base.split(".")[:-1]) + ".pdc"
+            else:
+                dir_name = path
+                f = os.path.basename(dir_name.rstrip("/")) + ".pdc"
             out_path = os.path.join(dir_name, f)
         with open(out_path, "wb") as out_file:
             out_file.write(output)

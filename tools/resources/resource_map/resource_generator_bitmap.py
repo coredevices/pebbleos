@@ -181,4 +181,4 @@ class BitmapResourceGenerator(ResourceGenerator):
                     )
                     return ResourceObject(definition, image_bytes)
 
-        raise Exception("Got to the end without doing anything?")
+        raise RuntimeError("Got to the end without doing anything?")

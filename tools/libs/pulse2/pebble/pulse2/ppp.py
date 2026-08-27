@@ -16,6 +16,7 @@ import itertools
 import logging
 import struct
 import threading
+from typing import ClassVar
 
 import construct
 from transitions.extensions import LockedMachine
@@ -233,6 +234,15 @@ class ConfigurationAccepted:
 ConfigurationAccepted = ConfigurationAccepted()
 
 
+class ConfigurationRejected:
+    def __init__(self, options):
+        self.options = options
+
+
+class CodeRejectCatastrophic(exceptions.PulseException):
+    pass
+
+
 def flatten_transitions_table(transitions):
     flattened = []
     for action, table in transitions:
@@ -278,7 +288,7 @@ class ControlProtocol:
     # FIXME PBL-34320 proper MTU/MRU support
     mtu = 1500
 
-    states = [
+    states: ClassVar = [
         # Lower layer is unavailable, no Open event has occurred.
         {"name": "Initial", "on_enter": "stop_restart_timer"},
         # Administrative open initiated, but lower layer unavailable.
