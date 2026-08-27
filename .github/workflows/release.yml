@@ -53,111 +53,58 @@ jobs:
         with:
           files: release/*
 
-      - name: Upload OTA artifacts to R2
-        if: ${{ github.repository == 'coredevices/PebbleOS' }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.OTA_BUCKET_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.OTA_BUCKET_SECRET }}
-          AWS_DEFAULT_REGION: us-east-1
-          BUCKET: ${{ vars.OTA_BUCKET_NAME }}
-          ENDPOINT: ${{ vars.OTA_BUCKET_ENDPOINT }}
-        run: |
-          set -o pipefail
-
-          pip install awscli
-
-          # Write-once: never overwrite published firmware bytes; identical
-          # re-uploads are no-ops so a partially-failed job can be re-run.
-          upload() {
-            src="$1"
-            key="$2"
-            remote=$(aws s3api head-object --bucket "$BUCKET" --key "$key" \
-                       --endpoint-url "$ENDPOINT" \
-                       --query '[ContentLength,ETag]' --output text 2>/dev/null) || remote=""
-            if [ -n "$remote" ]; then
-              remote_size=$(echo "$remote" | cut -f1)
-              # R2 reports ETag as the MD5 (quoted) for single-part uploads.
-              remote_md5=$(echo "$remote" | cut -f2 | tr -d '"')
-              local_size=$(wc -c < "$src" | tr -d ' ')
-              local_md5=$(md5sum "$src" | cut -d' ' -f1)
-              if [ "$remote_size" = "$local_size" ] && [ "$remote_md5" = "$local_md5" ]; then
-                echo "s3://$BUCKET/$key already holds these exact bytes - skipping"
-                return 0
-              fi
-              echo "::error::s3://$BUCKET/$key already exists with DIFFERENT bytes - refusing to overwrite published firmware for tag $TAG. If this republish is intentional, delete the object by hand first." >&2
-              exit 1
-            fi
-            aws s3 cp "$src" "s3://$BUCKET/$key" --endpoint-url "$ENDPOINT"
-          }
-
-          for file in release/normal_*.pbz; do
-            if echo "$file" | grep -q "_slot"; then
-              continue
-            fi
-
-            upload "$file" "ota/$TAG/$(basename "$file")"
-          done
-
-          for file in release/firmware_*.elf; do
-            upload "$file" "elf/$TAG/$(basename "$file")"
-          done
-
       - name: Publish release to eng-dash
         if: ${{ github.repository == 'coredevices/PebbleOS' }}
+        env:
+          ENGDASH_URL: https://dash.repebble.com/api/ota/releases/upload
+          ENGDASH_TOKEN: ${{ secrets.ENGDASH_OTA_TOKEN }}
         run: |
           set -o pipefail
 
-          artifacts="[]"
+          publish() {
+            file="$1"
+            body=$(jq -n \
+              --arg version "$TAG" \
+              --arg revision "${{ github.sha }}" \
+              --arg filename "$(basename "$file")" \
+              --arg sha256 "$(sha256sum "$file" | cut -d' ' -f1)" \
+              '{version: $version, revision: $revision, filename: $filename, sha256: $sha256}')
 
+            for _ in 1 2; do
+              resp=$(curl -sS --fail-with-body -X POST \
+                -H "Authorization: Bearer $ENGDASH_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data "$body" "$ENGDASH_URL") || {
+                echo "::error::$file: $resp" >&2
+                return 1
+              }
+              case "$(echo "$resp" | jq -r .status)" in
+                uploaded|ignored)
+                  echo "$file: $(echo "$resp" | jq -c .)"
+                  return 0
+                  ;;
+                upload_required)
+                  curl -sS --fail -X PUT --upload-file "$file" \
+                    "$(echo "$resp" | jq -r .upload_url)" || {
+                    echo "::error::$file: artifact upload failed" >&2
+                    return 1
+                  }
+                  ;;
+                *)
+                  echo "::error::$file: unexpected response: $resp" >&2
+                  return 1
+                  ;;
+              esac
+            done
+
+            echo "::error::$file: not ingested after upload" >&2
+            return 1
+          }
+
+          # pbz first: elfs attach to the artifact rows pbzs create
           for file in release/normal_*.pbz; do
-            if echo $file | grep -q "_slot"; then
-              continue
-            fi
-
-            BOARD=$(echo $file | sed -n -e 's/^.*normal_\([a-zA-Z0-9_]*\)_v.*\.pbz$/\1/p')
-            if [ -z "$BOARD" ]; then
-              echo "::error::Could not derive board from pbz filename: $file" >&2
-              exit 1
-            fi
-            SHA256=$(sha256sum "$file" | cut -d ' ' -f 1)
-            SIZE=$(stat -c %s "$file")
-
-            # slot boards have two elfs (one build id each); manifest carries slot0's
-            ELF="release/firmware_${BOARD}_${TAG}.elf"
-            if [ ! -f "$ELF" ]; then
-              ELF="release/firmware_${BOARD}_${TAG}_slot0.elf"
-            fi
-            if [ ! -f "$ELF" ]; then
-              echo "::error::No elf found for board $BOARD (tried $ELF)" >&2
-              exit 1
-            fi
-            BUILD_ID=$(readelf -n "$ELF" | sed -n -e 's/^.*Build ID: //p')
-            if [ -z "$BUILD_ID" ]; then
-              echo "::error::Could not read Build ID from $ELF" >&2
-              exit 1
-            fi
-
-            artifacts=$(echo "$artifacts" | jq \
-              --arg hw "$BOARD" \
-              --arg key "ota/${TAG}/$(basename "$file")" \
-              --arg elf "elf/${TAG}/$(basename "$ELF")" \
-              --arg sha "$SHA256" \
-              --argjson size "$SIZE" \
-              --arg bid "$BUILD_ID" \
-              '. + [{hardware_version: $hw, r2_key: $key, elf_r2_key: $elf, sha256: $sha, size: $size, build_id: $bid}]')
+            publish "$file"
           done
-
-          jq -n \
-            --arg version "$TAG" \
-            --arg revision "${{ github.sha }}" \
-            --argjson artifacts "$artifacts" \
-            '{version: $version, revision: $revision, must_pass_through: false, artifacts: $artifacts}' \
-            > manifest.json
-
-          cat manifest.json
-
-          curl -sS --fail-with-body -X POST \
-            -H "Authorization: Bearer ${{ secrets.ENGDASH_OTA_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            --data @manifest.json \
-            https://dash.repebble.com/api/ota/releases
+          for file in release/firmware_*.elf; do
+            publish "$file"
+          done
