@@ -18,7 +18,7 @@ def find_gdb_path():
                 continue  # `which` returns with 1 when nothing is found
             raise e
         path = out.splitlines()[0]
-        logging.info("Found %s at %s" % (name, path))
+        logging.info(f"Found {name} at {path}")
         return path
     return None
 
@@ -93,7 +93,7 @@ class GDBInterface:
         self._send("source %s\n" % script_file_name)
 
     def set(self, var_name, expr):
-        self._send("set %s=%s\n" % (var_name, expr))
+        self._send(f"set {var_name}={expr}\n")
 
     def disable_breakpoints(self):
         self._send("dis\n")

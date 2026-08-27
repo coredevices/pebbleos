@@ -25,7 +25,7 @@ def download_values_from_color_lovers(r, g, b):
     NOTE: does a single HTTP request per call, please call wisely
     """
 
-    url = "http://www.colourlovers.com/api/color/%02x%02x%02x?format=json" % (r, g, b)
+    url = f"http://www.colourlovers.com/api/color/{r:02x}{g:02x}{b:02x}?format=json"
     opener = urllib.request.build_opener()
     opener.addheaders = [("User-agent", "Mozilla/5.0")]
     response = opener.open(url)
@@ -277,8 +277,8 @@ def enhanced_color(color):
     c_identifier = "GColor%s" % result["identifier"]
     result["c_identifier"] = c_identifier
     result["c_value_identifier"] = "GColor%sARGB8" % result["identifier"]
-    hex_value = "0x%0.2X%0.2X%0.2X" % (r, g, b)
-    html_value = "#%0.2X%0.2X%0.2X" % (r, g, b)
+    hex_value = f"0x{r:0.2X}{g:0.2X}{b:0.2X}"
+    html_value = f"#{r:0.2X}{g:0.2X}{b:0.2X}"
     result["html"] = html_value
     binary = f"0b11{r2:02b}{g2:02b}{b2:02b}"
     result["binary"] = binary
@@ -339,7 +339,7 @@ def all_colors_with_names():
         # candidates += load_colorlovers_colors()
     except OSError as e:
         raise OSError(
-            "%s\n\n%s" % (e, "make sure you called --download_wikipedia once")
+            "{}\n\n{}".format(e, "make sure you called --download_wikipedia once")
         )
 
     result = []
@@ -382,7 +382,7 @@ def render_header(colors):
     for c in colors:
         identifier = c["c_identifier"]
         value_identifier = c["c_value_identifier"]
-        hex_value = "#%0.2X%0.2X%0.2X" % (c["r"], c["g"], c["b"])
+        hex_value = "#{:0.2X}{:0.2X}{:0.2X}".format(c["r"], c["g"], c["b"])
         color_defines.append("")
         color_defines.append(
             '//! <span class="gcolor_sample" style="background-color: %s;"></span> <a href="https://developer.getpebble.com/tools/color-picker/%s">%s</a>'
@@ -398,15 +398,15 @@ def render_header(colors):
 
 #pragma once
 
-// @%s
+// @{}
 // THIS FILE HAS BEEN GENERATED, PLEASE DON'T MODIFY ITS CONTENT MANUALLY
-// USE <TINTIN_ROOT>/tools/%s TO MAKE CHANGES
+// USE <TINTIN_ROOT>/tools/{} TO MAKE CHANGES
 
 //! @addtogroup Graphics
-//! @{
+//! @{{
 
 //! @addtogroup GraphicsTypes
-//! @{
+//! @{{
 
 //! Convert RGBA to GColor.
 //! @param red Red value from 0 - 255
@@ -414,12 +414,12 @@ def render_header(colors):
 //! @param blue Blue value from 0 - 255
 //! @param alpha Alpha value from 0 - 255
 //! @return GColor created from the RGBA values
-#define GColorFromRGBA(red, green, blue, alpha) ((GColor8){ \\
+#define GColorFromRGBA(red, green, blue, alpha) ((GColor8){{ \\
   .b = (uint8_t)(blue) >> 6, \\
   .g = (uint8_t)(green) >> 6, \\
   .r = (uint8_t)(red) >> 6, \\
   .a = (uint8_t)(alpha) >> 6, \\
-  })
+  }})
 
 //! Convert RGB to GColor.
 //! @param red Red value from 0 - 255
@@ -436,27 +436,27 @@ def render_header(colors):
 
 //! @addtogroup ColorDefinitions Color Definitions
 //! A list of all of the named colors available with links to the color map on the Pebble Developer website.
-//! @{
+//! @{{
 
 // 8bit color values of all natively supported colors
-%s
+{}
 
 // GColor values of all natively supported colors
-%s
+{}
 
 // Additional 8bit color values
 #define GColorClearARGB8 ((uint8_t)0b00000000)
 
 // Additional GColor values
-#define GColorClear ((GColor8){.argb=GColorClearARGB8})
+#define GColorClear ((GColor8){{.argb=GColorClearARGB8}})
 
-//! @} // group ColorDefinitions
+//! @}} // group ColorDefinitions
 
-//! @} // group GraphicsTypes
+//! @}} // group GraphicsTypes
 
-//! @} // group Graphics
+//! @}} // group Graphics
 
-""" % (
+""".format(
         "generated",
         basename(__file__),
         "\n".join(color_value_defines),
@@ -519,7 +519,7 @@ def render_html(colors):
 
         html += "<td>"
         if "url" in c:
-            html += '<a href="%s">%s</a>' % (c["url"], c["name"])
+            html += '<a href="{}">{}</a>'.format(c["url"], c["name"])
         else:
             html += c["name"]
         html += "<td>%s</td>" % c["identifier"]
@@ -537,7 +537,7 @@ def render_json(colors):
     """
     obj = {}
     for c in colors:
-        color_attr = "#%0.2X%0.2X%0.2X" % (c["r"], c["g"], c["b"])
+        color_attr = "#{:0.2X}{:0.2X}{:0.2X}".format(c["r"], c["g"], c["b"])
         obj[color_attr] = c
 
     return json.dumps(obj, indent=2)
@@ -567,8 +567,8 @@ def render_svg(colors=None):
                 ]
                 points = [(p[0] + xx, p[1] + yy) for p in points]
 
-                points_attr = " ".join(["%f,%f" % (p[0], p[1]) for p in points])
-                color_attr = "#%0.2X%0.2X%0.2X" % (r * 85, g * 85, b * 85)
+                points_attr = " ".join([f"{p[0]:f},{p[1]:f}" for p in points])
+                color_attr = f"#{r * 85:0.2X}{g * 85:0.2X}{b * 85:0.2X}"
                 polygon = (
                     """<polygon fill="%s" stroke="black" stroke-width=".1" points="%s" />"""
                     % (color_attr, points_attr)

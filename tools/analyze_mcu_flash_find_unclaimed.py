@@ -30,9 +30,9 @@ def claim(c, unclaimed_regions, symbol):
 
             # Defensive programming:
             if c[0] < u[0]:
-                raise Exception("WTF! %s %s" % (u, c))
+                raise Exception(f"WTF! {u} {c}")
             if c[1] > u[1]:
-                raise Exception("WTF! %s %s" % (u, c))
+                raise Exception(f"WTF! {u} {c}")
 
             if u[0] != c[0]:
                 # Lower edge of the claimed region does not overlap with
@@ -44,7 +44,7 @@ def claim(c, unclaimed_regions, symbol):
                 unclaimed_regions.add((c[1], u[1]))
             return True
 
-    print("Warning: doubly claimed %s, 0x%08x - 0x%08x?" % (symbol, c[0], c[1]))
+    print(f"Warning: doubly claimed {symbol}, 0x{c[0]:08x} - 0x{c[1]:08x}?")
     return False
 
 
@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     # The set of (addr_start, addr_end) tuples that we use to keep track of
     # unclaimed space in the flash:
-    unclaimed_regions = set([config.memory_region_to_analyze()])
+    unclaimed_regions = {config.memory_region_to_analyze()}
 
     # Using arm-none-eabi-nm, 'claim' all .text symbols by removing the regions
     # from the unclaimed_regions set
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         c = (addr, addr + size)
         if not contains(config.memory_region_to_analyze(), c):
             raise Exception(
-                "Not in memory region: %s 0x%08x - 0x%08x" % (symbol, c[0], c[1])
+                f"Not in memory region: {symbol} 0x{c[0]:08x} - 0x{c[1]:08x}"
             )
         claim(c, unclaimed_regions, symbol)
         bytes_claimed += size

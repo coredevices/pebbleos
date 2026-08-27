@@ -244,7 +244,7 @@ def gatherData(tty, outfile):
         lastOutputTimestamp = -1
         outString = '"ticks"'
         for system in plottedSystems:
-            outString = '%s,"%s"' % (outString, system)
+            outString = f'{outString},"{system}"'
         f.write("%s\n" % outString)
 
         while True:
@@ -276,7 +276,7 @@ def gatherData(tty, outfile):
                 outString = "%d" % ts
                 for system in plottedSystems:
                     avgPower = powerSystems[system].getAvgPowerBetween(ts, ts + 1024)
-                    outString = "%s,%f" % (outString, avgPower)
+                    outString = f"{outString},{avgPower:f}"
                 f.write("%s\n" % outString)
                 lastOutputTimestamp = ts + 1024
 

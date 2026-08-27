@@ -27,7 +27,7 @@ class Config:
 
         def extract_symbols(object_path):
             nm = binutils.nm_generator(object_path)
-            return set([s for _, _, s, _, _, _ in nm])
+            return {s for _, _, s, _, _, _ in nm}
 
         return {path: extract_symbols(path) for path in lib_paths}
 

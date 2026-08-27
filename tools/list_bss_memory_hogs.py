@@ -8,7 +8,7 @@ bash = r"""arm-none-eabi-objdump -x pebbleos.elf | grep '\.bss' | tail -n+2 | aw
 print(bash)
 os.system(bash)
 
-with open("/tmp/bss_symbols.txt", "r") as f:
+with open("/tmp/bss_symbols.txt") as f:
     syms = f.readlines()
 
 cleaned = [sym.strip().split() for sym in syms]

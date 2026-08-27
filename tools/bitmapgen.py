@@ -224,7 +224,7 @@ class PebbleBitmap:
             packed_value = 0
             for column in range(self.x, self.x + self.w):
                 pixel = self._im_pixels[row][column]
-                r, g, b, a = [pixel[i] for i in range(4)]
+                r, g, b, a = (pixel[i] for i in range(4))
 
                 # convert RGBA 32-bit image colors to pebble color table
                 fn = get_reduction_func(self.palette_name, self.color_reduction_method)
@@ -321,7 +321,7 @@ class PebbleBitmap:
         for row in range(self.y, self.y + self.h):
             for column in range(self.x, self.x + self.w):
                 pixel = self._im_pixels[row][column]
-                r, g, b, a = [pixel[i] for i in range(4)]
+                r, g, b, a = (pixel[i] for i in range(4))
 
                 # convert RGBA 32-bit image colors to pebble color table
                 fn = get_reduction_func(self.palette_name, self.color_reduction_method)

@@ -122,11 +122,11 @@ def record_from_tty(
     try:
         prompt.go_to_prompt(s)
         print(
-            "record {0}-bit audio data for {1}s at {2}Hz (~{3} samples)".format(
+            "record {}-bit audio data for {}s at {}Hz (~{} samples)".format(
                 "8" if sample_size == 1 else "16", t, str(sample_rate), t * sample_rate
             )
         )
-        cmd = "mic start {0} {1} {2} {3}".format(
+        cmd = "mic start {} {} {} {}".format(
             t, "8" if sample_size == 1 else "16", sample_rate, volume
         )
         prompt.issue_command(s, cmd)

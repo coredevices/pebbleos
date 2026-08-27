@@ -57,9 +57,8 @@ def analyze_map(map_file, sections):
     text_section = sections["t"]
 
     def line_generator(map_file):
-        with open(map_file, "r") as f:
-            for line in f:
-                yield line
+        with open(map_file) as f:
+            yield from f
 
     lines = line_generator(map_file)
     for line in lines:

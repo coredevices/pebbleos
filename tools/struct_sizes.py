@@ -17,7 +17,7 @@ def _extract_struct_sizes(die, struct_names_by_size):
         if size not in struct_names_by_size:
             struct_names_by_size[size] = set()
         struct_names_by_size[size].add(name)
-        logging.debug("%s => %s Bytes" % (name, size))
+        logging.debug(f"{name} => {size} Bytes")
 
     # Handle typedef'd anonymous structs:
     if die.tag == "DW_TAG_typedef":

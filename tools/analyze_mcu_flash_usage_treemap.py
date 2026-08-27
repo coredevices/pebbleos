@@ -53,7 +53,7 @@ def generate_tree(f, additional_symbols, config):
     be the value. In case of a symbol, the value is an int() of its size.
     """
     symbols = binutils.nm_generator(f)
-    unclaimed_regions = set([config.memory_region_to_analyze()])
+    unclaimed_regions = {config.memory_region_to_analyze()}
     tree = {}
     total_size = 0
     for addr, section, symbol, src_path, line, size in symbols:

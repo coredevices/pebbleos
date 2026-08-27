@@ -13,7 +13,7 @@ import uuid
 
 
 def generate_appinfo(input_filename, output_filename):
-    with open(input_filename, "r") as json_file:
+    with open(input_filename) as json_file:
         try:
             app_info = json.load(json_file)
         except ValueError as e:

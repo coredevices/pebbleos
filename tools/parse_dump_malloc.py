@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
     elf_path = args.elf_file
 
-    with open(args.in_file, "r") as f:
+    with open(args.in_file) as f:
         infile = f.readlines()
 
     for line in infile:

@@ -137,7 +137,7 @@ def convert(file_path, out_path=None):
 
 
 def convert_to_file(input_file_path, output_file):
-    with open(input_file_path, "r") as f:
+    with open(input_file_path) as f:
         data = json.loads(f.read())
 
     output_file.write(serialize(data))

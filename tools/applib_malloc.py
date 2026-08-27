@@ -42,7 +42,7 @@ class ApplibType:
         return self.total_3x_padding
 
     def __repr__(self):
-        return "<%s %s>" % (self.__class__.__name__, self.name)
+        return f"<{self.__class__.__name__} {self.name}>"
 
 
 def get_types(data):
@@ -54,7 +54,7 @@ def writeline(f, str=""):
 
 
 def write_template(f, filepath, replace):
-    with open(filepath, "r") as template_file:
+    with open(filepath) as template_file:
         template = string.Template(template_file.read())
         f.write(template.safe_substitute(**replace) + "\n")
 

@@ -136,7 +136,7 @@ def get_dehasher(loghash_dict_path):
     if _dehasher is None and DEHASH_AVAILABLE and loghash_dict_path:
         try:
             _dehasher = logdehash.LogDehash("", monitor_dict_file=False)
-            with open(loghash_dict_path, "r") as f:
+            with open(loghash_dict_path) as f:
                 _dehasher.load_log_strings_from_dict(json.load(f))
         except Exception as e:
             print(f"Warning: Failed to load dehash dictionary: {e}")

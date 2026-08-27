@@ -155,7 +155,7 @@ def dstrules_parse(tzfile):
         "Any": 255,
     }
 
-    with open(tzfile, "r") as infile:
+    with open(tzfile) as infile:
         lines = infile.readlines()
         for line_num, line in enumerate(lines):
             match_list = re.finditer(
@@ -250,7 +250,7 @@ def build_zoneinfo_list(tzfile):
 
     zoneinfo_list = []
 
-    with open(tzfile, "r") as infile:
+    with open(tzfile) as infile:
         lines = infile.readlines()
         region = ""
         continent = ""
@@ -353,7 +353,7 @@ def zonelink_parse(tzfile):
 
     zonelink_list = []
 
-    with open(tzfile, "r") as infile:
+    with open(tzfile) as infile:
         lines = infile.readlines()
         for line in lines:
             # Parse blocks that look like this

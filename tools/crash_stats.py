@@ -53,10 +53,7 @@ def run_td_query_on_event_analytics(fw_version, error_code):
         crash_analytic_path(fw_version) + "/0x%x-crashcodes.csv" % error_code
     )
 
-    cmd = 'td query -d pebble_restricted -P 2 -T presto -c -f csv -w -o %s "%s"' % (
-        output_csv_file,
-        query,
-    )
+    cmd = f'td query -d pebble_restricted -P 2 -T presto -c -f csv -w -o {output_csv_file} "{query}"'
     p = subprocess.Popen(
         cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
@@ -113,10 +110,7 @@ def run_td_query_on_hourly_analytics(fw_version, error_code):
         crash_analytic_path(fw_version) + "/0x%x-crashcodes.csv" % error_code
     )
 
-    cmd = 'td query -d pebble_restricted -P 2 -T presto -c -f csv -w -o %s "%s"' % (
-        output_csv_file,
-        query,
-    )
+    cmd = f'td query -d pebble_restricted -P 2 -T presto -c -f csv -w -o {output_csv_file} "{query}"'
     p = subprocess.Popen(
         cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
@@ -135,7 +129,7 @@ def gather_analytic_crash_stats(fw_version, error_code, error_code_name, use_eve
         try:
             elf_dict[elf_name] = download_elf_by_sw_hw_version(fw_version, elf_name)
         except requests.exceptions.HTTPError as http_error:
-            logging.debug("Could not find ELF file: %s (%s)" % (fw_version, http_error))
+            logging.debug(f"Could not find ELF file: {fw_version} ({http_error})")
 
     if use_events:
         retval, res_file = run_td_query_on_event_analytics(fw_version, error_code)
@@ -175,7 +169,7 @@ def gather_analytic_crash_stats(fw_version, error_code, error_code_name, use_eve
             print("Unhandled HW Version %s" % hw_rev)
             continue
 
-        cmd = "arm-none-eabi-addr2line --exe=%s %s" % (fw_symbols_name, str(lr))
+        cmd = f"arm-none-eabi-addr2line --exe={fw_symbols_name} {lr!s}"
         p = subprocess.Popen(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
@@ -184,7 +178,7 @@ def gather_analytic_crash_stats(fw_version, error_code, error_code_name, use_eve
 
         if retval == 0 and len(result) >= 1:
             line_info = result[0].strip("\n")
-            logging.debug("%s %s" % (lr, line_info))
+            logging.debug(f"{lr} {line_info}")
             # Try to pretty print the path but if its not something in our build directory
             # just print the whole path
             idx = line_info.find("build/..")

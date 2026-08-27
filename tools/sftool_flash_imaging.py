@@ -20,7 +20,7 @@ SYSTEM_RESOURCES_ADDR = 0x12620000
 
 
 def run_sftool(tty, path, address, chip="SF32LB52"):
-    cmd = ["sftool", "-c", chip, "-p", tty, "write_flash", "%s@0x%x" % (path, address)]
+    cmd = ["sftool", "-c", chip, "-p", tty, "write_flash", f"{path}@0x{address:x}"]
     r = subprocess.call(cmd)
     return r == 0
 
@@ -59,7 +59,7 @@ def main():
         addr = SYSTEM_RESOURCES_ADDR
         name = "resources (SYSTEM_RESOURCES)"
 
-    print("Writing %s to 0x%x via sftool..." % (name, addr))
+    print(f"Writing {name} to 0x{addr:x} via sftool...")
     if run_sftool(args.tty, args.file, addr, chip=args.chip):
         print("Success!")
     else:
