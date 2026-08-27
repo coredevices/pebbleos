@@ -6,301 +6,52 @@ on:
       - v*
 
 jobs:
-  build-prf:
-    runs-on: ubuntu-24.04
-
-    container:
-      image: ghcr.io/coredevices/pebbleos-docker:v6
-
-    strategy:
-      matrix:
-        board:
-          - asterix
-          - obelix@dvt
-          - obelix@pvt
-          - getafix@dvt
-          - getafix@dvt2
-
-    steps:
-      - name: Mark Github workspace as safe
-        run: git config --system --add safe.directory "${GITHUB_WORKSPACE}"
-
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          submodules: true
-
-      - name: Fetch tags
-        run: |
-          git fetch --tags --force
-
-      - name: Install Python dependencies
-        run: |
-          pip install -U pip
-          pip install -r requirements.txt
-
-      - name: Set artifact board name
-        id: artifact_board
-        run: echo "NAME=$(printf '%s' "$BOARD" | tr @ _)" >> "$GITHUB_OUTPUT"
-        env:
-          BOARD: ${{ matrix.board }}
-
-      - name: Configure
-        run: ./waf configure --board '${{ matrix.board }}' --variant=prf -DCONFIG_RELEASE=y
-
-      - name: Build PRF
-        run: ./waf build
-
-      - name: Bundle PRF
-        run: ./waf bundle
-
-      - name: Copy PRF artifacts
-        run: |
-          mkdir -p artifacts
-          cp build/pebbleos.hex artifacts/prf_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}.hex
-          cp build/pebbleos.bin artifacts/prf_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}.bin
-          cp build/pebbleos.elf artifacts/prf_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}.elf
-          cp build/*.pbz artifacts
-          cp build/pebbleos_loghash_dict.json artifacts/prf_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}_loghash_dict.json
-
-      - name: Get PRF Build ID
-        id: prf_build_id
-        run: |
-          echo "BUILD_ID=$(readelf -n build/pebbleos.elf | sed -n -e 's/^.*Build ID: //p')" >> "$GITHUB_OUTPUT"
-
-      - name: Upload PRF log hash dictionary
-        if: ${{ github.repository == 'coredevices/PebbleOS' }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.LOG_HASH_BUCKET_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.LOG_HASH_BUCKET_SECRET }}
-          AWS_DEFAULT_REGION: us-east-1
-        run: |
-          pip install awscli
-          aws s3 cp build/pebbleos_loghash_dict.json \
-            "s3://${{ vars.LOG_HASH_BUCKET_NAME }}/${{ steps.prf_build_id.outputs.BUILD_ID }}-${{ github.sha }}-prf.json" \
-            --endpoint-url "${{ vars.LOG_HASH_BUCKET_ENDPOINT }}"
-
-      - name: Configure PRF MFG
-        run: ./waf configure --board '${{ matrix.board }}' --variant=prf -DCONFIG_MFG=y -DCONFIG_LOG_HASHED=n -DCONFIG_RELEASE=y
-
-      - name: Build MFG PRF
-        run: ./waf build
-
-      - name: Copy MFG PRF artifacts
-        run: |
-          mkdir -p artifacts
-          cp build/pebbleos.hex artifacts/prf_mfg_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}.hex
-          cp build/pebbleos.bin artifacts/prf_mfg_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}.bin
-          cp build/pebbleos.elf artifacts/prf_mfg_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}.elf
-
-      - name: Store
-        uses: actions/upload-artifact@v7
-        with:
-          name: artifacts-prf-${{ steps.artifact_board.outputs.NAME }}
-          path: artifacts
-
   build-firmware:
-    runs-on: ubuntu-24.04
+    uses: ./.github/workflows/build-firmware.yml
+    secrets: inherit
 
-    container:
-      image: ghcr.io/coredevices/pebbleos-docker:v6
-
-    strategy:
-      matrix:
-        board:
-          - asterix
-          - obelix@dvt
-          - obelix@pvt
-          - getafix@dvt
-          - getafix@dvt2
-        slot:
-          - 0
-          - 1
-
-        exclude:
-          - board: "asterix"
-            slot: 1
-
-    steps:
-      - name: Mark Github workspace as safe
-        run: git config --system --add safe.directory "${GITHUB_WORKSPACE}"
-
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          submodules: true
-
-      - name: Fetch tags
-        run: |
-          git fetch --tags --force
-
-      - name: Install Python dependencies
-        run: |
-          pip install -U pip
-          pip install -r requirements.txt
-
-      - name: Get npm cache directory
-        id: npm-cache-dir
-        shell: bash
-        run: echo "dir=$(npm config get cache)" >> ${GITHUB_OUTPUT}
-
-      - name: Set artifact board name
-        id: artifact_board
-        run: echo "NAME=$(printf '%s' "$BOARD" | tr @ _)" >> "$GITHUB_OUTPUT"
-        env:
-          BOARD: ${{ matrix.board }}
-
-      - name: Set slot suffix
-        id: slot_suffix
-        run: |
-          NEEDS_SUFFIX="obelix_dvt obelix_pvt getafix_dvt getafix_dvt2"
-
-          if echo $NEEDS_SUFFIX | grep -wq "${{ steps.artifact_board.outputs.NAME }}"; then
-            echo "SLOT_SUFFIX=_slot${{ matrix.slot }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "SLOT_SUFFIX=" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Configure
-        run: ./waf configure --board '${{ matrix.board }}' -DCONFIG_FIRMWARE_SLOT=${{ matrix.slot }} -DCONFIG_RELEASE=y
-
-      - name: Build firmware
-        run: ./waf build
-
-      - name: Bundle firmware
-        run: ./waf bundle
-
-      - name: Copy firmware artifacts
-        run: |
-          mkdir -p artifacts
-          cp build/pebbleos.hex artifacts/firmware_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}.hex
-          cp build/pebbleos.bin artifacts/firmware_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}.bin
-          cp build/pebbleos.elf artifacts/firmware_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}.elf
-          cp build/*.pbz artifacts
-          cp build/pebbleos_loghash_dict.json artifacts/firmware_${{ steps.artifact_board.outputs.NAME }}_${{github.ref_name}}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}_loghash_dict.json
-
-      - name: Get Build ID
-        id: build_id
-        run: |
-          echo "BUILD_ID=$(readelf -n build/pebbleos.elf | sed -n -e 's/^.*Build ID: //p')" >> "$GITHUB_OUTPUT"
-
-      - name: Upload log hash dictionary
-        if: ${{ github.repository == 'coredevices/PebbleOS' }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.LOG_HASH_BUCKET_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.LOG_HASH_BUCKET_SECRET }}
-          AWS_DEFAULT_REGION: us-east-1
-        run: |
-          pip install awscli
-          aws s3 cp build/pebbleos_loghash_dict.json \
-            "s3://${{ vars.LOG_HASH_BUCKET_NAME }}/${{ steps.build_id.outputs.BUILD_ID }}-${{ github.sha }}-normal.json" \
-            --endpoint-url "${{ vars.LOG_HASH_BUCKET_ENDPOINT }}"
-
-      - name: Store
-        uses: actions/upload-artifact@v7
-        with:
-          name: artifacts-${{ steps.artifact_board.outputs.NAME }}${{ steps.slot_suffix.outputs.SLOT_SUFFIX }}
-          path: artifacts
+  build-prf:
+    uses: ./.github/workflows/build-prf.yml
+    secrets: inherit
 
   build-qemu:
-    runs-on: ubuntu-24.04
+    uses: ./.github/workflows/build-qemu.yml
+    secrets: inherit
 
-    container:
-      image: ghcr.io/coredevices/pebbleos-docker:v6
-
-    strategy:
-      matrix:
-        board:
-          - qemu_flint
-          - qemu_emery
-          - qemu_gabbro
-
-    steps:
-      - name: Mark Github workspace as safe
-        run: git config --system --add safe.directory "${GITHUB_WORKSPACE}"
-
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          submodules: true
-
-      - name: Fetch tags
-        run: |
-          git fetch --tags --force
-
-      - name: Install Python dependencies
-        run: |
-          pip install -U pip
-          pip install -r requirements.txt
-
-      - name: Configure
-        run: ./waf configure --board '${{ matrix.board }}'
-
-      - name: Build QEMU images
-        run: ./waf build qemu_image_micro qemu_image_spi
-
-      - name: Copy QEMU artifacts
-        run: |
-          mkdir -p artifacts
-          cp build/qemu_micro_flash.bin artifacts/${{ matrix.board }}_${{ github.ref_name }}_micro_flash.bin
-          cp build/qemu_spi_flash.bin artifacts/${{ matrix.board }}_${{ github.ref_name }}_spi_flash.bin
-
-      - name: Configure SDK shell
-        run: ./waf configure --board '${{ matrix.board }}' -DCONFIG_SHELL_SDK=y
-
-      - name: Build SDK shell QEMU images
-        run: ./waf build qemu_image_micro qemu_image_spi
-
-      - name: Copy SDK shell QEMU artifacts
-        run: |
-          cp build/qemu_micro_flash.bin artifacts/sdkshell_${{ matrix.board }}_${{ github.ref_name }}_micro_flash.bin
-          cp build/qemu_spi_flash.bin artifacts/sdkshell_${{ matrix.board }}_${{ github.ref_name }}_spi_flash.bin
-
-      - name: Store
-        uses: actions/upload-artifact@v7
-        with:
-          name: artifacts-${{ matrix.board }}
-          path: artifacts
+  build-qemu-sdkshell:
+    uses: ./.github/workflows/build-qemu-sdkshell.yml
+    secrets: inherit
 
   release:
     runs-on: ubuntu-24.04
 
     needs:
-      - build-prf
       - build-firmware
+      - build-prf
       - build-qemu
+      - build-qemu-sdkshell
     permissions:
       contents: write
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+    env:
+      TAG: ${{ github.ref_name }}
 
+    steps:
       - name: Download artifacts
         uses: actions/download-artifact@v8
+        with:
+          path: artifacts
 
-      - name: Display artifacts
-        run: ls -R
-
-      - name: Merge slot-specific pbz files
+      - name: Collect release files
         run: |
-          NEEDS_MERGE="obelix_dvt obelix_pvt getafix_dvt getafix_dvt2"
-
-          mkdir artifacts-merged
-          for board in $NEEDS_MERGE; do
-            python3 tools/merge_pbz.py \
-              --slot0-pbz "artifacts-${board}_slot0/normal_${board}_${{ github.ref_name }}_slot0.pbz" \
-              --slot1-pbz "artifacts-${board}_slot1/normal_${board}_${{ github.ref_name }}_slot1.pbz" \
-              --output "artifacts-merged/normal_${board}_${{ github.ref_name }}.pbz"
-          done
+          mkdir release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -l release
 
       - name: Create release
         uses: softprops/action-gh-release@v3.0.2
         with:
-          files: artifacts-*/*
+          files: release/*
 
       - name: Upload OTA artifacts to R2
         if: ${{ github.repository == 'coredevices/PebbleOS' }}
@@ -310,17 +61,13 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
           BUCKET: ${{ vars.OTA_BUCKET_NAME }}
           ENDPOINT: ${{ vars.OTA_BUCKET_ENDPOINT }}
-          TAG: ${{ github.ref_name }}
         run: |
           set -o pipefail
 
           pip install awscli
 
-          # Write-once by content: a moved or re-pushed tag must never silently
-          # swap the bytes behind a version that may already be promoted to
-          # users. Re-uploading the identical file is a no-op, so a job that
-          # died partway (or after the manifest POST failed) can simply be
-          # re-run without hand-deleting the objects it already wrote.
+          # Write-once: never overwrite published firmware bytes; identical
+          # re-uploads are no-ops so a partially-failed job can be re-run.
           upload() {
             src="$1"
             key="$2"
@@ -343,8 +90,7 @@ jobs:
             aws s3 cp "$src" "s3://$BUCKET/$key" --endpoint-url "$ENDPOINT"
           }
 
-          for file in artifacts-*/normal*.pbz; do
-            # Skip slot-specific pbzs
+          for file in release/normal_*.pbz; do
             if echo "$file" | grep -q "_slot"; then
               continue
             fi
@@ -352,7 +98,7 @@ jobs:
             upload "$file" "ota/$TAG/$(basename "$file")"
           done
 
-          for file in artifacts-*/firmware_*.elf; do
+          for file in release/firmware_*.elf; do
             upload "$file" "elf/$TAG/$(basename "$file")"
           done
 
@@ -361,11 +107,9 @@ jobs:
         run: |
           set -o pipefail
 
-          TAG="${{ github.ref_name }}"
           artifacts="[]"
 
-          for file in artifacts-*/normal*.pbz; do
-            # Skip slot-specific pbzs
+          for file in release/normal_*.pbz; do
             if echo $file | grep -q "_slot"; then
               continue
             fi
@@ -378,10 +122,10 @@ jobs:
             SHA256=$(sha256sum "$file" | cut -d ' ' -f 1)
             SIZE=$(stat -c %s "$file")
 
-            # ponytail: slot boards have two elfs (one build id each); manifest carries slot0's
-            ELF="artifacts-${BOARD}/firmware_${BOARD}_${TAG}.elf"
+            # slot boards have two elfs (one build id each); manifest carries slot0's
+            ELF="release/firmware_${BOARD}_${TAG}.elf"
             if [ ! -f "$ELF" ]; then
-              ELF="artifacts-${BOARD}_slot0/firmware_${BOARD}_${TAG}_slot0.elf"
+              ELF="release/firmware_${BOARD}_${TAG}_slot0.elf"
             fi
             if [ ! -f "$ELF" ]; then
               echo "::error::No elf found for board $BOARD (tried $ELF)" >&2
