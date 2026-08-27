@@ -14,11 +14,79 @@
 #include "pbl/services/timeline/timeline_resources.h"
 #include "system/passert.h"
 #include "shell/prefs.h"
+#include "shell/system_theme.h"
 #include "pbl/util/attributes.h"
 #include "pbl/util/struct.h"
 
 #define LAUNCHER_MENU_LAYER_CONTENT_INDICATOR_LAYER_HEIGHT (32)
 #define LAUNCHER_MENU_LAYER_GENERIC_APP_ICON (RESOURCE_ID_MENU_LAYER_GENERIC_WATCHAPP_ICON)
+
+PreferredContentSize launcher_menu_layer_get_clamped_content_size(void) {
+  const PreferredContentSize content_size = system_theme_get_content_size();
+  return (content_size < NumPreferredContentSizes) ? content_size : PreferredContentSizeDefault;
+}
+
+static const struct {
+  const char *title_font_key;
+  const char *subtitle_font_key;
+} s_launcher_fonts[NumPreferredContentSizes] = {
+  //! @note this is the same as Medium until Small is designed
+  [PreferredContentSizeSmall] = {
+    .title_font_key = FONT_KEY_GOTHIC_18_BOLD,
+    .subtitle_font_key = FONT_KEY_GOTHIC_14,
+  },
+  [PreferredContentSizeMedium] = {
+    .title_font_key = FONT_KEY_GOTHIC_18_BOLD,
+    .subtitle_font_key = FONT_KEY_GOTHIC_14,
+  },
+  [PreferredContentSizeLarge] = {
+    .title_font_key = FONT_KEY_GOTHIC_24_BOLD,
+    .subtitle_font_key = FONT_KEY_GOTHIC_18,
+  },
+  [PreferredContentSizeExtraLarge] = {
+    .title_font_key = FONT_KEY_GOTHIC_28_BOLD,
+    .subtitle_font_key = FONT_KEY_GOTHIC_24,
+  },
+};
+
+GFont launcher_menu_layer_get_title_font(void) {
+  const PreferredContentSize content_size = launcher_menu_layer_get_clamped_content_size();
+  return fonts_get_system_font(s_launcher_fonts[content_size].title_font_key);
+}
+
+GFont launcher_menu_layer_get_subtitle_font(void) {
+  const PreferredContentSize content_size = launcher_menu_layer_get_clamped_content_size();
+  return fonts_get_system_font(s_launcher_fonts[content_size].subtitle_font_key);
+}
+
+static const struct {
+  int16_t rect_cell_height;
+  int16_t round_focused_cell_height;
+  int16_t round_unfocused_cell_height;
+} s_launcher_cell_dimensions[NumPreferredContentSizes] = {
+  //! @note this is the same as Medium until Small is designed
+  [PreferredContentSizeSmall] = {
+    .rect_cell_height = 42,
+    .round_focused_cell_height = 52,
+    .round_unfocused_cell_height = 38,
+  },
+  [PreferredContentSizeMedium] = {
+    .rect_cell_height = 42,
+    .round_focused_cell_height = 52,
+    .round_unfocused_cell_height = 38,
+  },
+  [PreferredContentSizeLarge] = {
+    .rect_cell_height = 50,
+    .round_focused_cell_height = 55,
+    .round_unfocused_cell_height = 45,
+  },
+  [PreferredContentSizeExtraLarge] = {
+    .rect_cell_height = 60,
+    // Round always shows 5 fixed rows, so focused + 4*unfocused must fit the 260px display.
+    .round_focused_cell_height = 57,
+    .round_unfocused_cell_height = 47,
+  },
+};
 
 ////////////////////////////
 // Misc. callbacks/helpers
@@ -124,12 +192,13 @@ static void prv_menu_layer_draw_row(GContext* ctx, const Layer *cell_layer, Menu
 
 static int16_t prv_menu_layer_get_cell_height(PBL_UNUSED MenuLayer *menu_layer,
                                               PBL_UNUSED MenuIndex *cell_index, PBL_UNUSED void *context) {
+  const PreferredContentSize content_size = launcher_menu_layer_get_clamped_content_size();
 #if PBL_RECT
-  return LAUNCHER_MENU_LAYER_CELL_RECT_CELL_HEIGHT;
+  return s_launcher_cell_dimensions[content_size].rect_cell_height;
 #elif PBL_ROUND
   return menu_layer_is_index_selected(menu_layer, cell_index) ?
-      LAUNCHER_MENU_LAYER_CELL_ROUND_FOCUSED_CELL_HEIGHT :
-      LAUNCHER_MENU_LAYER_CELL_ROUND_UNFOCUSED_CELL_HEIGHT;
+      s_launcher_cell_dimensions[content_size].round_focused_cell_height :
+      s_launcher_cell_dimensions[content_size].round_unfocused_cell_height;
 #else
 #error "Unknown display shape type"
 #endif
@@ -180,8 +249,8 @@ void launcher_menu_layer_init(LauncherMenuLayer *launcher_menu_layer,
   // LAUNCHER_MENU_LAYER_NUM_VISIBLE_ROWS in launcher_menu_layer_private.h is valid
   const GRect frame = DISP_FRAME;
 
-  launcher_menu_layer->title_font = fonts_get_system_font(LAUNCHER_MENU_LAYER_TITLE_FONT);
-  launcher_menu_layer->subtitle_font = fonts_get_system_font(LAUNCHER_MENU_LAYER_SUBTITLE_FONT);
+  launcher_menu_layer->title_font = launcher_menu_layer_get_title_font();
+  launcher_menu_layer->subtitle_font = launcher_menu_layer_get_subtitle_font();
 
   Layer *container_layer = &launcher_menu_layer->container_layer;
   layer_init(container_layer, &frame);
@@ -190,10 +259,11 @@ void launcher_menu_layer_init(LauncherMenuLayer *launcher_menu_layer,
 
   GRect menu_layer_frame = frame;
 #if PBL_ROUND
+  const PreferredContentSize content_size = launcher_menu_layer_get_clamped_content_size();
   const int top_bottom_inset =
-      (frame.size.h - LAUNCHER_MENU_LAYER_CELL_ROUND_FOCUSED_CELL_HEIGHT -
+      (frame.size.h - s_launcher_cell_dimensions[content_size].round_focused_cell_height -
           (2 * LAUNCHER_MENU_LAYER_NUM_UNFOCUSED_ROWS_PER_SIDE *
-           LAUNCHER_MENU_LAYER_CELL_ROUND_UNFOCUSED_CELL_HEIGHT)) / 2;
+           s_launcher_cell_dimensions[content_size].round_unfocused_cell_height)) / 2;
   const GEdgeInsets menu_layer_frame_insets = GEdgeInsets(top_bottom_inset, 0);
   menu_layer_frame = grect_inset(menu_layer_frame, menu_layer_frame_insets);
 #endif

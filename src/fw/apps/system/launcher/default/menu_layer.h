@@ -5,18 +5,9 @@
 
 #include "app_glance_service.h"
 
+#include "applib/preferred_content_size.h"
 #include "process_management/app_menu_data_source.h"
 #include "board/display.h"
-
-// Use display height to determine launcher fonts: larger displays use larger fonts
-#if PBL_DISPLAY_HEIGHT >= 200
-#define LAUNCHER_MENU_LAYER_TITLE_FONT (FONT_KEY_GOTHIC_24_BOLD)
-#define LAUNCHER_MENU_LAYER_SUBTITLE_FONT (FONT_KEY_GOTHIC_18)
-#else
-#define LAUNCHER_MENU_LAYER_TITLE_FONT (FONT_KEY_GOTHIC_18_BOLD)
-#define LAUNCHER_MENU_LAYER_SUBTITLE_FONT (FONT_KEY_GOTHIC_14)
-#endif
-
 
 typedef struct LauncherMenuLayer {
   Layer container_layer;
@@ -37,6 +28,13 @@ typedef struct LauncherMenuLayerSelectionState {
   int16_t scroll_offset_y;
   uint16_t row_index;
 } LauncherMenuLayerSelectionState;
+
+//! Resolves the launcher's title/subtitle fonts for the user's current text size preference.
+GFont launcher_menu_layer_get_title_font(void);
+GFont launcher_menu_layer_get_subtitle_font(void);
+
+//! system_theme_get_content_size(), clamped to a valid PreferredContentSize.
+PreferredContentSize launcher_menu_layer_get_clamped_content_size(void);
 
 void launcher_menu_layer_init(LauncherMenuLayer *launcher_menu_layer,
                               AppMenuDataSource *data_source);

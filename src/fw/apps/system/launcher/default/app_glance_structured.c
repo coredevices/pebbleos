@@ -535,8 +535,8 @@ LauncherAppGlanceStructured *launcher_app_glance_structured_create(
   structured_glance->icon_max_size = LAUNCHER_APP_GLANCE_STRUCTURED_ICON_MAX_SIZE;
   structured_glance->icon_horizontal_margin =
       LAUNCHER_APP_GLANCE_STRUCTURED_ICON_HORIZONTAL_MARGIN;
-  structured_glance->title_font = fonts_get_system_font(LAUNCHER_MENU_LAYER_TITLE_FONT);
-  structured_glance->subtitle_font = fonts_get_system_font(LAUNCHER_MENU_LAYER_SUBTITLE_FONT);
+  structured_glance->title_font = launcher_menu_layer_get_title_font();
+  structured_glance->subtitle_font = launcher_menu_layer_get_subtitle_font();
   KinoReel *glance_impl = kino_reel_custom_create(&s_launcher_app_glance_structured_reel_impl,
                                                   structured_glance);
   // Now that we've setup the structured glance's fields, initialize the LauncherAppGlance

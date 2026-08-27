@@ -20,15 +20,41 @@
 #include "pbl/services/notifications/do_not_disturb.h"
 #include "system/passert.h"
 #include "pbl/util/attributes.h"
+#include "pbl/util/math.h"
 #include "pbl/util/size.h"
 #include "pbl/util/string.h"
 #include "pbl/util/struct.h"
 
 #include <stdio.h>
 
-// These dimensions are separate defines so we can use them to statically define the battery points
-#define BATTERY_SILHOUETTE_ICON_WIDTH (16)
-#define BATTERY_SILHOUETTE_ICON_HEIGHT (9)
+typedef struct {
+  int16_t width;
+  int16_t height;
+} IconSize;
+
+static const IconSize s_battery_silhouette_icon_size[NumPreferredContentSizes] = {
+  //! @note this is the same as Medium until Small is designed
+  [PreferredContentSizeSmall] = { .width = 12, .height = 7 },
+  [PreferredContentSizeMedium] = { .width = 16, .height = 9 },
+  [PreferredContentSizeLarge] = { .width = 16, .height = 9 },
+  [PreferredContentSizeExtraLarge] = { .width = 21, .height = 12 },
+};
+
+static IconSize prv_get_battery_silhouette_icon_size(void) {
+  return s_battery_silhouette_icon_size[launcher_menu_layer_get_clamped_content_size()];
+}
+
+static const IconSize s_charging_icon_size[NumPreferredContentSizes] = {
+  //! @note this is the same as Medium until Small is designed
+  [PreferredContentSizeSmall] = { .width = 5, .height = 7 },
+  [PreferredContentSizeMedium] = { .width = 7, .height = 9 },
+  [PreferredContentSizeLarge] = { .width = 7, .height = 9 },
+  [PreferredContentSizeExtraLarge] = { .width = 9, .height = 12 },
+};
+
+static IconSize prv_get_charging_icon_size(void) {
+  return s_charging_icon_size[launcher_menu_layer_get_clamped_content_size()];
+}
 
 typedef struct LauncherAppGlanceSettingsState {
   BatteryChargeState battery_charge_state;
@@ -45,7 +71,6 @@ typedef struct LauncherAppGlanceSettings {
   char battery_percent_text[5]; //!< longest string is "100%" (4 characters + 1 for NULL terminator)
   KinoReel *icon;
   uint32_t icon_resource_id;
-  KinoReel *charging_indicator_icon;
   uint8_t subtitle_font_height;
   LauncherAppGlanceSettingsState glance_state;
   EventServiceInfo battery_state_event_info;
@@ -76,19 +101,56 @@ static void prv_charging_icon_node_draw_cb(GContext *ctx, const GRect *rect,
   LauncherAppGlanceSettings *settings_glance =
       launcher_app_glance_structured_get_data(structured_glance);
 
-  KinoReel *charging_indicator_icon = NULL_SAFE_FIELD_ACCESS(settings_glance,
-                                                             charging_indicator_icon, NULL);
-  PBL_ASSERTN(charging_indicator_icon);
+  const IconSize icon_size = prv_get_charging_icon_size();
+  const int16_t w = icon_size.width;
+  const int16_t h = icon_size.height;
 
+  if (render) {
+    const GColor bolt_color =
+        launcher_app_glance_structured_get_highlight_color(structured_glance);
+    graphics_context_set_fill_color(ctx, bolt_color);
 
-  if (render && charging_indicator_icon) {
-    launcher_app_glance_structured_draw_icon(structured_glance, ctx, charging_indicator_icon,
-                                             rect->origin);
+    // Minimum 1px crossbar height keeps the bolt recognizable at small sizes.
+    const int16_t bar_height = MAX((int16_t)1, (int16_t)ROUND(h, 9));
+    const int16_t bar_top = (int16_t)ROUND(h * 4, 9);
+    const int16_t bar_bottom = bar_top + bar_height;
+
+    const int16_t apex_left = (int16_t)ROUND(w * 4, 7);
+    const int16_t apex_right = (int16_t)ROUND(w * 5, 7);
+    const int16_t upper_right_at_bar = apex_left;
+    for (int16_t y = 0; y < bar_top; y++) {
+      const int16_t x0 = (int16_t)ROUND(apex_left * (bar_top - y), bar_top);
+      const int16_t x1 =
+          MAX((int16_t)(x0 + 1),
+              (int16_t)ROUND(apex_right * (bar_top - y) + upper_right_at_bar * y, bar_top));
+      graphics_fill_rect(ctx, &GRect(rect->origin.x + x0, rect->origin.y + y, x1 - x0, 1));
+    }
+
+    graphics_fill_rect(ctx, &GRect(rect->origin.x, rect->origin.y + bar_top, w, bar_height));
+
+    const int16_t lower_left_at_bar = (int16_t)ROUND(w * 3, 7);
+    const int16_t lower_right_at_bar = (int16_t)ROUND(w * 6, 7);
+    const int16_t bottom_point = (int16_t)ROUND(w * 5, 14);  // 2.5/7, kept as a 14ths fraction
+    const int16_t rows_below = h - bar_bottom;
+    for (int16_t i = 0; i < rows_below; i++) {
+      int16_t x0, x1;
+      if (rows_below > 1) {
+        const int16_t denom = rows_below - 1;
+        x0 = (int16_t)ROUND(lower_left_at_bar * (denom - i) + bottom_point * i, denom);
+        x1 = MAX((int16_t)(x0 + 1),
+                 (int16_t)ROUND(lower_right_at_bar * (denom - i) + (bottom_point + 1) * i,
+                                denom));
+      } else {
+        x0 = bottom_point;
+        x1 = bottom_point + 1;
+      }
+      graphics_fill_rect(ctx, &GRect(rect->origin.x + x0, rect->origin.y + bar_bottom + i,
+                                     x1 - x0, 1));
+    }
   }
 
   if (size_out) {
-    *size_out = GSize(kino_reel_get_size(charging_indicator_icon).w,
-                      settings_glance->subtitle_font_height);
+    *size_out = GSize(w, settings_glance->subtitle_font_height);
   }
 }
 
@@ -99,24 +161,23 @@ static void prv_battery_icon_node_draw_cb(GContext *ctx, const GRect *rect,
   LauncherAppGlanceSettings *settings_glance =
       launcher_app_glance_structured_get_data(structured_glance);
 
-  const GSize battery_silhouette_icon_size = GSize(BATTERY_SILHOUETTE_ICON_WIDTH,
-                                                   BATTERY_SILHOUETTE_ICON_HEIGHT);
+  const IconSize icon_size = prv_get_battery_silhouette_icon_size();
+  const GSize battery_silhouette_icon_size = GSize(icon_size.width, icon_size.height);
 
   if (render) {
-    // This points array is static to help conserve stack usage
-    static const GPoint s_battery_silhouette_path_points[] = {
+    const GPoint battery_silhouette_path_points[] = {
       {0, 0},
-      {BATTERY_SILHOUETTE_ICON_WIDTH - 1, 0},
-      {BATTERY_SILHOUETTE_ICON_WIDTH - 1, 1},
-      {BATTERY_SILHOUETTE_ICON_WIDTH + 1, 2},
-      {BATTERY_SILHOUETTE_ICON_WIDTH + 1, BATTERY_SILHOUETTE_ICON_HEIGHT - 3},
-      {BATTERY_SILHOUETTE_ICON_WIDTH - 1, BATTERY_SILHOUETTE_ICON_HEIGHT - 3},
-      {BATTERY_SILHOUETTE_ICON_WIDTH - 1, BATTERY_SILHOUETTE_ICON_HEIGHT - 1},
-      {0, BATTERY_SILHOUETTE_ICON_HEIGHT - 1},
+      {icon_size.width - 1, 0},
+      {icon_size.width - 1, 1},
+      {icon_size.width + 1, 2},
+      {icon_size.width + 1, icon_size.height - 3},
+      {icon_size.width - 1, icon_size.height - 3},
+      {icon_size.width - 1, icon_size.height - 1},
+      {0, icon_size.height - 1},
     };
     GPath battery_silhouette_path = (GPath) {
-      .num_points = ARRAY_LENGTH(s_battery_silhouette_path_points),
-      .points = (GPoint *)s_battery_silhouette_path_points,
+      .num_points = ARRAY_LENGTH(battery_silhouette_path_points),
+      .points = (GPoint *)battery_silhouette_path_points,
       .offset = rect->origin,
     };
 
@@ -206,16 +267,14 @@ static GTextNode *prv_create_subtitle_node(LauncherAppGlanceStructured *structur
                                            vertically_centered_battery_percent_text_node);
   }
 
-#if PBL_DISPLAY_HEIGHT >= 200
-  const int16_t subtitle_icon_offset_y = 5;
-#else
-  const int16_t subtitle_icon_offset_y = 2;
-#endif
+  const IconSize battery_icon_size = prv_get_battery_silhouette_icon_size();
+  const int16_t battery_icon_offset_y =
+      (settings_glance->subtitle_font_height - battery_icon_size.height) / 2;
 
   GTextNodeCustom *battery_icon_node =
       graphics_text_node_create_custom(prv_battery_icon_node_draw_cb, structured_glance);
   // Push the battery icon down to center it properly
-  battery_icon_node->node.offset.y += subtitle_icon_offset_y;
+  battery_icon_node->node.offset.y += battery_icon_offset_y;
 
   // Achieves the design spec'd 6 px horizontal spacing b/w the battery icon and charging icon
   battery_icon_node->node.margin.w = 7;
@@ -225,10 +284,12 @@ static GTextNode *prv_create_subtitle_node(LauncherAppGlanceStructured *structur
                                          vertically_centered_battery_icon_node);
 
   if (settings_glance->glance_state.battery_charge_state.is_plugged) {
+    const int16_t charging_icon_offset_y =
+        (settings_glance->subtitle_font_height - prv_get_charging_icon_size().height) / 2;
     GTextNodeCustom *charging_icon_node =
         graphics_text_node_create_custom(prv_charging_icon_node_draw_cb, structured_glance);
     // Push the charging icon down to center it properly
-    charging_icon_node->node.offset.y += subtitle_icon_offset_y;
+    charging_icon_node->node.offset.y += charging_icon_offset_y;
     GTextNode *vertically_centered_charging_icon_node =
         prv_wrap_text_node_in_vertically_centered_container(&charging_icon_node->node);
     graphics_text_node_container_add_child(&horizontal_container_node->container,
@@ -250,7 +311,6 @@ static void prv_destructor(LauncherAppGlanceStructured *structured_glance) {
     event_service_client_unsubscribe(&settings_glance->hrm_sharing_event_info);
 #endif
     kino_reel_destroy(settings_glance->icon);
-    kino_reel_destroy(settings_glance->charging_indicator_icon);
   }
   app_free(settings_glance);
 }
@@ -389,13 +449,9 @@ LauncherAppGlance *launcher_app_glance_settings_create(const AppMenuNode *node) 
   strncpy(settings_glance->title, node->name, title_size);
   settings_glance->title[title_size - 1] = '\0';
 
-  // Load the charging indicator icon
-  settings_glance->charging_indicator_icon =
-      kino_reel_create_with_resource(RESOURCE_ID_BATTERY_CHARGING_ICON);
-
   // Cache the subtitle font height for simplifying layout calculations
   settings_glance->subtitle_font_height =
-      fonts_get_font_height(fonts_get_system_font(LAUNCHER_MENU_LAYER_SUBTITLE_FONT));
+      fonts_get_font_height(launcher_menu_layer_get_subtitle_font());
 
   const bool should_consider_slices = false;
   LauncherAppGlanceStructured *structured_glance =
