@@ -69,6 +69,91 @@ static const SpeakerNote s_pop_notes[] = {
   { .midi_note = 91, .waveform = 0, .duration_ms = 270, .velocity = 0, .reserved = 0 },
 };
 
+static const SpeakerSample s_kalimba_sample = {
+  .data = s_kalimba_pcm,
+  .num_bytes = sizeof(s_kalimba_pcm),
+  .format = SpeakerPcmFormat_16kHz_8bit,
+  .base_midi_note = 81,
+  .loop = false,
+};
+
+static const SpeakerNote s_kalimba_notes[] = {
+  { .midi_note = 81, .waveform = 0, .duration_ms = 550, .velocity = 0, .reserved = 0 },
+};
+
+static const SpeakerSample s_coin_sample = {
+  .data = s_coin_pcm,
+  .num_bytes = sizeof(s_coin_pcm),
+  .format = SpeakerPcmFormat_16kHz_8bit,
+  .base_midi_note = 88,
+  .loop = false,
+};
+
+static const SpeakerNote s_coin_notes[] = {
+  { .midi_note = 88, .waveform = 0, .duration_ms = 430, .velocity = 0, .reserved = 0 },
+};
+
+static const SpeakerSample s_sonar_sample = {
+  .data = s_sonar_pcm,
+  .num_bytes = sizeof(s_sonar_pcm),
+  .format = SpeakerPcmFormat_16kHz_8bit,
+  .base_midi_note = 78,
+  .loop = false,
+};
+
+static const SpeakerNote s_sonar_notes[] = {
+  { .midi_note = 78, .waveform = 0, .duration_ms = 580, .velocity = 0, .reserved = 0 },
+};
+
+static const SpeakerSample s_bounce_sample = {
+  .data = s_bounce_pcm,
+  .num_bytes = sizeof(s_bounce_pcm),
+  .format = SpeakerPcmFormat_16kHz_8bit,
+  .base_midi_note = 84,
+  .loop = false,
+};
+
+static const SpeakerNote s_bounce_notes[] = {
+  { .midi_note = 84, .waveform = 0, .duration_ms = 470, .velocity = 0, .reserved = 0 },
+};
+
+static const SpeakerSample s_chirp_sample = {
+  .data = s_chirp_pcm,
+  .num_bytes = sizeof(s_chirp_pcm),
+  .format = SpeakerPcmFormat_16kHz_8bit,
+  .base_midi_note = 101,
+  .loop = false,
+};
+
+static const SpeakerNote s_chirp_notes[] = {
+  { .midi_note = 101, .waveform = 0, .duration_ms = 270, .velocity = 0, .reserved = 0 },
+};
+
+static const SpeakerSample s_bloom_sample = {
+  .data = s_bloom_pcm,
+  .num_bytes = sizeof(s_bloom_pcm),
+  .format = SpeakerPcmFormat_16kHz_8bit,
+  .base_midi_note = 72,
+  .loop = false,
+};
+
+static const SpeakerNote s_bloom_notes[] = {
+  { .midi_note = 72, .waveform = 0, .duration_ms = 600, .velocity = 0, .reserved = 0 },
+};
+
+static const SpeakerSample s_sparkle_sample = {
+  .data = s_sparkle_pcm,
+  .num_bytes = sizeof(s_sparkle_pcm),
+  .format = SpeakerPcmFormat_16kHz_8bit,
+  .base_midi_note = 100,
+  .loop = false,
+};
+
+static const SpeakerNote s_sparkle_notes[] = {
+  { .midi_note = 100, .waveform = 0, .duration_ms = 500, .velocity = 0, .reserved = 0 },
+};
+
+
 static const struct {
   const SpeakerNote *notes;
   uint32_t count;
@@ -88,9 +173,23 @@ static const struct {
                                    i18n_noop("Glass"), &s_glass_sample },
   [NotificationSound_Pop]      = { s_pop_notes, sizeof(s_pop_notes) / sizeof(s_pop_notes[0]),
                                    i18n_noop("Pop"), &s_pop_sample },
+  [NotificationSound_Kalimba]  = { s_kalimba_notes, sizeof(s_kalimba_notes) / sizeof(s_kalimba_notes[0]),
+                                   i18n_noop("Kalimba"), &s_kalimba_sample },
+  [NotificationSound_Coin]     = { s_coin_notes, sizeof(s_coin_notes) / sizeof(s_coin_notes[0]),
+                                   i18n_noop("Coin"), &s_coin_sample },
+  [NotificationSound_Sonar]    = { s_sonar_notes, sizeof(s_sonar_notes) / sizeof(s_sonar_notes[0]),
+                                   i18n_noop("Sonar"), &s_sonar_sample },
+  [NotificationSound_Bounce]   = { s_bounce_notes, sizeof(s_bounce_notes) / sizeof(s_bounce_notes[0]),
+                                   i18n_noop("Bounce"), &s_bounce_sample },
+  [NotificationSound_Chirp]    = { s_chirp_notes, sizeof(s_chirp_notes) / sizeof(s_chirp_notes[0]),
+                                   i18n_noop("Chirp"), &s_chirp_sample },
+  [NotificationSound_Bloom]    = { s_bloom_notes, sizeof(s_bloom_notes) / sizeof(s_bloom_notes[0]),
+                                   i18n_noop("Bloom"), &s_bloom_sample },
+  [NotificationSound_Sparkle]  = { s_sparkle_notes, sizeof(s_sparkle_notes) / sizeof(s_sparkle_notes[0]),
+                                   i18n_noop("Sparkle"), &s_sparkle_sample },
 };
 
-_Static_assert(NotificationSound_Pop + 1 == NotificationSound_Count,
+_Static_assert(NotificationSound_Sparkle + 1 == NotificationSound_Count,
                "notification_sounds table must cover every NotificationSound enum value");
 
 bool notification_sounds_play(NotificationSound sound, uint8_t volume) {

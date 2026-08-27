@@ -17,6 +17,13 @@ typedef enum NotificationSound {
   NotificationSound_Ascent,
   NotificationSound_Glass,  // replaced Bell; existing stored prefs map here
   NotificationSound_Pop,
+  NotificationSound_Kalimba,
+  NotificationSound_Coin,
+  NotificationSound_Sonar,
+  NotificationSound_Bounce,
+  NotificationSound_Chirp,
+  NotificationSound_Bloom,
+  NotificationSound_Sparkle,
   NotificationSound_Count,
 } NotificationSound;
 
