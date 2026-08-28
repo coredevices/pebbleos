@@ -38,6 +38,10 @@ void workout_service_workout_event_handler(PebbleWorkoutEvent *event);
 //! Returns true if there is an ongoing workout
 bool workout_service_is_workout_ongoing(void);
 
+//! Pause or resume the workout's HR sampling so the shared optical path is free for a periodic
+//! SpO2 reading during a manual workout. No-op if there's no active workout HR session.
+void workout_service_set_hrm_paused(bool paused);
+
 //! Returns true if the activity type is a supported workout
 bool workout_service_is_workout_type_supported(ActivitySessionType type);
 

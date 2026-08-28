@@ -90,9 +90,11 @@ static HRMSessionRef s_last_session_ref;
 static HRMSessionRef s_next_session_ref;
 HRMSessionRef hrm_manager_subscribe_with_callback(AppInstallId app_id, uint32_t update_interval_s,
                                                   uint16_t expire_s, HRMFeature features,
+                                                  bool low_latency,
                                                   HRMSubscriberCallback callback, void *context) {
   cl_assert_equal_p(NULL, callback); // we're using the event service
   cl_assert_equal_i(features, HRMFeature_BPM);
+  cl_assert(low_latency); // live streaming to a phone needs the prompt FIFO cadence
   ++s_hrm_manager_subscribe_with_callback_call_count;
   s_last_session_ref = ++s_next_session_ref;
   return s_last_session_ref;

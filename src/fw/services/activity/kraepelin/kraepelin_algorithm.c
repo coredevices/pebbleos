@@ -368,6 +368,10 @@ typedef struct KAlgState {
   time_t last_activity_update_utc;
 
   bool disable_activity_session_tracking; // If true don't automatically track activities
+
+#ifdef CONFIG_HRM
+  bool activity_hrm_paused;  // True while the activity HR session is parked for a SpO2 attempt
+#endif
 } KAlgState;
 
 
@@ -381,6 +385,15 @@ static const char* prv_log_time(KAlgState *alg_state, time_t utc) {
   snprintf(alg_state->log_time_fmt, sizeof(alg_state->log_time_fmt), "%02d:%02d", hours, minutes);
   return alg_state->log_time_fmt;
 }
+
+#ifdef CONFIG_HRM
+// Bound the auto-activity HR subscription and re-arm it each active minute, so it lapses on its own
+// if this state machine ever stops running. An activity survives k_max_inactive_minutes without
+// reaching here, so the window has to comfortably exceed that.
+#define KALG_ACTIVITY_HRM_EXPIRE_S (10 * SECONDS_PER_MINUTE)
+// Interval the activity HR session is parked at while paused, freeing the shared optical path.
+#define KALG_ACTIVITY_HRM_PAUSED_INTERVAL_S (24u * SECONDS_PER_HOUR)
+#endif
 
 // ----------------------------------------------------------------------------------------
 // Drop the HRM subscription held by a step activity, if it has one. Safe to call on a state that
@@ -419,6 +432,9 @@ static void prv_reset_state(KAlgState *state) {
   state->sleep_state = (KAlgSleepActivityState){};
   state->deep_sleep_state = (KAlgDeepSleepActivityState){};
   state->not_worn_state = (KAlgNotWornState){};
+#ifdef CONFIG_HRM
+  state->activity_hrm_paused = false;
+#endif
 }
 
 // -----------------------------------------------------------------------------------------
@@ -2006,6 +2022,23 @@ static void prv_hrm_subscription_cb(PebbleHRMEvent *hrm_event, void *context) {
 }
 #endif
 
+#ifdef CONFIG_HRM
+// Recompute the HR algorithm's activity scene from whichever auto-detected walk/run session is
+// sampling HR. Run dominates walk (higher intensity); neither active -> default model. Manual
+// workouts disable auto-tracking, so this never races the workout's own scene. Runs on KernelBG.
+static void prv_update_activity_hrm_scene(KAlgState *alg_state) {
+  const bool run_active = alg_state->run_state.hrm_session != HRM_INVALID_SESSION_REF;
+  const bool walk_active = alg_state->walk_state.hrm_session != HRM_INVALID_SESSION_REF;
+  HRMActivityScene scene = HRMActivityScene_Default;
+  if (run_active) {
+    scene = HRMActivityScene_Run;
+  } else if (walk_active) {
+    scene = HRMActivityScene_Walk;
+  }
+  hrm_manager_set_activity_scene(scene);
+}
+#endif
+
 // ------------------------------------------------------------------------------------------
 // Process the minute data for walk or run activity detection
 static void prv_step_activity_update(KAlgState *alg_state, KAlgStepActivityState *state,
@@ -2045,20 +2078,24 @@ static void prv_step_activity_update(KAlgState *alg_state, KAlgStepActivityState
     uint32_t duration_secs = utc_now - state->start_time;
 
 #ifdef CONFIG_HRM
-    // Bound the subscription and re-arm it each active minute, so it lapses on its own if this
-    // state machine ever stops running. An activity survives k_max_inactive_minutes without
-    // reaching here, so the window has to comfortably exceed that.
-    const uint16_t hrm_expire_s = 10 * SECONDS_PER_MINUTE;
+    // Honour an in-progress pause: re-arming at 1 Hz here would silently undo
+    // kalg_activity_hrm_set_paused() partway through a SpO2 attempt, putting the green path back
+    // on the shared optical path and making the attempt fail.
+    const uint32_t hrm_interval_s = alg_state->activity_hrm_paused
+                                    ? KALG_ACTIVITY_HRM_PAUSED_INTERVAL_S : 1u;
 
     // Make sure we have a couple active minutes in a row before enabling the HRM to save battery
     const unsigned min_duration_for_hrm = 3 * SECONDS_PER_MINUTE;
     if (state->hrm_session != HRM_INVALID_SESSION_REF) {
-      sys_hrm_manager_set_update_interval(state->hrm_session, 1 /* update interval */,
-                                          hrm_expire_s);
+      sys_hrm_manager_set_update_interval(state->hrm_session, hrm_interval_s,
+                                          KALG_ACTIVITY_HRM_EXPIRE_S);
     } else if (duration_secs >= min_duration_for_hrm &&
                activity_prefs_hrm_activity_tracking_is_enabled()) {
       state->hrm_session = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID,
-          1 /* update interval */, hrm_expire_s, HRMFeature_BPM, prv_hrm_subscription_cb, NULL);
+          hrm_interval_s, KALG_ACTIVITY_HRM_EXPIRE_S, HRMFeature_BPM, false /*low_latency*/,
+          prv_hrm_subscription_cb, NULL);
+      // A new auto-detected activity just enabled HR: switch the algorithm to a motion-tuned scene.
+      prv_update_activity_hrm_scene(alg_state);
     }
 #endif
 
@@ -2102,6 +2139,11 @@ static void prv_step_activity_update(KAlgState *alg_state, KAlgStepActivityState
                     state->distance_mm);
       }
       prv_reset_step_activity_state(state);
+#ifdef CONFIG_HRM
+      // This activity's HR session is gone; recompute the scene so it follows whichever activity
+      // (if any) is still running, or drops back to the default model.
+      prv_update_activity_hrm_scene(alg_state);
+#endif
     } else {
       // This was an inactive minute, but the activity is still considered ongoing, so accumulate
       // whatever steps, calories we have in this minute
@@ -2179,4 +2221,31 @@ void kalg_get_sleep_stats(KAlgState *alg_state, KAlgOngoingSleepStats *stats) {
 void kalg_enable_activity_tracking(KAlgState *kalg_state, bool enable) {
   kalg_state->disable_activity_session_tracking = !enable;
   prv_reset_state(kalg_state);
+}
+
+bool kalg_activity_hrm_is_active(KAlgState *kalg_state) {
+#ifdef CONFIG_HRM
+  return (kalg_state->walk_state.hrm_session != HRM_INVALID_SESSION_REF) ||
+         (kalg_state->run_state.hrm_session != HRM_INVALID_SESSION_REF);
+#else
+  return false;
+#endif
+}
+
+void kalg_activity_hrm_set_paused(KAlgState *kalg_state, bool paused) {
+#ifdef CONFIG_HRM
+  // Idle the activity HR session(s) (interval = 1 day) to free the optical path, or restore the
+  // 1 s continuous rate. The subscriber stays alive either way, so resuming is immediate. Keep the
+  // expiry bound: passing 0 would clear it and leave an unbounded 1 s subscription behind.
+  kalg_state->activity_hrm_paused = paused;
+  const uint32_t interval_s = paused ? KALG_ACTIVITY_HRM_PAUSED_INTERVAL_S : 1u;
+  if (kalg_state->walk_state.hrm_session != HRM_INVALID_SESSION_REF) {
+    sys_hrm_manager_set_update_interval(kalg_state->walk_state.hrm_session, interval_s,
+                                        KALG_ACTIVITY_HRM_EXPIRE_S);
+  }
+  if (kalg_state->run_state.hrm_session != HRM_INVALID_SESSION_REF) {
+    sys_hrm_manager_set_update_interval(kalg_state->run_state.hrm_session, interval_s,
+                                        KALG_ACTIVITY_HRM_EXPIRE_S);
+  }
+#endif
 }

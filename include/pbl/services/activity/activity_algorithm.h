@@ -60,8 +60,8 @@ typedef struct __attribute__((__packed__)) {
 //    7: Added heart rate bpm
 //   12: Added total heart rate weight
 //   13: Added heart rate zone
-//   14: ... (NYI, you decide!)
-#define ALG_DLS_MINUTES_RECORD_VERSION  13
+//   14: Added SpO2 percent and quality
+#define ALG_DLS_MINUTES_RECORD_VERSION  14
 
 _Static_assert((ALG_DLS_MINUTES_RECORD_VERSION & (1 << 2)) > 0,
                "Android 3.10-4.0 requires bit 2 to be set");
@@ -87,6 +87,10 @@ typedef struct __attribute__((__packed__)) {
 
   // New fields added in version 13
   uint8_t heart_rate_zone;           // the hr zone for this minute
+
+  // New fields added in version 14
+  uint8_t spo2_percent;              // blood oxygen saturation (%) measured this minute, 0 = none
+  uint8_t spo2_quality;              // SpO2 signal quality (HeartRateQuality enum), 0 = none
 } AlgMinuteDLSSample;
 
 
@@ -170,6 +174,14 @@ bool activity_algorithm_get_steps(uint32_t *steps);
 //! Tells the activity algorithm whether or not it should automatically track activities
 //! @param enable true to start tracking, false to stop tracking
 void activity_algorithm_enable_activity_tracking(bool enable);
+
+//! @return true if a continuous HRM session is currently active for a detected activity (i.e.
+//! HR-during-activities is sampling right now). Used to drive activity-triggered SpO2 sampling.
+bool activity_algorithm_activity_hrm_is_active(void);
+
+//! Pause or resume the continuous activity HRM session so the optical path is free for a periodic
+//! SpO2 reading during an activity. No-op if no activity HR session is active.
+void activity_algorithm_activity_hrm_set_paused(bool paused);
 
 //! Return the most recent stepping rate computed. This rate is returned as a number of steps
 //! and an elapsed time.

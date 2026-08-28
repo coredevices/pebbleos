@@ -610,6 +610,15 @@
       ]
     },
     {
+      "id": -193,
+      "enum": "SPO2_TEST",
+      "md_fn": "spo2_test_get_app_info",
+      "ifdefs": [
+        "CONFIG_DEMO_APP_SPO2_TEST",
+        "CONFIG_HRM"
+      ]
+    },
+    {
       "id": -90,
       "enum": "REMINDERS",
       "md_fn": "reminder_app_get_info",

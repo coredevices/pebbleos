@@ -55,11 +55,42 @@ typedef uint32_t ActivityScalarStore;
 // Default HeartRate sampling ON time
 #define ACTIVITY_DEFAULT_HR_ON_TIME_SEC (60)
 
+// If by this point in an HR measurement window we still have no valid BPM reading at all, give up
+// early instead of running the full ON_TIME. The EXCLUSIVE HR model converges in ~9s, so nothing by
+// here means poor contact / off-wrist / heavy motion - more green-LED time won't help. Any reading
+// (even Acceptable quality) keeps sampling toward the normal short-circuit, so this only trims the
+// back half of the window in the doomed case, never the converging one.
+#define ACTIVITY_HR_EARLY_ABORT_SEC (40)
+
 // Turn off the HR device after we've received X good quality samples
 #define ACTIVITY_MIN_NUM_GOOD_SAMPLES_SHORT_CIRCUIT (10)
 
 // Turn off the HR device after we've received X excellent quality samples
 #define ACTIVITY_MIN_NUM_EXCELLENT_SAMPLES_SHORT_CIRCUIT (5)
+
+// Turn off the sensor after this many good-quality SpO2 samples. Kept low because a good reading is
+// hard-won on the wrist - waiting for more just burns the on-time window.
+#define ACTIVITY_MIN_NUM_GOOD_SPO2_SAMPLES_SHORT_CIRCUIT (2)
+
+// Maximum time to leave the sensor on per SpO2 measurement before giving up. Longer than the HR
+// window: SpO2 needs more time on the wrist to converge. The short-circuit ends it early once a
+// couple of good samples land, so this only bounds the struggling case - where the high-current
+// red/IR LED would otherwise run for a long time handing back nothing usable. 90s is still ample
+// margin over the ~30s SpO2 typically needs to converge.
+#define ACTIVITY_DEFAULT_SPO2_ON_TIME_SEC (90)
+
+// If by this point in a SpO2 measurement window the algorithm has accepted zero samples, give up
+// early rather than run the full ON_TIME burning the high-current red/IR LED for nothing. A
+// converging SpO2 reading lands accepted samples well before here; none by this point means poor
+// contact / motion / off-wrist, where the rest of the window is wasted. Cuts the most expensive
+// optical path in exactly the case that yields no reading, leaving the converging case untouched.
+#define ACTIVITY_SPO2_EARLY_ABORT_SEC (45)
+
+// Activity-triggered SpO2 (SpO2 during detected activities): how often to interrupt continuous HR
+// for one SpO2 point, how long to give each attempt, and how long to let HR recover before a retry.
+#define ACTIVITY_SPO2_ACTIVITY_INTERVAL_SEC (5 * SECONDS_PER_MINUTE)
+#define ACTIVITY_SPO2_ACTIVITY_ATTEMPT_SEC  (35)
+#define ACTIVITY_SPO2_ACTIVITY_BACKOFF_SEC  (SECONDS_PER_MINUTE)
 
 // The minimum number of samples needed before we can approximate the user's HR zone
 #define ACTIVITY_MIN_NUM_SAMPLES_FOR_HR_ZONE (5)
@@ -327,6 +358,35 @@ typedef struct {
 } ActivityHRSupport;
 
 typedef struct {
+  HRMSessionRef hrm_session;          // The HRM session we use for SpO2
+
+  bool currently_sampling;            // Are we actively sampling SpO2
+  uint32_t toggled_sampling_at_ts;    // When we last toggled our sampling rate
+                                      // (from time_get_uptime_seconds)
+  uint16_t num_good_quality_samples;  // good-quality SpO2 samples in the current session
+
+  // Latest valid reading waiting to be written into the next minute record (0 = none pending).
+  // The minute handler consumes and clears these, so each measurement is logged exactly once.
+  uint8_t pending_percent;            // SpO2 % saturation
+  uint8_t pending_quality;            // quality on the 0-7 HeartRateQuality scale
+} ActivitySpO2Support;
+
+// Phases of the activity-triggered SpO2 reader (SpO2 during detected activities).
+typedef enum {
+  ActivitySpO2ActPhase_Idle = 0,      // not in an eligible activity
+  ActivitySpO2ActPhase_Wait,          // HR sampling; counting down to the next attempt
+  ActivitySpO2ActPhase_Sampling,      // HR paused, sampling SpO2 (bounded attempt budget)
+  ActivitySpO2ActPhase_Backoff,       // last attempt failed; HR resumed for a breather, then retry
+} ActivitySpO2ActPhase;
+
+typedef struct {
+  HRMSessionRef hrm_session;          // dedicated SpO2 session, only sampled during an attempt
+  ActivitySpO2ActPhase phase;
+  uint32_t phase_started_ts;          // uptime (s) when the current phase began
+  bool got_reading;                   // a valid SpO2 reading landed during this attempt
+} ActivitySpO2ActivitySupport;
+
+typedef struct {
   // Mutex for serializing access to these globals
   PebbleRecursiveMutex *mutex;
 
@@ -363,6 +423,12 @@ typedef struct {
 
   // Heart rate support
   ActivityHRSupport hr;
+
+  // Blood oxygen (SpO2) support
+  ActivitySpO2Support spo2;
+
+  // Blood oxygen during detected activities
+  ActivitySpO2ActivitySupport activity_spo2;
 
   // Most recent values from prv_get_day()
   uint16_t cur_day_index;
@@ -520,6 +586,11 @@ HRZone activity_metrics_prv_get_hr_zone(void);
 
 //! Reset the average / median heart rate and hr zone
 void activity_metrics_prv_reset_hr_stats(void);
+
+//! Consume the latest pending SpO2 reading for the current minute record. Writes the SpO2 percent
+//! and quality (0-7 HeartRateQuality scale) to the out params (0 if none pending) and clears the
+//! pending state, so each reading is logged to exactly one minute.
+void activity_metrics_prv_get_spo2_sample(uint8_t *percent_out, uint8_t *quality_out);
 
 //! Feed in a new heart rate sample that will be used to update the median. This updates
 //! the value returned by activity_metrics_prv_get_median_hr_bpm().

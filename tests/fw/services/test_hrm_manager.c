@@ -44,6 +44,7 @@ extern TimerID prv_get_timer_id(void);
 extern bool prv_can_turn_sensor_on(void);
 extern void prv_charger_event_cb(PebbleEvent *e);
 extern uint32_t prv_get_dropped_events_count(void);
+extern HRMFeature prv_select_active_path(HRMFeature wanted, HRMFeature active, HRMFeature last_winner);
 
 
 // -----------------------------------------------------------------------------
@@ -56,7 +57,8 @@ static struct {
   int enable_count;
 } s_hrm_state;
 
-bool hrm_enable(HRMDevice *dev, HRMFeature features) {
+bool hrm_enable(HRMDevice *dev, HRMFeature features, bool low_latency) {
+  (void)low_latency;
   s_hrm_state.enabled = true;
   s_hrm_state.features = features;
   s_hrm_state.enable_count++;
@@ -64,6 +66,7 @@ bool hrm_enable(HRMDevice *dev, HRMFeature features) {
 }
 void hrm_disable(HRMDevice *dev) { s_hrm_state.enabled = false; }
 bool hrm_is_enabled(HRMDevice *dev) { return s_hrm_state.enabled; }
+void hrm_set_activity_scene(HRMDevice *dev, HRMActivityScene scene) { (void)dev; (void)scene; }
 
 // -----------------------------------------------------------------------------
 // Queue Fakes
@@ -104,6 +107,16 @@ QueueHandle_t pebble_task_get_to_queue(PebbleTask task) {
 static bool s_activity_prefs_heart_rate_is_enabled = true;
 bool activity_prefs_heart_rate_is_enabled(void) {
   return s_activity_prefs_heart_rate_is_enabled;
+}
+
+static bool s_activity_prefs_blood_oxygen_is_enabled = false;
+bool activity_prefs_blood_oxygen_is_enabled(void) {
+  return s_activity_prefs_blood_oxygen_is_enabled;
+}
+
+static bool s_activity_prefs_blood_oxygen_activity_tracking_is_enabled = false;
+bool activity_prefs_blood_oxygen_activity_tracking_is_enabled(void) {
+  return s_activity_prefs_blood_oxygen_activity_tracking_is_enabled;
 }
 
 bool battery_is_usb_connected(void) {
@@ -247,6 +260,42 @@ void test_hrm_manager__feature_change_restarts_sensor(void) {
   cl_assert_equal_b(hrm_is_enabled(HRM), false);
 }
 
+// The green (BPM/HRV) and red/IR (SpO2) optical paths are mutually exclusive in hardware. When both
+// are due the manager must serve exactly one path at a time and hand off to the other once the
+// running path's subscribers are served, instead of one starving the other.
+void test_hrm_manager__select_active_path(void) {
+  // Only one path due -> sample it, untouched (round-robin state is irrelevant).
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM, 0, 0), HRMFeature_BPM);
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_SpO2, 0, 0), HRMFeature_SpO2);
+  cl_assert_equal_i(prv_select_active_path(0, 0, 0), 0);
+
+  // SpO2 already running and both still due -> keep SpO2 (don't cut its measurement short).
+  cl_assert_equal_i(
+      prv_select_active_path(HRMFeature_BPM | HRMFeature_SpO2, HRMFeature_SpO2, 0),
+      HRMFeature_SpO2);
+
+  // SpO2 served and backed off (only BPM left due) while SpO2 was running -> hand off to BPM.
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_BPM, HRMFeature_SpO2, 0), HRMFeature_BPM);
+
+  // BPM already running and both still due -> keep the green path running.
+  cl_assert_equal_i(
+      prv_select_active_path(HRMFeature_BPM | HRMFeature_SpO2, HRMFeature_BPM, 0),
+      HRMFeature_BPM);
+
+  // BPM served and backed off (only SpO2 left due) while BPM was running -> hand off to SpO2.
+  cl_assert_equal_i(prv_select_active_path(HRMFeature_SpO2, HRMFeature_BPM, 0), HRMFeature_SpO2);
+
+  // Round-robin on a fresh session (sensor off) with both due: alternate away from last winner so
+  // the two schedulers can't phase-lock on one path.
+  const HRMFeature both = HRMFeature_BPM | HRMFeature_SpO2;
+  // No previous winner -> SpO2 goes first.
+  cl_assert_equal_i(prv_select_active_path(both, 0, 0), HRMFeature_SpO2);
+  // SpO2 won last -> BPM goes first this time.
+  cl_assert_equal_i(prv_select_active_path(both, 0, HRMFeature_SpO2), HRMFeature_BPM);
+  // BPM won last -> SpO2 goes first this time.
+  cl_assert_equal_i(prv_select_active_path(both, 0, HRMFeature_BPM), HRMFeature_SpO2);
+}
+
 // When we cleanup after an app process, its subscription, if any, should get an expriration time
 // placed on it
 void test_hrm_manager__app_cleanup(void) {
@@ -343,6 +392,7 @@ void test_hrm_manager__kernel_expiration(void) {
   const uint16_t expire_s = SECONDS_PER_MINUTE;
   HRMSessionRef session_ref = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1,
                                                                   expire_s, HRMFeature_BPM,
+                                                                  false /*low_latency*/,
                                                                   prv_fake_hrm_1_cb, NULL);
   prv_fake_send_new_data();
   fake_system_task_callbacks_invoke_pending();
@@ -437,8 +487,9 @@ void test_hrm_manager__no_feature_callbacks(void) {
   prv_fake_send_new_data();
   fake_system_task_callbacks_invoke_pending();
 
-  // HRM should be enabled, subscriber should exist, no callbacks triggered.
-  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+  // A subscriber with no requested features is ignored entirely: it must not power the sensor on,
+  // but the subscription still exists and receives no callbacks.
+  cl_assert_equal_b(hrm_is_enabled(HRM), false);
   cl_assert(prv_get_subscriber_state_from_ref(session_ref));
 
   cl_assert_equal_i(s_event_count, 0);
@@ -491,6 +542,7 @@ void test_hrm_manager__system_task_data_callback(void) {
   const uint16_t expire_s = SECONDS_PER_MINUTE;
   HRMSessionRef session_ref = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1,
                                                                   expire_s, HRMFeature_BPM,
+                                                                  false /*low_latency*/,
                                                                   prv_fake_hrm_1_cb, NULL);
 
   fake_system_task_callbacks_invoke_pending();
@@ -521,10 +573,12 @@ void test_hrm_manager__multiple_system_task_data_callbacks(void) {
   const uint16_t expire_s = SECONDS_PER_MINUTE;
   HRMSessionRef session_ref_1 = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1,
                                                                   expire_s, HRMFeature_BPM,
+                                                                  false /*low_latency*/,
                                                                   prv_fake_hrm_1_cb, NULL);
   fake_system_task_callbacks_invoke_pending();
   HRMSessionRef session_ref_2 = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1,
                                                                   expire_s, HRMFeature_BPM,
+                                                                  false /*low_latency*/,
                                                                   prv_fake_hrm_2_cb, NULL);
   fake_system_task_callbacks_invoke_pending();
   prv_fake_send_new_data();
@@ -889,6 +943,7 @@ void test_hrm_manager__immediate_off_wrist(void) {
   const uint16_t expire_s = SECONDS_PER_MINUTE;
   HRMSessionRef session_ref = hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1,
                                                                   expire_s, HRMFeature_BPM,
+                                                                  false /*low_latency*/,
                                                                   prv_fake_hrm_1_cb, NULL);
   fake_system_task_callbacks_invoke_pending();
 

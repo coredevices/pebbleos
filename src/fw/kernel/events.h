@@ -622,9 +622,12 @@ typedef struct HRMHRVData { // 3 bytes
   HRMQuality quality:8;
 } HRMHRVData;
 
-typedef struct HRMSpO2Data { // 2 bytes
+typedef struct HRMSpO2Data { // 4 bytes
   uint8_t percent;
   HRMQuality quality:8;
+  uint8_t confidence;     //!< raw algorithm confidence coefficient (debug)
+  uint8_t valid_level:7;  //!< raw algorithm valid level (debug)
+  uint8_t invalid:1;      //!< raw algorithm invalid flag (debug)
 } HRMSpO2Data;
 
 #ifdef CONFIG_MFG

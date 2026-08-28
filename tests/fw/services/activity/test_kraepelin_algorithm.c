@@ -36,6 +36,7 @@ bool s_hrm_activity_tracking_enabled = true;
 
 HRMSessionRef hrm_manager_subscribe_with_callback(AppInstallId app_id, uint32_t update_interval_s,
                                                   uint16_t expire_s, HRMFeature features,
+                                                  bool low_latency,
                                                   HRMSubscriberCallback callback, void *context) {
   s_hrm_live_subscriptions++;
   s_hrm_last_expire_s = expire_s;
@@ -55,6 +56,8 @@ bool sys_hrm_manager_set_update_interval(HRMSessionRef session, uint32_t update_
   s_hrm_last_expire_s = expire_s;
   return true;
 }
+
+void hrm_manager_set_activity_scene(HRMActivityScene scene) { (void)scene; }
 
 bool activity_prefs_hrm_activity_tracking_is_enabled(void) {
   return s_hrm_activity_tracking_enabled;
