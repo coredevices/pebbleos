@@ -9,9 +9,9 @@ mbedtls_env.append_value('CFLAGS', [
     '-Wno-unused-but-set-variable',
 ])
 
-bld.objects(
-    source=bld.path.ant_glob('mbedtls/library/*.c'),
-    target='mbedtls',
+bld.pbl_library(
+    bld.path.ant_glob('mbedtls/library/*.c'),
+    name='mbedtls',
     includes=mbedtls_includes + ['mbedtls/library'],
     export_includes=mbedtls_includes,
     defines=['MBEDTLS_CONFIG_FILE="pebble_mbedtls_config.h"'],
