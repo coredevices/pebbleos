@@ -2,12 +2,6 @@ from resources.types.resource_definition import ResourceDefinition
 from resources.types.resource_object import ResourceObject
 
 sources = bld.path.ant_glob('**/*.c')
-bld.stlib(source=sources,
-          target='bt_driver',
-          use=[
-            'fw_includes',
-            'freertos',
-            'pbl_includes',
-          ])
+bld.pbl_library(sources, name='bt_driver', kind='stlib')
 
 # vim:filetype=python

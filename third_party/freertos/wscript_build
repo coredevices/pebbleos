@@ -42,11 +42,6 @@ bld.pbl_include_directories(*freertos_includes)
 bld.pbl_compile_definitions(*freertos_defines)
 bld(name='freertos_includes', use=['pbl_interface'])
 
-bld.stlib(source=freertos_sources,
-          target='freertos',
-          use=['fw_includes',
-               'freertos_includes',
-               'cmsis_core'],
-          export_defines='GCC_{}'.format(freertos_port_name))
+bld.pbl_library(freertos_sources, name='freertos', kind='stlib')
 
 # vim:filetype=python

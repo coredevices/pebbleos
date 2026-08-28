@@ -62,9 +62,10 @@ speex_cflags = [
     '-Wno-unused-variable',
 ]
 bld(export_includes=speex_includes, name='speex_includes')
-bld.stlib(source=speex_sources,
-          includes=speex_includes,
-          export_includes=speex_includes,
-          defines=speex_defines,
-          cflags=speex_cflags,
-          target='speex')
+bld.pbl_library(speex_sources,
+                name='speex',
+                kind='stlib',
+                includes=speex_includes,
+                export_includes=speex_includes,
+                defines=speex_defines,
+                cflags=speex_cflags)

@@ -357,15 +357,6 @@ def _link_firmware(bld, sources):
                          '-Wl,--wrap=free',
                          '-Wl,--undefined=__wrap_free'])
 
-    uses = [            'bt_driver',
-            'freertos',
-            'gcc',
-            'proto_schemas',
-            'nanopb',
-            'speex',
-            'tinymt32',
-            ]
-
     # Used by pblboot image tools; the C define mirrors the historical name.
     bld.env.FIRMWARE_OFFSET = bld.env.CONFIG_FIRMWARE_OFFSET
     bld.env.append_value('DEFINES', [f'FIRMWARE_OFFSET={bld.env.CONFIG_FIRMWARE_OFFSET}'])
@@ -373,7 +364,6 @@ def _link_firmware(bld, sources):
     # Build and link the firmware ELF
     elf_node = bld.path.get_bld().make_node('pebbleos.elf')
     x = bld.pbl_program(source=sources,
-                use=uses,
                 lib=bld.env.LIBC_LIBS,
                 target=elf_node,
                 includes='fonts',

@@ -1,7 +1,7 @@
-bld.stlib(features="c cstlib",
-          source=bld.path.ant_glob('**/*.proto'),
-          includes=bld.path.abspath(),
-          target='proto_schemas',
-          use='nanopb idl_includes')
+bld.pbl_library(bld.path.ant_glob('**/*.proto'),
+                name='proto_schemas',
+                kind='stlib',
+                features='c cstlib',
+                includes=bld.path.abspath())
 
 # vim:filetype=python

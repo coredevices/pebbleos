@@ -4,15 +4,6 @@ if not bld.env.CONFIG_GH3X2X_TUNING_SERVICE_ENABLED:
 
 driver_source = bld.path.ant_glob(['*.c'], excl=excludes)
 
-bld.objects(
-    source=driver_source,
-    target='bt_driver',
-    use=[
-      'nimble',
-      'freertos',
-      'fw_includes',
-      'pbl_includes',
-    ],
-)
+bld.pbl_library(driver_source, name='bt_driver', use=['nimble'])
 
 # vim:filetype=python

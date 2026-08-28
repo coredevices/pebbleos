@@ -6,7 +6,8 @@ tinymt_includes = [
     'TinyMT/tinymt',
 ]
 
-bld.stlib(source=tinymt_sources,
-          includes=tinymt_includes,
-          export_includes=tinymt_includes,
-          target='tinymt32')
+bld.pbl_library(tinymt_sources,
+                name='tinymt32',
+                kind='stlib',
+                includes=tinymt_includes,
+                export_includes=tinymt_includes)

@@ -11,7 +11,4 @@ nanopb_includes = [
 bld.pbl_include_directories(*nanopb_includes)
 bld(name='nanopb_includes', use=['pbl_interface'])
 
-bld.stlib(source=nanopb_sources,
-          includes=nanopb_includes,
-          export_includes=nanopb_includes,
-          target='nanopb')
+bld.pbl_library(nanopb_sources, name='nanopb', kind='stlib')
