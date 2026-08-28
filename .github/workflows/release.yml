@@ -37,6 +37,9 @@ jobs:
       TAG: ${{ github.ref_name }}
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
@@ -55,56 +58,7 @@ jobs:
 
       - name: Publish release to eng-dash
         if: ${{ github.repository == 'coredevices/PebbleOS' }}
-        env:
-          ENGDASH_URL: https://dash.repebble.com/api/ota/releases/upload
-          ENGDASH_TOKEN: ${{ secrets.ENGDASH_OTA_TOKEN }}
-        run: |
-          set -o pipefail
-
-          publish() {
-            file="$1"
-            body=$(jq -n \
-              --arg version "$TAG" \
-              --arg revision "${{ github.sha }}" \
-              --arg filename "$(basename "$file")" \
-              --arg sha256 "$(sha256sum "$file" | cut -d' ' -f1)" \
-              '{version: $version, revision: $revision, filename: $filename, sha256: $sha256}')
-
-            for _ in 1 2; do
-              resp=$(curl -sS --fail-with-body -X POST \
-                -H "Authorization: Bearer $ENGDASH_TOKEN" \
-                -H "Content-Type: application/json" \
-                --data "$body" "$ENGDASH_URL") || {
-                echo "::error::$file: $resp" >&2
-                return 1
-              }
-              case "$(echo "$resp" | jq -r .status)" in
-                uploaded|ignored)
-                  echo "$file: $(echo "$resp" | jq -c .)"
-                  return 0
-                  ;;
-                upload_required)
-                  curl -sS --fail -X PUT --upload-file "$file" \
-                    "$(echo "$resp" | jq -r .upload_url)" || {
-                    echo "::error::$file: artifact upload failed" >&2
-                    return 1
-                  }
-                  ;;
-                *)
-                  echo "::error::$file: unexpected response: $resp" >&2
-                  return 1
-                  ;;
-              esac
-            done
-
-            echo "::error::$file: not ingested after upload" >&2
-            return 1
-          }
-
-          # pbz first: elfs attach to the artifact rows pbzs create
-          for file in release/normal_*.pbz; do
-            publish "$file"
-          done
-          for file in release/firmware_*.elf; do
-            publish "$file"
-          done
+        uses: ./.github/actions/publish-engdash
+        with:
+          version: ${{ env.TAG }}
+          token: ${{ secrets.ENGDASH_OTA_TOKEN }}
