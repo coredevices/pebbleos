@@ -47,10 +47,6 @@ nimble_env.append_value('CFLAGS', [
     '-Wimplicit-fallthrough=1',
 ])
 
-nimble_export_defines = []
-
-nimble_use = ['mbedtls']
-
 if bld.env.CONFIG_SOC_NRF52:
     nimble_sources += bld.path.ant_glob([
         'mynewt-nimble/nimble/controller/src/*.c',
@@ -73,9 +69,7 @@ if bld.env.CONFIG_SOC_NRF52:
         'NIMBLE_CFG_CONTROLLER=1',
     ])
 
-    nimble_export_defines.append('NIMBLE_CFG_CONTROLLER=1')
-
-    nimble_use.append('hal_nordic')
+    bld.pbl_compile_definitions('NIMBLE_CFG_CONTROLLER=1')
 
 elif bld.env.CONFIG_SOC_SF32LB52:
     nimble_sources += [
@@ -86,8 +80,6 @@ elif bld.env.CONFIG_SOC_SF32LB52:
     nimble_includes = [
         'port/include/sf32lb52',
     ] + nimble_includes
-
-    nimble_use.append('hal_sifli')
 
     if bld.env.CONFIG_NIMBLE_HCI_SF32LB52_TRACE_BINARY:
         bld.env.append_unique('DEFINES', [
@@ -101,10 +93,5 @@ elif bld.env.CONFIG_SOC_SF32LB52:
         ])
 
 
-bld.pbl_library(nimble_sources,
-                name='nimble',
-                use=nimble_use,
-                includes=nimble_includes,
-                export_includes=nimble_includes,
-                export_defines=nimble_export_defines,
-                env=nimble_env)
+bld.pbl_include_directories(*nimble_includes)
+bld.pbl_library(nimble_sources, name='nimble', env=nimble_env)

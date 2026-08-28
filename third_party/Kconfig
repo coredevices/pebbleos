@@ -7,4 +7,9 @@ rsource "hal_nordic/Kconfig"
 rsource "hal_sifli/Kconfig"
 rsource "nimble/Kconfig"
 
+config MBEDTLS
+    bool "mbedTLS"
+    help
+      Build the mbedTLS cryptography library.
+
 endmenu

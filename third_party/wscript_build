@@ -14,6 +14,5 @@ if bld.env.CONFIG_HAL_NORDIC:
 if bld.env.CONFIG_HAL_SIFLI:
     bld.recurse('hal_sifli')
 
-if bld.env.CONFIG_BT_FW_NIMBLE:
-    bld.recurse('mbedtls')
-    bld.recurse('nimble')
+bld.pbl_recurse_ifdef('CONFIG_MBEDTLS', 'mbedtls')
+bld.pbl_recurse_ifdef('CONFIG_BT_FW_NIMBLE', 'nimble')
