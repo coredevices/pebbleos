@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['fw_includes']
+use = []
 
 if bld.env.CONFIG_HRM_GH3X2X:
     sources.append('gh3x2x.c')
@@ -12,10 +12,6 @@ if bld.env.CONFIG_HRM_GH3X2X:
 elif bld.env.CONFIG_HRM_STUB:
     sources.append('stub.c')
 
-bld.objects(
-    name='driver_hrm',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources, use=use)
 
-bld.env.DRIVERS.append('driver_hrm')
+# vim:filetype=python

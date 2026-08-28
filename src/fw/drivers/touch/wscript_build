@@ -2,25 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['fw_includes', 'pbl_includes']
+use = []
 
 if bld.env.CONFIG_TOUCH_QEMU:
     sources.append('../qemu/qemu_touch.c')
-    use.extend([
-        'freertos',
-    ])
 elif bld.env.CONFIG_TOUCH_CST816:
     sources.append('cst816/cst816.c')
-    use.extend([
-        'cst816_fw',
-        'driver_gpio',
-        'freertos',
-    ])
+    use.append('cst816_fw')
 
-bld.objects(
-    name='driver_touch',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources, use=use)
 
-bld.env.DRIVERS.append('driver_touch')
+# vim:filetype=python

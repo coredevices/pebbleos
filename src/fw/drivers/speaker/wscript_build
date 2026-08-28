@@ -2,33 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_SPEAKER_DA7212:
     sources.append('nrf5/da7212.c')
-    use.extend([
-        'driver_i2c',
-        'driver_nrf5_hfxo',
-        'freertos',
-        'hal_nordic',
-    ])
 elif bld.env.CONFIG_SPEAKER_SF32LB:
     sources.extend([
         'sf32lb52/audec.c',
         'sf32lb52/audio.c',
     ])
-    use.extend([
-        'driver_gpio',
-        'hal_sifli',
-    ])
 elif bld.env.CONFIG_SPEAKER_QEMU:
     sources.append('qemu/audio.c')
-    use.append('freertos')
 
-bld.objects(
-    name='driver_audio',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_audio')

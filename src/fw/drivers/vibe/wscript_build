@@ -2,25 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['fw_includes']
 
 if bld.env.CONFIG_VIBE_AW86225:
     sources.append('vibe_aw86225.c')
-    use.append('driver_gpio')
 elif bld.env.CONFIG_VIBE_AW8623X:
     sources.append('vibe_aw8623x.c')
-    use.append('driver_gpio')
 elif bld.env.CONFIG_VIBE_DRV2604:
     sources.append('vibe_drv2604.c')
-    use.extend([
-        'driver_gpio',
-        'pbl_includes',
-    ])
 
-bld.objects(
-    name='driver_vibe',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_vibe')

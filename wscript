@@ -358,7 +358,6 @@ def _link_firmware(bld, sources):
                          '-Wl,--undefined=__wrap_free'])
 
     uses = [            'bt_driver',
-            'drivers',
             'freertos',
             'gcc',
             'proto_schemas',

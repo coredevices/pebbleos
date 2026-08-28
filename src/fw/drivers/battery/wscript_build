@@ -2,23 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = ['battery_common.c']
-use = ['fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_BATTERY_QEMU:
-    sources.extend([
-        '../qemu/qemu_battery.c',
-    ])
-    use.extend([
-        'driver_qemu_serial',
-        'driver_qemu_settings',
-    ])
-elif bld.env.CONFIG_BATTERY_PMIC:
-    pass
+    sources.append('../qemu/qemu_battery.c')
 
-bld.objects(
-    name='driver_battery',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_battery')

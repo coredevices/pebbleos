@@ -7,26 +7,12 @@ sources = [
     'flash_crc.c',
     'flash_erase.c',
 ]
-use = [
-    'driver_task_watchdog',
-    'driver_watchdog',
-    'freertos',
-    'fw_includes',
-    'pbl_includes',
-]
 
 if bld.env.CONFIG_FLASH_QEMU:
     sources.append('../qemu/qemu_flash_hal.c')
 elif bld.env.CONFIG_FLASH_GD25LQ255E:
     sources.append('gd25lq255e.c')
-    use.append('driver_qspi')
 elif bld.env.CONFIG_FLASH_GD25Q256E:
     sources.append('gd25q256e.c')
-    use.append('driver_qspi')
-bld.objects(
-    name='driver_flash',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_flash')

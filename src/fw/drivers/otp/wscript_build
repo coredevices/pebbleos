@@ -2,16 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['fw_includes']
 
 if bld.env.CONFIG_OTP_FLASH:
     sources.append('otp_flash.c')
-    use.append('driver_flash')
 
-bld.objects(
-    name='driver_otp',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_otp')

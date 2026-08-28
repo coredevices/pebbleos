@@ -2,18 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_RNG_SF32LB:
     sources.append('sf32lb.c')
-    use.append('hal_sifli')
 elif bld.env.CONFIG_RNG_STUB:
     sources.append('stubs.c')
 
-bld.objects(
-    name='driver_rng',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_rng')

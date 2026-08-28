@@ -1,22 +1,15 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-use = ['freertos', 'fw_includes']
 sources = []
 
 if bld.env.CONFIG_UART_QEMU:
     sources.append('qemu.c')
 elif bld.env.CONFIG_UART_NRF5:
-    use.append('hal_nordic')
     sources.append('nrf5.c')
 elif bld.env.CONFIG_UART_SF32LB:
-    use.append('hal_sifli')
     sources.append('sf32lb.c')
 
-bld.objects(
-    name='driver_uart',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
 bld.env.DRIVERS.append('driver_uart')

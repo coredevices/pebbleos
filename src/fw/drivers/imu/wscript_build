@@ -4,36 +4,23 @@
 # Accelerometer
 
 accel_sources = []
-accel_use = ['fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_QEMU:
     accel_sources.append('../qemu/qemu_accel.c')
-    accel_use.append('driver_qemu_serial')
 elif bld.env.CONFIG_ACCEL_LIS2DW12:
     accel_sources.append('lis2dw12/lis2dw12.c')
 elif bld.env.CONFIG_ACCEL_LSM6DSO:
     accel_sources.append('lsm6dso/lsm6dso.c')
 
 if accel_sources:
-    bld.objects(
-        name='driver_accel',
-        source=accel_sources,
-        use=accel_use,
-    )
-    bld.env.DRIVERS.append('driver_accel')
+    bld.pbl_library(accel_sources, name='driver_accel')
 
 # Magnetometer
 
 mag_sources = []
-mag_use = ['fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_MAG_MMC5603NJ:
     mag_sources.append('mmc5603nj/mmc5603nj.c')
 
 if mag_sources:
-    bld.objects(
-        name='driver_mag',
-        source=mag_sources,
-        use=mag_use,
-    )
-    bld.env.DRIVERS.append('driver_mag')
+    bld.pbl_library(mag_sources, name='driver_mag')

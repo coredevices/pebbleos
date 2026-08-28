@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['freertos', 'fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_RTC_QEMU:
     sources.append('../qemu/qemu_rtc_hal.c')
@@ -10,12 +9,6 @@ elif bld.env.CONFIG_RTC_NRF5:
     sources.append('nrf5.c')
 elif bld.env.CONFIG_RTC_SF32LB:
     sources.append('sf32lb.c')
-    use.append('hal_sifli')
 
-bld.objects(
-    name='driver_rtc',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_rtc')

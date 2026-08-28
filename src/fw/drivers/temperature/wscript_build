@@ -2,17 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['fw_includes']
 
 if bld.env.CONFIG_TEMPERATURE_SF32LB:
     sources.append('sf32lb.c')
 elif bld.env.CONFIG_TEMPERATURE_STUB:
     sources.append('stubs.c')
 
-bld.objects(
-    name='driver_temperature',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_temperature')

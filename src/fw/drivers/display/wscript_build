@@ -2,24 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['freertos', 'fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_DISPLAY_QEMU:
     sources.append('../qemu/qemu_display_hal.c')
 elif bld.env.CONFIG_DISPLAY_JDI_SF32LB:
     sources.append('sf32lb/display_jdi.c')
-    use.append('hal_sifli')
 elif bld.env.CONFIG_DISPLAY_SHARP_LS013B7DH01_NRF5:
     sources.append('sharp_ls013b7dh01/sharp_ls013b7dh01_nrf5.c')
-    use.extend([
-        'driver_gpio',
-        'hal_nordic',
-    ])
 
-bld.objects(
-    name='driver_display',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_display')

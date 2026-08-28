@@ -2,21 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['freertos', 'fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_MIC_NRF5:
     sources.append('nrf5/pdm.c')
-    use.append('hal_nordic')
 elif bld.env.CONFIG_MIC_SF32LB:
     sources.append('sf32lb52/pdm.c')
-    use.append('hal_sifli')
 elif bld.env.CONFIG_MIC_QEMU:
     sources.append('qemu/mic.c')
 
-bld.objects(
-    name='driver_mic',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_mic')

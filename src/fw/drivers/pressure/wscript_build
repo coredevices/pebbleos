@@ -2,15 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['fw_includes']
 
 if bld.env.CONFIG_PRESSURE_BMP390:
     sources.append('bmp390.c')
 
-bld.objects(
-    name='driver_pressure',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_pressure')

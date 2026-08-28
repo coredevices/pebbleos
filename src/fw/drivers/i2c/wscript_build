@@ -1,20 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-use = ['freertos', 'fw_includes']
 sources = ['common.c']
 
 if bld.env.CONFIG_I2C_NRF5:
-    use.append('hal_nordic')
     sources.append('nrf5.c')
 elif bld.env.CONFIG_I2C_SF32LB:
-    use.append('hal_sifli')
     sources.append('sf32lb.c')
 
-bld.objects(
-    name='driver_i2c',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
 bld.env.DRIVERS.append('driver_i2c')

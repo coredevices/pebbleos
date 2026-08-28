@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_AMBIENT_LIGHT_OPT3001:
     sources.append('ambient_light_opt3001.c')
@@ -12,10 +11,5 @@ elif bld.env.CONFIG_AMBIENT_LIGHT_W1160:
 if sources:
     sources.append('ambient_light_common.c')
 
-bld.objects(
-    name='driver_ambient_light',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_ambient_light')

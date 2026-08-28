@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = ['console.c']
-use = ['fw_includes']
 
 if bld.env.CONFIG_BACKLIGHT_AW2016:
     sources.append('aw2016.c')
@@ -13,10 +12,6 @@ elif bld.env.CONFIG_BACKLIGHT_PWM:
 elif bld.env.CONFIG_BACKLIGHT_QEMU:
     sources.append('qemu.c')
 
-bld.objects(
-    name='driver_backlight',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
 bld.env.DRIVERS.append('driver_backlight')

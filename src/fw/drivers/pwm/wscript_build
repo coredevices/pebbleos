@@ -2,21 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_PWM_QEMU:
     sources.append('../qemu/qemu_pwm_hal.c')
 elif bld.env.CONFIG_PWM_NRF5:
     sources.append('nrf5.c')
-    use.append('hal_nordic')
 elif bld.env.CONFIG_PWM_SF32LB:
     sources.append('sf32lb.c')
-    use.append('hal_sifli')
 
-bld.objects(
-    name='driver_pwm',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_pwm')

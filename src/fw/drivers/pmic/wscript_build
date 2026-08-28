@@ -2,15 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = ['fw_includes', 'pbl_includes']
 
 if bld.env.CONFIG_PMIC_NPM1300:
     sources.append('npm1300.c')
 
-bld.objects(
-    name='driver_pmic',
-    source=sources,
-    use=use,
-)
+bld.pbl_library(sources)
 
-bld.env.DRIVERS.append('driver_pmic')

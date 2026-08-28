@@ -1,357 +1,56 @@
-bld.env.DRIVERS = []
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
 
-if bld.env.CONFIG_QEMU:
-    bld.env.DRIVERS.extend([
-        'driver_button',
-        'driver_mcu',
-        'driver_mpu',
-        'driver_task_watchdog',
-        'driver_qemu_stubs',
-    ])
-
-    bld.objects(
-        name='driver_qemu_stubs',
-        source=[
-            'stubs/ambient_light.c',
-            'qemu/qemu_vibe.c',
-            'stubs/otp.c',
-        ],
-        use=[
-            'driver_qemu_serial',
-            'fw_includes',
-            'pbl_includes',
-        ],
-    )
-
-elif bld.env.CONFIG_BOARD_ASTERIX:
-    bld.env.DRIVERS.extend([
-        'driver_button',
-        'driver_mcu',
-        'driver_mpu',
-        'driver_nrf5_hfxo',
-        'driver_otp',
-        'driver_task_watchdog',
-    ])
-
-elif bld.env.CONFIG_BOARD_OBELIX:
-    bld.env.DRIVERS.extend([
-        'driver_button',
-        'driver_mcu',
-        'driver_mpu',
-        'driver_qspi',
-        'driver_rc10k',
-        'driver_task_watchdog',
-    ])
-
-elif bld.env.CONFIG_BOARD_GETAFIX:
-    bld.env.DRIVERS.extend([
-        'driver_button',
-        'driver_mcu',
-        'driver_mpu',
-        'driver_qspi',
-        'driver_rc10k',
-        'driver_task_watchdog',
-    ])
-## ----------
-
-if bld.env.CONFIG_SPEAKER:
-    bld.recurse('speaker')
-
-if bld.env.CONFIG_AMBIENT_LIGHT:
-    bld.recurse('ambient')
-
-if bld.env.CONFIG_TEMPERATURE:
-    bld.recurse('temperature')
-
-if bld.env.CONFIG_BATTERY:
-    bld.recurse('battery')
-
+bld.pbl_recurse_ifdef('CONFIG_SPEAKER', 'speaker')
+bld.pbl_recurse_ifdef('CONFIG_AMBIENT_LIGHT', 'ambient')
+bld.pbl_recurse_ifdef('CONFIG_TEMPERATURE', 'temperature')
+bld.pbl_recurse_ifdef('CONFIG_BATTERY', 'battery')
 bld.recurse('imu')
-
-if bld.env.CONFIG_QEMU:
-    bld.objects(
-        name='driver_button',
-        source=[
-            'qemu/qemu_button.c',
-        ],
-        use=[
-            'freertos',
-            'fw_includes',
-            'pbl_includes',
-        ],
-    )
-elif bld.env.CONFIG_SOC_NRF52:
-    bld.objects(
-        name='driver_button',
-        source=[
-            'nrf5/button.c',
-            'nrf5/debounced_button.c',
-        ],
-        use=[
-            'driver_exti',
-            'freertos',
-            'fw_includes',
-            'pbl_includes',
-            'hal_nordic',
-        ],
-    )
-elif bld.env.CONFIG_SOC_SF32LB52:
-    bld.objects(
-        name='driver_button',
-        source=[
-            'sf32lb52/button.c',
-            'sf32lb52/debounced_button.c',
-        ],
-        use=[
-            'driver_exti',
-            'driver_gpio',
-            'freertos',
-            'fw_includes',
-            'hal_sifli',
-        ],
-    )
-
-if bld.env.CONFIG_DISPLAY:
-    bld.recurse('display')
-
-if bld.env.CONFIG_EXTI:
-    bld.recurse('exti')
-
-if bld.env.CONFIG_FLASH:
-    bld.recurse('flash')
-
-if bld.env.CONFIG_GPIO:
-    bld.recurse('gpio')
-
-if bld.env.CONFIG_I2C:
-    bld.recurse('i2c')
-
-if bld.env.CONFIG_QEMU:
-    if bld.env.CONFIG_MAG:
-        bld.objects(
-            name='driver_mag3110',
-            source=[
-                'imu/mag3110/mag3110.c',
-            ],
-            use=[
-                'driver_qemu_serial',
-                'fw_includes',
-                'pbl_includes',
-            ],
-        )
-
-if bld.env.CONFIG_BACKLIGHT:
-    bld.recurse('backlight')
-
-if bld.env.CONFIG_PRESSURE:
-    bld.recurse('pressure')
-
-if bld.env.CONFIG_QEMU:
-    bld.objects(
-        name='driver_mcu',
-        source=[
-            'stubs/mcu.c',
-        ],
-        use=[
-            'fw_includes',
-        ],
-    )
-elif bld.env.CONFIG_SOC_NRF52:
-    # FIXME: provide working implementation
-    bld.objects(
-        name='driver_mcu',
-        source=[
-            'stubs/mcu.c',
-        ],
-        use=[
-            'fw_includes',
-        ],
-    )
-elif bld.env.CONFIG_SOC_SF32LB52:
-    bld.objects(
-        name='driver_mcu',
-        source=[
-            'sf32lb52/mcu.c',
-        ],
-        use=[
-            'fw_includes',
-            'hal_sifli',
-        ],
-    )
-
-if bld.env.CONFIG_MIC:
-    bld.recurse('mic')
+bld.pbl_recurse_ifdef('CONFIG_DISPLAY', 'display')
+bld.pbl_recurse_ifdef('CONFIG_EXTI', 'exti')
+bld.pbl_recurse_ifdef('CONFIG_FLASH', 'flash')
+bld.pbl_recurse_ifdef('CONFIG_GPIO', 'gpio')
+bld.pbl_recurse_ifdef('CONFIG_I2C', 'i2c')
+bld.pbl_recurse_ifdef('CONFIG_BACKLIGHT', 'backlight')
+bld.pbl_recurse_ifdef('CONFIG_PRESSURE', 'pressure')
+bld.pbl_recurse_ifdef('CONFIG_MIC', 'mic')
+bld.pbl_recurse_ifdef('CONFIG_OTP', 'otp')
+bld.pbl_recurse_ifdef('CONFIG_PMIC', 'pmic')
+bld.pbl_recurse_ifdef('CONFIG_PWM', 'pwm')
+bld.pbl_recurse_ifdef('CONFIG_RNG', 'rng')
+bld.pbl_recurse_ifdef('CONFIG_RTC', 'rtc')
+bld.pbl_recurse_ifdef('CONFIG_TOUCH', 'touch')
+bld.pbl_recurse_ifdef('CONFIG_UART', 'uart')
+bld.pbl_recurse_ifdef('CONFIG_VIBE', 'vibe')
+bld.pbl_recurse_ifdef('CONFIG_WATCHDOG', 'watchdog')
+bld.pbl_recurse_ifdef('CONFIG_HRM', 'hrm')
 
 if bld.env.CONFIG_MPU_TYPE_ARMV8M:
     mpu_arch_source = 'mpu/mpu_armv8m.c'
 else:
     mpu_arch_source = 'mpu/mpu_armv7m.c'
-bld.objects(
-    name='driver_mpu',
-    source=[
-        'mpu.c',
-        mpu_arch_source,
-    ],
-    use=[
-        'freertos',
-        'fw_includes',
-        'pbl_includes',
-    ],
-)
+bld.pbl_library(['mpu.c', mpu_arch_source], name='driver_mpu')
 
-if bld.env.CONFIG_OTP:
-    bld.recurse('otp')
-
-if bld.env.CONFIG_PMIC:
-    bld.recurse('pmic')
+bld.pbl_library(['task_watchdog.c'], name='driver_task_watchdog')
 
 if bld.env.CONFIG_QEMU:
-    bld.objects(
-        name='driver_qemu_serial',
-        source=[
-            'qemu/qemu_serial.c',
-            'qemu/qemu_serial_util.c',
-        ],
-        use=[
-            'driver_gpio',
-            'driver_uart',
-            'fw_includes',
-            'pbl_includes',
-        ],
-    )
-
-if bld.env.CONFIG_QEMU:
-    bld.objects(
-        name='driver_qemu_settings',
-        source=[
-            'qemu/qemu_settings.c',
-        ],
-        use=[
-            'fw_includes',
-            'pbl_includes',
-        ],
-    )
-
-if bld.env.CONFIG_PWM:
-    bld.recurse('pwm')
-
-if bld.env.CONFIG_SOC_NRF52:
-    bld.objects(
-        name='driver_qspi',
-        source=[
-            'nrf5/qspi.c',
-        ],
-        use=[
-            'freertos',
-            'fw_includes',
-            'pbl_includes',
-            'hal_nordic',
-        ],
-    )
+    bld.pbl_library(['qemu/qemu_button.c'], name='driver_button')
+    bld.pbl_library(['stubs/mcu.c'], name='driver_mcu')
+    bld.pbl_library(['qemu/qemu_serial.c', 'qemu/qemu_serial_util.c'], name='driver_qemu_serial')
+    bld.pbl_library(['qemu/qemu_settings.c'], name='driver_qemu_settings')
+    bld.pbl_library(['stubs/ambient_light.c', 'qemu/qemu_vibe.c', 'stubs/otp.c'],
+                    name='driver_qemu_stubs')
+    bld.pbl_library_ifdef('CONFIG_MAG', ['imu/mag3110/mag3110.c'], name='driver_mag3110')
+elif bld.env.CONFIG_SOC_NRF52:
+    bld.pbl_library(['nrf5/button.c', 'nrf5/debounced_button.c'], name='driver_button')
+    # FIXME: provide working implementation
+    bld.pbl_library(['stubs/mcu.c'], name='driver_mcu')
+    bld.pbl_library(['nrf5/qspi.c'], name='driver_qspi')
+    bld.pbl_library(['nrf5/hfxo.c'], name='driver_nrf5_hfxo')
 elif bld.env.CONFIG_SOC_SF32LB52:
-    bld.objects(
-        name='driver_qspi',
-        source=[
-            'sf32lb52/qspi.c',
-        ],
-        use=[
-            'fw_includes',
-            'pbl_includes',
-            'hal_sifli',
-        ],
-    )
-
-if bld.env.CONFIG_RNG:
-    bld.recurse('rng')
-
-if bld.env.CONFIG_RTC:
-    bld.recurse('rtc')
-
-if bld.env.CONFIG_SOC_NRF52:
-    bld.objects(
-        name='driver_task_watchdog',
-        source=[
-            'task_watchdog.c',
-        ],
-        use=[
-
-            'freertos',
-            'fw_includes',
-            'pbl_includes',
-            'hal_nordic',
-        ],
-    )
-elif bld.env.CONFIG_SOC_SF32LB52:
-    bld.objects(
-        name='driver_task_watchdog',
-        source=[
-            'task_watchdog.c',
-        ],
-        use=[
-
-            'freertos',
-            'fw_includes',
-            'pbl_includes',
-        ],
-    )
-elif bld.env.CONFIG_QEMU:
-    bld.objects(
-        name='driver_task_watchdog',
-        source=[
-            'task_watchdog.c',
-        ],
-        use=[
-
-            'freertos',
-            'fw_includes',
-            'pbl_includes',
-        ],
-    )
-
-if bld.env.CONFIG_TOUCH:
-    bld.recurse('touch')
-
-
-if bld.env.CONFIG_UART:
-    bld.recurse('uart')
-
-if bld.env.CONFIG_VIBE:
-    bld.recurse('vibe')
-
-if bld.env.CONFIG_WATCHDOG:
-    bld.recurse('watchdog')
-
-if bld.env.CONFIG_HRM:
-    bld.recurse('hrm')
-
-if bld.env.CONFIG_SOC_NRF52:
-    bld.objects(
-        name='driver_nrf5_hfxo',
-        source=[
-            'nrf5/hfxo.c',
-        ],
-        use=[
-            'fw_includes',
-            'freertos',
-            'hal_nordic',
-        ],
-    )
-
-if bld.env.CONFIG_SOC_SF32LB52:
-    bld.objects(
-        name='driver_rc10k',
-        source=[
-            'sf32lb52/rc10k.c',
-        ],
-        use=[
-            'fw_includes',
-            'hal_sifli',
-        ],
-    )
-
-bld(
-    name='drivers',
-    use=bld.env.DRIVERS,
-)
+    bld.pbl_library(['sf32lb52/button.c', 'sf32lb52/debounced_button.c'], name='driver_button')
+    bld.pbl_library(['sf32lb52/mcu.c'], name='driver_mcu')
+    bld.pbl_library(['sf32lb52/qspi.c'], name='driver_qspi')
+    bld.pbl_library(['sf32lb52/rc10k.c'], name='driver_rc10k')
 
 # vim:filetype=python
