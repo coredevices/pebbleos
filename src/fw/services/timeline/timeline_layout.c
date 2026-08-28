@@ -113,6 +113,14 @@ static const TimelineLayoutStyle *prv_get_style(void) {
   return s_styles[PreferredContentSizeDefault];
 }
 
+// Pin text (time, title, subtitle) is left-aligned on the right-hand strip;
+// mirror it to right-aligned when the sidebar sits on the left.
+static GTextAlignment prv_get_pin_text_alignment(void) {
+  return PBL_IF_RECT_ELSE(
+      timeline_layer_sidebar_is_on_right() ? GTextAlignmentLeft : GTextAlignmentRight,
+      GTextAlignmentRight);
+}
+
 TimelineResourceId timeline_layout_get_icon_resource_id(
     LayoutLayerMode mode, const AttributeList *attributes, TimelineResourceSize card_icon_size,
     TimelineResourceId fallback_resource) {
@@ -236,8 +244,11 @@ void timeline_layout_get_icon_frame(const GRect *bounds, TimelineScrollDirection
   // s_style_medium: future_top_margin=39, past layout origin=61, icon_offset_y=0
   PBL_UNUSED const int offset_y_round = use_large_style ? (is_future ? 76 : -2)
                                                         : (is_future ? 40 : 17);
+  // Right: +2 matches the historic pin-icon inset. Left: same outer inset from the screen edge.
   const GPoint origin = {
-    .x = bounds->size.w - size.w + 2,
+    .x = timeline_layer_sidebar_is_on_right()
+             ? (bounds->size.w - size.w + 2)
+             : (timeline_layer_get_icon_outer_inset() - 2 - bounds->origin.x),
     .y = PBL_IF_RECT_ELSE(offset_y_rect, offset_y_round),
   };
   *frame = (GRect) { gpoint_add(bounds->origin, origin), size };
@@ -401,6 +412,7 @@ static GTextNode *prv_create_all_day_text_node(const TimelineLayout *layout) {
   GTextNodeText *text_node =
       (GTextNodeText *)layout_create_text_node_from_config(
           &layout->layout_layer, &s_all_day_config.text.extent.node);
+  text_node->alignment = prv_get_pin_text_alignment();
   // TODO: PBL-30522 Enable timeline list view text flow
   // Remove when text flow is enabled
   if (PBL_IF_ROUND_ELSE(layout->layout_layer.mode == LayoutLayerModePinnedThin, false)) {
@@ -461,7 +473,7 @@ static GTextNode *prv_create_hour_text_node(const TimelineLayout *layout) {
   GTextNodeHorizontal *horizontal_node =
       (GTextNodeHorizontal *)layout_create_text_node_from_config(
           &layout->layout_layer, &s_horizontal_config.container.extent.node);
-  horizontal_node->horizontal_alignment = TIMELINE_LAYER_TEXT_ALIGNMENT;
+  horizontal_node->horizontal_alignment = prv_get_pin_text_alignment();
   return &horizontal_node->container.node;
 }
 
@@ -540,6 +552,9 @@ static GTextNode *prv_create_pin_view_node(TimelineLayout *layout) {
     primary_node->text =
         attribute_get_string(attributes, AttributeIdShortTitle, NULL) ?:
         attribute_get_string(attributes, layout->impl->attributes.primary_id, "");
+    if (!is_peek) {
+      primary_node->alignment = prv_get_pin_text_alignment();
+    }
     primary_node->line_spacing_delta = style->primary_line_spacing_delta;
     int num_primary_lines = is_fat ? 2 : 1;
     if (is_peek) {
@@ -580,6 +595,9 @@ static GTextNode *prv_create_pin_view_node(TimelineLayout *layout) {
       secondary_node->max_size.w = peek_text_width;
     } else {
       secondary_node->text = secondary_text;
+    }
+    if (!is_peek) {
+      secondary_node->alignment = prv_get_pin_text_alignment();
     }
     secondary_node->overflow = overflow;
     graphics_text_node_container_add_child(&vertical_node->container, &secondary_node->node);
@@ -646,6 +664,7 @@ static void prv_get_pin_view_bounds(TimelineLayout *layout, GRect *box_out) {
     return;
   }
   box_out->size.w -= timeline_layer_get_ideal_sidebar_width();
+  box_out->origin.x += timeline_layer_get_pin_text_origin_x();
   if (PBL_IF_ROUND_ELSE(layout->layout_layer.mode == LayoutLayerModePinnedThin, false)) {
     const int thin_height = 20;
     box_out->size.h = thin_height;

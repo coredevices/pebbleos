@@ -10,6 +10,7 @@
 #include "applib/graphics/gpath.h"
 #include "applib/graphics/graphics.h"
 #include "applib/preferred_content_size.h"
+#include "applib/ui/action_bar_layer.h"
 #include "applib/ui/kino/kino_layer.h"
 #include "applib/ui/kino/kino_reel/scale_segmented.h"
 #include "applib/ui/property_animation.h"
@@ -133,6 +134,29 @@ uint16_t timeline_layer_get_ideal_sidebar_width(void) {
   return prv_get_style()->sidebar_width;
 }
 
+bool timeline_layer_sidebar_is_on_right(void) {
+  return action_bar_layer_is_on_right();
+}
+
+int16_t timeline_layer_get_icon_outer_inset(void) {
+  return prv_get_style()->icon_right_margin;
+}
+
+int16_t timeline_layer_get_pin_text_origin_x(void) {
+  if (timeline_layer_sidebar_is_on_right()) {
+    return 0;
+  }
+  const TimelineLayerStyle *style = prv_get_style();
+  return (int16_t)(style->sidebar_width + style->right_margin - style->left_margin);
+}
+
+static void prv_inset_rect_for_sidebar(GRect *frame, int16_t sidebar_width) {
+  frame->size.w -= sidebar_width;
+  if (!timeline_layer_sidebar_is_on_right()) {
+    frame->origin.x += sidebar_width;
+  }
+}
+
 ///////////////////////////////////////////////////////////
 // Drawing functions
 ///////////////////////////////////////////////////////////
@@ -191,8 +215,10 @@ static void prv_get_icon_frame_exact(TimelineLayer *layer, int index, GRect *ico
   GRect frame;
   prv_get_frame(layer, index, &frame);
   frame.origin.y += style->icon_offset_y;
-  // Remove sidebar and apply icon margin
-  frame.size.w += style->right_margin - style->icon_right_margin;
+  // On the right, grow the pin frame so the icon sits icon_right_margin from the screen edge.
+  if (timeline_layer_sidebar_is_on_right()) {
+    frame.size.w += style->right_margin - style->icon_right_margin;
+  }
   timeline_layout_get_icon_frame(&frame, layer->scroll_direction, icon_frame);
 }
 
@@ -217,7 +243,7 @@ static void prv_get_end_of_timeline_frame(TimelineLayer *layer, int index, GRect
   gpoint_add_eq(&frame->origin,
                 GPoint(style->fin_offset_x,
                        is_future ? style->future_fin_offset_y : style->past_fin_offset_y));
-  frame->size.w -= PBL_IF_RECT_ELSE(style->sidebar_width, 0);
+  prv_inset_rect_for_sidebar(frame, PBL_IF_RECT_ELSE(style->sidebar_width, 0));
 }
 
 static void prv_get_day_sep_frame(TimelineLayer *layer, int index, GRect *frame) {
@@ -228,8 +254,8 @@ static void prv_get_day_sep_frame(TimelineLayer *layer, int index, GRect *frame)
                                  style->past_day_sep_dot_offset_y;
   // Remove the built-in margins and subtract the sidebar
   frame->origin.x -= style->left_margin;
-  frame->size.w += ((style->left_margin + style->right_margin) -
-                    PBL_IF_RECT_ELSE(style->sidebar_width, 0));
+  frame->size.w += (style->left_margin + style->right_margin);
+  prv_inset_rect_for_sidebar(frame, PBL_IF_RECT_ELSE(style->sidebar_width, 0));
 }
 
 static void prv_get_day_sep_show_frame(TimelineLayer *layer, GRect *frame) {
@@ -237,9 +263,10 @@ static void prv_get_day_sep_show_frame(TimelineLayer *layer, GRect *frame) {
   const TimelineLayerStyle *style = prv_get_style();
   *frame = (GRect) {
     .origin = gpoint_add(bounds->origin, style->day_sep_offset),
-    .size.w = bounds->size.w - style->sidebar_width,
+    .size.w = bounds->size.w,
     .size.h = bounds->size.h,
   };
+  prv_inset_rect_for_sidebar(frame, style->sidebar_width);
 }
 
 static void prv_create_layout(TimelineLayer *layer, TimelineIterState *state, int index) {
@@ -626,8 +653,9 @@ static void prv_update_proc(struct Layer *layer, GContext* ctx) {
   }
 
   const int16_t sidebar_width = timeline_layer->sidebar_width;
-  const GRect sidebar_rect = GRect(bounds->size.w - sidebar_width, 0, sidebar_width,
-                                   bounds->size.h);
+  const int16_t sidebar_x = timeline_layer_sidebar_is_on_right() ?
+      (bounds->size.w - sidebar_width) : 0;
+  const GRect sidebar_rect = GRect(sidebar_x, 0, sidebar_width, bounds->size.h);
   graphics_context_set_fill_color(ctx, timeline_layer->sidebar_color);
 
   // On round displays, draw the round flip effect if we're animating the intro or exit and then
@@ -640,15 +668,17 @@ static void prv_update_proc(struct Layer *layer, GContext* ctx) {
 #endif
 
   graphics_fill_rect(ctx, &sidebar_rect);
-  int16_t arrow_base_x = bounds->size.w - sidebar_width;
+  const bool sidebar_on_right = timeline_layer_sidebar_is_on_right();
+  int16_t arrow_base_x = sidebar_on_right ? (bounds->size.w - sidebar_width) : (sidebar_width - 1);
 #if PBL_ROUND
-  // Nudge the arrow's base left on round displays by one pixel
-  arrow_base_x -= 1;
+  arrow_base_x += sidebar_on_right ? -1 : 1;
 #endif
   const TimelineLayerStyle *style = prv_get_style();
   const GSize arrow_size = style->sidebar_arrow_size;
   const int16_t arrow_base_center_y = PBL_IF_RECT_ELSE(16, bounds->size.h / 2);
-  const int16_t arrow_point_x_offset = PBL_IF_RECT_ELSE(-arrow_size.w, arrow_size.w);
+  const int16_t toward_content = sidebar_on_right ? -1 : 1;
+  const int16_t arrow_point_x_offset =
+      PBL_IF_RECT_ELSE(toward_content, -toward_content) * arrow_size.w;
   GPath arrow_path = {
     .num_points = 3,
     .points = (GPoint[]) { { arrow_base_x, arrow_base_center_y  - (arrow_size.h / 2) },

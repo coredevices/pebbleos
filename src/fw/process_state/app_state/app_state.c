@@ -140,6 +140,8 @@ typedef struct {
   TimelineItemActionSource current_timeline_item_action_source;
 
   GBitmap *legacy2_framebuffer;
+
+  bool action_bar_follows_display_orientation;
 } AppState;
 
 KERNEL_READONLY_DATA static AppState *s_app_state_ptr;
@@ -288,6 +290,8 @@ NOINLINE void app_state_init(void) {
       app_install_id_from_system(app_manager_get_current_app_id());
   s_app_state_ptr->touch_nav_opted_in = false;
 #endif
+
+  s_app_state_ptr->action_bar_follows_display_orientation = false;
 
   animation_private_state_init(&s_app_state_ptr->animation_state);
 
@@ -608,6 +612,14 @@ TimelineItemActionSource app_state_get_current_timeline_item_action_source(void)
 
 void app_state_set_current_timeline_item_action_source(TimelineItemActionSource current_source) {
   s_app_state_ptr->current_timeline_item_action_source = current_source;
+}
+
+bool app_state_get_action_bar_follows_display_orientation(void) {
+  return s_app_state_ptr->action_bar_follows_display_orientation;
+}
+
+void app_state_set_action_bar_follows_display_orientation(bool follow) {
+  s_app_state_ptr->action_bar_follows_display_orientation = follow;
 }
 
 // Serial Commands

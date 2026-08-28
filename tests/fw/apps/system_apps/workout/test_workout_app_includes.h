@@ -25,6 +25,7 @@
 #include "stubs_analytics.h"
 #include "stubs_animation_timing.h"
 #include "stubs_app_install_manager.h"
+#include "stubs_app_state.h"
 #include "stubs_app_timer.h"
 #include "stubs_app_window_stack.h"
 #include "stubs_attribute.h"

@@ -286,6 +286,9 @@ void sys_process_get_wakeup_info(WakeupInfo *info);
 //! Get the meta-data for the current process
 const PebbleProcessMd* sys_process_manager_get_current_process_md(void);
 
+//! Get the SDK type for the current process
+ProcessAppSDKType sys_process_manager_get_current_process_sdk_type(void);
+
 //! Copy UUID for the current process.
 //! @return True if the UUID was succesfully copied.
 bool sys_process_manager_get_current_process_uuid(Uuid *uuid_out);

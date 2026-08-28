@@ -7,6 +7,7 @@
 #include "applib/ui/kino/kino_layer.h"
 #include "applib/ui/kino/kino_reel.h"
 #include "applib/ui/ui.h"
+#include "applib/ui/action_bar_layer.h"
 #include "applib/ui/window_private.h"
 #include "applib/ui/window_stack.h"
 #include "comm/bt_lock.h"
@@ -377,10 +378,11 @@ static void prv_window_load(Window *window) {
 #if PBL_DISPLAY_HEIGHT >= 200
   // On large round displays center the text layers on the full window width
   const int32_t x_offset =
-      PBL_IF_RECT_ELSE(0, (window->layer.bounds.size.w - width) / 2);
+      PBL_IF_RECT_ELSE(action_bar_layer_get_content_origin_x(),
+                       (window->layer.bounds.size.w - width) / 2);
   const int32_t info_text_y_offset = 36;
 #else
-  const int32_t x_offset = PBL_IF_RECT_ELSE(0, 22);
+  const int32_t x_offset = PBL_IF_RECT_ELSE(action_bar_layer_get_content_origin_x(), 22);
   const int32_t info_text_y_offset = PBL_IF_RECT_ELSE(10, 12);
 #endif
 
@@ -438,7 +440,7 @@ static void prv_window_load(Window *window) {
 #if PBL_DISPLAY_HEIGHT >= 200
     const int32_t device_name_width = width;
 #else
-    const int32_t device_name_width = width - x_offset;
+    const int32_t device_name_width = PBL_IF_RECT_ELSE(width, width - x_offset);
 #endif
     TextLayer *device_name_layer = &data->device_name_text_layer;
     text_layer_init_with_parameters(device_name_layer,

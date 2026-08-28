@@ -708,23 +708,28 @@ static void prv_hide_action_bar(void) {
   s_phone_ui_data->hid_action_bar = true;
 
   const GRect window_bounds = s_phone_ui_data->window.layer.bounds;
-  GRect offscreen = GRect(window_bounds.size.w, 0, PBL_IF_RECT_ELSE(ACTION_BAR_WIDTH, 0),
-                          window_bounds.size.h);
+  const int16_t bar_width = PBL_IF_RECT_ELSE(ACTION_BAR_WIDTH, 0);
+  const bool bar_on_right = action_bar_layer_is_on_right();
+  GRect offscreen = GRect(bar_on_right ? window_bounds.size.w : -bar_width, 0,
+                          bar_width, window_bounds.size.h);
   Animation *action_bar_animation = property_animation_get_animation(
       property_animation_create_layer_frame(&s_phone_ui_data->action_bar.layer, NULL, &offscreen));
   animation_set_duration(action_bar_animation, ACTION_BAR_DISAPPEAR_ANIMATION_FRAMES
                                                * ANIMATION_FRAME_MS);
   animation_set_curve(action_bar_animation, AnimationCurveEaseIn);
-  GPoint overshoot = GPoint(PBL_IF_RECT_ELSE(ACTION_BAR_WIDTH / 2, 0) + BOUNCEBACK_DISTANCE, 0);
+  const int16_t shift = (bar_on_right ? 1 : -1) *
+      (PBL_IF_RECT_ELSE(ACTION_BAR_WIDTH / 2, 0) + BOUNCEBACK_DISTANCE);
+  GPoint overshoot = GPoint(shift, 0);
   Animation *ui_movement = property_animation_get_animation(
       property_animation_create_bounds_origin(&s_phone_ui_data->core_ui_container, NULL,
                                               &overshoot));
   animation_set_curve(ui_movement, AnimationCurveEaseIn);
   animation_set_duration(ui_movement, 3 * ANIMATION_FRAME_MS);
+  const int16_t settle = (bar_on_right ? 1 : -1) * PBL_IF_RECT_ELSE(ACTION_BAR_WIDTH / 2, 0);
   Animation *ui_bounceback = property_animation_get_animation(
       property_animation_create_bounds_origin(
         &s_phone_ui_data->core_ui_container, &overshoot,
-        &GPoint(PBL_IF_RECT_ELSE(ACTION_BAR_WIDTH / 2, 0), 0)));
+        &GPoint(settle, 0)));
   animation_set_curve(ui_bounceback, AnimationCurveEaseOut);
   animation_set_duration(ui_bounceback, 2 * ANIMATION_FRAME_MS);
   Animation *ui_animation = animation_sequence_create(ui_movement, ui_bounceback, NULL);
@@ -733,6 +738,10 @@ static void prv_hide_action_bar(void) {
   animation_schedule(combined);
 #if PBL_ROUND
   // Extend the bounds to center the call text when the action bar is removed
+  if (!bar_on_right) {
+    s_phone_ui_data->caller_id_text_layer.layer.bounds.origin.x -= TEXT_RIGHTSIDE_PADDING;
+    s_phone_ui_data->call_status_text_layer.layer.bounds.origin.x -= TEXT_RIGHTSIDE_PADDING;
+  }
   s_phone_ui_data->caller_id_text_layer.layer.bounds.size.w += TEXT_RIGHTSIDE_PADDING;
   text_layer_set_text_alignment(&s_phone_ui_data->caller_id_text_layer, GTextAlignmentCenter);
   s_phone_ui_data->call_status_text_layer.layer.bounds.size.w += TEXT_RIGHTSIDE_PADDING;
@@ -1006,49 +1015,81 @@ static void prv_phone_ui_init(void) {
 
   // Status bar
   status_bar_layer_init(&s_phone_ui_data->status_bar);
-  layer_set_frame(&s_phone_ui_data->status_bar.layer,
-                  &GRect(0, 0, window->layer.bounds.size.w - PBL_IF_RECT_ELSE(ACTION_BAR_WIDTH, 0),
-                         STATUS_BAR_LAYER_HEIGHT));
+  GRect status_bar_frame = GRect(0, 0,
+                                 window->layer.bounds.size.w - PBL_IF_RECT_ELSE(ACTION_BAR_WIDTH, 0),
+                                 STATUS_BAR_LAYER_HEIGHT);
+#if PBL_RECT
+  status_bar_frame = action_bar_layer_inset_bounds(window->layer.bounds);
+  status_bar_frame.size.h = STATUS_BAR_LAYER_HEIGHT;
+#endif
+  layer_set_frame(&s_phone_ui_data->status_bar.layer, &status_bar_frame);
   status_bar_layer_set_colors(&s_phone_ui_data->status_bar,
                               PBL_IF_COLOR_ELSE(GColorClear, GColorWhite),
                               GColorBlack);
   layer_add_child(&s_phone_ui_data->core_ui_container, &s_phone_ui_data->status_bar.layer);
 
   // Icon
+  GPoint icon_pos = style->icon_pos;
+#if PBL_RECT
+  if (!action_bar_layer_is_on_right()) {
+    icon_pos.x += ACTION_BAR_WIDTH;
+  }
+#else
+  if (!action_bar_layer_is_on_right()) {
+    icon_pos.x = ACTION_BAR_WIDTH + RIGHTSIDE_PADDING;
+  }
+#endif
   kino_layer_init(&s_phone_ui_data->icon_layer,
-                  &(GRect){ style->icon_pos, { ICON_WIDTH, ICON_WIDTH } });
+                  &(GRect){ icon_pos, { ICON_WIDTH, ICON_WIDTH } });
   kino_layer_set_alignment(&s_phone_ui_data->icon_layer, GAlignCenter);
   layer_add_child(&s_phone_ui_data->core_ui_container, &s_phone_ui_data->icon_layer.layer);
 
+  const bool action_bar_on_right = action_bar_layer_is_on_right();
+  PBL_UNUSED const int16_t content_x = action_bar_layer_get_content_origin_x();
+  const GTextAlignment phone_text_alignment = PBL_IF_RECT_ELSE(
+      GTextAlignmentCenter,
+      action_bar_on_right ? GTextAlignmentRight : GTextAlignmentLeft);
+  // On rectangular displays the action bar shifts the text frame to the content side; on round
+  // displays the frame stays symmetric and the text bounds are inset on the bar side instead.
+  const int16_t text_frame_x = PBL_IF_RECT_ELSE(TEXT_MARGIN_WIDTH + content_x, TEXT_MARGIN_WIDTH);
+  const int16_t text_frame_w = PBL_IF_RECT_ELSE(width - content_x, width);
+  const int16_t text_bounds_x =
+      PBL_IF_ROUND_ELSE(action_bar_on_right ? 0 : TEXT_RIGHTSIDE_PADDING, 0);
+  const int16_t text_bounds_w =
+      PBL_IF_RECT_ELSE(width - content_x - (action_bar_on_right ? TEXT_RIGHTSIDE_PADDING : 0),
+                       width - TEXT_RIGHTSIDE_PADDING);
+
   // Caller ID text
-  const GRect caller_id_text_rect = GRect(TEXT_MARGIN_WIDTH, style->caller_id_pos_y,
-                                          width, style->caller_id_height);
+  const GRect caller_id_text_rect = GRect(text_frame_x, style->caller_id_pos_y,
+                                          text_frame_w, style->caller_id_height);
   text_layer_init_with_parameters(&s_phone_ui_data->caller_id_text_layer,
                                   &caller_id_text_rect, NULL, NULL,
                                   GColorBlack,
                                   PBL_IF_COLOR_ELSE(GColorClear, GColorWhite),
-                                  PBL_IF_RECT_ELSE(GTextAlignmentCenter, GTextAlignmentRight),
+                                  phone_text_alignment,
                                   GTextOverflowModeTrailingEllipsis);
   layer_add_child(&s_phone_ui_data->core_ui_container,
                   &s_phone_ui_data->caller_id_text_layer.layer);
   // Shrink the bounds but not the frame size to allow for centering when action bar removed
-  s_phone_ui_data->caller_id_text_layer.layer.bounds.size.w = width - TEXT_RIGHTSIDE_PADDING;
+  s_phone_ui_data->caller_id_text_layer.layer.bounds.origin.x = text_bounds_x;
+  s_phone_ui_data->caller_id_text_layer.layer.bounds.size.w = text_bounds_w;
 
   // Status text
-  const GRect call_status_text_rect = GRect(TEXT_MARGIN_WIDTH, style->status_pos_y,
-                                            width, style->status_height);
+  const GRect call_status_text_rect = GRect(text_frame_x, style->status_pos_y,
+                                            text_frame_w, style->status_height);
   text_layer_init_with_parameters(&s_phone_ui_data->call_status_text_layer,
                                   &call_status_text_rect, NULL, s_phone_ui_data->status_font,
                                   GColorBlack,
                                   PBL_IF_COLOR_ELSE(GColorClear, GColorWhite),
-                                  PBL_IF_RECT_ELSE(GTextAlignmentCenter, GTextAlignmentRight),
+                                  phone_text_alignment,
                                   GTextOverflowModeTrailingEllipsis);
   layer_set_hidden(&s_phone_ui_data->call_status_text_layer.layer, true);
   layer_set_clips(&s_phone_ui_data->call_status_text_layer.layer, false);
   layer_add_child(&s_phone_ui_data->core_ui_container,
                   &s_phone_ui_data->call_status_text_layer.layer);
   // Shrink the bounds but not the frame size to allow for centering when action bar removed
-  s_phone_ui_data->call_status_text_layer.layer.bounds.size.w = width - TEXT_RIGHTSIDE_PADDING;
+  s_phone_ui_data->call_status_text_layer.layer.bounds.origin.x = text_bounds_x;
+  s_phone_ui_data->call_status_text_layer.layer.bounds.size.w = text_bounds_w;
 
   // Action bar
   action_bar_layer_init(&s_phone_ui_data->action_bar);

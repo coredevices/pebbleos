@@ -210,3 +210,6 @@ void app_state_set_text_perimeter_debugging_enabled(bool enabled);
 
 TimelineItemActionSource app_state_get_current_timeline_item_action_source(void);
 void app_state_set_current_timeline_item_action_source(TimelineItemActionSource current_source);
+
+bool app_state_get_action_bar_follows_display_orientation(void);
+void app_state_set_action_bar_follows_display_orientation(bool follow);

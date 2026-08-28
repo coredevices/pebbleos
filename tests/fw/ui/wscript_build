@@ -9,6 +9,15 @@ clar(ctx,
     defines=['CONFIG_TOUCH'])
 
 clar(ctx,
+    sources_ant_glob = "src/fw/applib/graphics/gtypes.c "
+                       "src/fw/applib/graphics/gcolor_definitions.c "
+                       "tests/fakes/fake_gbitmap_png.c "
+                       "src/fw/applib/ui/layer.c "
+                       "src/fw/applib/ui/action_bar_layer.c",
+    test_sources_ant_glob="test_action_bar_layer.c",
+    defines=['CONFIG_ORIENTATION_MANAGER'])
+
+clar(ctx,
     sources_ant_glob = "src/fw/applib/graphics/graphics_private_raw.c "
                        "src/fw/applib/graphics/gtypes.c "
                        "tests/fakes/fake_gbitmap_png.c "

@@ -88,6 +88,15 @@ uint16_t timeline_layer_get_fat_pin_height(void);
 
 uint16_t timeline_layer_get_ideal_sidebar_width(void);
 
+//! False in Left-Handed Mode so the pin strip sits on the button side.
+bool timeline_layer_sidebar_is_on_right(void);
+
+//! Outer inset used to place pin icons inside the sidebar (mirrors the right-hand strip).
+int16_t timeline_layer_get_icon_outer_inset(void);
+
+//! Extra x origin for pin text when the sidebar is on the left, so the gap matches right_margin.
+int16_t timeline_layer_get_pin_text_origin_x(void);
+
 void timeline_layer_get_layout_frame(TimelineLayer *layer, int index, GRect *frame_out);
 
 void timeline_layer_get_icon_frame(TimelineLayer *layer, int index, GRect *frame_out);

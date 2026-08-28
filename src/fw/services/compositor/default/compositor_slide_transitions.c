@@ -10,6 +10,7 @@
 #include "applib/graphics/bitblt.h"
 #include "applib/graphics/framebuffer.h"
 #include "applib/graphics/gtypes.h"
+#include "applib/ui/action_bar_layer.h"
 #include "applib/ui/animation_interpolate.h"
 #include "popups/timeline/peek.h"
 #include <pbl/logging/logging.h>
@@ -110,9 +111,12 @@ static void prv_slide_transition_animation_update(GContext *ctx, Animation *anim
     if (!s_data.timeline_is_empty) {
       graphics_context_set_fill_color(ctx, GColorWhite);
       const int content_width = DISP_COLS - TIMELINE_PEEK_ICON_BOX_WIDTH;
-      graphics_fill_rect(ctx, &GRect(0, fill_offset_y, content_width, fill_height));
+      const bool sidebar_on_right = action_bar_layer_is_on_right();
+      const int content_x = sidebar_on_right ? 0 : TIMELINE_PEEK_ICON_BOX_WIDTH;
+      const int sidebar_x = sidebar_on_right ? content_width : 0;
+      graphics_fill_rect(ctx, &GRect(content_x, fill_offset_y, content_width, fill_height));
       graphics_context_set_fill_color(ctx, s_data.fill_color);
-      graphics_fill_rect(ctx, &GRect(content_width, fill_offset_y, TIMELINE_PEEK_ICON_BOX_WIDTH,
+      graphics_fill_rect(ctx, &GRect(sidebar_x, fill_offset_y, TIMELINE_PEEK_ICON_BOX_WIDTH,
                                     fill_height));
     } else {
       graphics_context_set_fill_color(ctx, s_data.fill_color);
