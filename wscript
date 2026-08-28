@@ -369,7 +369,6 @@ def _link_firmware(bld, sources):
             'fw_services',
             'gcc',
             'kernel',
-            'logging',
             'mfg',
             'popups',
             'process_management',
