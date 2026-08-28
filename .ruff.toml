@@ -1,4 +1,22 @@
-[lint]
-exclude = [
+extend-include = [
+    "**/gif2apng",
+    "**/pdc2png",
+    "**/waf-lite",
+    "**/waf-zip",
+    "**/wscript",
+]
+extend-exclude = [
     "sdk/waf/waflib/**/*.py"
+]
+
+[lint]
+ignore = [
+    "F401",
+    "RUF100",
+    "SIM102",
+    "SIM115",
+    "SIM223",
+    "TRY002",
+    "UP031",
+    "UP036",
 ]

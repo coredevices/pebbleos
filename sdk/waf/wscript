@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# encoding: utf-8
 # Thomas Nagy, 2005-2018
 
 """
@@ -20,11 +19,16 @@ zip_types = ['bz2', 'gz', 'xz']
 
 PRELUDE = ''
 
-import os, sys, re, io, optparse, tokenize
+import io
+import optparse
+import os
+import re
+import sys
+import tokenize
 from hashlib import md5
 
-from waflib import Errors, Utils, Options, Logs, Scripting
-from waflib import Configure
+from waflib import Configure, Errors, Logs, Options, Scripting, Utils
+
 Configure.autoconfig = 1
 
 def sub_file(fname, lst):
@@ -32,7 +36,7 @@ def sub_file(fname, lst):
 		txt = f.read()
 
 	for (key, val) in lst:
-		re_pat = re.compile(key, re.M)
+		re_pat = re.compile(key, re.MULTILINE)
 		txt = re_pat.sub(val, txt)
 
 	with open(fname, 'w') as f:
@@ -141,10 +145,7 @@ def process_tokens(tokens):
 			indent += 1
 		elif type == tokenize.DEDENT:
 			indent -= 1
-		elif type == tokenize.NAME:
-			if prev == tokenize.NAME or prev == tokenize.NUMBER: line_buf.append(' ')
-			line_buf.append(token)
-		elif type == tokenize.NUMBER:
+		elif type == tokenize.NAME or type == tokenize.NUMBER:
 			if prev == tokenize.NAME or prev == tokenize.NUMBER: line_buf.append(' ')
 			line_buf.append(token)
 		elif type == tokenize.STRING or type == FSTRING_START:
@@ -177,7 +178,7 @@ def process_decorators(body):
 		elif buf:
 			name = deco_re.sub('\\2', line)
 			if not name:
-				raise IOError("decorator not followed by a function!" + line)
+				raise OSError("decorator not followed by a function!" + line)
 			for x in buf:
 				all_deco.append('%s(%s)' % (x, name))
 			accu.append(line)
@@ -219,7 +220,8 @@ def create_waf(self, *k, **kw):
 	mw = 'tmp-waf-'+VERSION
 	print('-> preparing %r' % mw)
 
-	import tarfile, zipfile
+	import tarfile
+	import zipfile
 
 	zipType = Options.options.zip.strip().lower()
 	if zipType not in zip_types:
@@ -339,15 +341,15 @@ def create_waf(self, *k, **kw):
 	except Errors.WafError:
 		rev = ''
 	else:
-		reg = re.compile('^GIT(.*)', re.M)
+		reg = re.compile('^GIT(.*)', re.MULTILINE)
 		code1 = reg.sub('GIT="%s"' % rev, code1)
 
 	# if the waf file is installed somewhere... but do not do that
 	prefix = ''
-	reg = re.compile('^INSTALL=(.*)', re.M)
+	reg = re.compile('^INSTALL=(.*)', re.MULTILINE)
 	code1 = reg.sub(r'INSTALL=%r' % prefix, code1)
 	#change the tarfile extension in the waf script
-	reg = re.compile('bz2', re.M)
+	reg = re.compile('bz2', re.MULTILINE)
 	code1 = reg.sub(zipType, code1)
 	if zipType == 'gz':
 		code1 = code1.replace('bunzip2', 'gzip -d')
@@ -361,7 +363,7 @@ def create_waf(self, *k, **kw):
 	m = md5()
 	m.update(cnt)
 	REVISION = m.hexdigest()
-	reg = re.compile('^REVISION=(.*)', re.M)
+	reg = re.compile('^REVISION=(.*)', re.MULTILINE)
 	code1 = reg.sub(r'REVISION="%s"' % REVISION, code1)
 
 	def find_unused(kd, ch):
