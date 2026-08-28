@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld(export_includes=['.'], name='subsys_includes')
+bld.pbl_include_directories('.')
+bld(name='subsys_includes', use=['pbl_interface'])
 
 bld.recurse('logging')
 

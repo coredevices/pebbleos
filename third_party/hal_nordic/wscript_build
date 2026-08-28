@@ -35,12 +35,7 @@ micro_includes = [
     'nrfx/templates',
 ]
 
-if bld.env.CONFIG_BOARD_ASTERIX:
-    # is there a better way to do this?
-    micro_includes += ['../../src/fw/board/boards/board_asterix']
-else:
-    bld.fatal("no board for nRF5 includes")
-
+bld.pbl_include_directories(*micro_includes)
 bld.stlib(source=micro_sources,
           target='hal_nordic',
           cflags=['-Wno-unused-variable'],

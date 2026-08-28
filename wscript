@@ -37,6 +37,7 @@ import tools.waf.gitinfo
 import tools.waf.boards
 import tools.waf.ldscript
 import tools.waf.objcopy
+import tools.waf.pbl_build
 import tools.waf.pblboot
 import tools.waf.pebble_sdk_gcc as pebble_sdk_gcc
 import tools.runners as pebble_runners
@@ -486,23 +487,10 @@ def _build_normal(bld):
 def _build_fw(bld):
     bld.env.FW_APPS = []
 
-    # FIXME create applib_includes or something like that
-    fw_includes_use=['pbl_includes',
-                     'subsys_includes',
-                     'freertos_includes',
-                     'idl_includes',
-                     'nanopb_includes']
-
-    if bld.env.CONFIG_SOC_NRF52:
-        fw_includes_use.append('hal_nordic')
-    elif bld.env.CONFIG_SOC_SF32LB52:
-        fw_includes_use.append('hal_sifli')
-
-    bld(export_includes=['src/fw',
-                         'src/fw/applib/vendor/uPNG',
-                         'src/fw/applib/vendor/tinflate'],
-        use=fw_includes_use,
-        name='fw_includes')
+    bld.pbl_include_directories('src/fw',
+                                'src/fw/applib/vendor/uPNG',
+                                'src/fw/applib/vendor/tinflate')
+    bld(name='fw_includes', use=['pbl_interface'])
 
     # Truncate the commit to fit in our versions struct. This may cause an ambiguous commit
     # hash, but it's better than killing the build because the commit doesn't fit.
@@ -557,8 +545,10 @@ def build(bld):
     bld.pbl_build_start_time = datetime.datetime.utcnow()
     bld.add_post_fun(stop_build_timer)
 
+    bld.pbl_build_init()
     # FIXME: remove include/pbl once all modules use prefix
-    bld(export_includes=['include', 'include/pbl'], name='pbl_includes')
+    bld.pbl_include_directories('include', 'include/pbl')
+    bld(name='pbl_includes', use=['pbl_interface'])
 
     if bld.variant == 'test':
         bld.set_env(bld.all_envs['local'])

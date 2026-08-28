@@ -38,10 +38,9 @@ if bld.env.CONFIG_QEMU and bld.env.CONFIG_CORTEX_M33:
         'FREERTOS_LAST_MPU_REGION=7',
     ]
 
-bld(export_includes=freertos_includes,
-    export_defines=freertos_defines,
-    use=['cmsis_core'],
-    name='freertos_includes')
+bld.pbl_include_directories(*freertos_includes)
+bld.pbl_compile_definitions(*freertos_defines)
+bld(name='freertos_includes', use=['pbl_interface'])
 
 bld.stlib(source=freertos_sources,
           target='freertos',

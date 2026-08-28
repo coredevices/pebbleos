@@ -1,4 +1,5 @@
-bld(export_includes=bld.path.get_bld().abspath(), name='idl_includes')
+bld.pbl_include_directories(bld.path.get_bld())
+bld(name='idl_includes', use=['pbl_interface'])
 bld.recurse('nanopb')
 
 # vim:filetype=python

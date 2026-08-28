@@ -194,6 +194,7 @@ micro_defines = []
 if bld.env.CONFIG_BOARD_OBELIX or bld.env.CONFIG_BOARD_GETAFIX:
     micro_defines += ['LXT_DISABLE']
 
+bld.pbl_include_directories(*micro_includes)
 bld.stlib(
     source=micro_sources,
     target='hal_sifli',

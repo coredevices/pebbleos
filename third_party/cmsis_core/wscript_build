@@ -1,2 +1,2 @@
-bld(export_includes=['CMSIS/CMSIS/Core/Include', '.'],
-    name='cmsis_core')
+bld.pbl_include_directories('CMSIS/CMSIS/Core/Include', '.')
+bld(name='cmsis_core', use=['pbl_interface'])
