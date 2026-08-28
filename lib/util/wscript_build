@@ -1,9 +1,9 @@
 import tools.waf
 
-bld.stlib(source=bld.path.ant_glob('**/*.c'),
-          target='libutil',
-          includes=['.'],
-          use=['pbl_includes'],
-          env=bld.env.derive())
+bld.pbl_library(bld.path.ant_glob('**/*.c'),
+                name='libutil',
+                kind='stlib',
+                includes=['.'],
+                env=bld.env.derive())
 
 # vim:filetype=python

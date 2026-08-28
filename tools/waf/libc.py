@@ -4,13 +4,11 @@
 """Kconfig-driven C library selection.
 
 Picks the C library the firmware links against (see lib/c/Kconfig) and
-exposes the choice to the link step via three env vars, consumed by
+exposes the choice to the link step via two env vars, consumed by
 _link_firmware in the top-level wscript:
 
   LIBC_LINKFLAGS  extra link flags (-nostartfiles / -specs=...)
   LIBC_LIBS       libraries passed to bld.program(lib=...)
-  LIBC_USE        extra use= targets (_sbrk, the assert hook, the nano
-                  printf shim)
 
 Compile/link also gain the flags that make the toolchain libc match the
 firmware's expectations (32-bit time_t, the integer printf aliases).
@@ -65,10 +63,6 @@ def _select_newlib(conf, nano):
     if nano:
         conf.env.LIBC_LINKFLAGS.insert(1, "-specs=nano.specs")
     conf.env.LIBC_LIBS = ["m", "gcc"]
-    conf.env.LIBC_USE = ["libc_syscalls"]
-    if nano:
-        # nano's printf lacks C99 length modifiers; link our shim ahead.
-        conf.env.LIBC_USE.append("libc_printf")
     _add(conf, [_NEWLIB_TIME_DEFINE, _DEFAULT_SOURCE_DEFINE] + _SNIPRINTF_DEFINES)
 
 
@@ -179,7 +173,6 @@ def _select_picolibc(conf):
     specs = prebuilt or _build_picolibc(conf)
     conf.env.LIBC_LINKFLAGS = ["-nostartfiles"]
     conf.env.LIBC_LIBS = ["m", "gcc"]
-    conf.env.LIBC_USE = ["libc_syscalls"]
     # picolibc.specs supplies headers (cpp -isystem) and the libc link, so
     # it must be on both the compile and link lines.
     _add(conf, ["-specs=" + specs, _DEFAULT_SOURCE_DEFINE] + _SNIPRINTF_DEFINES)
@@ -196,7 +189,3 @@ def configure(conf):
         conf.msg("libc", f"picolibc ({origin})")
     else:
         conf.fatal("No C library selected (see lib/c/Kconfig)")
-
-    # __assert_func override (lib/c/assert.c): routes the newlib-family
-    # assert() through PBL_LOG/PBL_ASSERT for every libc selection.
-    conf.env.append_value("LIBC_USE", ["libc_assert"])

@@ -2,10 +2,10 @@ import tools.waf
 
 # Skip building sources for local builds, like unit tests.
 if bld.env not in (bld.all_envs['local'],):
-    bld.stlib(source=bld.path.ant_glob('**/*.c'),
-              target='libos',
-              includes=['.'],
-              use=['fw_includes', 'freertos'],
-              env=bld.env.derive())
+    bld.pbl_library(bld.path.ant_glob('**/*.c'),
+                    name='libos',
+                    kind='stlib',
+                    includes=['.'],
+                    env=bld.env.derive())
 
 # vim:filetype=python

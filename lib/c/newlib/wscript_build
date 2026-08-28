@@ -5,13 +5,7 @@
 # %llu) or positional args, which the firmware relies on. Provide a
 # C99-capable snprintf/vsnprintf/sprintf/vsprintf, linked ahead of
 # libc_nano.a (object beats archive member).
-bld.objects(
-    name='libc_printf',
-    source=['vsnprintf.c'],
-    use=['fw_includes'],
-    # The format-string parser passes (ASCII) chars to ctype macros, which
-    # newlib indexes directly; the values are never negative here.
-    cflags=['-fno-builtin', '-fno-lto', '-Wno-error=char-subscripts'],
-)
+bld.pbl_library(['vsnprintf.c'],
+                cflags=['-fno-builtin', '-fno-lto', '-Wno-error=char-subscripts'])
 
 # vim:filetype=python

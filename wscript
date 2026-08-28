@@ -361,16 +361,10 @@ def _link_firmware(bld, sources):
             'freertos',
             'gcc',
             'proto_schemas',
-            'libbtutil',
-            'libos',
-            'libutil',
             'nanopb',
             'speex',
             'tinymt32',
             ]
-    # C library use targets (the assert hook, _sbrk, the nano printf shim),
-    # selected by lib/c via tools/waf/libc.py.
-    uses.extend(bld.env.LIBC_USE)
 
     # Used by pblboot image tools; the C define mirrors the historical name.
     bld.env.FIRMWARE_OFFSET = bld.env.CONFIG_FIRMWARE_OFFSET
