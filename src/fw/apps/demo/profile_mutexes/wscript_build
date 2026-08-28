@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.', '../shared'],
-    source=['profile_mutexes.c'],
-    target='demo_app_profile_mutexes',
-)
-bld.env.FW_APPS.append('demo_app_profile_mutexes')
+bld.pbl_library(['profile_mutexes.c'], includes=['.', '../shared'])
 
 # vim:filetype=python

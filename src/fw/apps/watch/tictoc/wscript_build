@@ -8,12 +8,6 @@ elif bld.env.CONFIG_APPS_WATCH_TICTOC_BW:
 else:
     variant = 'default'
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['tictoc.c'] + bld.path.ant_glob('%s/*.c' % variant),
-    target='watch_app_tictoc',
-)
-bld.env.FW_APPS.append('watch_app_tictoc')
+bld.pbl_library(['tictoc.c'] + bld.path.ant_glob('%s/*.c' % variant), includes=['.'])
 
 # vim:filetype=python

@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['ambient_light_reading.c'],
-    target='demo_app_amb_light_read',
-)
-bld.env.FW_APPS.append('demo_app_amb_light_read')
+bld.pbl_library(['ambient_light_reading.c'], includes=['.'])
 
 # vim:filetype=python

@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['number_field.c'],
-    target='demo_app_number_field',
-)
-bld.env.FW_APPS.append('demo_app_number_field')
+bld.pbl_library(['number_field.c'], includes=['.'])
 
 # vim:filetype=python

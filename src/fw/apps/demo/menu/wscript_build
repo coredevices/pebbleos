@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['menu.c'],
-    target='demo_app_menu',
-)
-bld.env.FW_APPS.append('demo_app_menu')
+bld.pbl_library(['menu.c'], includes=['.'])
 
 # vim:filetype=python

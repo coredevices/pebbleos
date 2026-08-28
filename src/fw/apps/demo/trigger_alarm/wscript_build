@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.', '../shared'],
-    source=['trigger_alarm.c'],
-    target='demo_app_trigger_alarm',
-)
-bld.env.FW_APPS.append('demo_app_trigger_alarm')
+bld.pbl_library(['trigger_alarm.c'], includes=['.', '../shared'])
 
 # vim:filetype=python

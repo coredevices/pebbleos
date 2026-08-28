@@ -1,14 +1,8 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=[
+bld.pbl_library(['accel_demo.c'], includes=[
 '.',
-],
-    source=['accel_demo.c'],
-    target='demo_app_accel_demo',
-)
-bld.env.FW_APPS.append('demo_app_accel_demo')
+])
 
 # vim:filetype=python

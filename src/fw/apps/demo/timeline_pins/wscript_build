@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['timeline_pins_demo.c'],
-    target='demo_app_timeline_pins',
-)
-bld.env.FW_APPS.append('demo_app_timeline_pins')
+bld.pbl_library(['timeline_pins_demo.c'], includes=['.'])
 
 # vim:filetype=python

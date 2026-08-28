@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['bouncing_box.c'],
-    target='demo_app_bouncing_box_demo',
-)
-bld.env.FW_APPS.append('demo_app_bouncing_box_demo')
+bld.pbl_library(['bouncing_box.c'], includes=['.'])
 
 # vim:filetype=python

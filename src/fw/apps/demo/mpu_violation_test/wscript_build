@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['test_mpu_violation.c'],
-    target='demo_app_mpu_violation_test',
-)
-bld.env.FW_APPS.append('demo_app_mpu_violation_test')
+bld.pbl_library(['test_mpu_violation.c'], includes=['.'])
 
 # vim:filetype=python

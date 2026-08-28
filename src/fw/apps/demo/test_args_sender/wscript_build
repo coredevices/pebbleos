@@ -1,15 +1,9 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=[
+bld.pbl_library(['test_args_tx.c'], includes=[
 '.',
 '../shared',
-],
-    source=['test_args_tx.c'],
-    target='demo_app_test_args_sender',
-)
-bld.env.FW_APPS.append('demo_app_test_args_sender')
+])
 
 # vim:filetype=python

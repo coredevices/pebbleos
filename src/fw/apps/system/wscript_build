@@ -9,11 +9,6 @@ if bld.env.CONFIG_SHELL_SDK:
 else:
     source = bld.path.ant_glob('**/*.c')
 
-bld.objects(
-    name='apps_system',
-    source=source,
-    use=['fw_includes'],
-)
-bld.env.FW_APPS.append('apps_system')
+bld.pbl_library(source)
 
 # vim:filetype=python

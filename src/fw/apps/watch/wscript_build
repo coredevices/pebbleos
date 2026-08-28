@@ -1,21 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['kickstart/kickstart.c'],
-    target='watch_app_kickstart',
-)
-bld.env.FW_APPS.append('watch_app_kickstart')
+bld.pbl_library(['kickstart/kickstart.c'], name='watch_app_kickstart', includes=['.'])
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['low_power/face.c'],
-    target='watch_app_low_power',
-)
-bld.env.FW_APPS.append('watch_app_low_power')
+bld.pbl_library(['low_power/face.c'], name='watch_app_low_power', includes=['.'])
 
 bld.recurse('tictoc')
 

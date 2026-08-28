@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['text_clipping.c'],
-    target='demo_app_text_clipping',
-)
-bld.env.FW_APPS.append('demo_app_text_clipping')
+bld.pbl_library(['text_clipping.c'], includes=['.'])
 
 # vim:filetype=python

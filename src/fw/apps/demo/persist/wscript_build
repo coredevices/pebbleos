@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['persist.c'],
-    target='demo_app_persist',
-)
-bld.env.FW_APPS.append('demo_app_persist')
+bld.pbl_library(['persist.c'], includes=['.'])
 
 # vim:filetype=python

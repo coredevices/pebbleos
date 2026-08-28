@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['flash_prof.c'],
-    target='demo_app_flash_prof',
-)
-bld.env.FW_APPS.append('demo_app_flash_prof')
+bld.pbl_library(['flash_prof.c'], includes=['.'])
 
 # vim:filetype=python

@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['pebble_colors.c'],
-    target='demo_app_pebble_colors',
-)
-bld.env.FW_APPS.append('demo_app_pebble_colors')
+bld.pbl_library(['pebble_colors.c'], includes=['.'])
 
 # vim:filetype=python

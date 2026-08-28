@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['menu_overflow.c'],
-    target='demo_app_menu_overflow',
-)
-bld.env.FW_APPS.append('demo_app_menu_overflow')
+bld.pbl_library(['menu_overflow.c'], includes=['.'])
 
 # vim:filetype=python

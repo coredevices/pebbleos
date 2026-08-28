@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['vibe_score_demo.c'],
-    target='demo_app_vibe_score',
-)
-bld.env.FW_APPS.append('demo_app_vibe_score')
+bld.pbl_library(['vibe_score_demo.c'], includes=['.'])
 
 # vim:filetype=python

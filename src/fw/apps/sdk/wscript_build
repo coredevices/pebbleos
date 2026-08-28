@@ -1,11 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.objects(
-    name='apps_sdk',
-    source=bld.path.ant_glob('**/*.c'),
-    use=['fw_includes'],
-)
-bld.env.FW_APPS.append('apps_sdk')
+bld.pbl_library(bld.path.ant_glob('**/*.c'))
 
 # vim:filetype=python

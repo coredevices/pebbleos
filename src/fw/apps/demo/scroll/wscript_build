@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['scroll.c'],
-    target='demo_app_scroll',
-)
-bld.env.FW_APPS.append('demo_app_scroll')
+bld.pbl_library(['scroll.c'], includes=['.'])
 
 # vim:filetype=python

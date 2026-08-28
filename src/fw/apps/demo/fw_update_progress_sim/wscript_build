@@ -1,12 +1,6 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=['fw_update_progress_sim.c'],
-    target='demo_app_fw_update_progress_sim',
-)
-bld.env.FW_APPS.append('demo_app_fw_update_progress_sim')
+bld.pbl_library(['fw_update_progress_sim.c'], includes=['.'])
 
 # vim:filetype=python

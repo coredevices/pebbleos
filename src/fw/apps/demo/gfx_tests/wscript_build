@@ -1,20 +1,16 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    includes=['.'],
-    source=[
-'circles.c',
-'gpath_masking.c',
-'rotated_bitmap.c',
-'single_line.c',
-'tests.c',
-'text.c',
-'text_clipping.c',
-],
-    target='demo_app_gfx_tests',
-)
-bld.env.FW_APPS.append('demo_app_gfx_tests')
+sources = [
+    'circles.c',
+    'gpath_masking.c',
+    'rotated_bitmap.c',
+    'single_line.c',
+    'tests.c',
+    'text.c',
+    'text_clipping.c',
+]
+
+bld.pbl_library(sources, includes=['.'])
 
 # vim:filetype=python
