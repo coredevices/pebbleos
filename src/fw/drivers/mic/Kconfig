@@ -11,12 +11,14 @@ if MIC
 config MIC_NRF5
     bool "Nordic nRF5 PDM"
     default y if SOC_NRF52
+    select HAL_NORDIC
     help
       Support for the Nordic nRF5 PDM microphone interface.
 
 config MIC_SF32LB
     bool "SiFli SF32LB PDM"
     default y if SOC_SF32LB52
+    select HAL_SIFLI
     select HAL_SIFLI_AUDCODEC
     select HAL_SIFLI_PDM
     help
