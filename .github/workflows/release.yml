@@ -5,6 +5,10 @@ on:
     tags:
       - v*
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   build-firmware:
     uses: ./.github/workflows/build-firmware.yml
