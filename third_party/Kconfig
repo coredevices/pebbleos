@@ -12,4 +12,9 @@ config MBEDTLS
     help
       Build the mbedTLS cryptography library.
 
+config SPEEX
+    bool "Speex"
+    help
+      Build the Speex audio codec.
+
 endmenu

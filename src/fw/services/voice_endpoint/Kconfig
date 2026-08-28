@@ -3,6 +3,7 @@
 
 config SERVICE_VOICE_ENDPOINT
     bool "Voice endpoint"
+    select SPEEX
     help
       Voice endpoint (phone-side voice transport).
 

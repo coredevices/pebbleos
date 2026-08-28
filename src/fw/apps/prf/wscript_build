@@ -20,9 +20,6 @@ use = []
 # mfg_hrm_ctr_leakage_obelix.c includes the gh3x2x demo headers.
 if bld.env.CONFIG_BOARD_OBELIX and bld.env.CONFIG_MFG:
     use.append('gh3x2x')
-# mfg_mic_getafix.c uses Speex's kiss_fft (config.h, kiss_fftr.h).
-if bld.env.CONFIG_BOARD_GETAFIX:
-    use.append('speex_includes')
 
 bld.pbl_library(bld.path.ant_glob('**/*.c', excl=excl), use=use)
 

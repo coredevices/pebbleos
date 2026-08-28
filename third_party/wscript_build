@@ -3,7 +3,7 @@ bld.recurse('freertos')
 bld.recurse('nanopb')
 bld.recurse('tinymt')
 bld.recurse('qr_code_generator')
-bld.recurse('speex')
+bld.pbl_recurse_ifdef('CONFIG_SPEEX', 'speex')
 bld.recurse('nonfree')
 
 if bld.env.CONFIG_MODDABLE_XS:

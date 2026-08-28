@@ -1,3 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
+
+# The MFG microphone test uses Speex's kiss_fft.
+config SPEEX
+    default y if RECOVERY_FW

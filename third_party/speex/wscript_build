@@ -61,11 +61,9 @@ speex_cflags = [
     '-Wno-unused-but-set-variable',
     '-Wno-unused-variable',
 ]
-bld(export_includes=speex_includes, name='speex_includes')
+bld.pbl_include_directories(*speex_includes)
 bld.pbl_library(speex_sources,
                 name='speex',
                 kind='stlib',
-                includes=speex_includes,
-                export_includes=speex_includes,
                 defines=speex_defines,
                 cflags=speex_cflags)

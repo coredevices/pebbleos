@@ -7,5 +7,5 @@ sources = [
     'voice_speex.c',
 ]
 
-bld.pbl_library(sources, use=['speex_includes'])
+bld.pbl_library(sources)
 
