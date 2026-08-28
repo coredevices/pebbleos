@@ -31,8 +31,6 @@ bld.pbl_library(bld.path.ant_glob('*.c'))
 - `kind`: `objects` (default) links every object file; `stlib` builds a
   static library from which the linker only pulls the objects it needs. Use
   `stlib` for third-party code that ships more than the firmware references.
-- `use`: extra generators to pull in, for third-party headers that are
-  deliberately not global (e.g. `use=['speex_includes']`).
 - `includes`, `defines`, `cflags`: private to the library, as in plain waf.
 
 Conditional pieces use the Kconfig symbols in `bld.env`:
@@ -55,10 +53,13 @@ Paths are relative to the calling `wscript_build`; the matching build-tree
 directory is added too, so generated headers are found. A `Node` can be
 passed for build-only directories.
 
-Keep headers global unless their names are likely to collide with firmware
-headers (third-party code with generic names such as `list.h` or `os.h`).
-Those libraries export their include directories on their own generator and
-consumers opt in with `use=`.
+Headers are always global; there is no per-consumer opt-in. A library that
+is not always needed is gated behind a Kconfig symbol instead, as Zephyr
+does: its `wscript_build` is recursed with `bld.pbl_recurse_ifdef()`, and
+the consumers `select` (or `imply`) the symbol in their own Kconfig, e.g.
+`BT_FW_NIMBLE` selects `MBEDTLS` and `SERVICE_VOICE` selects `SPEEX`.
+Prebuilt vendor archives are registered with
+`bld.pbl_prebuilt_library(name, paths)`.
 
 ## Linker script fragments
 
