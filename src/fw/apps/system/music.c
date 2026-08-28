@@ -11,6 +11,7 @@
 #include "applib/preferred_content_size.h"
 #include "applib/tick_timer_service.h"
 #include "applib/ui/app_window_stack.h"
+#include "applib/ui/action_bar_layer_private.h"
 #include "applib/ui/property_animation.h"
 #include "applib/ui/ui.h"
 #include "kernel/pbl_malloc.h"
@@ -193,25 +194,28 @@ static int prv_text_layer_width(void) {
 
 static GRect prv_artist_rect(void) {
   const MusicAppSizeConfig *config = prv_config();
-  return GRect(config->horizontal_margin, config->artist_field.origin_y,
+  return GRect(action_bar_layer_get_content_origin_x() + config->horizontal_margin,
+               config->artist_field.origin_y,
                prv_text_layer_width(), config->artist_field.size_h);
 }
 
 static GRect prv_title_rect(void) {
   const MusicAppSizeConfig *config = prv_config();
-  return GRect(config->horizontal_margin, config->title_field.origin_y,
+  return GRect(action_bar_layer_get_content_origin_x() + config->horizontal_margin,
+               config->title_field.origin_y,
                prv_text_layer_width(), config->title_field.size_h);
 }
 
 static GRect prv_time_rect(void) {
   const MusicAppSizeConfig *config = prv_config();
-  return GRect(config->horizontal_margin, config->time_field.origin_y,
+  return GRect(action_bar_layer_get_content_origin_x() + config->horizontal_margin,
+               config->time_field.origin_y,
                prv_content_width(), config->time_field.size_h);
 }
 
 static GRect prv_cassette_rect(void) {
   const MusicAppSizeConfig *config = prv_config();
-  const int16_t cassette_x = config->horizontal_margin +
+  const int16_t cassette_x = action_bar_layer_get_content_origin_x() + config->horizontal_margin +
       PBL_IF_RECT_ELSE(0, prv_content_width() - config->cassette_rect.size.w);
   return GRect(cassette_x, config->cassette_rect.origin.y,
                config->cassette_rect.size.w, config->cassette_rect.size.h);
@@ -219,7 +223,8 @@ static GRect prv_cassette_rect(void) {
 
 static GRect prv_track_rect(void) {
   const MusicAppSizeConfig *config = prv_config();
-  return GRect(config->horizontal_margin, config->track_field.origin_y,
+  return GRect(action_bar_layer_get_content_origin_x() + config->horizontal_margin,
+               config->track_field.origin_y,
                prv_content_width(), config->track_field.size_h);
 }
 
@@ -1423,7 +1428,7 @@ static void prv_init_ui(Window *window) {
   const GSize WINDOW_SIZE = window->layer.bounds.size;
 
   const GTextAlignment ARTIST_TITLE_TEXT_ALIGNMENT = PBL_IF_RECT_ELSE(GTextAlignmentLeft,
-                                                                      GTextAlignmentRight);
+      action_bar_layer_is_on_right() ? GTextAlignmentRight : GTextAlignmentLeft);
 
   const MusicAppSizeConfig *config = prv_config();
 
@@ -1470,7 +1475,8 @@ static void prv_init_ui(Window *window) {
   layer_set_update_proc(&data->title_text_layer.layer, prv_title_update_proc);
 
   const int16_t horizontal_margin = config->horizontal_margin;
-  layer_init(&data->cassette_container, &GRect(0, WINDOW_SIZE.h - horizontal_margin - 24,
+  layer_init(&data->cassette_container, &GRect(action_bar_layer_get_content_origin_x(),
+                                               WINDOW_SIZE.h - horizontal_margin - 24,
                                                WINDOW_SIZE.w - ACTION_BAR_WIDTH, 24));
   layer_add_child(&data->window.layer, &data->cassette_container);
   layer_set_clips(&data->cassette_container, false);
@@ -1478,7 +1484,9 @@ static void prv_init_ui(Window *window) {
   bitmap_layer_init(&data->cassette_layer, &cassette_rect);
   bitmap_layer_set_bitmap(&data->cassette_layer, &data->image_cassette);
   data->cassette_current_icon = &data->image_cassette;
-  const GAlign CASSETTE_LAYER_ALIGNMENT = PBL_IF_RECT_ELSE(GAlignTopLeft, GAlignTopRight);
+  const GAlign CASSETTE_LAYER_ALIGNMENT = PBL_IF_RECT_ELSE(
+      GAlignTopLeft,
+      action_bar_layer_is_on_right() ? GAlignTopRight : GAlignTopLeft);
   bitmap_layer_set_alignment(&data->cassette_layer, CASSETTE_LAYER_ALIGNMENT);
   bitmap_layer_set_compositing_mode(&data->cassette_layer, GCompOpSet);
   layer_add_child(&data->cassette_container, &data->cassette_layer.layer);
@@ -1519,6 +1527,7 @@ static void prv_init_ui(Window *window) {
   const int16_t STATUS_BAR_LAYER_WIDTH = PBL_IF_RECT_ELSE(WINDOW_SIZE.w - ACTION_BAR_WIDTH,
                                                           WINDOW_SIZE.w);
   status_layer_frame.size.w = STATUS_BAR_LAYER_WIDTH;
+  status_layer_frame.origin.x = PBL_IF_RECT_ELSE(action_bar_layer_get_content_origin_x(), 0);
   layer_set_frame(&status_layer->layer, &status_layer_frame);
   status_bar_layer_set_colors(&data->status_layer, GColorClear, GColorBlack);
   layer_add_child(&data->window.layer, &status_layer->layer);

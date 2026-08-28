@@ -9,6 +9,7 @@
 
 #include "applib/fonts/fonts.h"
 #include "applib/ui/ui.h"
+#include "applib/ui/action_bar_layer_private.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
 #include "kernel/ui/system_icons.h"
@@ -47,7 +48,7 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
 
   const int16_t x_margin = 5;
   const GRect content = grect_inset(
-      layer->bounds, GEdgeInsets(0, ACTION_BAR_WIDTH + x_margin, 0, x_margin));
+      layer->bounds, action_bar_layer_content_insets(x_margin));
 
   GRect title_frame = content;
   title_frame.origin.y = PBL_IF_ROUND_ELSE(24, 16);

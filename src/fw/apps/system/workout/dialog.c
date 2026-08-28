@@ -5,6 +5,7 @@
 
 #include "applib/applib_malloc.auto.h"
 #include "applib/graphics/gtypes.h"
+#include "applib/ui/action_bar_layer_private.h"
 #include "applib/ui/dialogs/dialog_private.h"
 #include "kernel/ui/kernel_ui.h"
 #include "kernel/pbl_malloc.h"
@@ -29,6 +30,11 @@ static void prv_workout_dialog_load(Window *window) {
   const uint16_t small_icon_offset = (icon_size.h < 60) ? 7 : 0;
   const uint16_t left_margin_px = PBL_IF_RECT_ELSE(5, 0);
   const uint16_t action_bar_width = show_action_bar ? ACTION_BAR_WIDTH : 0;
+  const uint16_t content_x_start = (show_action_bar && !action_bar_layer_is_on_right())
+      ? action_bar_width : 0;
+#if PBL_ROUND
+  const bool action_bar_on_right = action_bar_layer_is_on_right();
+#endif
   const uint16_t content_and_action_bar_horizontal_spacing =
       PBL_IF_RECT_ELSE(left_margin_px, show_action_bar ? 11 : left_margin_px);
   const uint16_t right_margin_px = action_bar_width + content_and_action_bar_horizontal_spacing;
@@ -44,7 +50,7 @@ static void prv_workout_dialog_load(Window *window) {
   uint16_t subtext_top_margin_px = text_top_margin_px + single_line_text_height_px;
   uint16_t icon_top_margin_px = PBL_IF_RECT_ELSE(18, 22);
   uint16_t text_height;
-  uint16_t x = 0;
+  uint16_t x = content_x_start;
   uint16_t y = 0;
   uint16_t w = PBL_IF_RECT_ELSE(bounds->size.w - action_bar_width, bounds->size.w);
   uint16_t h = STATUS_BAR_LAYER_HEIGHT;
@@ -53,7 +59,8 @@ static void prv_workout_dialog_load(Window *window) {
     dialog_add_status_bar_layer(dialog, &GRect(x, y, w, h));
   }
 
-  x = left_margin_px;
+  x = content_x_start + (action_bar_layer_is_on_right()
+                         ? left_margin_px : content_and_action_bar_horizontal_spacing);
   w = bounds->size.w - left_margin_px - right_margin_px;
 
   GTextAttributes *text_attributes = NULL;
@@ -68,7 +75,8 @@ static void prv_workout_dialog_load(Window *window) {
   // the icon and line of text are positioned lower so as to be more vertically centered.
   GContext *ctx = graphics_context_get_current_context();
   const GTextAlignment text_alignment = PBL_IF_RECT_ELSE(GTextAlignmentCenter,
-      show_action_bar ? GTextAlignmentRight : GTextAlignmentCenter);
+      show_action_bar ? (action_bar_on_right ? GTextAlignmentRight : GTextAlignmentLeft)
+                      : GTextAlignmentCenter);
   {
     // do all this in a block so we enforce that nobody uses these variables outside of the block
     // when dealing with round displays, sizes change depending on location.
@@ -130,13 +138,13 @@ static void prv_workout_dialog_load(Window *window) {
   // On rectangular displays we just center it horizontally b/w the left edge of the display and
   // the left edge of the action bar
 #if PBL_RECT
-  x = (grect_get_max_x(bounds) - action_bar_width - icon_size.w) / 2;
+  x = content_x_start + (grect_get_max_x(bounds) - action_bar_width - icon_size.w) / 2;
 #else
-  // On round displays we right align it with respect to the same imaginary vertical line that the
-  // text is right aligned to if action bar is present otherwise do what rect does
   if (show_action_bar) {
-    x = grect_get_max_x(bounds) - action_bar_width - content_and_action_bar_horizontal_spacing -
-            icon_size.w;
+    x = action_bar_on_right
+        ? (grect_get_max_x(bounds) - action_bar_width - content_and_action_bar_horizontal_spacing -
+           icon_size.w)
+        : (content_x_start + content_and_action_bar_horizontal_spacing);
   } else {
     x = (grect_get_max_x(bounds) - action_bar_width - icon_size.w) / 2;
   }

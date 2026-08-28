@@ -764,9 +764,11 @@ static Animation *prv_create_intro_animation(TimelineAppData *data, uint32_t dur
   //       - Bounce back timeline pin layouts
   //     - Speed lines (if launching into a deep pin)
 
-  // animate the peek layer to the right
+  // animate the peek layer off the sidebar side
   GRect *start = &data->peek_layer.layer.frame;
-  GRect stop = { { was_mini_peek ? 0 : start->size.w , 0 }, start->size };
+  const int16_t peek_out_x = was_mini_peek ? 0 :
+      (timeline_layer_sidebar_is_on_right() ? start->size.w : -start->size.w);
+  GRect stop = { { peek_out_x, 0 }, start->size };
   Animation *peek_out = (Animation *)property_animation_create_layer_frame(
       (Layer *)&data->peek_layer, start, &stop);
   animation_set_duration(peek_out, duration);

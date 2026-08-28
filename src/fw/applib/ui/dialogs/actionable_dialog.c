@@ -5,6 +5,7 @@
 
 #include "applib/applib_malloc.auto.h"
 #include "applib/fonts/fonts.h"
+#include "applib/ui/action_bar_layer_private.h"
 #include "applib/ui/bitmap_layer.h"
 #include "applib/ui/dialogs/dialog.h"
 #include "applib/ui/dialogs/dialog_private.h"
@@ -31,13 +32,17 @@ static void prv_actionable_dialog_load(Window *window) {
   const GRect *bounds = &window_root_layer->bounds;
   const uint16_t left_margin_px = PBL_IF_RECT_ELSE(5, 0);
   const uint16_t content_and_action_bar_horizontal_spacing = PBL_IF_RECT_ELSE(5, 7);
+  const uint16_t content_x_start = action_bar_layer_get_content_origin_x();
+#if PBL_ROUND
+  const bool action_bar_on_right = action_bar_layer_is_on_right();
+#endif
   const uint16_t right_margin_px = ACTION_BAR_WIDTH +
                                               content_and_action_bar_horizontal_spacing;
   const GFont dialog_text_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   const int max_text_line_height_px = 2 * fonts_get_font_height(dialog_text_font) + 8;
   const uint16_t icon_text_spacing_px = 4;
 
-  uint16_t x = 0;
+  uint16_t x = content_x_start;
   uint16_t y = 0;
   uint16_t w = PBL_IF_RECT_ELSE(bounds->size.w - ACTION_BAR_WIDTH, bounds->size.w);
   uint16_t h = STATUS_BAR_LAYER_HEIGHT;
@@ -46,7 +51,8 @@ static void prv_actionable_dialog_load(Window *window) {
     dialog_add_status_bar_layer(dialog, &GRect(x, y, w, h));
   }
 
-  x = left_margin_px;
+  x = content_x_start + (action_bar_layer_is_on_right()
+                         ? left_margin_px : content_and_action_bar_horizontal_spacing);
   w = bounds->size.w - left_margin_px - right_margin_px;
 
   GTextAttributes *text_attributes = NULL;
@@ -60,7 +66,8 @@ static void prv_actionable_dialog_load(Window *window) {
 
   // Probe text height to vertically center icon + text in the available space
   GContext *ctx = graphics_context_get_current_context();
-  const GTextAlignment text_alignment = PBL_IF_RECT_ELSE(GTextAlignmentCenter, GTextAlignmentRight);
+  const GTextAlignment text_alignment = PBL_IF_RECT_ELSE(GTextAlignmentCenter,
+      action_bar_on_right ? GTextAlignmentRight : GTextAlignmentLeft);
   const GRect probe_rect = GRect(x, 0, w, max_text_line_height_px);
   const uint16_t text_height = graphics_text_layout_get_max_used_size(ctx,
                                                                       dialog->buffer,
@@ -130,12 +137,12 @@ static void prv_actionable_dialog_load(Window *window) {
   // On rectangular displays we just center it horizontally b/w the left edge of the display and
   // the left edge of the action bar
 #if PBL_RECT
-  x = (grect_get_max_x(bounds) - ACTION_BAR_WIDTH - icon_size.w) / 2;
+  x = content_x_start + (grect_get_max_x(bounds) - ACTION_BAR_WIDTH - icon_size.w) / 2;
 #else
-  // On round displays we right align it with respect to the same imaginary vertical line that the
-  // text is right aligned to
-  x = grect_get_max_x(bounds) - ACTION_BAR_WIDTH - content_and_action_bar_horizontal_spacing -
-          icon_size.w;
+  x = action_bar_on_right
+      ? (grect_get_max_x(bounds) - ACTION_BAR_WIDTH - content_and_action_bar_horizontal_spacing -
+         icon_size.w)
+      : (content_x_start + content_and_action_bar_horizontal_spacing);
 #endif
 
   y = icon_top_margin_px;

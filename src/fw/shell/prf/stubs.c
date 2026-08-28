@@ -284,6 +284,15 @@ uint32_t shell_prefs_get_language_resource_id(void) {
 void shell_prefs_set_language(ShellLanguage language) {
 }
 
+#ifdef CONFIG_ORIENTATION_MANAGER
+bool display_orientation_is_left(void) {
+  return false;
+}
+
+void display_orientation_set_left(bool left) {
+}
+#endif
+
 FontInfo *fonts_get_system_emoji_font_for_size(unsigned int font_height) {
   return NULL;
 }
