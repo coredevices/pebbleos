@@ -1,0 +1,56 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  build-firmware:
+    if: ${{ github.repository == 'coredevices/PebbleOS' }}
+    uses: ./.github/workflows/build-firmware.yml
+    secrets: inherit
+
+  publish:
+    runs-on: ubuntu-24.04
+    needs: build-firmware
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --tags --force
+
+      - name: Get version
+        id: version
+        run: |
+          if git describe --exact-match >/dev/null 2>&1; then
+            echo "::notice::$(git describe) is a tagged release, nothing to publish"
+            echo "SKIP=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=$(git describe)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download artifacts
+        if: ${{ !steps.version.outputs.SKIP }}
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Collect release files
+        if: ${{ !steps.version.outputs.SKIP }}
+        run: |
+          mkdir release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -l release
+
+      - name: Publish nightly to eng-dash
+        if: ${{ !steps.version.outputs.SKIP }}
+        uses: ./.github/actions/publish-engdash
+        with:
+          version: ${{ steps.version.outputs.VERSION }}
+          track: nightly
+          token: ${{ secrets.ENGDASH_OTA_TOKEN }}
