@@ -1,16 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.objects(
-    name='soc',
-    source=[
-        'init.c',
-        'sleep.c',
-        'freertos.c',
-    ],
-    use=[
-        'fw_includes',
-    ],
-)
+bld.pbl_library(['init.c', 'sleep.c', 'freertos.c'])
 
 bld.linker_sources('memory', 'linker.ld')

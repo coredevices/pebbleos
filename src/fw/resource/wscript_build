@@ -5,10 +5,6 @@ excl = []
 if bld.env.VARIANT == 'prf':
     excl += ['resource_storage_file.c']
 
-bld.objects(
-    name='resource',
-    source=bld.path.ant_glob('*.c', excl=excl),
-    use=['fw_includes'],
-)
+bld.pbl_library(bld.path.ant_glob('*.c', excl=excl))
 
 # vim:filetype=python

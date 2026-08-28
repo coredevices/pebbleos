@@ -5,10 +5,6 @@ excl = []
 if bld.env.VARIANT == 'prf':
     excl += ['app_custom_icon.c', 'app_menu_data_source.c']
 
-bld.objects(
-    name='process_management',
-    source=bld.path.ant_glob('*.c', excl=excl),
-    use=['fw_includes'],
-)
+bld.pbl_library(bld.path.ant_glob('*.c', excl=excl))
 
 # vim:filetype=python

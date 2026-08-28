@@ -7,10 +7,6 @@ if not bld.env.CONFIG_BT_ANCS_CLIENT:
 if not bld.env.CONFIG_BT_AMS_CLIENT:
     excl.append('ble/kernel_le_client/ams/*.c')
 
-bld.objects(
-    name='comm',
-    source=bld.path.ant_glob('**/*.c', excl=excl),
-    use=['fw_includes'],
-)
+bld.pbl_library(bld.path.ant_glob('**/*.c', excl=excl))
 
 # vim:filetype=python

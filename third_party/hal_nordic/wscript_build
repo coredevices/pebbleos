@@ -36,9 +36,7 @@ micro_includes = [
 ]
 
 bld.pbl_include_directories(*micro_includes)
-bld.stlib(source=micro_sources,
-          target='hal_nordic',
-          cflags=['-Wno-unused-variable'],
-          use=['cmsis_core'],
-          includes=micro_includes,
-          export_includes=micro_includes)
+bld.pbl_library(micro_sources,
+                name='hal_nordic',
+                kind='stlib',
+                cflags=['-Wno-unused-variable'])

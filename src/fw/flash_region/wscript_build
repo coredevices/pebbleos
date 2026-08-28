@@ -1,10 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.objects(
-    name='flash_region',
-    source=bld.path.ant_glob('*.c'),
-    use=['fw_includes'],
-)
+bld.pbl_library(bld.path.ant_glob('*.c'))
 
 # vim:filetype=python

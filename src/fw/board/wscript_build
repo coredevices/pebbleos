@@ -1,79 +1,17 @@
 if bld.env.CONFIG_BOARD_ASTERIX:
-    bld.objects(
-        name='board',
-        source=[
-            'boards/board_asterix.c',
-        ],
-        use=[
-            'fw_includes',
-            'freertos',
-            'drivers',
-        ],
-    )
+    sources = ['boards/board_asterix.c']
 elif bld.env.CONFIG_BOARD_OBELIX:
-    bld.objects(
-        name='board',
-        source=[
-            'boards/board_obelix.c',
-        ],
-        use=[
-            'fw_includes',
-            'freertos',
-            'drivers',
-        ],
-    )
+    sources = ['boards/board_obelix.c']
 elif bld.env.CONFIG_BOARD_GETAFIX:
-    bld.objects(
-        name='board',
-        source=[
-            'boards/board_getafix.c',
-            'displays/display_getafix.c',
-        ],
-        use=[
-            'fw_includes',
-            'freertos',
-            'drivers',
-        ],
-    )
+    sources = ['boards/board_getafix.c', 'displays/display_getafix.c']
 elif bld.env.CONFIG_BOARD_QEMU_EMERY:
-    bld.objects(
-        name='board',
-        source=[
-            'boards/board_qemu_emery.c',
-        ],
-        use=[
-            'fw_includes',
-            'freertos',
-            'drivers',
-        ],
-    )
+    sources = ['boards/board_qemu_emery.c']
 elif bld.env.CONFIG_BOARD_QEMU_FLINT:
-    bld.objects(
-        name='board',
-        source=[
-            'boards/board_qemu_flint.c',
-        ],
-        use=[
-            'fw_includes',
-            'freertos',
-            'drivers',
-        ],
-    )
+    sources = ['boards/board_qemu_flint.c']
 elif bld.env.CONFIG_BOARD_QEMU_GABBRO:
-    bld.objects(
-        name='board',
-        source=[
-            'boards/board_qemu_gabbro.c',
-            # qemu_gabbro needs the getafix round display row info data
-            'displays/display_getafix.c',
-        ],
-        use=[
-            'fw_includes',
-            'freertos',
-            'drivers',
-        ],
-    )
+    # qemu_gabbro needs the getafix round display row info data
+    sources = ['boards/board_qemu_gabbro.c', 'displays/display_getafix.c']
 else:
     bld.fatal('src/fw/board/wscript_build: Unknown board {}'.format(bld.env.BOARD))
 
-# vim:filetype=python
+bld.pbl_library(sources)

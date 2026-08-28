@@ -8,10 +8,6 @@ else:
     excl = [] if bld.env.CONFIG_HRM else ['ble_hrm/**']
     source = bld.path.ant_glob('**/*.c', excl=excl)
 
-bld.objects(
-    name='popups',
-    source=source,
-    use=['fw_includes'],
-)
+bld.pbl_library(source)
 
 # vim:filetype=python

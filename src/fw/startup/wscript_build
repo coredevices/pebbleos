@@ -9,8 +9,4 @@ elif bld.env.CONFIG_QEMU:
 else:
     bld.fatal("No clock configuration file specified for this platform")
     
-bld.objects(
-    name='startup',
-    source=sources,
-    use=['fw_includes']
-)
+bld.pbl_library(sources)

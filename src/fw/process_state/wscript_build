@@ -1,10 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.objects(
-    name='process_state',
-    source=bld.path.ant_glob('**/*.c'),
-    use=['fw_includes', 'tinymt32'],
-)
+bld.pbl_library(bld.path.ant_glob('**/*.c'), use=['tinymt32'])
 
 # vim:filetype=python

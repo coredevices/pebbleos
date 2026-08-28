@@ -5,10 +5,6 @@ excl = []
 if not bld.env.CONFIG_PROMPT:
     excl += ['prompt.c', 'prompt_commands.c']
 
-bld.objects(
-    name='console',
-    source=bld.path.ant_glob('*.c', excl=excl),
-    use=['fw_includes'],
-)
+bld.pbl_library(bld.path.ant_glob('*.c', excl=excl))
 
 # vim:filetype=python

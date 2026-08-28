@@ -1,7 +1,3 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
-bld.objects(
-    name='soc',
-    source=['init.c', 'freertos.c'],
-    use=['fw_includes'],
-)
+bld.pbl_library(['init.c', 'freertos.c'])
