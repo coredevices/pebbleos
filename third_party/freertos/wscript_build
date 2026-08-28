@@ -40,7 +40,6 @@ if bld.env.CONFIG_QEMU and bld.env.CONFIG_CORTEX_M33:
 
 bld.pbl_include_directories(*freertos_includes)
 bld.pbl_compile_definitions(*freertos_defines)
-bld(name='freertos_includes', use=['pbl_interface'])
 
 bld.pbl_library(freertos_sources, name='freertos', kind='stlib')
 

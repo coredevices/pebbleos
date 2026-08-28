@@ -448,7 +448,6 @@ def _build_fw(bld):
     bld.pbl_include_directories('src/fw',
                                 'src/fw/applib/vendor/uPNG',
                                 'src/fw/applib/vendor/tinflate')
-    bld(name='fw_includes', use=['pbl_interface'])
 
     # Truncate the commit to fit in our versions struct. This may cause an ambiguous commit
     # hash, but it's better than killing the build because the commit doesn't fit.
@@ -506,7 +505,6 @@ def build(bld):
     bld.pbl_build_init()
     # FIXME: remove include/pbl once all modules use prefix
     bld.pbl_include_directories('include', 'include/pbl')
-    bld(name='pbl_includes', use=['pbl_interface'])
 
     if bld.variant == 'test':
         bld.set_env(bld.all_envs['local'])

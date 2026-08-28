@@ -49,11 +49,7 @@ nimble_env.append_value('CFLAGS', [
 
 nimble_export_defines = []
 
-nimble_use =[
-    'fw_includes',
-    'freertos',
-    'mbedtls',
-]
+nimble_use = ['mbedtls']
 
 if bld.env.CONFIG_SOC_NRF52:
     nimble_sources += bld.path.ant_glob([
@@ -105,12 +101,10 @@ elif bld.env.CONFIG_SOC_SF32LB52:
         ])
 
 
-bld.objects(
-    source=nimble_sources,
-    target='nimble',
-    use=nimble_use,
-    includes=nimble_includes,
-    export_includes=nimble_includes,
-    export_defines=nimble_export_defines,
-    env=nimble_env,
-)
+bld.pbl_library(nimble_sources,
+                name='nimble',
+                use=nimble_use,
+                includes=nimble_includes,
+                export_includes=nimble_includes,
+                export_defines=nimble_export_defines,
+                env=nimble_env)

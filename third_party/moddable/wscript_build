@@ -202,14 +202,9 @@ else:
             '-Wno-error=maybe-uninitialized',
             '-Wno-error=implicit-fallthrough']
 
-        bld(export_includes=libxs_includes, name='libxs_includes')
-
-        xs_includes_use=['libxs_includes',
-                         'freertos_includes',
-                         'fw_includes']
-
-        bld.stlib(source=libxs_sources,
-                  cflags=libxs_flags,
-                  export_includes=libxs_includes,
-                  target='libxs',
-                  use=xs_includes_use)
+        bld.pbl_library(libxs_sources,
+                        name='libxs',
+                        kind='stlib',
+                        cflags=libxs_flags,
+                        includes=libxs_includes,
+                        export_includes=libxs_includes)
