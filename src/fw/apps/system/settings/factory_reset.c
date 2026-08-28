@@ -93,18 +93,20 @@ static void prv_window_load(Window *window) {
   ConfirmUIData *data = window_get_user_data(window);
   const GRect *root_layer_bounds = &window_get_root_layer(window)->bounds;
   const int16_t width = root_layer_bounds->size.w - ACTION_BAR_WIDTH;
+  const uint16_t content_x_start = action_bar_is_on_right() ? 0 : ACTION_BAR_WIDTH;
 
   const uint16_t x_margin_px = PBL_IF_ROUND_ELSE(6, 3);
   const uint16_t msg_text_y_offset_px = PBL_IF_ROUND_ELSE(15, 0);
   const uint16_t msg_text_max_height_px = root_layer_bounds->size.h - msg_text_y_offset_px;
 
-  const GTextAlignment alignment = PBL_IF_ROUND_ELSE(GTextAlignmentRight, GTextAlignmentLeft);
+  const GTextAlignment alignment = PBL_IF_ROUND_ELSE(
+      action_bar_is_on_right() ? GTextAlignmentRight : GTextAlignmentLeft, GTextAlignmentLeft);
   const GTextOverflowMode overflow_mode = GTextOverflowModeTrailingEllipsis;
   const GColor text_color = PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack);
 
   TextLayer *msg_text_layer = &data->msg_text_layer;
   GRect msg_text_frame = (GRect) {
-    .origin = GPoint(x_margin_px, msg_text_y_offset_px),
+    .origin = GPoint(content_x_start + x_margin_px, msg_text_y_offset_px),
     .size =  GSize(width - (2 * x_margin_px), msg_text_max_height_px)
   };
   text_layer_init_with_parameters(msg_text_layer, &msg_text_frame,
@@ -125,7 +127,7 @@ static void prv_window_load(Window *window) {
 
   TextLayer *forget_text_layer = &data->forget_text_layer;
   const GRect forget_text_frame = (GRect) {
-    .origin = GPoint(x_margin_px, forget_text_y_offset_px),
+    .origin = GPoint(content_x_start + x_margin_px, forget_text_y_offset_px),
     .size =  GSize(width - (2 * x_margin_px), root_layer_bounds->size.h - forget_text_y_offset_px)
   };
   text_layer_init_with_parameters(forget_text_layer, &forget_text_frame,

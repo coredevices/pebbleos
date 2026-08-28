@@ -160,7 +160,8 @@ void prv_draw_background_round(ActionBarLayer *action_bar, GContext *ctx, GColor
   GRect action_bar_circle_frame = (GRect) {
       .size = GSize(action_bar_circle_diameter, action_bar_circle_diameter)
   };
-  grect_align(&action_bar_circle_frame, &action_bar->layer.bounds, GAlignLeft, false /* clips */);
+  GAlign align = action_bar_is_on_right() ? GAlignLeft : GAlignRight;
+  grect_align(&action_bar_circle_frame, &action_bar->layer.bounds, align, false /* clips */);
   graphics_fill_oval(ctx, action_bar_circle_frame, GOvalScaleModeFitCircle);
 }
 
@@ -397,7 +398,9 @@ void action_bar_layer_add_to_window(ActionBarLayer *action_bar, struct Window *w
   const int16_t width = prv_width();
   GRect rect = GRect(0, 0, width, window_bounds->size.h);
   layer_set_bounds(&action_bar->layer, &rect);
-  rect.origin.x = window_bounds->size.w - width;
+  rect.origin.x = action_bar_is_on_right()
+      ? window_bounds->size.w - width
+      : 0;
   layer_set_frame(&action_bar->layer, &rect);
   layer_add_child(&window->layer, &action_bar->layer);
 

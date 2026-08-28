@@ -31,6 +31,7 @@ static void prv_actionable_dialog_load(Window *window) {
   const GRect *bounds = &window_root_layer->bounds;
   const uint16_t left_margin_px = PBL_IF_RECT_ELSE(5, 0);
   const uint16_t content_and_action_bar_horizontal_spacing = PBL_IF_RECT_ELSE(5, 7);
+  const uint16_t content_x_start = action_bar_is_on_right() ? 0 : ACTION_BAR_WIDTH;
   const uint16_t right_margin_px = ACTION_BAR_WIDTH +
                                               content_and_action_bar_horizontal_spacing;
   const GFont dialog_text_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
@@ -46,7 +47,7 @@ static void prv_actionable_dialog_load(Window *window) {
     dialog_add_status_bar_layer(dialog, &GRect(x, y, w, h));
   }
 
-  x = left_margin_px;
+  x = content_x_start + left_margin_px;
   w = bounds->size.w - left_margin_px - right_margin_px;
 
   GTextAttributes *text_attributes = NULL;
@@ -60,7 +61,8 @@ static void prv_actionable_dialog_load(Window *window) {
 
   // Probe text height to vertically center icon + text in the available space
   GContext *ctx = graphics_context_get_current_context();
-  const GTextAlignment text_alignment = PBL_IF_RECT_ELSE(GTextAlignmentCenter, GTextAlignmentRight);
+  const GTextAlignment text_alignment = PBL_IF_RECT_ELSE(GTextAlignmentCenter,
+      action_bar_is_on_right() ? GTextAlignmentRight : GTextAlignmentLeft);
   const GRect probe_rect = GRect(x, 0, w, max_text_line_height_px);
   const uint16_t text_height = graphics_text_layout_get_max_used_size(ctx,
                                                                       dialog->buffer,
@@ -130,12 +132,13 @@ static void prv_actionable_dialog_load(Window *window) {
   // On rectangular displays we just center it horizontally b/w the left edge of the display and
   // the left edge of the action bar
 #if PBL_RECT
-  x = (grect_get_max_x(bounds) - ACTION_BAR_WIDTH - icon_size.w) / 2;
+  x = content_x_start + (grect_get_max_x(bounds) - ACTION_BAR_WIDTH - icon_size.w) / 2;
 #else
-  // On round displays we right align it with respect to the same imaginary vertical line that the
-  // text is right aligned to
-  x = grect_get_max_x(bounds) - ACTION_BAR_WIDTH - content_and_action_bar_horizontal_spacing -
-          icon_size.w;
+  // On round displays we align it adjacent to the action bar
+  x = action_bar_is_on_right()
+      ? (grect_get_max_x(bounds) - ACTION_BAR_WIDTH - content_and_action_bar_horizontal_spacing -
+         icon_size.w)
+      : (content_x_start + content_and_action_bar_horizontal_spacing);
 #endif
 
   y = icon_top_margin_px;

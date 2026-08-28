@@ -12,14 +12,15 @@
 //!   @addtogroup Layer Layers
 //!   @{
 //!     @addtogroup ActionBarLayer
-//! \brief Vertical, bar-shaped control widget on the right edge of the window
+//! \brief Vertical, bar-shaped control widget on the edge of the window
 //!
 //! ![](action_bar_layer.png)
-//! ActionBarLayer is a Layer that displays a bar on the right edge of the
-//! window. The bar can contain up to 3 icons, each corresponding with one of
-//! the buttons on the right side of the watch. The purpose of each icon is
-//! to provide a hint (feed-forward) to what action a click on the respective
-//! button will cause.
+//! ActionBarLayer is a Layer that displays a bar on the edge of the
+//! window. In right-handed mode the bar is on the right edge; in left-handed
+//! mode it is on the left edge. The bar can contain up to 3 icons, each
+//! corresponding with one of the buttons on that side of the watch.
+//! The purpose of each icon is provide a hint (feed-forward) to what action
+//! a click on the respective button will cause.
 //!
 //! The action bar is useful when there are a few (up to 3) main actions that
 //! are desirable to be able to take quickly, literally with one press of a
@@ -97,6 +98,19 @@
 
 //! The width of the action bar in pixels.
 #define ACTION_BAR_WIDTH _ACTION_BAR_WIDTH(PBL_PLATFORM_TYPE_CURRENT)
+
+//! Returns true if the action bar should be drawn on the right side of the screen.
+//! In left-handed mode (Settings → Display → Orientation), the action bar is on the left.
+#ifdef CONFIG_ORIENTATION_MANAGER
+#include "shell/prefs.h"
+#endif
+static inline bool action_bar_is_on_right(void) {
+#ifdef CONFIG_ORIENTATION_MANAGER
+  return !display_orientation_is_left();
+#else
+  return true;
+#endif
+}
 
 //! The maximum number of action bar items.
 #define NUM_ACTION_BAR_ITEMS 3

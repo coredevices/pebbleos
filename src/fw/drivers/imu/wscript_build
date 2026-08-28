@@ -21,6 +21,8 @@ mag_sources = []
 
 if bld.env.CONFIG_MAG_MMC5603NJ:
     mag_sources.append('mmc5603nj/mmc5603nj.c')
+elif bld.env.CONFIG_QEMU:
+    mag_sources.append('../qemu/qemu_mag.c')
 
 if mag_sources:
     bld.pbl_library(mag_sources, name='driver_mag')
