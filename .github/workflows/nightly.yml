@@ -6,8 +6,30 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-firmware:
+  check:
     if: ${{ github.repository == 'coredevices/PebbleOS' }}
+    runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.last.outputs.CHANGED }}
+    steps:
+      - name: Compare with the last nightly
+        id: last
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow nightly.yml \
+            --branch "$GITHUB_REF_NAME" --status success --limit 1 --json headSha \
+            --jq '.[0].headSha // empty')
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ "$last" = "$GITHUB_SHA" ]; then
+            echo "::notice::$GITHUB_SHA already built by the last nightly, skipping"
+            echo "CHANGED=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "CHANGED=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-firmware:
+    needs: check
+    if: ${{ needs.check.outputs.changed == 'true' }}
     uses: ./.github/workflows/build-firmware.yml
     secrets: inherit
 
