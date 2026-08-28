@@ -2,14 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sources = []
-use = []
 
 if bld.env.CONFIG_TOUCH_QEMU:
     sources.append('../qemu/qemu_touch.c')
 elif bld.env.CONFIG_TOUCH_CST816:
     sources.append('cst816/cst816.c')
-    use.append('cst816_fw')
 
-bld.pbl_library(sources, use=use)
+bld.pbl_library(sources)
 
 # vim:filetype=python

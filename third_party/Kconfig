@@ -17,4 +17,17 @@ config SPEEX
     help
       Build the Speex audio codec.
 
+config CST816_FW
+    bool
+    help
+      Hynitron CST816 touch controller firmware image for the board.
+
+config GH3X2X_ALGO
+    bool "Goodix GH3X2X algorithm library"
+    depends on HRM_GH3X2X && BOARD_OBELIX
+    default y if !RECOVERY_FW || MFG
+    help
+      Link the Goodix heart rate algorithm library and its driver
+      glue. The plain recovery firmware only needs the sensor driver.
+
 endmenu

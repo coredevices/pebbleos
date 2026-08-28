@@ -1,11 +1,9 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-use = []
 sources = ['battery_monitor.c']
 
 if bld.env.CONFIG_NRF_FUEL_GAUGE:
-    use.append('nrf_fuel_gauge')
     sources.extend([
         'nrf_fuel_gauge/battery_curve.c',
         'nrf_fuel_gauge/battery_state.c',
@@ -16,4 +14,4 @@ else:
         'voltage/battery_state.c',
     ])
 
-bld.pbl_library(sources, use=use)
+bld.pbl_library(sources)

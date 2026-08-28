@@ -9,7 +9,7 @@
 #include "pbl/services/analytics/analytics.h"
 #include <pbl/logging/logging.h>
 
-#ifdef HRM_USE_GH3X2X
+#ifdef CONFIG_GH3X2X_ALGO
 #include "math.h"
 #include "kernel/util/delay.h"
 #include "kernel/events.h"
@@ -19,7 +19,7 @@
 #include "gh_demo.h"
 #include "gh_demo_inner.h"
 #include "gh3x2x_demo_mp.h"
-#endif // HRM_USE_GH3X2X
+#endif // CONFIG_GH3X2X_ALGO
 
 PBL_LOG_MODULE_DEFINE(driver_hrm_gh3x2x, CONFIG_DRIVER_HRM_LOG_LEVEL);
 
@@ -29,7 +29,7 @@ void gh3026_reset_pin_ctrl(uint8_t pin_level) {
 #endif
 }
 
-#ifdef HRM_USE_GH3X2X
+#ifdef CONFIG_GH3X2X_ALGO
 
 #define GH3X2X_LOG_ENABLE 0
 #define GH3X2X_FIFO_WATERMARK_CONFIG 80
@@ -468,12 +468,12 @@ void gh3x2x_set_work_mode(int32_t mode) {
 }
 #endif // CONFIG_MFG
 
-#endif // HRM_USE_GH3X2X
+#endif // CONFIG_GH3X2X_ALGO
 
 // HRM interface
 
 void hrm_init(HRMDevice *dev) {
-#ifdef HRM_USE_GH3X2X
+#ifdef CONFIG_GH3X2X_ALGO
   int ret;
 
   ret = Gh3x2xDemoInit();
@@ -492,7 +492,7 @@ void hrm_init(HRMDevice *dev) {
 }
 
 bool hrm_enable(HRMDevice *dev, HRMFeature features) {
-#ifdef HRM_USE_GH3X2X
+#ifdef CONFIG_GH3X2X_ALGO
   if (!dev->state->initialized) {
     return false;
   }
@@ -538,7 +538,7 @@ bool hrm_enable(HRMDevice *dev, HRMFeature features) {
 }
 
 void hrm_disable(HRMDevice *dev) {
-#ifdef HRM_USE_GH3X2X
+#ifdef CONFIG_GH3X2X_ALGO
   if (!dev->state->initialized) {
     return;
   }

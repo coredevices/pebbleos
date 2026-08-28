@@ -3,29 +3,17 @@ if bld.env.CONFIG_NRF_FUEL_GAUGE:
         paths = ['pebbleos-nonfree/npm1300/nrf_fuel_gauge/lib/cortex-m4/soft-float']
     elif bld.env.CONFIG_CORTEX_M33:
         paths = ['pebbleos-nonfree/npm1300/nrf_fuel_gauge/lib/cortex-m33/soft-float']
-    bld.read_stlib(
-        'nrf_fuel_gauge',
-        export_includes=[
-            'pebbleos-nonfree/npm1300/nrf_fuel_gauge/include',
-            'pebbleos-nonfree/npm1300/models'
-        ],
-        paths=paths
-    )
-if bld.env.CONFIG_BOARD_OBELIX:
-    bld(
-        name='cst816_fw',
-        export_includes=[
-            'pebbleos-nonfree/cst816/obelix',
-        ],
-    )
-elif bld.env.CONFIG_BOARD_GETAFIX:
-    bld(
-        name='cst816_fw',
-        export_includes=[
-            'pebbleos-nonfree/cst816/getafix',
-        ],
-    )
-if bld.env.CONFIG_BOARD_OBELIX:
+    bld.pbl_include_directories('pebbleos-nonfree/npm1300/nrf_fuel_gauge/include',
+                                'pebbleos-nonfree/npm1300/models')
+    bld.pbl_prebuilt_library('nrf_fuel_gauge', paths)
+if bld.env.CONFIG_CST816_FW:
+    if bld.env.CONFIG_BOARD_OBELIX:
+        bld.pbl_include_directories('pebbleos-nonfree/cst816/obelix')
+    elif bld.env.CONFIG_BOARD_GETAFIX:
+        bld.pbl_include_directories('pebbleos-nonfree/cst816/getafix')
+    else:
+        bld.fatal('no CST816 firmware for board {}'.format(bld.env.BOARD))
+if bld.env.CONFIG_GH3X2X_ALGO:
     includes = [
         'pebbleos-nonfree/gh3x2x/algo_lib/algo_params/HR/04_EXCLUSIVE',
         'pebbleos-nonfree/gh3x2x/demo_code/demo_algo_code/goodix_algo_application/inc',
@@ -41,34 +29,13 @@ if bld.env.CONFIG_BOARD_OBELIX:
         'pebbleos-nonfree/gh3x2x/demo_code/demo_kernel_code/module/gh_soft_adt',
         'pebbleos-nonfree/gh3x2x/demo_code/demo_mp_code/inc',
     ]
-    bld.read_stlib(
-        'star-mc1_arm-gcc14.2.1_softfp+Os_common_dl',
-        paths=['pebbleos-nonfree/gh3x2x/algo_lib/COMMON_DL'],
-    )
-    bld.read_stlib(
-        'star-mc1_arm-gcc14.2.1_softfp+Os_common_dsp',
-        paths=['pebbleos-nonfree/gh3x2x/algo_lib/COMMON_DSP'],
-    )
-    bld.read_stlib(
-        'GitInfo_star-mc1-arm-none-eabi-gcc1421(softfp+Os)',
-        paths=['pebbleos-nonfree/gh3x2x/algo_lib/HR'],
-    )
-    bld.read_stlib(
-        'star-mc1_arm-gcc14.2.1_softfp+Os_hrv',
-        paths=['pebbleos-nonfree/gh3x2x/algo_lib/HRV'],
-    )
-    bld.read_stlib(
-        'star-mc1_arm-gcc14.2.1_softfp+Os_nadt',
-        paths=['pebbleos-nonfree/gh3x2x/algo_lib/NADT'],
-    )
-    bld.read_stlib(
-        'star-mc1_arm-gcc14.2.1_softfp+Os_spo2',
-        paths=['pebbleos-nonfree/gh3x2x/algo_lib/SPO2'],
-    )
-    bld.read_stlib(
-        'arm-none-eabi-gcc-softfp-Os-gh_common',
-        paths=['pebbleos-nonfree/gh3x2x/drv_lib']
-    )
+    bld.pbl_prebuilt_library('star-mc1_arm-gcc14.2.1_softfp+Os_common_dl', ['pebbleos-nonfree/gh3x2x/algo_lib/COMMON_DL'])
+    bld.pbl_prebuilt_library('star-mc1_arm-gcc14.2.1_softfp+Os_common_dsp', ['pebbleos-nonfree/gh3x2x/algo_lib/COMMON_DSP'])
+    bld.pbl_prebuilt_library('GitInfo_star-mc1-arm-none-eabi-gcc1421(softfp+Os)', ['pebbleos-nonfree/gh3x2x/algo_lib/HR'])
+    bld.pbl_prebuilt_library('star-mc1_arm-gcc14.2.1_softfp+Os_hrv', ['pebbleos-nonfree/gh3x2x/algo_lib/HRV'])
+    bld.pbl_prebuilt_library('star-mc1_arm-gcc14.2.1_softfp+Os_nadt', ['pebbleos-nonfree/gh3x2x/algo_lib/NADT'])
+    bld.pbl_prebuilt_library('star-mc1_arm-gcc14.2.1_softfp+Os_spo2', ['pebbleos-nonfree/gh3x2x/algo_lib/SPO2'])
+    bld.pbl_prebuilt_library('arm-none-eabi-gcc-softfp-Os-gh_common', ['pebbleos-nonfree/gh3x2x/drv_lib'])
     sources = bld.path.ant_glob([
         'pebbleos-nonfree/gh3x2x/algo_lib/**/*.c',
         'pebbleos-nonfree/gh3x2x/demo_code/**/*.c',
@@ -80,19 +47,5 @@ if bld.env.CONFIG_BOARD_OBELIX:
                 'GH3X2X_BLE_NOTIFY_DATA',
             ],
         )
-    bld.objects(
-        name='gh3x2x',
-        source=sources,
-        includes=includes,
-        export_includes=includes,
-        use=[
-            'star-mc1_arm-gcc14.2.1_softfp+Os_common_dl',
-            'star-mc1_arm-gcc14.2.1_softfp+Os_common_dsp',
-            'GitInfo_star-mc1-arm-none-eabi-gcc1421(softfp+Os)',
-            'star-mc1_arm-gcc14.2.1_softfp+Os_hrv',
-            'star-mc1_arm-gcc14.2.1_softfp+Os_nadt',
-            'star-mc1_arm-gcc14.2.1_softfp+Os_spo2',
-            'arm-none-eabi-gcc-softfp-Os-gh_common',
-        ],
-        cflags=['-Wno-sign-compare'],
-    )
+    bld.pbl_include_directories(*includes)
+    bld.pbl_library(sources, name='gh3x2x', cflags=['-Wno-sign-compare'])

@@ -55,6 +55,15 @@ def pbl_library(bld, source, name=None, kind="objects", use=None, **kw):
 
 
 @conf
+def pbl_prebuilt_library(bld, name, paths):
+    if name in bld.pbl_libs:
+        bld.fatal(f"pbl library {name!r} defined twice")
+    tg = bld.read_stlib(name, paths=paths)
+    bld.pbl_libs.append(name)
+    return tg
+
+
+@conf
 def pbl_library_ifdef(bld, cfg, *args, **kw):
     if bld.env[cfg]:
         return bld.pbl_library(*args, **kw)
