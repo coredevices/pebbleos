@@ -7,10 +7,4 @@ sources = [
     'touch_session.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_touch',
-)
-
-bld.env.SERVICES.append('services_touch')
+bld.pbl_library(sources)

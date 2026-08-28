@@ -6,10 +6,4 @@ sources = [
     'syscalls.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_i18n',
-)
-
-bld.env.SERVICES.append('services_i18n')
+bld.pbl_library(sources)

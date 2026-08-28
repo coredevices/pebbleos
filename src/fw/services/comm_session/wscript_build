@@ -104,10 +104,4 @@ sources = [
 if bld.env.VARIANT != 'prf':
     sources.append('app_session_capabilities.c')
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=sources,
-    target='services_comm_session',
-)
-
-bld.env.SERVICES.append('services_comm_session')
+bld.pbl_library(sources)

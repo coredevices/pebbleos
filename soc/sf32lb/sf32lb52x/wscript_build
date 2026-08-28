@@ -10,7 +10,6 @@ bld.objects(
     ],
     use=[
         'fw_includes',
-        'fw_services',
         'hal_sifli',
     ],
 )

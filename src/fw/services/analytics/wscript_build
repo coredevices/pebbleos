@@ -1,17 +1,11 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-use = ['fw_includes']
 sources = ['analytics.c']
 
 if bld.env.VARIANT != 'prf':
     sources.append('native.c')
     bld.env.DEFINES.append('ANALYTICS_NATIVE')
 
-bld.stlib(
-    source=sources,
-    target='services_analytics',
-    use=use
-)
+bld.pbl_library(sources)
 
-bld.env.SERVICES.append('services_analytics')

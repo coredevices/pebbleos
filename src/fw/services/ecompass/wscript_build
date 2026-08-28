@@ -2,9 +2,4 @@
 # SPDX-License-Identifier: Apache-2.0
 
 if bld.env.CONFIG_MAG:
-    bld.stlib(
-        use=['fw_includes'],
-        source=['service.c', 'correction.c'],
-        target='services_ecompass',
-    )
-    bld.env.SERVICES.append('services_ecompass')
+    bld.pbl_library(['service.c', 'correction.c'])

@@ -1,7 +1,7 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-use = ['fw_includes', 'services_analytics']
+use = []
 sources = ['battery_monitor.c']
 
 if bld.env.CONFIG_NRF_FUEL_GAUGE:
@@ -16,10 +16,4 @@ else:
         'voltage/battery_state.c',
     ])
 
-bld.stlib(
-    source=sources,
-    target='services_battery',
-    use=use
-)
-
-bld.env.SERVICES.append('services_battery')
+bld.pbl_library(sources, use=use)

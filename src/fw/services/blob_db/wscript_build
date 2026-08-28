@@ -24,10 +24,4 @@ sources = [
     'weather_db.c',
 ]
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=sources,
-    target='services_blob_db',
-)
-
-bld.env.SERVICES.append('services_blob_db')
+bld.pbl_library(sources)

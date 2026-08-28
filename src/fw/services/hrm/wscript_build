@@ -1,10 +1,4 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=['hrm_manager.c'],
-    target='services_hrm',
-)
-
-bld.env.SERVICES.append('services_hrm')
+bld.pbl_library(['hrm_manager.c'])

@@ -12,7 +12,6 @@ use = [
     'driver_watchdog',
     'freertos',
     'fw_includes',
-    'fw_services',
     'pbl_includes',
 ]
 

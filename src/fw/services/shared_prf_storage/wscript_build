@@ -3,10 +3,4 @@
 
 sources = ['shared_prf_storage_debug.c', 'shared_prf_storage.c']
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_shared_prf_storage',
-)
-
-bld.env.SERVICES.append('services_shared_prf_storage')
+bld.pbl_library(sources)

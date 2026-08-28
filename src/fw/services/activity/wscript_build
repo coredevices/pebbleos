@@ -15,13 +15,7 @@ sources = [
     'workout_service.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_activity',
-)
-
-bld.env.SERVICES.append('services_activity')
+bld.pbl_library(sources)
 
 target = bld.path.find_or_declare('services_activity.pot')
 bld.gettext(source=sources, target=target)

@@ -1,10 +1,5 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=['als_screen_compensation_fb.c', 'als_screen_compensation_math.c',
-            'als_screen_compensation_region.c', 'console.c', 'service.c'],
-    target='services_light',
-)
-bld.env.SERVICES.append('services_light')
+bld.pbl_library(['als_screen_compensation_fb.c', 'als_screen_compensation_math.c',
+            'als_screen_compensation_region.c', 'console.c', 'service.c'])

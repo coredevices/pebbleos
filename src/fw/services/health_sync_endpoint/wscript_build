@@ -1,9 +1,4 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    source=['service.c'],
-    target='services_health_sync_endpoint',
-)
-bld.env.SERVICES.append('services_health_sync_endpoint')
+bld.pbl_library(['service.c'])

@@ -18,13 +18,7 @@ sources = [
     'notifications.c',
 ]
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=sources,
-    target='services_notifications',
-)
-
-bld.env.SERVICES.append('services_notifications')
+bld.pbl_library(sources)
 
 target = bld.path.find_or_declare('services_notifications.pot')
 bld.gettext(source=sources, target=target)

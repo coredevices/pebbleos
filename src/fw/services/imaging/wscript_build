@@ -1,9 +1,4 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    source=['imaging.c'],
-    target='services_imaging',
-)
-bld.env.SERVICES.append('services_imaging')
+bld.pbl_library(['imaging.c'])

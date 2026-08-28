@@ -9,10 +9,4 @@ sources = [
     'protobuf_log_util.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_protobuf_log',
-)
-
-bld.env.SERVICES.append('services_protobuf_log')
+bld.pbl_library(sources)

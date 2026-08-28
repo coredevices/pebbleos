@@ -366,7 +366,6 @@ def _link_firmware(bld, sources):
             'drivers',
             'flash_region',
             'freertos',
-            'fw_services',
             'gcc',
             'kernel',
             'mfg',

@@ -8,10 +8,4 @@ sources = [
     'put_bytes_storage_raw.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_put_bytes',
-)
-
-bld.env.SERVICES.append('services_put_bytes')
+bld.pbl_library(sources)

@@ -7,10 +7,4 @@ sources = [
     'pfs.c',
 ]
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=sources,
-    target='services_filesystem',
-)
-
-bld.env.SERVICES.append('services_filesystem')
+bld.pbl_library(sources)

@@ -6,10 +6,4 @@ sources = [
     'settings_raw_iter.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_settings',
-)
-
-bld.env.SERVICES.append('services_settings')
+bld.pbl_library(sources)

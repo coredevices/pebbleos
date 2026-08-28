@@ -6,10 +6,4 @@ sources = [
     'app_message_sender.c',
 ]
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=sources,
-    target='services_app_message',
-)
-
-bld.env.SERVICES.append('services_app_message')
+bld.pbl_library(sources)

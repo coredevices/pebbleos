@@ -8,10 +8,4 @@ sources = [
     'process_loader_storage.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_process_management',
-)
-
-bld.env.SERVICES.append('services_process_management')
+bld.pbl_library(sources)

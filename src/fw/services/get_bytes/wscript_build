@@ -9,10 +9,4 @@ sources = [
     'get_bytes_storage_flash.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_get_bytes',
-)
-
-bld.env.SERVICES.append('services_get_bytes')
+bld.pbl_library(sources)

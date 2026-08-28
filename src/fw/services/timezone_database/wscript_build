@@ -1,9 +1,4 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    source=['service.c'],
-    target='services_timezone_database',
-)
-bld.env.SERVICES.append('services_timezone_database')
+bld.pbl_library(['service.c'])

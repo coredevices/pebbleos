@@ -6,10 +6,4 @@ sources = [
     'contacts.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_contacts',
-)
-
-bld.env.SERVICES.append('services_contacts')
+bld.pbl_library(sources)

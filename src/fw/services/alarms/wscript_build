@@ -7,13 +7,7 @@ sources = [
     'alarm_tones.c',
 ]
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=sources,
-    target='services_alarms',
-)
-
-bld.env.SERVICES.append('services_alarms')
+bld.pbl_library(sources)
 
 target = bld.path.find_or_declare('services_alarms.pot')
 bld.gettext(source=sources, target=target)

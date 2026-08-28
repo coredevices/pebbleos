@@ -10,10 +10,4 @@ sources = [
     'dls_syscalls.c',
 ]
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=sources,
-    target='services_data_logging',
-)
-
-bld.env.SERVICES.append('services_data_logging')
+bld.pbl_library(sources)

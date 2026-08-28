@@ -7,10 +7,5 @@ sources = [
     'voice_speex.c',
 ]
 
-bld.stlib(
-    use=['fw_includes', 'speex_includes'],
-    source=sources,
-    target='services_voice',
-)
+bld.pbl_library(sources, use=['speex_includes'])
 
-bld.env.SERVICES.append('services_voice')

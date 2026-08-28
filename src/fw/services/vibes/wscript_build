@@ -8,13 +8,7 @@ sources = [
     'vibe_score_info.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_vibes',
-)
-
-bld.env.SERVICES.append('services_vibes')
+bld.pbl_library(sources)
 
 target = bld.path.find_or_declare('services_vibes.pot')
 bld.gettext(source=sources, target=target)

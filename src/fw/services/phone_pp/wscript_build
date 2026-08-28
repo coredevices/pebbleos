@@ -1,9 +1,4 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    source=['service.c'],
-    target='services_phone_pp',
-)
-bld.env.SERVICES.append('services_phone_pp')
+bld.pbl_library(['service.c'])

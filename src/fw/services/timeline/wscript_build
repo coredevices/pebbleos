@@ -30,13 +30,7 @@ sources = [
     'weather_layout.c',
 ]
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=sources,
-    target='services_timeline',
-)
-
-bld.env.SERVICES.append('services_timeline')
+bld.pbl_library(sources)
 
 target = bld.path.find_or_declare('services_timeline.pot')
 bld.gettext(source=sources, target=target)

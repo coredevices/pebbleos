@@ -1,10 +1,4 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes'],
-    source=['app_glance_service.c'],
-    target='services_app_glances',
-)
-
-bld.env.SERVICES.append('services_app_glances')
+bld.pbl_library(['app_glance_service.c'])

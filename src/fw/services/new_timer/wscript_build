@@ -5,10 +5,4 @@ sources = [
     'new_timer.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_new_timer',
-)
-
-bld.env.SERVICES.append('services_new_timer')
+bld.pbl_library(sources)

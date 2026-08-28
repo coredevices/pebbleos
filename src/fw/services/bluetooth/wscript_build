@@ -22,10 +22,4 @@ if bld.env.VARIANT != 'prf':
 else:
     sources.append('bluetooth_persistent_storage_prf.c')
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=sources,
-    target='services_bluetooth',
-)
-
-bld.env.SERVICES.append('services_bluetooth')
+bld.pbl_library(sources)

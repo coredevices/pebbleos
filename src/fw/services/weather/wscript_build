@@ -6,10 +6,4 @@ sources = [
     'weather_types.c',
 ]
 
-bld.stlib(
-    use=['fw_includes'],
-    source=sources,
-    target='services_weather',
-)
-
-bld.env.SERVICES.append('services_weather')
+bld.pbl_library(sources)

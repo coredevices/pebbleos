@@ -1,12 +1,7 @@
 # SPDX-Copyright-Text: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-bld.stlib(
-    use=['fw_includes', 'services_analytics'],
-    source=['service.c'],
-    target='services_clock',
-)
-bld.env.SERVICES.append('services_clock')
+bld.pbl_library(['service.c'])
 
 target = bld.path.find_or_declare('services_clock.pot')
 bld.gettext(source=['service.c'], target=target)
