@@ -60,16 +60,6 @@ sources.extend(_autogen_applib_sources(bld))
 # extract strings for i18n
 bld.gettext(source=sources, target='applib.pot')
 
-bld(export_includes=['.'], name='applib_includes')
-
-# Build the stlib
-bld.stlib(source=sources,
-          target='applib',
-          use=['fw_includes',
-               'upng',
-               'qr_code_generator',
-               'libxs',
-               'freertos_includes',
-               'pbl_includes'])
+bld.pbl_library(sources, use=['qr_code_generator', 'libxs'])
 
 # vim:filetype=python

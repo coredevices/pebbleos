@@ -357,8 +357,7 @@ def _link_firmware(bld, sources):
                          '-Wl,--wrap=free',
                          '-Wl,--undefined=__wrap_free'])
 
-    uses = ['applib',
-            'bt_driver',
+    uses = [            'bt_driver',
             'drivers',
             'freertos',
             'gcc',
@@ -369,7 +368,7 @@ def _link_firmware(bld, sources):
             'nanopb',
             'speex',
             'tinymt32',
-            'upng']
+            ]
     uses.extend(bld.env.FW_APPS)
     # C library use targets (the assert hook, _sbrk, the nano printf shim),
     # selected by lib/c via tools/waf/libc.py.
