@@ -202,9 +202,5 @@ else:
             '-Wno-error=maybe-uninitialized',
             '-Wno-error=implicit-fallthrough']
 
-        bld.pbl_library(libxs_sources,
-                        name='libxs',
-                        kind='stlib',
-                        cflags=libxs_flags,
-                        includes=libxs_includes,
-                        export_includes=libxs_includes)
+        bld.pbl_include_directories(*libxs_includes)
+        bld.pbl_library(libxs_sources, name='libxs', kind='stlib', cflags=libxs_flags)

@@ -60,6 +60,6 @@ sources.extend(_autogen_applib_sources(bld))
 # extract strings for i18n
 bld.gettext(source=sources, target='applib.pot')
 
-bld.pbl_library(sources, use=['qr_code_generator', 'libxs'])
+bld.pbl_library(sources)
 
 # vim:filetype=python

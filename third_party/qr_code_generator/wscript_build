@@ -1,11 +1,5 @@
 sources = ['QR-Code-generator/c/qrcodegen.c']
 includes = ['QR-Code-generator/c']
 
-bld.pbl_library(
-    sources,
-    name='qr_code_generator',
-    kind='stlib',
-    includes=includes,
-    export_includes=includes,
-    cflags=['-Wno-type-limits'],
-)
+bld.pbl_include_directories(*includes)
+bld.pbl_library(sources, name='qr_code_generator', kind='stlib', cflags=['-Wno-type-limits'])
