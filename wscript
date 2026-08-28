@@ -384,7 +384,6 @@ def _link_firmware(bld, sources):
             'libos',
             'libutil',
             'nanopb',
-            'pbl_includes',
             'soc',
             'speex',
             'startup',
@@ -401,9 +400,8 @@ def _link_firmware(bld, sources):
 
     # Build and link the firmware ELF
     elf_node = bld.path.get_bld().make_node('pebbleos.elf')
-    x = bld.program(source=sources,
+    x = bld.pbl_program(source=sources,
                 use=uses,
-                link_group=True,
                 lib=bld.env.LIBC_LIBS,
                 target=elf_node,
                 includes='fonts',
