@@ -124,6 +124,14 @@ bool alerts_preferences_get_notification_vibe_delay(void) {
   return false;
 }
 
+NotificationSound alerts_preferences_get_notification_sound(void) {
+  return NotificationSound_None;
+}
+
+bool notification_sounds_play(NotificationSound sound, uint8_t volume) {
+  return false;
+}
+
 int16_t interpolate_int16(int32_t normalized, int16_t from, int16_t to) {
   return to;
 }

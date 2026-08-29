@@ -80,6 +80,29 @@ bool alerts_should_vibrate_for_type(AlertType type) {
   return alerts_preferences_get_vibrate();
 }
 
+bool alerts_should_play_sound_for_type(AlertType type) {
+  if (alerts_preferences_get_notification_sound() == NotificationSound_None) {
+    return false;
+  }
+
+  if (do_not_disturb_is_active() && !(alerts_preferences_dnd_get_mask() & type)) {
+    return false;
+  }
+
+  if (!alerts_should_notify_for_type(type)) {
+    return false;
+  }
+
+  // Reuse the vibe holdoff so a notification storm doesn't chirp continuously.
+  // Unlike vibes, sounds still play on the charger: the watch may be off-wrist
+  // where a vibe would go unnoticed but a chirp would not.
+  if (prv_get_ms_since_last_notification_vibe() < NOTIFICATION_VIBE_HOLDOFF_MS) {
+    return false;
+  }
+
+  return true;
+}
+
 bool alerts_get_vibrate(void) {
   return alerts_preferences_get_vibrate();
 }
