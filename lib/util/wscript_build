@@ -1,4 +1,5 @@
-import tools.waf
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
 
 bld.pbl_library(bld.path.ant_glob('**/*.c'),
                 name='libutil',

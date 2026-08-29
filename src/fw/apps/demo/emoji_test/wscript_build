@@ -1,6 +1,0 @@
-# SPDX-FileCopyrightText: 2026 Core Devices LLC
-# SPDX-License-Identifier: Apache-2.0
-
-bld.pbl_library(['emoji_test.c'], includes=['.'])
-
-# vim:filetype=python

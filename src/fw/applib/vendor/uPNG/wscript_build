@@ -1,3 +1,0 @@
-bld.pbl_library(['upng.c'])
-
-# vim:filetype=python

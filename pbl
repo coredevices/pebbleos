@@ -4,18 +4,17 @@
 
 """PebbleOS developer CLI.
 
-Hosts the operational commands (flash, qemu, console, debug, screenshot,
-openocd, reset, bork, image_*, make_lang, pack_lang, pack_all_langs) that used
-to live in the root ``wscript``but are not build steps, and provides thin 
-pass-through wrappers for the everyday ``./waf`` commands so there is a single entry point.
+Drives the CMake firmware build (configure, build, bundle, menuconfig) and
+hosts the operational commands that are not build steps: flash, qemu,
+console, debug, screenshot, openocd, reset, bork, image_*, make_lang,
+pack_lang, pack_all_langs. The unit tests still build with waf; ``./pbl
+test`` forwards to it.
 
-Build state is read directly from the configured build dir
-(``build/c4che/_cache.py``); no waf process is spawned for operational
-commands. Run ``./waf configure --board BOARD`` first.
+Build state is read from the configured build directory
+(``build/pbl_env.json``). Run ``./pbl configure --board BOARD`` first.
 """
 
 import argparse
-import importlib.util
 import os
 import platform
 import shlex
@@ -27,8 +26,10 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 BUILD_DIR = os.path.join(REPO_ROOT, "build")
 LANG_DIR_REL = "resources/normal/base/lang"
 
-# Commands forwarded verbatim to ./waf (no build env / waflib needed).
-WAF_PASSTHROUGH = ("configure", "menuconfig", "build", "bundle", "clean", "test", "waf")
+# Commands that do not need a configured build directory.
+BUILD_COMMANDS = ("configure", "build", "bundle", "clean", "menuconfig")
+# The unit tests still build with waf, out of their own build directory.
+WAF_PASSTHROUGH = ("test", "waf")
 
 # QEMU SDL decorations per board. The first entry is used as the default.
 QEMU_DECORATIONS = {
@@ -62,20 +63,27 @@ def _run_shell(cmd):
     return subprocess.call(cmd, shell=True)
 
 
-def _run_waf(*args):
-    """Run a ./waf subcommand for build steps that pbl orchestrates but does
-    not perform itself (e.g. the QEMU flash images)."""
+def _run(cmd):
+    """Run a command from the repository root, honoring --dry-run."""
     if _DRY_RUN:
-        _pprint("YELLOW", "[dry-run] ./waf " + " ".join(args))
+        _pprint("YELLOW", "[dry-run] " + " ".join(cmd))
         return 0
-    return subprocess.call([sys.executable, "waf"] + list(args), cwd=REPO_ROOT)
+    return subprocess.call(cmd, cwd=REPO_ROOT)
+
+
+def _build_target(*targets):
+    """Build one of the firmware's targets (e.g. a QEMU flash image)."""
+    cmd = ["cmake", "--build", BUILD_DIR]
+    for target in targets:
+        cmd += ["--target", target]
+    return _run(cmd)
 
 
 # --- Configured build env -------------------------------------------------
 
 class Env:
-    """Mimics ``ctx.env``: attribute/item access returns ``[]`` when missing,
-    matching waf's ConfigSet semantics that the runner helpers rely on."""
+    """The configured build's settings. Missing keys read back as an empty
+    list, the ConfigSet semantics the runner helpers were written against."""
 
     def __init__(self, data):
         self._data = data
@@ -91,14 +99,13 @@ class Env:
 
 
 def load_env():
-    cache = os.path.join(BUILD_DIR, "c4che", "_cache.py")
-    if not os.path.isfile(cache):
-        _fatal("Build not configured -- run ./waf configure --board BOARD first.")
-    spec = importlib.util.spec_from_file_location("_waf_cache", cache)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    data = {k: v for k, v in vars(mod).items() if not k.startswith("__")}
-    return Env(data)
+    path = os.path.join(BUILD_DIR, "pbl_env.json")
+    if not os.path.isfile(path):
+        _fatal("Build not configured -- run ./pbl configure --board BOARD first.")
+    import json
+
+    with open(path) as f:
+        return Env(json.load(f))
 
 
 # --- runner reuse ---------------------------------------------------------
@@ -346,14 +353,14 @@ def _qemu_launch(env, options):
 
 
 def cmd_qemu(env, options):
-    # The flash images are build artifacts, so let waf produce them. Always
-    # rebuild the micro-flash image; by default rebuild the SPI flash too
-    # (--keep-flash-image keeps the stored apps/data from a previous run).
-    if _run_waf("qemu_image_micro") != 0:
+    # The flash images are build artifacts. Always rebuild the micro-flash
+    # image; by default rebuild the SPI flash too (--keep-flash-image keeps
+    # the stored apps and data from a previous run).
+    if _build_target("qemu_image_micro") != 0:
         _fatal("Failed to build QEMU micro flash image")
     spi_flash = os.path.join(BUILD_DIR, "qemu_spi_flash.bin")
     if not options.keep_flash_image or not os.path.isfile(spi_flash):
-        if _run_waf("qemu_image_spi") != 0:
+        if _build_target("qemu_image_spi") != 0:
             _fatal("Failed to build QEMU SPI flash image")
     _qemu_launch(env, options)
 
@@ -776,6 +783,78 @@ OPERATIONAL = {
 }
 
 
+# --- Build commands --------------------------------------------------------
+
+def cmd_configure(argv):
+    """Configure the firmware build directory."""
+    parser = argparse.ArgumentParser(prog="pbl configure")
+    parser.add_argument("--board", required=True,
+                        help="Board to build for, e.g. asterix or obelix@pvt")
+    parser.add_argument("--variant", default="normal", choices=["normal", "prf"],
+                        help="Build variant (default: normal)")
+    parser.add_argument("-G", "--generator", default="Ninja",
+                        help="CMake generator (default: Ninja)")
+    options, extra = parser.parse_known_args(argv)
+
+    cmd = ["cmake", "-B", BUILD_DIR, "-G", options.generator,
+           "-DBOARD=" + options.board, "-DVARIANT=" + options.variant]
+    # -DCONFIG_FOO=y overrides are passed straight through to CMake, which
+    # hands them to Kconfig.
+    cmd += extra
+    if os.path.exists(os.path.join(BUILD_DIR, "menuconfig.conf")):
+        _pprint("YELLOW", "Using the Kconfig changes from build/menuconfig.conf")
+    return _run(cmd)
+
+
+def cmd_build(argv):
+    """Build the firmware, or the named targets."""
+    cmd = ["cmake", "--build", BUILD_DIR]
+    for target in argv:
+        cmd += ["--target", target]
+    return _run(cmd)
+
+
+def cmd_bundle(argv):
+    return _build_target("bundle")
+
+
+def cmd_clean(argv):
+    return _build_target("clean")
+
+
+def cmd_menuconfig(argv):
+    """Edit the configuration interactively, then reconfigure with it."""
+    dotconfig = os.path.join(BUILD_DIR, ".config")
+    if not os.path.isfile(dotconfig):
+        _fatal("Build not configured -- run ./pbl configure --board BOARD first.")
+
+    env = load_env()
+    environ = os.environ.copy()
+    environ["srctree"] = REPO_ROOT
+    environ["BOARD"] = env.BOARD_NAME
+    environ["BOARD_REVISION"] = env.BOARD_REVISION or "_"
+    environ["KCONFIG_CONFIG"] = dotconfig
+    subprocess.run([sys.executable, "-m", "menuconfig",
+                    os.path.join(REPO_ROOT, "Kconfig")],
+                   env=environ, check=False)
+
+    # Keep the edited configuration across reconfigurations: it is applied
+    # on top of the board's defconfig. Delete it to go back to the defaults.
+    saved = os.path.join(BUILD_DIR, "menuconfig.conf")
+    with open(dotconfig) as src, open(saved, "w") as dst:
+        dst.write(src.read())
+    return _run(["cmake", BUILD_DIR])
+
+
+BUILD = {
+    "configure": cmd_configure,
+    "build": cmd_build,
+    "bundle": cmd_bundle,
+    "clean": cmd_clean,
+    "menuconfig": cmd_menuconfig,
+}
+
+
 # --- Argument parsing ------------------------------------------------------
 
 def build_parser():
@@ -865,7 +944,12 @@ def build_parser():
 
     sub.add_parser("pack_all_langs", help="Generate pbpacks for all languages")
 
-    # ./waf pass-through wrappers.
+    # Firmware build commands (parsed by their own handlers).
+    for name in BUILD_COMMANDS:
+        sp = sub.add_parser(name, help=BUILD[name].__doc__ or name)
+        sp.add_argument("args", nargs=argparse.REMAINDER)
+
+    # The unit tests still build with waf.
     for name in WAF_PASSTHROUGH:
         sp = sub.add_parser(name, help="Forward to ./waf %s" % (
             name if name != "waf" else "<args...>"))
@@ -875,12 +959,19 @@ def build_parser():
 
 
 def main(argv):
-    # Pass-through commands forward verbatim to ./waf (handled before argparse so
-    # flags like --board reach waf untouched).
+    # Build and pass-through commands are handled before argparse, so that
+    # flags like --board and -DCONFIG_FOO=y reach them untouched.
     if argv and argv[0] in WAF_PASSTHROUGH:
         cmd, rest = argv[0], argv[1:]
         waf_cmd = [] if cmd == "waf" else [cmd]
         return subprocess.call([sys.executable, "waf"] + waf_cmd + rest, cwd=REPO_ROOT)
+
+    if argv and argv[0] in BUILD_COMMANDS:
+        global _DRY_RUN
+        rest = [a for a in argv[1:] if a != "--dry-run"]
+        _DRY_RUN = len(rest) != len(argv[1:])
+        os.chdir(REPO_ROOT)
+        return BUILD[argv[0]](rest)
 
     parser = build_parser()
     options = parser.parse_args(argv)

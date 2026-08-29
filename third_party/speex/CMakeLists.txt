@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+set(speex_sources
+  speex/libspeex/bits.c
+  speex/libspeex/cb_search.c
+  speex/libspeex/exc_10_16_table.c
+  speex/libspeex/exc_10_32_table.c
+  speex/libspeex/exc_20_32_table.c
+  speex/libspeex/exc_5_256_table.c
+  speex/libspeex/exc_5_64_table.c
+  speex/libspeex/exc_8_128_table.c
+  speex/libspeex/filters.c
+  speex/libspeex/gain_table.c
+  speex/libspeex/gain_table_lbr.c
+  speex/libspeex/hexc_10_32_table.c
+  speex/libspeex/hexc_table.c
+  speex/libspeex/high_lsp_tables.c
+  speex/libspeex/kiss_fft.c
+  speex/libspeex/kiss_fftr.c
+  speex/libspeex/lpc.c
+  speex/libspeex/lsp.c
+  speex/libspeex/lsp_tables_nb.c
+  speex/libspeex/ltp.c
+  speex/libspeex/modes.c
+  speex/libspeex/modes_wb.c
+  speex/libspeex/nb_celp.c
+  speex/libspeex/quant_lsp.c
+  speex/libspeex/sb_celp.c
+  speex/libspeex/smallft.c
+  speex/libspeex/speex.c
+  speex/libspeex/speex_callbacks.c
+  speex/libspeex/speex_header.c
+  speex/libspeex/stereo.c
+  speex/libspeex/vbr.c
+  speex/libspeex/vorbis_psy.c
+  speex/libspeex/vq.c
+  speex/libspeex/window.c
+)
+set(speex_includes
+  .
+  speex/include
+  speex/libspeex
+)
+set(speex_defines
+  HAVE_CONFIG_H
+  OS_SUPPORT_CUSTOM
+  FIXED_POINT
+  DISABLE_FLOAT_API
+  DISABLE_VBR
+  DISABLE_WARNINGS
+  DISABLE_NOTIFICATIONS
+)
+list(APPEND speex_defines
+  "NB_ENC_STACK=(2000*sizeof(spx_sig_t))"
+  "NB_DEC_STACK=(1500*sizeof(spx_sig_t))"
+)
+set(speex_cflags
+  -Wno-implicit-function-declaration
+  -Wno-builtin-declaration-mismatch
+  -Wno-unused-but-set-variable
+  -Wno-unused-variable
+)
+pbl_include_directories(${speex_includes})
+pbl_library_named(speex)
+pbl_library_kind(stlib)
+pbl_library_sources(${speex_sources})
+pbl_library_compile_definitions(${speex_defines})
+pbl_library_compile_options(${speex_cflags})

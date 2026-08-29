@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+add_subdirectory(cmsis_core)
+add_subdirectory(freertos)
+add_subdirectory(nanopb)
+add_subdirectory(tinymt)
+add_subdirectory(qr_code_generator)
+pbl_add_subdirectory_ifdef(CONFIG_SPEEX speex)
+add_subdirectory(nonfree)
+if(CONFIG_MODDABLE_XS)
+  add_subdirectory(moddable)
+endif()
+if(CONFIG_HAL_NORDIC)
+  add_subdirectory(hal_nordic)
+endif()
+if(CONFIG_HAL_SIFLI)
+  add_subdirectory(hal_sifli)
+endif()
+pbl_add_subdirectory_ifdef(CONFIG_MBEDTLS mbedtls)
+pbl_add_subdirectory_ifdef(CONFIG_BT_FW_NIMBLE nimble)

@@ -1,3 +1,0 @@
-bld.pbl_library(['tinflate.c'])
-
-# vim:filetype=python

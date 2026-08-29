@@ -1,8 +1,0 @@
-# SPDX-Copyright-Text: 2026 Core Devices LLC
-# SPDX-License-Identifier: Apache-2.0
-
-bld.pbl_library(['service.c', 'util.c'])
-
-target = bld.path.find_or_declare('services_phone_call.pot')
-bld.gettext(source=['service.c', 'util.c'], target=target)
-bld.env.SERVICES_TEXT.append(target)

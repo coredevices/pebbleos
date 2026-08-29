@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+set(sources
+  api.c
+  app_db.c
+  app_glance_db.c
+  contacts_db.c
+  endpoint.c
+  endpoint2.c
+  endpoint_private.c
+  health_db.c
+  ios_notif_pref_db.c
+  notif_db.c
+  pin_db.c
+  prefs_db.c
+  reminder_db.c
+  settings_blob_db.c
+  sync.c
+  sync_util.c
+  timeline_item_storage.c
+  util.c
+  watch_app_prefs_db.c
+  weather_db.c
+)
+pbl_library()
+pbl_library_sources(${sources})

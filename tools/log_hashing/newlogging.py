@@ -223,19 +223,18 @@ def get_log_dict_from_file(filename):
     return ld.get_log_dict()
 
 
-""" Merge the loghash_dict.json files named in 'merge_list' to node 'out_file' """
+""" Merge the loghash_dict.json files in 'merge_list' into 'out_file' """
 
 
 def merge_loghash_dict_json_files(out_file, merge_list):
     out_dict = {}
 
-    for json_file in merge_list:
-        with open(json_file.abspath(), "r") as json_file:
-            in_dict = json.load(json_file)
-            out_dict = merge_dicts(out_dict, in_dict)
+    for path in merge_list:
+        with open(path) as json_file:
+            out_dict = merge_dicts(out_dict, json.load(json_file))
 
     if LOG_DICT_KEY_BUILD_ID_LEGACY not in out_dict:
         raise RuntimeError("build_id missing from loghash_dict.json")
 
-    with open(out_file.abspath(), "w") as json_file:
+    with open(out_file, "w") as json_file:
         json.dump(out_dict, json_file, indent=2, sort_keys=True)

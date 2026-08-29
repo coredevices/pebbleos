@@ -1,1 +1,0 @@
-bld.pbl_include_directories('CMSIS/CMSIS/Core/Include', '.')

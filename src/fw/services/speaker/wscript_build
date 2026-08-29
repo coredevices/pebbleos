@@ -1,9 +1,0 @@
-# SPDX-Copyright-Text: 2026 Core Devices LLC
-# SPDX-License-Identifier: Apache-2.0
-
-bld.pbl_library([
-        'note_sequence.c',
-        'pcm_stream.c',
-        'speaker_service.c',
-        'track_player.c',
-    ])

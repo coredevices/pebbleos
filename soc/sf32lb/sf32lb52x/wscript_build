@@ -1,6 +1,0 @@
-# SPDX-FileCopyrightText: 2026 Core Devices LLC
-# SPDX-License-Identifier: Apache-2.0
-
-bld.pbl_library(['init.c', 'sleep.c', 'freertos.c'])
-
-bld.linker_sources('ram-sections', 'ramfunc.ld')

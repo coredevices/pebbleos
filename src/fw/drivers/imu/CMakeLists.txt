@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+set(accel_sources)
+if(CONFIG_QEMU)
+  list(APPEND accel_sources ../qemu/qemu_accel.c)
+elseif(CONFIG_ACCEL_LIS2DW12)
+  list(APPEND accel_sources lis2dw12/lis2dw12.c)
+elseif(CONFIG_ACCEL_LSM6DSO)
+  list(APPEND accel_sources lsm6dso/lsm6dso.c)
+endif()
+if(accel_sources)
+  pbl_library_named(driver_accel)
+  pbl_library_sources(${accel_sources})
+endif()
+set(mag_sources)
+if(CONFIG_MAG_MMC5603NJ)
+  list(APPEND mag_sources mmc5603nj/mmc5603nj.c)
+endif()
+if(mag_sources)
+  pbl_library_named(driver_mag)
+  pbl_library_sources(${mag_sources})
+endif()
