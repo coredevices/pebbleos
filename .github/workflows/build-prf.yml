@@ -29,9 +29,9 @@ jobs:
               - 'src/**'
               - 'tools/**'
               - 'third_party/**'
-              - 'tools/waf/**'
-              - 'waf'
-              - 'wscript'
+              - 'cmake/**'
+              - 'CMakeLists.txt'
+              - 'Kconfig'
 
   build-prf:
     needs: changes-prf
@@ -97,13 +97,13 @@ jobs:
             OPTS="${OPTS} -DCONFIG_RELEASE=y"
           fi
 
-          ./waf configure --board '${{ matrix.board }}' --variant=prf $OPTS
+          ./pbl configure --board '${{ matrix.board }}' --variant prf $OPTS
 
       - name: Build
-        run: ./waf build
+        run: ./pbl build
 
       - name: Bundle
-        run: ./waf bundle
+        run: ./pbl bundle
 
       - name: Copy artifacts
         env:

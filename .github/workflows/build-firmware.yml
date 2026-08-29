@@ -31,9 +31,9 @@ jobs:
               - 'stored_apps/**'
               - 'tools/**'
               - 'third_party/**'
-              - 'tools/waf/**'
-              - 'waf'
-              - 'wscript'
+              - 'cmake/**'
+              - 'CMakeLists.txt'
+              - 'Kconfig'
 
   build-firmware:
     needs: changes-firmware
@@ -105,13 +105,13 @@ jobs:
           fi
 
       - name: Configure
-        run: ./waf configure --board '${{ matrix.board }}' -DCONFIG_FIRMWARE_SLOT=${{ matrix.slot }} -DCONFIG_RELEASE=y
+        run: ./pbl configure --board '${{ matrix.board }}' -DCONFIG_FIRMWARE_SLOT=${{ matrix.slot }} -DCONFIG_RELEASE=y
 
       - name: Build
-        run: ./waf build
+        run: ./pbl build
 
       - name: Bundle
-        run: ./waf bundle
+        run: ./pbl bundle
 
       - name: Copy artifacts
         env:

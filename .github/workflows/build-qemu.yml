@@ -30,9 +30,9 @@ jobs:
               - 'stored_apps/**'
               - 'tools/**'
               - 'third_party/**'
-              - 'tools/waf/**'
-              - 'waf'
-              - 'wscript'
+              - 'cmake/**'
+              - 'CMakeLists.txt'
+              - 'Kconfig'
 
   build-qemu:
     needs: changes-qemu
@@ -75,10 +75,10 @@ jobs:
         run: echo "dir=$(npm config get cache)" >> ${GITHUB_OUTPUT}
 
       - name: Configure
-        run: ./waf configure --board ${{ matrix.board }}
+        run: ./pbl configure --board ${{ matrix.board }}
 
       - name: Build
-        run: ./waf build qemu_image_micro qemu_image_spi
+        run: ./pbl build qemu_image_micro qemu_image_spi
 
       - name: Copy artifacts
         run: |
