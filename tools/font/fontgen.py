@@ -433,7 +433,9 @@ class Font:
             # Store font units; runtime scales based on actual glyph ppem.
             # This ensures correct positioning across all font sizes.
 
-            lookup_list = getattr(getattr(tt["GPOS"], "table", None), "LookupList", None)
+            lookup_list = getattr(
+                getattr(tt["GPOS"], "table", None), "LookupList", None
+            )
             lookups = getattr(lookup_list, "Lookup", []) if lookup_list else []
             gindex_to_entries = {}
 
@@ -444,10 +446,18 @@ class Font:
                     if getattr(subtable, "Format", None) != 1:
                         continue
 
-                    mark_coverage = getattr(getattr(subtable, "MarkCoverage", None), "glyphs", [])
-                    base_coverage = getattr(getattr(subtable, "BaseCoverage", None), "glyphs", [])
-                    mark_records = getattr(getattr(subtable, "MarkArray", None), "MarkRecord", [])
-                    base_records = getattr(getattr(subtable, "BaseArray", None), "BaseRecord", [])
+                    mark_coverage = getattr(
+                        getattr(subtable, "MarkCoverage", None), "glyphs", []
+                    )
+                    base_coverage = getattr(
+                        getattr(subtable, "BaseCoverage", None), "glyphs", []
+                    )
+                    mark_records = getattr(
+                        getattr(subtable, "MarkArray", None), "MarkRecord", []
+                    )
+                    base_records = getattr(
+                        getattr(subtable, "BaseArray", None), "BaseRecord", []
+                    )
 
                     if not mark_coverage or not base_coverage:
                         continue
@@ -495,7 +505,10 @@ class Font:
                                 gindex_to_entries[base_gindex] = {}
                             # Keep first-seen deterministic placement for duplicate lookup coverage.
                             if mark_cp not in gindex_to_entries[base_gindex]:
-                                gindex_to_entries[base_gindex][mark_cp] = (dx_fu_clipped, dy_fu_clipped)
+                                gindex_to_entries[base_gindex][mark_cp] = (
+                                    dx_fu_clipped,
+                                    dy_fu_clipped,
+                                )
 
             for lookup in lookups:
                 if getattr(lookup, "LookupType", None) != 6:
@@ -504,10 +517,18 @@ class Font:
                     if getattr(subtable, "Format", None) != 1:
                         continue
 
-                    mark1_coverage = getattr(getattr(subtable, "Mark1Coverage", None), "glyphs", [])
-                    mark2_coverage = getattr(getattr(subtable, "Mark2Coverage", None), "glyphs", [])
-                    mark1_records = getattr(getattr(subtable, "Mark1Array", None), "MarkRecord", [])
-                    mark2_records = getattr(getattr(subtable, "Mark2Array", None), "Mark2Record", [])
+                    mark1_coverage = getattr(
+                        getattr(subtable, "Mark1Coverage", None), "glyphs", []
+                    )
+                    mark2_coverage = getattr(
+                        getattr(subtable, "Mark2Coverage", None), "glyphs", []
+                    )
+                    mark1_records = getattr(
+                        getattr(subtable, "Mark1Array", None), "MarkRecord", []
+                    )
+                    mark2_records = getattr(
+                        getattr(subtable, "Mark2Array", None), "Mark2Record", []
+                    )
                     if not mark1_coverage or not mark2_coverage:
                         continue
 
@@ -529,7 +550,9 @@ class Font:
                             mark2_cp = inv_cmap.get(mark2_glyph_name)
                             if mark2_cp not in thai_marks_in_font:
                                 continue
-                            mark2_anchors = getattr(mark2_records[mark2_index], "Mark2Anchor", None)
+                            mark2_anchors = getattr(
+                                mark2_records[mark2_index], "Mark2Anchor", None
+                            )
                             if not mark2_anchors or mark_class >= len(mark2_anchors):
                                 continue
                             mark2_anchor = mark2_anchors[mark_class]
@@ -537,8 +560,12 @@ class Font:
                                 continue
 
                             # Store as font units (int16); runtime scales to pixels.
-                            dx_fu = int(mark1_anchor.XCoordinate - mark2_anchor.XCoordinate)
-                            dy_fu = int(mark1_anchor.YCoordinate - mark2_anchor.YCoordinate)
+                            dx_fu = int(
+                                mark1_anchor.XCoordinate - mark2_anchor.XCoordinate
+                            )
+                            dy_fu = int(
+                                mark1_anchor.YCoordinate - mark2_anchor.YCoordinate
+                            )
                             dx_fu_clipped = max(-32768, min(32767, dx_fu))
                             dy_fu_clipped = max(-32768, min(32767, dy_fu))
                             mark1_gindex = self.face.get_char_index(mark1_cp)
@@ -547,7 +574,10 @@ class Font:
                             if mark1_gindex not in gindex_to_entries:
                                 gindex_to_entries[mark1_gindex] = {}
                             if mark2_cp not in gindex_to_entries[mark1_gindex]:
-                                gindex_to_entries[mark1_gindex][mark2_cp] = (dx_fu_clipped, dy_fu_clipped)
+                                gindex_to_entries[mark1_gindex][mark2_cp] = (
+                                    dx_fu_clipped,
+                                    dy_fu_clipped,
+                                )
 
             for gindex in sorted(gindex_to_entries.keys()):
                 mark_entries = gindex_to_entries[gindex]
