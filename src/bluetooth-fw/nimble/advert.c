@@ -6,6 +6,7 @@
 #include <bluetooth/bonding_sync.h>
 #include <bluetooth/bt_driver_advert.h>
 #include <bluetooth/gatt.h>
+#include <bluetooth/hrm_service.h>
 #include <bluetooth/pairing_confirm.h>
 #include <comm/bt_lock.h>
 #include <host/ble_gap.h>
@@ -16,6 +17,7 @@
 #include <system/passert.h>
 #include <pbl/util/math.h>
 
+#include "hrm_service.h"
 #include "nimble_gattc_op_queue.h"
 #include "nimble_type_conversions.h"
 
@@ -288,6 +290,22 @@ static void prv_handle_subscription_event(struct ble_gap_event *event) {
             event->subscribe.conn_handle, event->subscribe.attr_handle,
             event->subscribe.prev_notify, event->subscribe.cur_notify,
             event->subscribe.prev_indicate, event->subscribe.cur_indicate);
+
+#ifdef CONFIG_BLE_HRM_SERVICE
+  if (event->subscribe.attr_handle == hrm_service_measurement_val_handle()) {
+    // NimBLE reports CCCD writes using the characteristic value handle.
+    bool is_subscribed = (bool)event->subscribe.cur_notify;
+    struct ble_gap_conn_desc desc;
+    if (ble_gap_conn_find(event->subscribe.conn_handle, &desc) == 0) {
+      BTDeviceInternal device;
+      nimble_addr_to_pebble_device(&desc.peer_id_addr, &device);
+      bt_driver_cb_hrm_service_update_subscription(&device, is_subscribed);
+    } else {
+      PBL_LOG_WRN("HRM subscribe: conn %u not found",
+                   event->subscribe.conn_handle);
+    }
+  }
+#endif // CONFIG_BLE_HRM_SERVICE
 }
 
 static void prv_handle_notification_rx_event(struct ble_gap_event *event) {

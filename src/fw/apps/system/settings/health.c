@@ -41,6 +41,9 @@ enum SettingsHealthItem {
     SettingsHealthHRMonitoringInterval,
     SettingsHealthHRActivityTracking,
 #endif
+#ifdef CONFIG_BLE_HRM_SERVICE
+    SettingsHealthBLEHrmSharing,
+#endif
     NumSettingsHealthItems
 };
 
@@ -118,6 +121,14 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
             break;
         }
 #endif
+#ifdef CONFIG_BLE_HRM_SERVICE
+        case SettingsHealthBLEHrmSharing: {
+            title = i18n_noop("Activity HR Sharing");
+            subtitle = activity_prefs_ble_hrm_sharing_is_enabled()
+                ? i18n_noop("On") : i18n_noop("Off");
+            break;
+        }
+#endif
         default:
             WTF;
     }
@@ -151,6 +162,12 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
                 !activity_prefs_hrm_activity_tracking_is_enabled());
             break;
 #endif
+#ifdef CONFIG_BLE_HRM_SERVICE
+        case SettingsHealthBLEHrmSharing:
+            activity_prefs_ble_hrm_sharing_set_enabled(
+                !activity_prefs_ble_hrm_sharing_is_enabled());
+            break;
+#endif
         default:
             WTF;
     }
@@ -162,6 +179,12 @@ static uint16_t prv_num_rows_cb(SettingsCallbacks *context) {
     if (!activity_prefs_tracking_is_enabled()) {
         return 1; // Only show the Health Tracking toggle
     }
+#ifdef CONFIG_BLE_HRM_SERVICE
+    // Only show "Activity HR Sharing" when "HR During Activity" is enabled
+    if (!activity_prefs_hrm_activity_tracking_is_enabled()) {
+        return NumSettingsHealthItems - 1;
+    }
+#endif
     return NumSettingsHealthItems;
 }
 

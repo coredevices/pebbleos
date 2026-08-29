@@ -8,6 +8,7 @@ syscfg.vals:
     BLE_SM_LEGACY: 0
     BLE_SM_MITM: 1
     BLE_SM_LVL: 4
+    BLE_MAX_CONNECTIONS: 2
     # Increased to prevent ACL mbuf allocation failures during high-throughput
     # operations (e.g. FW upgrade over BLE on iOS).
     BLE_TRANSPORT_ACL_COUNT: 60

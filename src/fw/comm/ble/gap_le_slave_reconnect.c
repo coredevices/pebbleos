@@ -155,10 +155,13 @@ static void prv_evaluate(ReconnectType prev_type) {
       terms = &advert_terms[1];
       num_terms = 1;
     }
+    const GAPLEAdvertisingJobTag tag = use_hrm_payload
+        ? GAPLEAdvertisingJobTagHRMReconnection
+        : GAPLEAdvertisingJobTagReconnection;
 
     s_reconnect_advert_job = gap_le_advert_schedule(
         ad, terms, num_terms,
-        prv_advert_job_unscheduled_callback, NULL, GAPLEAdvertisingJobTagReconnection);
+        prv_advert_job_unscheduled_callback, NULL, tag);
 
     if (use_hrm_payload) {
       ble_ad_destroy(ad);

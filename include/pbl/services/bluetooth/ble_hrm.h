@@ -28,7 +28,7 @@ void ble_hrm_revoke_sharing_permission_for_connection(GAPLEConnection *connectio
 
 void ble_hrm_revoke_all(void);
 
-void ble_hrm_handle_activity_prefs_heart_rate_is_enabled(bool is_enabled);
+void ble_hrm_handle_ble_hrm_sharing_enabled(bool is_enabled);
 
 void ble_hrm_handle_disconnection(GAPLEConnection *connection);
 

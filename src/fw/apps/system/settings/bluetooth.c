@@ -289,7 +289,7 @@ static void prv_draw_stored_remote_item_rect(GContext *ctx, const Layer *cell_la
   if (is_sharing_heart_rate_string) {
     const int horizontal_margin = menu_cell_basic_horizontal_inset();
     GRect box = grect_inset(cell_layer->bounds, GEdgeInsets(0, horizontal_margin));
-    box.origin.y += 38;
+    box.origin.y += menu_cell_basic_cell_height() - 6;
     box.size.h = 24;
 
     graphics_draw_text(ctx, is_sharing_heart_rate_string, font, box,
@@ -449,6 +449,13 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
         // Position the message lower to appear below the paired phone row
         GRect msg_box = box;
         msg_box.origin.y += menu_cell_basic_cell_height() - 10;
+#ifdef CONFIG_HRM
+        // Account for the extra row height when sharing heart rate
+        StoredRemote *remote = (StoredRemote *)list_get_at(data->remote_list_head, 0);
+        if (settings_bluetooth_is_sharing_heart_rate_for_stored_remote(remote)) {
+          msg_box.origin.y += SHARING_HEART_RATE_EXTRA_HEIGHT_PX;
+        }
+#endif
         graphics_draw_text(ctx, i18n_get("Forget this device to pair a new device.", data),
                            font, msg_box, GTextOverflowModeTrailingEllipsis,
                            GTextAlignmentCenter, NULL);
