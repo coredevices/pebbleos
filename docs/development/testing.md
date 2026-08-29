@@ -7,14 +7,16 @@ with fakes and stubs that replace hardware and OS dependencies.
 
 ## Running tests
 
-Tests are built and run with waf. Configure first (any board works; CI uses
-`qemu_gabbro`), then:
+Tests are built and run with waf, which the firmware build itself no longer
+uses; they get their own build directory, `build-test/`. Configure first
+(any board works; CI uses `qemu_gabbro`), then:
 
 ```shell
+./pbl waf configure --board qemu_gabbro
 ./pbl test
 ```
 
-Useful options (see `./waf --help` for the full list):
+Useful options (see `./pbl waf --help` for the full list):
 
 - `-M REGEX` / `--match REGEX`: only build/run test files matching the regex,
   e.g. `./pbl test -M test_animation`
@@ -25,12 +27,12 @@ Useful options (see `./waf --help` for the full list):
 - `-D` / `--debug_test`: run the test under GDB (use with `-M` to select the
   test)
 - `-C` / `--coverage`: collect coverage and generate an lcov HTML report at
-  `build/test/tests/lcov-html/index.html`
+  `build-test/test/tests/lcov-html/index.html`
 - `--show_output`: print test output while running
 - `--no_run`: build the test binaries without running them
 - `-k`: keep going after a failing test (used by CI)
 
-Results are also written as JUnit XML to `build/test/junit.xml`. The `Test`
+Results are also written as JUnit XML to `build-test/test/junit.xml`. The `Test`
 GitHub Actions workflow (`.github/workflows/test.yml`) runs the whole suite
 on pull requests that touch source, test or tooling paths.
 

@@ -1,68 +1,127 @@
 # Build system
 
-PebbleOS is built with [waf](https://waf.io). Each directory that contributes
-code has a `wscript_build` file; the firmware is assembled following a model
-borrowed from Zephyr, implemented in `tools/waf/pbl_build.py`:
+The firmware is built with [CMake](https://cmake.org), following a model
+borrowed from Zephyr. Ninja is the generator the project uses:
 
-- Every library registers itself with `bld.pbl_library()`. All registered
-  libraries are linked into the single firmware image built by
-  `bld.pbl_program()`, so no other place needs to list them.
-- Include directories and defines registered with
-  `bld.pbl_include_directories()` and `bld.pbl_compile_definitions()` are
-  visible to every library. They are declared once, next to the headers they
-  expose, instead of being requested by each consumer through `use=[...]`.
-- Dependencies between firmware libraries do not need to be declared: they
-  resolve at the final link.
-
-## Adding a library
-
-A typical `wscript_build` is a single call:
-
-```python
-bld.pbl_library(bld.path.ant_glob('*.c'))
+```shell
+./pbl configure --board asterix
+./pbl build
 ```
 
-`pbl_library()` accepts:
+`./pbl configure` runs CMake with `-GNinja` into `build/`, and passes
+anything else through, so Kconfig symbols are overridden the usual way:
 
-- `source`: the source files, relative to the `wscript_build` directory.
-- `name`: defaults to the directory path with `__` separators
-  (e.g. `subsys__logging`). Only needed when something refers to the library
-  by name.
-- `kind`: `objects` (default) links every object file; `stlib` builds a
-  static library from which the linker only pulls the objects it needs. Use
-  `stlib` for third-party code that ships more than the firmware references.
-- `includes`, `defines`, `cflags`: private to the library, as in plain waf.
+```shell
+./pbl configure --board obelix@pvt --variant prf -DCONFIG_RELEASE=y
+```
 
-Conditional pieces use the Kconfig symbols in `bld.env`:
+Plain CMake works just as well; `pbl` only saves the typing:
 
-```python
-bld.pbl_library_ifdef('CONFIG_SOC_NRF52', ['nrf5/qspi.c'], name='driver_qspi')
-bld.pbl_recurse_ifdef('CONFIG_MIC', 'mic')
+```shell
+cmake -B build -GNinja -DBOARD=asterix
+cmake --build build
+```
+
+The unit tests still build with waf, out of their own build directory; see
+{doc}`testing`.
+
+## The library model
+
+Each directory that contributes code declares a library and feeds it with
+source files:
+
+```cmake
+pbl_library()
+pbl_library_sources(service.c util.c)
+```
+
+- Every declared library ends up in the single firmware image, so nothing
+  has to list them. Dependencies between firmware libraries do not need
+  declaring either: they resolve at the final link.
+- The library is named after its directory
+  (`src/fw/services/timeline` → `src__fw__services__timeline`). Give it a
+  name of its own with `pbl_library_named()` when something refers to it,
+  or when one directory builds more than one library.
+- The target is only created once the library gets its first source file,
+  so a directory whose sources are all configured out contributes nothing.
+
+`pbl_library_kind(stlib)` builds a static library the linker pulls objects
+from on demand, instead of the default `objects`, whose every object file
+is linked. Use it for third-party code that ships more than the firmware
+references.
+
+Private compile settings use the matching per-library calls:
+
+```cmake
+pbl_library_include_directories(.)
+pbl_library_compile_definitions(HAVE_CONFIG_H)
+pbl_library_compile_options(-Wno-sign-compare)
+```
+
+Conditional pieces key off the Kconfig symbols, which CMake sees as
+ordinary variables:
+
+```cmake
+pbl_library_sources_ifdef(CONFIG_ACCEL_LSM6DSO lsm6dso/lsm6dso.c)
+pbl_add_subdirectory_ifdef(CONFIG_MIC mic)
 ```
 
 ## Exposing headers
 
-Register the directory where it lives:
+Register the directory the headers live in:
 
-```python
-bld.pbl_include_directories('include')
-bld.pbl_compile_definitions('FOO_ENABLED=1')
+```cmake
+pbl_include_directories(include)
+pbl_compile_definitions(FOO_ENABLED=1)
 ```
 
-Paths are relative to the calling `wscript_build`; the matching build-tree
-directory is added too, so generated headers are found. A `Node` can be
-passed for build-only directories.
+Paths are relative to the calling `CMakeLists.txt`, and the matching build
+directory is added too, so generated headers are found next to their
+hand-written neighbours.
 
-Headers are always global; there is no per-consumer opt-in. A library that
-is not always needed is gated behind a Kconfig symbol instead, as Zephyr
-does: its `wscript_build` is recursed with `bld.pbl_recurse_ifdef()`, and
-the consumers `select` (or `imply`) the symbol in their own Kconfig, e.g.
-`BT_FW_NIMBLE` selects `MBEDTLS` and `SERVICE_VOICE` selects `SPEEX`.
+Headers are global; there is no per-consumer opt-in. A library that is not
+always needed is gated behind a Kconfig symbol instead, as Zephyr does:
+its directory is added with `pbl_add_subdirectory_ifdef()`, and consumers
+`select` (or `imply`) the symbol in their own Kconfig, e.g. `BT_FW_NIMBLE`
+selects `MBEDTLS` and `SERVICE_VOICE` selects `SPEEX`.
+
 Prebuilt vendor archives are registered with
-`bld.pbl_prebuilt_library(name, paths)`.
+`pbl_library_import(name path...)`, which looks for `lib<name>.a`.
 
 ## Linker script fragments
 
-Libraries that need linker script additions register them with
-`bld.linker_sources(location, 'fragment.ld')`, see `tools/waf/ldscript.py`
-for the available hook points.
+Libraries that need linker script additions register them against one of
+the master script's hook points:
+
+```cmake
+pbl_linker_sources(memory linker.ld)
+```
+
+See `cmake/modules/linker.cmake` for the available hooks.
+
+## Generated sources
+
+Generated headers are produced by custom commands and collected under the
+`pbl_generated_headers` target, which every library waits for. Generators
+live in `tools/cmake/`:
+
+- `kconfig.py` — runs Kconfig, writes `.config`, `autoconf.h` and the
+  CMake variables the build reads.
+- `resources.py` — resolves the board's resource maps into one build rule
+  per resource, and runs the resource, pbpack and resource-table steps.
+- `generate.py` — the remaining source generators (version header, app
+  registry, protocol endpoint table, applib allocator tables, log string
+  hashing, stored apps).
+- `firmware.py` — image steps: size checks, bundling, QEMU flash images.
+
+`autoconf.h` is force-included into every compilation, so Kconfig symbols
+reach the sources, the headers and the linker script alike.
+
+## Directory layout
+
+```
+CMakeLists.txt              the firmware image: what is built and linked
+cmake/toolchain/            the bare-metal ARM toolchain
+cmake/modules/              the build model, split by concern
+tools/cmake/                the generators the build shells out to
+```

@@ -6,7 +6,8 @@ svg.path
 bitarray
 polib
 
-# Build system (waf) tooling
+# Build system tooling (waf for the unit tests; CMake and Ninja for the
+# firmware -- CMake comes from the system, see requirements-brew.txt)
 sh<2
 packaging
 PyYAML

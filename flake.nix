@@ -92,6 +92,7 @@
             ];
             buildInputs = with pkgs; [
               pebbleos-sdk
+              cmake
               gettext
               git
               librsvg
