@@ -39,6 +39,7 @@
 #include "system/version.h"
 
 #include "pbl/services/activity/activity.h"
+#include "pbl/services/battery/battery_charge_limit.h"
 #include "pbl/services/blob_db/api.h"
 #include <pbl/logging/logging.h>
 
@@ -56,6 +57,7 @@ enum {
   SystemInformationItemHardware,
   SystemInformationItemSerial,
   SystemInformationItemUptime,
+  SystemInformationItemChargeLimit,
   SystemInformationItemLegal,
   SystemInformationItem_Count,
 };
@@ -123,6 +125,7 @@ typedef struct SystemInformationData {
   char serial_string[MFG_SERIAL_NUMBER_SIZE + 1];
   char hw_version_string[MFG_HW_VERSION_SIZE + 1];
   char uptime_string[16]; // "xxd xxh xxm xxs"
+  char charge_limit_string[8];
   char const * subtitle_text[SystemInformationItem_Count];
   char language_string[16];
 } SystemInformationData;
@@ -209,6 +212,7 @@ static const char* s_information_titles[SystemInformationItem_Count] = {
   [SystemInformationItemHardware] = i18n_noop("Hardware"),
   [SystemInformationItemSerial] = i18n_noop("Serial"),
   [SystemInformationItemUptime] = i18n_noop("Uptime"),
+  [SystemInformationItemChargeLimit] = i18n_noop("Charge Limit"),
   [SystemInformationItemLegal] = i18n_noop("Legal")
 };
 
@@ -306,6 +310,12 @@ static void prv_information_window_push(SettingsSystemData *data) {
   sniprintf(info->language_string, sizeof(info->language_string),
             "%s, v%u", i18n_get_locale(), i18n_get_version());
 
+  const uint8_t charge_limit_pct = shell_prefs_get_charge_limit_pct();
+  if (charge_limit_pct != CHARGE_LIMIT_PCT_DISABLED) {
+    sniprintf(info->charge_limit_string, sizeof(info->charge_limit_string),
+              "%u%%", charge_limit_pct);
+  }
+
   info->subtitle_text[SystemInformationItemBtAddress]  = info->bt_mac_addr;
   info->subtitle_text[SystemInformationItemFirmware]   =
     (char*) (strlen(TINTIN_METADATA.version_tag) >= 2
@@ -316,6 +326,9 @@ static void prv_information_window_push(SettingsSystemData *data) {
   info->subtitle_text[SystemInformationItemHardware]   = info->hw_version_string;
   info->subtitle_text[SystemInformationItemSerial]     = info->serial_string;
   info->subtitle_text[SystemInformationItemUptime]     = info->uptime_string;
+  info->subtitle_text[SystemInformationItemChargeLimit] =
+      (charge_limit_pct != CHARGE_LIMIT_PCT_DISABLED) ? info->charge_limit_string
+                                                      : i18n_get("Off", data);
   info->subtitle_text[SystemInformationItemLegal]      = "repebble.com/terms";
 
   window_init(&data->window, WINDOW_NAME("System Information"));

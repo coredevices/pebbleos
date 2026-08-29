@@ -15,6 +15,7 @@
 
 static uint16_t s_battery_mv = 4000;
 static bool s_usb_connected;
+static bool s_charging_enabled = true;
 static uint8_t s_percent = 100;
 
 void battery_init(void) {
@@ -39,7 +40,7 @@ int battery_charge_status_get(BatteryChargeStatus *status) {
 }
 
 bool battery_charge_controller_thinks_we_are_charging_impl(void) {
-  return s_usb_connected && (s_percent < 100);
+  return s_usb_connected && s_charging_enabled && (s_percent < 100);
 }
 
 bool battery_is_usb_connected_impl(void) {
@@ -47,7 +48,7 @@ bool battery_is_usb_connected_impl(void) {
 }
 
 void battery_set_charge_enable(bool charging_enabled) {
-  s_usb_connected = false;
+  s_charging_enabled = charging_enabled;
 }
 
 void battery_set_fast_charge(bool fast_charge_enabled) {

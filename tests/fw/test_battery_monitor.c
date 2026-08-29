@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/services/battery/battery_charge_limit.h"
 #include "pbl/services/battery/battery_monitor.h"
 #include "pbl/services/battery/battery_state.h"
 #include "pbl/services/battery/battery_curve.h"
@@ -54,6 +55,8 @@ bool firmware_update_is_in_progress(void) {
 }
 
 void battery_force_charge_enable(bool is_charging) { }
+
+void battery_charge_limit_evaluate(PreciseBatteryChargeState state) { }
 
 static void periodic_timer_trigger(int count) {
   TimerID timer_id = battery_state_get_periodic_timer_id();

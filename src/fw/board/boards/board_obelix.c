@@ -541,8 +541,8 @@ const BoardConfigActuator BOARD_CONFIG_VIBE = {
 
 // TODO(OBELIX): Adjust to final battery parameters
 const Npm1300Config NPM1300_CONFIG = {
-  // 190mA = 1C (rapid charge, max limit from datasheet)
-  .chg_current_ma = 190,
+  // 96mA = 0.5C standard charge (datasheet rapid-charge max is 190mA = 1C)
+  .chg_current_ma = 96,
   .dischg_limit_ma = 200,
   .term_current_pct = 10,
   .thermistor_beta = 3380,
