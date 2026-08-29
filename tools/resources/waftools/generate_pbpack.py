@@ -1,28 +1,16 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from pbpack import ResourcePack
-from resources.types.resource_ball import ResourceBall
-from resources.types.resource_definition import StorageType
 from waflib import Task, TaskGen
+
+from resources import generators
 
 
 class generate_pbpack(Task.Task):
     def run(self):
-        resource_ball = ResourceBall.load(self.inputs[0].abspath())
-        resource_objects = [
-            reso
-            for reso in resource_ball.resource_objects
-            if reso.definition.storage == StorageType.pbpack
-        ]
-
-        pack = ResourcePack(self.is_system)
-
-        for r in resource_objects:
-            pack.add_resource(r.data)
-
-        with open(self.outputs[0].abspath(), "wb") as f:
-            pack.serialize(f)
+        generators.build_pbpack(
+            self.inputs[0].abspath(), self.outputs[0].abspath(), self.is_system
+        )
 
 
 @TaskGen.feature("generate_pbpack")
