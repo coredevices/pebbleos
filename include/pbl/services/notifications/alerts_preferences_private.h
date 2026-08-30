@@ -42,6 +42,18 @@ bool alerts_preferences_get_notification_backlight(void);
 void alerts_preferences_set_notification_backlight(bool enable);
 
 typedef enum {
+  NotificationGroupingRange_Never = 0,
+  NotificationGroupingRange_OneDay,
+  NotificationGroupingRange_OneWeek,
+  NotificationGroupingRange_All,
+  NotificationGroupingRangeCount,
+} NotificationGroupingRange;
+
+NotificationGroupingRange alerts_preferences_get_notification_grouping_range(void);
+
+void alerts_preferences_set_notification_grouping_range(NotificationGroupingRange range);
+
+typedef enum {
   NotificationStatusBarStyle_Default = 0,
   NotificationStatusBarStyle_Bold = 1,
   NotificationStatusBarStyle_LargeBold = 2,
