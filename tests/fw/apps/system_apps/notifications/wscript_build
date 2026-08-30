@@ -1,0 +1,8 @@
+from tools.waf.pebble_test import clar
+
+clar(ctx,
+     sources_ant_glob="src/fw/apps/system/notifications_history.c",
+     test_sources_ant_glob="test_notifications_history.c",
+     override_includes=['dummy_board'])
+
+# vim:filetype=python
