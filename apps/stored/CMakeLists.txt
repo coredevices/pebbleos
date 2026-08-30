@@ -80,7 +80,7 @@ set_directory_properties(PROPERTIES
 function(pbl_stored_app name)
   set(app_bin ${CMAKE_CURRENT_BINARY_DIR}/${name})
   set(app_ldscript ${CMAKE_CURRENT_SOURCE_DIR}/pebble_app.ld)
-  set(generate ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py)
+  set(generate ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py)
 
   # appinfo.json describes the app to the launcher and the app store.
   add_custom_command(

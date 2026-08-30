@@ -57,7 +57,7 @@ set(applib_malloc_c ${CMAKE_CURRENT_BINARY_DIR}/applib_malloc.auto.c)
 file(GLOB applib_malloc_templates CONFIGURE_DEPENDS ${PBL_BASE}/tools/applib_malloc*)
 add_custom_command(
   OUTPUT ${applib_malloc_h} ${applib_malloc_c}
-  COMMAND ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py applib-malloc
+  COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py applib-malloc
           --input ${CMAKE_CURRENT_SOURCE_DIR}/applib_malloc.json
           --header ${applib_malloc_h} --impl ${applib_malloc_c}
           --min-sdk ${PBL_MIN_SDK_VERSION}

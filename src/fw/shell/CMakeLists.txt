@@ -14,7 +14,7 @@ set(registry ${CMAKE_CURRENT_BINARY_DIR}/system_app_registry_list.auto.h)
 set(app_ids ${CMAKE_CURRENT_BINARY_DIR}/system_app_ids.auto.h)
 add_custom_command(
   OUTPUT ${registry} ${app_ids}
-  COMMAND ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py app-registry
+  COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py app-registry
           --input ${CMAKE_CURRENT_SOURCE_DIR}/${shell}/system_app_registry_list.json
           --registry ${registry} --enum ${app_ids}
           --config ${PBL_DOTCONFIG} --board ${PBL_BOARD_NAME}

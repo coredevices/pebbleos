@@ -7,7 +7,7 @@ pbl_include_directories(. applib/vendor/uPNG applib/vendor/tinflate)
 set(git_version ${CMAKE_CURRENT_BINARY_DIR}/git_version.auto.h)
 add_custom_command(
   OUTPUT ${git_version} ${CMAKE_CURRENT_BINARY_DIR}/git_version.stamp
-  COMMAND ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py git-version
+  COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py git-version
           --template ${CMAKE_CURRENT_SOURCE_DIR}/git_version.auto.h.in
           --output ${git_version}
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/git_version.auto.h.in

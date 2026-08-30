@@ -11,7 +11,7 @@ else()
 endif()
 add_custom_command(
   OUTPUT ${endpoints}
-  COMMAND ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py endpoints-table
+  COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py endpoints-table
           --input ${CMAKE_CURRENT_SOURCE_DIR}/protocol_endpoints_table.json
           --output ${endpoints} ${recovery}
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/protocol_endpoints_table.json

@@ -76,14 +76,14 @@ function(pbl_link_firmware)
       COMMAND ${CMAKE_OBJCOPY} ${objcopy_args} -O binary ${elf} ${nohdr_bin}
       DEPENDS pebbleos VERBATIM)
     add_custom_command(OUTPUT ${hex}
-      COMMAND ${PYTHON_EXECUTABLE} ${PBL_GENERATE_PY} pblboot-header
+      COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_GENERATE_PY} pblboot-header
               --input ${nohdr_hex} --output ${hex} --offset ${CONFIG_FIRMWARE_OFFSET}
       DEPENDS ${nohdr_hex} ${PBL_GENERATE_PY}
       WORKING_DIRECTORY ${PBL_BASE} VERBATIM)
     add_custom_command(OUTPUT ${bin}
-      COMMAND ${PYTHON_EXECUTABLE} ${PBL_GENERATE_PY} pblboot-header
+      COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_GENERATE_PY} pblboot-header
               --input ${nohdr_bin} --output ${bin} --offset ${CONFIG_FIRMWARE_OFFSET}
-      COMMAND ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} check-size
+      COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} check-size
               --config ${PBL_DOTCONFIG} --firmware ${bin}
       DEPENDS ${nohdr_bin} ${PBL_GENERATE_PY} ${PBL_FIRMWARE_PY}
       WORKING_DIRECTORY ${PBL_BASE} VERBATIM)
@@ -93,7 +93,7 @@ function(pbl_link_firmware)
       DEPENDS pebbleos VERBATIM)
     add_custom_command(OUTPUT ${bin}
       COMMAND ${CMAKE_OBJCOPY} ${objcopy_args} -O binary ${elf} ${bin}
-      COMMAND ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} check-size
+      COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} check-size
               --config ${PBL_DOTCONFIG} --firmware ${bin}
       DEPENDS pebbleos ${PBL_FIRMWARE_PY}
       WORKING_DIRECTORY ${PBL_BASE} VERBATIM)
@@ -108,7 +108,7 @@ function(pbl_link_firmware)
     set(fw_loghash ${PROJECT_BINARY_DIR}/pebbleos_loghash_dict.json)
     add_custom_command(
       OUTPUT ${fw_loghash}
-      COMMAND ${PYTHON_EXECUTABLE} ${PBL_GENERATE_PY} loghash
+      COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_GENERATE_PY} loghash
               --elf ${elf} --output ${fw_loghash}
       DEPENDS pebbleos ${PBL_GENERATE_PY}
       WORKING_DIRECTORY ${PBL_BASE}
@@ -117,7 +117,7 @@ function(pbl_link_firmware)
     )
     add_custom_command(
       OUTPUT ${loghash}
-      COMMAND ${PYTHON_EXECUTABLE} ${PBL_GENERATE_PY} loghash-merge
+      COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_GENERATE_PY} loghash-merge
               --output ${loghash} ${fw_loghash}
       DEPENDS ${fw_loghash} ${PBL_GENERATE_PY}
       WORKING_DIRECTORY ${PBL_BASE}
@@ -145,7 +145,7 @@ function(pbl_link_firmware)
     list(APPEND bundle_args --loghash ${loghash})
   endif()
   add_custom_target(bundle
-    COMMAND ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} bundle ${bundle_args}
+    COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} bundle ${bundle_args}
     DEPENDS pbl_firmware
     WORKING_DIRECTORY ${PBL_BASE}
     COMMENT "Bundling firmware"
@@ -156,7 +156,7 @@ function(pbl_link_firmware)
 
   if(CONFIG_QEMU)
     add_custom_target(qemu_image_micro
-      COMMAND ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} qemu-image-micro
+      COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} qemu-image-micro
               --input ${hex} --output ${PROJECT_BINARY_DIR}/qemu_micro_flash.bin
       DEPENDS pbl_firmware
       WORKING_DIRECTORY ${PBL_BASE}
@@ -164,7 +164,7 @@ function(pbl_link_firmware)
     )
     if(PBL_PBPACK)
       add_custom_target(qemu_image_spi
-        COMMAND ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} qemu-image-spi
+        COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} qemu-image-spi
                 --config ${PBL_DOTCONFIG} --pbpack ${PBL_PBPACK}
                 --output ${PROJECT_BINARY_DIR}/qemu_spi_flash.bin
         DEPENDS pbl_firmware

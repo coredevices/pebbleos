@@ -42,7 +42,7 @@ for f in files:
 
   add_custom_command(
     OUTPUT ${outputs}
-    COMMAND ${PYTHON_EXECUTABLE} ${script} --sdk-dir=${sdk_dir}
+    COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${script} --sdk-dir=${sdk_dir}
             ${symbols} ${PBL_BASE}/src ${PROJECT_BINARY_DIR}/src
             ${PBL_PLATFORM_NAME}
     DEPENDS ${script} ${symbols} ${headers}
@@ -54,7 +54,7 @@ for f in files:
   set(fonts_header ${sdk_dir}/include/pebble_fonts.h)
   add_custom_command(
     OUTPUT ${fonts_header}
-    COMMAND ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py sdk-fonts-header
+    COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py sdk-fonts-header
             --input ${symbols} --output ${fonts_header}
             --platform ${PBL_PLATFORM_NAME}
     DEPENDS ${symbols} ${outputs}

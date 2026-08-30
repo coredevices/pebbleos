@@ -20,7 +20,7 @@ function(pbl_resource_command)
   cmake_parse_arguments(ARG "" "OUTPUT;COMMENT" "ARGS;DEPENDS" ${ARGN})
   add_custom_command(
     OUTPUT ${ARG_OUTPUT}
-    COMMAND ${PYTHON_EXECUTABLE} ${PBL_RESOURCES_PY} ${ARG_ARGS}
+    COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_RESOURCES_PY} ${ARG_ARGS}
     DEPENDS ${ARG_DEPENDS} ${PBL_RESOURCES_PY}
     WORKING_DIRECTORY ${PBL_BASE}
     COMMENT "${ARG_COMMENT}"
@@ -82,9 +82,9 @@ function(pbl_resources)
   if(NOT CONFIG_RECOVERY_FW)
     add_custom_command(
       OUTPUT ${pbpack}
-      COMMAND ${PYTHON_EXECUTABLE} ${PBL_RESOURCES_PY} pbpack
+      COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_RESOURCES_PY} pbpack
               --ball ${ball} --output ${pbpack} --system
-      COMMAND ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/firmware.py
+      COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/firmware.py
               size-resources --config ${PBL_DOTCONFIG} --pbpack ${pbpack}
       DEPENDS ${ball} ${PBL_RESOURCES_PY}
       WORKING_DIRECTORY ${PBL_BASE}

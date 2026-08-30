@@ -44,6 +44,11 @@ if(sdk_path)
   endif()
 endif()
 
+# ENV{PATH} only reaches what CMake itself runs while configuring. The build
+# steps that shell out to the toolchain by name -- the native SDK generator
+# asks for arm-none-eabi-gcc -- need it too, so they run behind this.
+set(PBL_TOOLCHAIN_ENV ${CMAKE_COMMAND} -E env "PATH=$ENV{PATH}")
+
 if(NOT CMAKE_TOOLCHAIN_FILE)
   set(CMAKE_TOOLCHAIN_FILE ${PBL_BASE}/cmake/toolchain/arm-none-eabi.cmake)
 endif()
