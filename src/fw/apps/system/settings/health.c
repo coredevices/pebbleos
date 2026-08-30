@@ -41,6 +41,9 @@ enum SettingsHealthItem {
     SettingsHealthHRMonitoringInterval,
     SettingsHealthHRActivityTracking,
 #endif
+#ifdef CONFIG_HRM_HRV
+    SettingsHealthEnhancedOvernightHRLogging,
+#endif
     NumSettingsHealthItems
 };
 
@@ -118,6 +121,14 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
             break;
         }
 #endif
+#ifdef CONFIG_HRM_HRV
+        case SettingsHealthEnhancedOvernightHRLogging: {
+            title = i18n_noop("Sleep HR Logging");
+            subtitle = activity_prefs_enhanced_overnight_hr_logging_is_enabled()
+                ? i18n_noop("On (more battery)") : i18n_noop("Off");
+            break;
+        }
+#endif
         default:
             WTF;
     }
@@ -149,6 +160,12 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
         case SettingsHealthHRActivityTracking:
             activity_prefs_set_hrm_activity_tracking_enabled(
                 !activity_prefs_hrm_activity_tracking_is_enabled());
+            break;
+#endif
+#ifdef CONFIG_HRM_HRV
+        case SettingsHealthEnhancedOvernightHRLogging:
+            activity_prefs_set_enhanced_overnight_hr_logging_enabled(
+                !activity_prefs_enhanced_overnight_hr_logging_is_enabled());
             break;
 #endif
         default:

@@ -12,6 +12,7 @@ sources = [
     'insights_settings.c',
     'kraepelin/activity_algorithm_kraepelin.c',
     'kraepelin/kraepelin_algorithm.c',
+    'sleep_capture.c',
     'workout_service.c',
 ]
 

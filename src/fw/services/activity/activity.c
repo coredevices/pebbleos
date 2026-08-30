@@ -43,12 +43,17 @@
 #include "pbl/services/activity/activity_calculators.h"
 #include "pbl/services/activity/activity_insights.h"
 #include "pbl/services/activity/activity_private.h"
+#include "sleep_capture.h"
 
 PBL_LOG_MODULE_DEFINE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 
 // Our globals
 static ActivityState s_activity_state;
 static bool s_activity_initialized = false;
+#ifdef CONFIG_HRM_HRV
+// Tracks the temporary overnight HRV feature request.
+static bool s_sleep_capture_hrv_requested = false;
+#endif
 
 // ------------------------------------------------------------------------------------------------
 ActivityState *activity_private_state(void) {
@@ -97,6 +102,28 @@ static uint32_t prv_get_hrm_period_sec(void) {
 // @param[in] now_ts number of seconds the system has been running (from time_get_uptime_seconds())
 static void prv_heart_rate_subscription_update(uint32_t now_ts) {
 #ifdef CONFIG_HRM
+  #ifdef CONFIG_HRM_HRV
+  if (sleep_capture_is_active()) {
+    if (!s_sleep_capture_hrv_requested) {
+      sys_hrm_manager_set_features(s_activity_state.hr.hrm_session,
+                                   HRMFeature_BPM | HRMFeature_HRV);
+      s_sleep_capture_hrv_requested = true;
+    }
+    // Keep the HRM manager's PPI path active.
+    sys_hrm_manager_set_update_interval(s_activity_state.hr.hrm_session, 1, 0 /* expire_sec */);
+    s_activity_state.hr.currently_sampling = true;
+    s_activity_state.hr.toggled_sampling_at_ts = now_ts;
+    return;
+  }
+  if (s_sleep_capture_hrv_requested) {
+    sys_hrm_manager_set_features(s_activity_state.hr.hrm_session, HRMFeature_BPM);
+    s_sleep_capture_hrv_requested = false;
+    // Resume the normal background-HR policy.
+    s_activity_state.hr.currently_sampling = false;
+    s_activity_state.hr.toggled_sampling_at_ts = now_ts;
+  }
+  #endif
+
   // If measurement interval is disabled, ensure we're not sampling and skip
   if (activity_prefs_get_hrm_measurement_interval() == HRMonitoringInterval_Disabled) {
     if (s_activity_state.hr.currently_sampling) {
@@ -167,6 +194,7 @@ static void prv_heart_rate_subscription_update(uint32_t now_ts) {
 #ifdef CONFIG_HRM
 T_STATIC void prv_hrm_subscription_cb(PebbleHRMEvent *hrm_event, void *context) {
   ACTIVITY_LOG_DEBUG("Got HR event: %d", (int) hrm_event->event_type);
+  sleep_capture_handle_hrm_event(hrm_event);
   if (hrm_event->event_type == HRMEvent_BPM) {
     ACTIVITY_LOG_DEBUG("HR bpm: %"PRIu8", qual: %"PRId8" ", hrm_event->bpm.bpm,
                        (int8_t) hrm_event->bpm.quality);
@@ -232,6 +260,9 @@ T_STATIC void prv_hrm_subscription_cb(PebbleHRMEvent *hrm_event, void *context) 
 // Init heart rate support
 static void prv_heart_rate_init(void) {
 #ifdef CONFIG_HRM
+  #ifdef CONFIG_HRM_HRV
+  s_sleep_capture_hrv_requested = false;
+  #endif
   // Subscribe to HRM data
   s_activity_state.hr.currently_sampling = false;
   s_activity_state.hr.toggled_sampling_at_ts = time_get_uptime_seconds();
@@ -253,6 +284,9 @@ static void prv_heart_rate_deinit(void) {
   sys_hrm_manager_unsubscribe(s_activity_state.hr.hrm_session);
   protobuf_log_session_delete(s_activity_state.hr.log_session);
   activity_metrics_prv_reset_hr_stats();
+  #ifdef CONFIG_HRM_HRV
+  s_sleep_capture_hrv_requested = false;
+  #endif
 #endif // CONFIG_HRM
 }
 
@@ -487,7 +521,9 @@ static void NOINLINE prv_update_storage(time_t utc_sec) {
 // We use NOINLINE to reduce the stack requirements during the minute handler (see PBL-38130)
 static void NOINLINE prv_process_minute_data_tail(time_t utc_sec) {
   bool need_history_update_event;
+  bool sleep_active;
   uint16_t cur_day_index;
+
   mutex_lock_recursive(s_activity_state.mutex);
   {
     cur_day_index = time_util_get_day(utc_sec);
@@ -495,6 +531,8 @@ static void NOINLINE prv_process_minute_data_tail(time_t utc_sec) {
 
     // Call the activity sessions minute handler
     activity_sessions_prv_minute_handler(utc_sec);
+    sleep_active = s_activity_state.sleep_data.cur_state == ActivitySleepStateLightSleep ||
+                   s_activity_state.sleep_data.cur_state == ActivitySleepStateRestfulSleep;
 
     // Update our backing store if necessary
     prv_update_storage(utc_sec);
@@ -518,9 +556,15 @@ static void NOINLINE prv_process_minute_data_tail(time_t utc_sec) {
       activity_insights_recalculate_stats();
     }
 
-    // Update the heart rate sampling period if necessary
-    prv_heart_rate_subscription_update(time_get_uptime_seconds());
   }
+  mutex_unlock_recursive(s_activity_state.mutex);
+
+  // DataLogging may allocate or close a session, so keep it outside the Activity-state mutex.
+  sleep_capture_minute_handler(utc_sec, activity_prefs_heart_rate_is_enabled(), sleep_active,
+                               activity_prefs_enhanced_overnight_hr_logging_is_enabled());
+
+  mutex_lock_recursive(s_activity_state.mutex);
+  prv_heart_rate_subscription_update(time_get_uptime_seconds());
   mutex_unlock_recursive(s_activity_state.mutex);
 
   // Send the history update event now if history has changed
@@ -738,6 +782,7 @@ static void prv_accel_cb(AccelRawData *data, uint32_t num_samples, uint64_t time
   if (vibes_get_vibe_strength() != VIBE_STRENGTH_OFF) {
     memset(data, 0, num_samples * sizeof(AccelRawData));
   }
+  sleep_capture_handle_accel(data, num_samples);
   // Have the algorithm process the samples from KernelBG
   activity_algorithm_handle_accel(data, num_samples, timestamp);
 
@@ -894,6 +939,9 @@ static void prv_stop_tracking_cb(void *context) {
     accel_session_delete(s_activity_state.accel_session);
     s_activity_state.accel_session = NULL;
   }
+
+  // Finish the local-first sleep stream before releasing the HRM subscription it depends on.
+  sleep_capture_deinit();
 
   // Close down heart rate support
   prv_heart_rate_deinit();

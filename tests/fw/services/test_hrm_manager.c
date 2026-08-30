@@ -555,18 +555,27 @@ void test_hrm_manager__set_features(void) {
   const uint16_t expire_s = SECONDS_PER_MINUTE;
   const HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(app_id, 1, expire_s,
                                                                   HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
   HRMSubscriberState *state = prv_get_subscriber_state_from_ref(session_ref);
 
   // Starts off with BPM enabled
   cl_assert_equal_i(state->features, HRMFeature_BPM);
 
-  // Change to none
-  sys_hrm_manager_set_features(session_ref, 0);
-  cl_assert_equal_i(state->features, 0);
+  // Switching a live subscription must make the KernelBG task restart the sensor with the new
+  // feature set. This is what enables raw PPI during an already-running Workout.
+  const int initial_enable_count = s_hrm_state.enable_count;
+  cl_assert(sys_hrm_manager_set_features(session_ref, HRMFeature_BPM | HRMFeature_HRV));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_i(state->features, HRMFeature_BPM | HRMFeature_HRV);
+  cl_assert_equal_i(s_hrm_state.features, HRMFeature_BPM | HRMFeature_HRV);
+  cl_assert_equal_i(s_hrm_state.enable_count, initial_enable_count + 1);
 
-  // Change to BPM
-  sys_hrm_manager_set_features(session_ref, HRMFeature_BPM);
+  // And it must likewise remove HRV at Workout end.
+  cl_assert(sys_hrm_manager_set_features(session_ref, HRMFeature_BPM));
+  fake_system_task_callbacks_invoke_pending();
   cl_assert_equal_i(state->features, HRMFeature_BPM);
+  cl_assert_equal_i(s_hrm_state.features, HRMFeature_BPM);
+  cl_assert_equal_i(s_hrm_state.enable_count, initial_enable_count + 2);
 }
 
 void test_hrm_manager__set_update_internal(void) {
