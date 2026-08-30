@@ -58,6 +58,15 @@ bool notification_storage_find_ancs_notification_by_timestamp(
 void notification_storage_iterate(bool (*iter_callback)(void *data,
     SerializedTimelineItemHeader *header_id), void *data);
 
+//! Iterates over all notifications and deserializes payloads at or after item_cutoff.
+//! item is NULL for older notifications. Callback data is only valid during the callback.
+//! NOTE: Do NOT call into other notification storage functions from the iterator callback.
+void notification_storage_iterate_items_after(
+    time_t item_cutoff,
+    bool (*iter_callback)(void *data, const CommonTimelineItemHeader *header,
+                          const TimelineItem *item),
+    void *data);
+
 //! Iterates over all the notifications calling the callback with the passed data.
 //! Overwrites the notifications and rewrites them to disk.
 //! This is essentially a noop if the callback doesn't alter the data.

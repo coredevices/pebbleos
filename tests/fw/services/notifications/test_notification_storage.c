@@ -162,6 +162,27 @@ static void compare_notifications(TimelineItem *a, TimelineItem *b) {
   }
 }
 
+typedef struct {
+  Uuid older_id;
+  Uuid recent_id;
+  uint8_t header_count;
+  uint8_t item_count;
+} NotificationItemsIteratorContext;
+
+static bool prv_items_iterator_callback(void *data, const CommonTimelineItemHeader *header,
+                                        const TimelineItem *item) {
+  NotificationItemsIteratorContext *context = data;
+  if (item) {
+    context->item_count++;
+    cl_assert(uuid_equal(&item->header.id, &context->recent_id));
+    cl_assert_equal_s(attribute_get_string(&item->attr_list, AttributeIdTitle, NULL), "Sender");
+  } else {
+    context->header_count++;
+    cl_assert(uuid_equal(&header->id, &context->older_id));
+  }
+  return true;
+}
+
 // Tests
 ////////////////////////////////////
 void test_notification_storage__basic(void) {
@@ -198,6 +219,43 @@ void test_notification_storage__basic(void) {
   Uuid invalid_uuid;
   uuid_generate(&invalid_uuid);
   cl_assert_equal_b(notification_storage_get(&invalid_uuid, &r), false);
+}
+
+void test_notification_storage__iterate_items_after_skips_old_and_deleted_payloads(void) {
+  TimelineItem older = {
+      .header =
+          {
+              .id = UuidMake(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+              .timestamp = 100,
+              .type = TimelineItemTypeNotification,
+              .layout = LayoutIdGeneric,
+          },
+      .attr_list =
+          {
+              .num_attributes = ARRAY_LENGTH(attributes),
+              .attributes = attributes,
+          },
+  };
+  TimelineItem recent = older;
+  recent.header.id = UuidMake(2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+  recent.header.timestamp = 200;
+  TimelineItem deleted = older;
+  deleted.header.id = UuidMake(3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+  deleted.header.timestamp = 300;
+
+  notification_storage_store(&older);
+  notification_storage_store(&recent);
+  notification_storage_store(&deleted);
+  notification_storage_remove(&deleted.header.id);
+
+  NotificationItemsIteratorContext context = {
+      .older_id = older.header.id,
+      .recent_id = recent.header.id,
+  };
+  notification_storage_iterate_items_after(200, prv_items_iterator_callback, &context);
+
+  cl_assert_equal_i(context.header_count, 1);
+  cl_assert_equal_i(context.item_count, 1);
 }
 
 void test_notification_storage__multiple(void) {

@@ -736,6 +736,55 @@ void notification_storage_iterate(bool (*iter_callback)(void *data,
   prv_file_close(fd);
 }
 
+void notification_storage_iterate_items_after(
+    time_t item_cutoff,
+    bool (*iter_callback)(void *data, const CommonTimelineItemHeader *header,
+                          const TimelineItem *item),
+    void *data) {
+  PBL_ASSERTN(s_notif_storage_mutex != NULL);
+
+  if (iter_callback == NULL) {
+    return;
+  }
+
+  int fd = prv_file_open(OP_FLAG_READ);
+  if (fd < 0) {
+    return;
+  }
+
+  Iterator iter;
+  NotificationIterState iter_state = {.fd = fd};
+  iter_init(&iter, (IteratorCallback)prv_iter_next, NULL, &iter_state);
+
+  while (iter_next(&iter)) {
+    if (iter_state.header.common.status & TimelineItemStatusDeleted) {
+      if (pfs_seek(fd, iter_state.header.payload_length, FSeekCur) < 0) {
+        break;
+      }
+      continue;
+    }
+
+    const bool deserialize = iter_state.header.common.timestamp >= item_cutoff;
+    TimelineItem item;
+    if (deserialize && !prv_get_notification(&item, &iter_state.header, fd)) {
+      break;
+    }
+
+    const bool should_continue =
+        iter_callback(data, &iter_state.header.common, deserialize ? &item : NULL);
+    if (deserialize) {
+      timeline_item_free_allocated_buffer(&item);
+    } else if (pfs_seek(fd, iter_state.header.payload_length, FSeekCur) < 0) {
+      break;
+    }
+    if (!should_continue) {
+      break;
+    }
+  }
+
+  prv_file_close(fd);
+}
+
 void notification_storage_reset_and_init(void) {
   notification_storage_lock();
   pfs_remove(FILENAME);
