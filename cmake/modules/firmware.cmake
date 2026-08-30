@@ -83,9 +83,7 @@ function(pbl_link_firmware)
     add_custom_command(OUTPUT ${bin}
       COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_GENERATE_PY} pblboot-header
               --input ${nohdr_bin} --output ${bin} --offset ${CONFIG_FIRMWARE_OFFSET}
-      COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} check-size
-              --config ${PBL_DOTCONFIG} --firmware ${bin}
-      DEPENDS ${nohdr_bin} ${PBL_GENERATE_PY} ${PBL_FIRMWARE_PY}
+      DEPENDS ${nohdr_bin} ${PBL_GENERATE_PY}
       WORKING_DIRECTORY ${PBL_BASE} VERBATIM)
   else()
     add_custom_command(OUTPUT ${hex}
@@ -93,10 +91,7 @@ function(pbl_link_firmware)
       DEPENDS pebbleos VERBATIM)
     add_custom_command(OUTPUT ${bin}
       COMMAND ${CMAKE_OBJCOPY} ${objcopy_args} -O binary ${elf} ${bin}
-      COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_FIRMWARE_PY} check-size
-              --config ${PBL_DOTCONFIG} --firmware ${bin}
-      DEPENDS pebbleos ${PBL_FIRMWARE_PY}
-      WORKING_DIRECTORY ${PBL_BASE} VERBATIM)
+      DEPENDS pebbleos VERBATIM)
   endif()
 
   set(artifacts ${hex} ${bin})

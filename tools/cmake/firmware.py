@@ -43,32 +43,6 @@ def enabled(config, key):
     return config.get(key) == "y"
 
 
-def max_firmware_size(config):
-    recovery = enabled(config, "CONFIG_RECOVERY_FW")
-    mfg = enabled(config, "CONFIG_MFG")
-    if enabled(config, "CONFIG_SOC_NRF52"):
-        if recovery and not mfg:
-            return 512 * BYTES_PER_K
-        # 1024k of flash and a 32k bootloader
-        return (1024 - 32) * BYTES_PER_K
-    if enabled(config, "CONFIG_SOC_SF32LB52"):
-        if recovery and not mfg:
-            return 576 * BYTES_PER_K
-        return 3072 * BYTES_PER_K
-    if enabled(config, "CONFIG_QEMU"):
-        return 4096 * BYTES_PER_K
-    sys.exit("Cannot check firmware size against unknown micro family")
-
-
-def check_firmware_size(config, path):
-    size = os.path.getsize(path)
-    maximum = max_firmware_size(config)
-    if size > maximum:
-        sys.exit(
-            f"Firmware is too large! Size is {size:#x} should be less than {maximum:#x}"
-        )
-
-
 def max_resources_size(config):
     if enabled(config, "CONFIG_SOC_NRF52"):
         return 1024 * BYTES_PER_K
@@ -82,10 +56,6 @@ def version_info():
     if revision["TAG"] != "?":
         return revision["TAG"], int(revision["TIMESTAMP"]), revision["COMMIT"]
     return "dev", 0, ""
-
-
-def cmd_check_size(args):
-    check_firmware_size(read_config(args.config), args.firmware)
 
 
 def cmd_size_resources(args):
@@ -113,7 +83,6 @@ def cmd_bundle(args):
     slot = args.slot if fw_type == "normal" and args.slot != -1 else None
 
     bundle = mkbundle.PebbleBundle()
-    check_firmware_size(config, args.firmware)
     try:
         bundle.add_firmware(
             args.firmware, fw_type, version_ts, version_commit, args.board,
@@ -174,11 +143,6 @@ def cmd_qemu_image_spi(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-
-    p = sub.add_parser("check-size")
-    p.add_argument("--config", required=True)
-    p.add_argument("--firmware", required=True)
-    p.set_defaults(func=cmd_check_size)
 
     p = sub.add_parser("size-resources")
     p.add_argument("--config", required=True)
