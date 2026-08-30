@@ -67,7 +67,6 @@ def check_firmware_size(config, path):
         sys.exit(
             f"Firmware is too large! Size is {size:#x} should be less than {maximum:#x}"
         )
-    return f"{size} / {maximum} bytes used ({maximum - size} free)"
 
 
 def max_resources_size(config):
@@ -86,8 +85,7 @@ def version_info():
 
 
 def cmd_check_size(args):
-    config = read_config(args.config)
-    pprint("FW: " + check_firmware_size(config, args.firmware))
+    check_firmware_size(read_config(args.config), args.firmware)
 
 
 def cmd_size_resources(args):
