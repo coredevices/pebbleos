@@ -200,9 +200,12 @@ static void prv_start_hrm_kernel_main(void *unused) {
     .handler = prv_ble_hrm_handle_hrm_data,
   };
   event_service_client_subscribe(&s_ble_hrm_session.service_info);
+  // Streaming live HR to a phone (BLE Heart Rate Profile expects ~1s updates), so request the
+  // low-latency FIFO cadence even though this is a KernelMain (non-app) subscriber.
   s_ble_hrm_session.manager_session =
       hrm_manager_subscribe_with_callback(INSTALL_ID_INVALID, 1 /*update_interval_s*/,
-                                          0 /*expire_s*/, HRMFeature_BPM, NULL, NULL);
+                                          0 /*expire_s*/, HRMFeature_BPM, true /*low_latency*/,
+                                          NULL, NULL);
 
 }
 

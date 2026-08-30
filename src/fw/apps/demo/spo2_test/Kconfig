@@ -1,0 +1,6 @@
+# SPDX-Copyright-Text: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+config DEMO_APP_SPO2_TEST
+    bool "SpO2 Test"
+    depends on HRM

@@ -133,7 +133,7 @@ static uint32_t s_hrm_manager_update_interval;
 static int s_hrm_manager_num_update_interval_changes;
 static uint16_t s_hrm_manager_expire_s;
 HRMSessionRef hrm_manager_subscribe_with_callback(AppInstallId app_id, uint32_t update_interval_s,
-                                         uint16_t expire_s, HRMFeature features,
+                                         uint16_t expire_s, HRMFeature features, bool low_latency,
                                          HRMSubscriberCallback callback, void *context) {
   s_hrm_manager_update_interval = update_interval_s;
   s_hrm_manager_expire_s = expire_s;
@@ -671,6 +671,20 @@ bool activity_algorithm_minute_file_info(bool compact_first, uint32_t *num_recor
 
 bool activity_algorithm_test_fill_minute_file(void) {
   return true;
+}
+
+// Activity-SpO2 / HR-pause APIs referenced by activity.c. Stubbed to keep the auto-activity HR
+// path idle so these tests exercise only the daily HR/SpO2 schedulers.
+bool activity_algorithm_activity_hrm_is_active(void) {
+  return false;
+}
+
+void activity_algorithm_activity_hrm_set_paused(bool paused) {
+  (void)paused;
+}
+
+void workout_service_set_hrm_paused(bool paused) {
+  (void)paused;
 }
 
 // We simulate the activity_algorithm_get_minute_history() call to return data that reflects

@@ -257,6 +257,27 @@ bool activity_prefs_hrm_activity_tracking_is_enabled(void) {
 
 void activity_prefs_set_hrm_activity_tracking_enabled(bool enabled) {
 }
+
+bool activity_prefs_blood_oxygen_is_enabled(void) {
+  return false;
+}
+
+void activity_prefs_set_blood_oxygen_enabled(bool enabled) {
+}
+
+bool activity_prefs_blood_oxygen_activity_tracking_is_enabled(void) {
+  return false;
+}
+
+void activity_prefs_set_blood_oxygen_activity_tracking_enabled(bool enabled) {
+}
+
+HRMonitoringInterval activity_prefs_get_spo2_measurement_interval(void) {
+  return HRMonitoringInterval_10Min;
+}
+
+void activity_prefs_set_spo2_measurement_interval(HRMonitoringInterval interval) {
+}
 #endif
 
 ActivityInsightSettings *activity_prefs_get_sleep_reward_settings(void) {

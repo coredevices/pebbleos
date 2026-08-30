@@ -956,6 +956,9 @@ static uint32_t NOINLINE prv_fill_minute_record(time_t utc_sec, AlgMinuteDLSSamp
   m_rec->heart_rate_total_weight_x100 = (uint16_t)heart_rate_total_weight_x100;
   m_rec->heart_rate_zone = activity_metrics_prv_get_hr_zone();
 
+  // Fill in any SpO2 reading taken this minute (0 = none)
+  activity_metrics_prv_get_spo2_sample(&m_rec->spo2_percent, &m_rec->spo2_quality);
+
   return minute_distance_mm;
 }
 
@@ -1065,6 +1068,20 @@ void activity_algorithm_enable_activity_tracking(bool enable) {
   kalg_enable_activity_tracking(s_alg_state->k_state, enable);
 
   prv_unlock();
+}
+
+bool activity_algorithm_activity_hrm_is_active(void) {
+  if (!s_alg_state || !s_alg_state->k_state) {
+    return false;
+  }
+  return kalg_activity_hrm_is_active(s_alg_state->k_state);
+}
+
+void activity_algorithm_activity_hrm_set_paused(bool paused) {
+  if (!s_alg_state || !s_alg_state->k_state) {
+    return;
+  }
+  kalg_activity_hrm_set_paused(s_alg_state->k_state, paused);
 }
 
 // ----------------------------------------------------------------------------------------------

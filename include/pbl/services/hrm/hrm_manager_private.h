@@ -6,6 +6,7 @@
 #include "hrm_manager.h"
 
 #include "applib/event_service_client.h"
+#include "pbl/services/hrm/hrm_activity_scene.h"
 #include <pbl/drivers/rtc.h>
 #include "freertos_types.h"
 #include "kernel/events.h"
@@ -19,9 +20,10 @@
 
 typedef void (*HRMSubscriberCallback)(PebbleHRMEvent *event, void *context);
 
-// We need roughly this many seconds of "spin up" time to get a good reading from the HR sensor
-// right after turning it on
-#define HRM_SENSOR_SPIN_UP_SEC 20
+// Seconds of "spin up" time needed for a good reading right after turning the sensor on. The Goodix
+// EXCLUSIVE HR model's earliest output lands ~9s in, so 12s leaves a small margin. Only affects
+// sensor pre-warm ahead of a future-due subscriber; a due-now subscriber turns it on immediately.
+#define HRM_SENSOR_SPIN_UP_SEC 12
 
 typedef struct AccelServiceState AccelServiceState;
 
@@ -38,9 +40,13 @@ typedef struct HRMSubscriberState {
   uint32_t update_interval_s; // How often to send updates to this subscriber
   time_t expire_utc;          // This subscription will expire at this time
   bool sent_expiration_event; // true after we've sent a HRMEvent_SubscriptionExpiring event
+  bool low_latency;           // true if this consumer needs the prompt FIFO cadence (foreground
+                              // app, BLE HR relay); false for background logging
   HRMFeature features;        // what features the subscriber is interested in
 
-  RtcTicks last_valid_bpm_ticks; // tick count the last time this subscriber received valid HR reading
+  RtcTicks last_valid_bpm_ticks; // ticks when this subscriber last received a valid HR reading
+  RtcTicks attempt_start_ticks;  // ticks when subscriber last (re)started trying for a reading;
+                                 // bounds how long an unserved subscriber keeps the sensor on
 } HRMSubscriberState;
 
 // HRM manager expects to be update at 1Hz. To the system task, we can currently
@@ -52,8 +58,9 @@ typedef struct HRMSubscriberState {
 #define HRM_MANAGER_ACCEL_MANAGER_SAMPLES_PER_UPDATE 4
 
 // After every HRM_CHECK_SENSOR_DISABLE_COUNT calls to hrm_manager_new_data_cb(), we check to see
-// if we should disable the sensor.
-#define HRM_CHECK_SENSOR_DISABLE_COUNT 10
+// if we should disable the sensor. Kept low so a served subscriber doesn't keep the LED lit (and
+// block the other optical path) for many seconds of extra on-time.
+#define HRM_CHECK_SENSOR_DISABLE_COUNT 3
 
 // After this many consecutive hrm_enable failures, stop trying until reboot
 #define HRM_MAX_ENABLE_FAILURES 3
@@ -63,6 +70,19 @@ typedef struct HRMSubscriberState {
 // Comfortably above a normal serve cycle (spin-up plus a few seconds), far below the battery
 // impact threshold.
 #define HRM_MAX_UNSERVED_TIME_SEC 120
+
+// Maximum time the sensor stays on for a subscriber that has never received a usable reading.
+// After this window the subscriber backs off to its requested update interval, so requesting a
+// feature the sensor can't currently serve (e.g. SpO2 in poor signal) doesn't pin the sensor on
+// indefinitely. 45s is ample margin over typical HR/SpO2 convergence, and trims the high-current
+// red/IR LED from the previous 60s when a reading is doomed.
+#define HRM_UNSERVED_ATTEMPT_MAX_SEC 45
+
+// Max time one optical path may hold the sensor while the other is also due, before a hand-off is
+// forced. A safety valve against a path that never yields on its own (SpO2 in poor signal, or an
+// app polling at a fixed interval). Must be shorter than a managed measurement window
+// (ACTIVITY_DEFAULT_*_ON_TIME_SEC) so the waiting path gets its turn before it backs off.
+#define HRM_PATH_MAX_SLICE_SEC 30
 
 struct HRMManagerState {
   PebbleRecursiveMutex *lock;
@@ -84,7 +104,7 @@ struct HRMManagerState {
   TimerID update_enable_timer_id;  // used for re-enabling the HRM sensor
 
   uint8_t check_disable_counter;   // increments to HRM_CHECK_SENSOR_DISABLE_COUNT
-  uint8_t enable_failure_count;    // counts consecutive hrm_enable failures, stops retrying after max
+  uint8_t enable_failure_count;    // counts consecutive hrm_enable failures, stops after max
 
   HRMFeature enabled_features;     // feature union the sensor was last enabled with
 
@@ -95,6 +115,15 @@ struct HRMManagerState {
                                    // Normal, etc.) allows the sensor to be turned on
   bool enabled_charging_state;     // Ture if we aren't plugged in / charging
 
+  HRMFeature active_features;      // Features the sensor is sampling now (0 when off). Only one
+                                   // optical path (green BPM/HRV or red/IR SpO2) runs at a time.
+  RtcTicks active_path_start_ticks; // tick count when the current optical path was enabled; bounds
+                                    // how long it may hold the sensor while the other path waits.
+  HRMFeature last_conflict_winner; // path that won the most recent fresh-session conflict; the next
+                                   // conflict alternates away from it so the two never phase-lock.
+
+  HRMActivityScene activity_scene; // Activity context for the sensor's HR algorithm (motion-tuned
+                                   // model). Re-applied whenever the sensor powers on.
 };
 
 //! Subscription for KernelBG or KernelMain clients.
@@ -107,9 +136,19 @@ struct HRMManagerState {
 //! @param expire_s after this many seconds, this subscription will automatically expire. Pass 0
 //!   for no expiration.
 //! @param features A bitfield of the features the subscriber would like updates for
+//! @param low_latency true if this consumer shows/streams live data and needs prompt updates (e.g.
+//!   the BLE HR relay); false for background logging, which lets the sensor drain the FIFO less
+//!   often to save power. App/worker subscriptions (via sys_hrm_manager_app_subscribe) are always
+//!   treated as low latency.
 //! @param callback the KernelBG callback to call when an HRM event is available
 //! @param context the context pointer for the callback
 //! @return the HRMSessionRef for this subscription. NULL on failure
 HRMSessionRef hrm_manager_subscribe_with_callback(AppInstallId app_id, uint32_t update_interval_s,
-                                                  uint16_t expire_s, HRMFeature features,
-                                                  HRMSubscriberCallback callback, void *context);
+                                                   uint16_t expire_s, HRMFeature features,
+                                                   bool low_latency, HRMSubscriberCallback callback,
+                                                   void *context);
+
+//! Set the activity context the HR algorithm should optimize for (see HRMActivityScene). Stored and
+//! re-applied on every sensor power-on, so callers don't need to re-arm it across sensor cycles.
+//! Safe to call from any task.
+void hrm_manager_set_activity_scene(HRMActivityScene scene);

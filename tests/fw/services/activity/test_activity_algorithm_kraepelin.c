@@ -99,6 +99,12 @@ BatteryChargeState battery_get_charge_state(void) {
 
 void kalg_enable_activity_tracking(KAlgState *kalg_state, bool enable) {}
 
+bool kalg_activity_hrm_is_active(KAlgState *kalg_state) {
+  return false;
+}
+
+void kalg_activity_hrm_set_paused(KAlgState *kalg_state, bool paused) {}
+
 bool activity_tracking_on(void) {
   return true;
 }
@@ -226,6 +232,11 @@ void activity_metrics_prv_get_median_hr_bpm(int32_t *median, int32_t *total_weig
     *total_weight = s_activity_next_heart_rate_heart_rate_total_weight_x100;
   }
 
+}
+
+void activity_metrics_prv_get_spo2_sample(uint8_t *percent_out, uint8_t *quality_out) {
+  *percent_out = 0;
+  *quality_out = 0;
 }
 
 void activity_metrics_prv_reset_hr_stats(void) {

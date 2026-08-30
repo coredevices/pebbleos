@@ -43,6 +43,7 @@
 #include "pbl/services/activity/activity_calculators.h"
 #include "pbl/services/activity/activity_insights.h"
 #include "pbl/services/activity/activity_private.h"
+#include "pbl/services/activity/workout_service.h"
 
 PBL_LOG_MODULE_DEFINE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 
@@ -92,6 +93,10 @@ static uint32_t prv_get_hrm_period_sec(void) {
 }
 #endif
 
+#ifdef CONFIG_HRM
+static void prv_activity_spo2_update(uint32_t now_ts);  // defined below; called from the HR callback
+#endif
+
 // ------------------------------------------------------------------------------------------------
 // If necessary, change the sampling period of our heart rate subscription
 // @param[in] now_ts number of seconds the system has been running (from time_get_uptime_seconds())
@@ -123,7 +128,17 @@ static void prv_heart_rate_subscription_update(uint32_t now_ts) {
         (s_activity_state.hr.num_good_quality_samples >= ACTIVITY_MIN_NUM_GOOD_SAMPLES_SHORT_CIRCUIT);
     const bool excellent_samples_req_met =
         (s_activity_state.hr.num_excellent_samples >= ACTIVITY_MIN_NUM_EXCELLENT_SAMPLES_SHORT_CIRCUIT);
-    if ((turn_off_at <= now_ts) || good_samples_req_met || excellent_samples_req_met) {
+    // Doomed-case early abort: no valid reading at all by the cutoff means the signal isn't
+    // converging (off-wrist / no contact), so stop wasting green-LED time on the back half of the
+    // window. Keyed on last_sample_ts (uptime of the last valid BPM) vs the window start, NOT the
+    // sample counters: those are zeroed every minute by reset_hr_stats(), and the minute handler
+    // resets them just before calling this check, so a count-based test would false-abort a healthy
+    // window straddling a minute boundary. last_sample_ts survives the reset, so "no sample since the
+    // window opened" is the true doomed signal; any reading keeps sampling toward the short-circuit.
+    const bool early_abort =
+        (now_ts >= last_toggled_ts + ACTIVITY_HR_EARLY_ABORT_SEC) &&
+        (s_activity_state.hr.last_sample_ts < last_toggled_ts);
+    if ((turn_off_at <= now_ts) || good_samples_req_met || excellent_samples_req_met || early_abort) {
       should_toggle = true;
     }
   } else {
@@ -135,6 +150,16 @@ static void prv_heart_rate_subscription_update(uint32_t now_ts) {
   }
 
   if (should_toggle) {
+    // Don't start a measurement while SpO2 is mid-measurement: HR and SpO2 share one optical path,
+    // so overlapping windows make the manager ping-pong between them and re-pay the sensor spin-up,
+    // which stops either from converging. Defer and retry next tick (without resetting the period).
+    // Also yield to an in-progress activity-triggered SpO2 attempt for the same reason.
+    if (!s_activity_state.hr.currently_sampling &&
+        (s_activity_state.spo2.currently_sampling ||
+         s_activity_state.activity_spo2.phase == ActivitySpO2ActPhase_Sampling)) {
+      return;
+    }
+
     // Check to see if the watch is face up or face down. If it is assume the watch is off wrist
     // The z-axis is encoded in the 4 most significant bits of the orientation
     const uint8_t z_axis = s_activity_state.last_orientation >> 4;
@@ -142,7 +167,7 @@ static void prv_heart_rate_subscription_update(uint32_t now_ts) {
 
     const bool should_be_sampling = !s_activity_state.hr.currently_sampling && !watch_is_flat;
     if (!s_activity_state.hr.currently_sampling && watch_is_flat) {
-      PBL_LOG_INFO("Not subscribing to HRM: watch is flat(ish)");
+      PBL_LOG_DBG("Not subscribing to HRM: watch is flat(ish)");
     }
 
     // Pick the subscription rate (essentially ON and OFF)
@@ -223,6 +248,10 @@ T_STATIC void prv_hrm_subscription_cb(PebbleHRMEvent *hrm_event, void *context) 
     // NOTE: Must be kept at the bottom of the function, or at least below
     //   `activity_metrics_prv_add_median_hr_sample`
     prv_heart_rate_subscription_update(now_uptime_ts);
+
+    // HR flows at 1 Hz while an activity is in progress, so this is where the activity SpO2 reader
+    // counts down its Wait / Backoff phases.
+    prv_activity_spo2_update(now_uptime_ts);
   }
 }
 #endif // CONFIG_HRM
@@ -237,7 +266,7 @@ static void prv_heart_rate_init(void) {
   s_activity_state.hr.toggled_sampling_at_ts = time_get_uptime_seconds();
   s_activity_state.hr.hrm_session = hrm_manager_subscribe_with_callback(
       INSTALL_ID_INVALID, ACTIVITY_HRM_SUBSCRIPTION_OFF_PERIOD_SEC, 0 /*expire_s*/, HRMFeature_BPM,
-      prv_hrm_subscription_cb, NULL);
+      false /*low_latency*/, prv_hrm_subscription_cb, NULL);
   PBL_ASSERTN(s_activity_state.hr.hrm_session != HRM_INVALID_SESSION_REF);
 
   s_activity_state.hr.log_session = protobuf_log_hr_create(NULL);
@@ -256,6 +285,321 @@ static void prv_heart_rate_deinit(void) {
 #endif // CONFIG_HRM
 }
 
+
+// ------------------------------------------------------------------------------------------------
+#ifdef CONFIG_HRM
+// Get the SpO2 measurement period in seconds based on the user's setting
+static uint32_t prv_get_spo2_period_sec(void) {
+  switch (activity_prefs_get_spo2_measurement_interval()) {
+    case HRMonitoringInterval_30Min:
+      return 30 * SECONDS_PER_MINUTE;
+    case HRMonitoringInterval_1Hour:
+      return SECONDS_PER_HOUR;
+    case HRMonitoringInterval_10Min:
+    default:
+      return 10 * SECONDS_PER_MINUTE;
+  }
+}
+#endif
+
+// ------------------------------------------------------------------------------------------------
+// If necessary, change the sampling period of our SpO2 subscription. Mirrors the heart rate
+// scheduler but runs on its own independent interval.
+static void prv_spo2_subscription_update(uint32_t now_ts) {
+#ifdef CONFIG_HRM
+  // If blood oxygen monitoring is disabled (master toggle off or "Disabled" interval), make sure
+  // we're not sampling and skip.
+  if (!activity_prefs_blood_oxygen_is_enabled() ||
+      activity_prefs_get_spo2_measurement_interval() == HRMonitoringInterval_Disabled) {
+    if (s_activity_state.spo2.currently_sampling) {
+      bool success = sys_hrm_manager_set_update_interval(s_activity_state.spo2.hrm_session,
+                                                         ACTIVITY_HRM_SUBSCRIPTION_OFF_PERIOD_SEC,
+                                                         0 /*expire_sec*/);
+      PBL_ASSERTN(success);
+      s_activity_state.spo2.currently_sampling = false;
+      s_activity_state.spo2.toggled_sampling_at_ts = now_ts;
+    }
+    return;
+  }
+
+  const uint32_t last_toggled_ts = s_activity_state.spo2.toggled_sampling_at_ts;
+
+  bool should_toggle = false;
+  if (s_activity_state.spo2.currently_sampling) {
+    // Turn off when we hit the max on-time or collect enough good-quality samples
+    const uint32_t turn_off_at = last_toggled_ts + ACTIVITY_DEFAULT_SPO2_ON_TIME_SEC;
+    const bool good_samples_req_met =
+        (s_activity_state.spo2.num_good_quality_samples >=
+         ACTIVITY_MIN_NUM_GOOD_SPO2_SAMPLES_SHORT_CIRCUIT);
+    // Doomed-case early abort: the algorithm has accepted nothing by the cutoff, so the red/IR LED
+    // is burning for a reading that isn't going to converge. Bail instead of running to ON_TIME.
+    const bool early_abort =
+        (now_ts >= last_toggled_ts + ACTIVITY_SPO2_EARLY_ABORT_SEC) &&
+        (s_activity_state.spo2.num_good_quality_samples == 0);
+    if ((turn_off_at <= now_ts) || good_samples_req_met || early_abort) {
+      should_toggle = true;
+    }
+  } else {
+    // Turn on after the configured period elapses
+    const uint32_t turn_on_at = last_toggled_ts + prv_get_spo2_period_sec();
+    if (turn_on_at <= now_ts) {
+      should_toggle = true;
+    }
+  }
+
+  if (should_toggle) {
+    // Don't start while HR is mid-measurement (shared optical path - see prv_heart_rate_subscription
+    // _update). HR runs first each tick so it wins ties; SpO2 takes its turn once HR finishes. Also
+    // yield to an in-progress activity-triggered SpO2 attempt.
+    if (!s_activity_state.spo2.currently_sampling &&
+        (s_activity_state.hr.currently_sampling ||
+         s_activity_state.activity_spo2.phase == ActivitySpO2ActPhase_Sampling)) {
+      return;
+    }
+
+    // Skip sampling if the watch looks to be off-wrist (lying flat), same heuristic as HR
+    const uint8_t z_axis = s_activity_state.last_orientation >> 4;
+    const bool watch_is_flat = z_axis == 0 || z_axis == 8;
+
+    // Also skip if the green HR path recently reported off-wrist: that PPG signal is far more
+    // reliable than the accel "flat" heuristic, and SpO2 runs with hardware wear-detection disabled,
+    // so an off-wrist attempt would just burn the high-current red/IR LED until the algorithm
+    // rejects it. is_hrm_offwrist fails open (only true on fresh positive off-wrist evidence), so
+    // this never blocks a genuine on-wrist reading or a config where HR sampling isn't running.
+    const bool hrm_offwrist = activity_metrics_prv_is_hrm_offwrist(rtc_get_time());
+
+    const bool should_be_sampling =
+        !s_activity_state.spo2.currently_sampling && !watch_is_flat && !hrm_offwrist;
+
+    const uint32_t desired_interval_sec = (should_be_sampling)
+                                          ? ACTIVITY_HRM_SUBSCRIPTION_ON_PERIOD_SEC
+                                          : ACTIVITY_HRM_SUBSCRIPTION_OFF_PERIOD_SEC;
+
+    bool success = sys_hrm_manager_set_update_interval(s_activity_state.spo2.hrm_session,
+                                                       desired_interval_sec, 0 /*expire_sec*/);
+    PBL_ASSERTN(success);
+    s_activity_state.spo2.currently_sampling = should_be_sampling;
+    s_activity_state.spo2.toggled_sampling_at_ts = now_ts;
+    if (should_be_sampling) {
+      s_activity_state.spo2.num_good_quality_samples = 0;
+    }
+    PBL_LOG_DBG("Changed SpO2 sampling period to %"PRIu32" sec", desired_interval_sec);
+  }
+#endif // CONFIG_HRM
+}
+
+
+// ------------------------------------------------------------------------------------------------
+// Map the sensor's HRMQuality onto the 0-7 HeartRateQuality scale stored in the minute record
+// (0=none, 1=OffWrist, 3=Worst .. 7=Excellent), matching how heart rate quality is reported.
+#ifdef CONFIG_HRM
+static uint8_t prv_spo2_health_quality(HRMQuality quality) {
+  switch (quality) {
+    case HRMQuality_Excellent:  return 7;
+    case HRMQuality_Good:       return 6;
+    case HRMQuality_Acceptable: return 5;
+    case HRMQuality_Poor:       return 4;
+    case HRMQuality_Worst:      return 3;
+    case HRMQuality_OffWrist:   return 1;
+    default:                    return 0;
+  }
+}
+#endif // CONFIG_HRM
+
+
+// ------------------------------------------------------------------------------------------------
+// Kernel BG callback called by the Heart Rate Manager when new SpO2 data arrives
+#ifdef CONFIG_HRM
+T_STATIC void prv_spo2_subscription_cb(PebbleHRMEvent *hrm_event, void *context) {
+  if (hrm_event->event_type != HRMEvent_SpO2) {
+    return;
+  }
+
+  const uint8_t pct = hrm_event->spo2.percent;
+  const HRMQuality quality = hrm_event->spo2.quality;
+  ACTIVITY_LOG_DEBUG("SpO2: %"PRIu8"%%, qual: %d", pct, (int)quality);
+
+  // A reading the algorithm accepted (not invalid), on-wrist, with a plausible percent is a usable
+  // measurement: count it toward the short-circuit AND stash it for the next minute record. The
+  // algorithm's own invalid flag is the right gate - the confidence-derived quality grade is a
+  // relative score, and requiring "Good" left algorithm-valid readings uncounted, so the sensor
+  // never stopped firing even while it was handing us readings.
+  if (!hrm_event->spo2.invalid && quality != HRMQuality_OffWrist && pct > 0) {
+    s_activity_state.spo2.num_good_quality_samples++;
+    s_activity_state.spo2.pending_percent = pct;
+    s_activity_state.spo2.pending_quality = prv_spo2_health_quality(quality);
+  }
+
+  // Modify our sampling period now if necessary
+  prv_spo2_subscription_update(time_get_uptime_seconds());
+}
+#endif // CONFIG_HRM
+
+
+// ---------------------------------------------------------------------------------------
+// Init blood oxygen (SpO2) support
+static void prv_spo2_init(void) {
+#ifdef CONFIG_HRM
+  s_activity_state.spo2.currently_sampling = false;
+  s_activity_state.spo2.toggled_sampling_at_ts = time_get_uptime_seconds();
+  s_activity_state.spo2.hrm_session = hrm_manager_subscribe_with_callback(
+      INSTALL_ID_INVALID, ACTIVITY_HRM_SUBSCRIPTION_OFF_PERIOD_SEC, 0 /*expire_s*/,
+      HRMFeature_SpO2, false /*low_latency*/, prv_spo2_subscription_cb, NULL);
+  PBL_ASSERTN(s_activity_state.spo2.hrm_session != HRM_INVALID_SESSION_REF);
+#endif // CONFIG_HRM
+}
+
+
+// ---------------------------------------------------------------------------------------
+// De-init blood oxygen (SpO2) support
+static void prv_spo2_deinit(void) {
+#ifdef CONFIG_HRM
+  sys_hrm_manager_unsubscribe(s_activity_state.spo2.hrm_session);
+#endif // CONFIG_HRM
+}
+
+
+// ------------------------------------------------------------------------------------------------
+// Activity-triggered SpO2: while HR-during-activities is sampling continuously, periodically pause
+// HR and grab one SpO2 point. Independent of the daily SpO2 schedule and the daily SpO2 toggle.
+#ifdef CONFIG_HRM
+// Pause the continuous activity HR and turn our dedicated SpO2 session on (sampling), or the
+// reverse (resume HR, idle SpO2). Pauses both the auto-activity HR and a manual workout's HR (each
+// a no-op if that one isn't running) so SpO2 owns the optical path for the attempt.
+static void prv_activity_spo2_set_sampling(bool sampling) {
+  activity_algorithm_activity_hrm_set_paused(sampling);
+  workout_service_set_hrm_paused(sampling);
+  const uint32_t interval = sampling ? ACTIVITY_HRM_SUBSCRIPTION_ON_PERIOD_SEC
+                                     : ACTIVITY_HRM_SUBSCRIPTION_OFF_PERIOD_SEC;
+  sys_hrm_manager_set_update_interval(s_activity_state.activity_spo2.hrm_session, interval,
+                                      0 /*expire_sec*/);
+}
+
+static void prv_activity_spo2_start_attempt(uint32_t now_ts) {
+  ActivitySpO2ActivitySupport *as = &s_activity_state.activity_spo2;
+  as->got_reading = false;
+  as->phase = ActivitySpO2ActPhase_Sampling;
+  as->phase_started_ts = now_ts;
+  prv_activity_spo2_set_sampling(true);
+}
+
+// Red/IR SpO2 is more motion-sensitive than green HR, so only attempt it while the optical signal is
+// clean enough that a reading can plausibly succeed. When the green HR signal is poor (motion, poor
+// contact) a SpO2 attempt would just burn the red/IR LED and force HR to re-converge for nothing, so
+// we defer until a calmer moment. This only trims the during-activity bonus points; the independent
+// daily SpO2 schedule is unaffected.
+static bool prv_activity_spo2_signal_clean_enough(void) {
+  return s_activity_state.hr.metrics.current_quality >= HRMQuality_Acceptable;
+}
+
+// Drive the activity SpO2 state machine. Called from the minute handler (backstop) and from the HR
+// / SpO2 data callbacks (1 Hz while the relevant sensor is on, giving precise sub-minute timing).
+static void prv_activity_spo2_update(uint32_t now_ts) {
+  ActivitySpO2ActivitySupport *as = &s_activity_state.activity_spo2;
+
+  // Run while the blood-oxygen-during-activities opt-in is on AND we're in an activity: either an
+  // auto-detected one with a running HR session (which needs HR-during-activities), or a manually
+  // started workout. The manual workout path only needs the SpO2 opt-in.
+  const bool auto_active = activity_prefs_hrm_activity_tracking_is_enabled() &&
+                           activity_algorithm_activity_hrm_is_active();
+  const bool workout_active = workout_service_is_workout_ongoing();
+  const bool eligible = activity_prefs_blood_oxygen_activity_tracking_is_enabled() &&
+                        (auto_active || workout_active);
+
+  if (!eligible) {
+    if (as->phase != ActivitySpO2ActPhase_Idle) {
+      if (as->phase == ActivitySpO2ActPhase_Sampling) {
+        prv_activity_spo2_set_sampling(false);  // resume HR, idle our session
+      }
+      as->phase = ActivitySpO2ActPhase_Idle;
+    }
+    return;
+  }
+
+  switch (as->phase) {
+    case ActivitySpO2ActPhase_Idle:
+      // Activity just became eligible: begin the wait window.
+      as->phase = ActivitySpO2ActPhase_Wait;
+      as->phase_started_ts = now_ts;
+      break;
+    case ActivitySpO2ActPhase_Wait:
+      // Wait until the interval elapses AND the signal is clean enough to attempt; if it stays
+      // noisy we defer (re-checked each 1 Hz tick) rather than burn the red/IR LED for nothing.
+      if (now_ts - as->phase_started_ts >= ACTIVITY_SPO2_ACTIVITY_INTERVAL_SEC &&
+          prv_activity_spo2_signal_clean_enough()) {
+        prv_activity_spo2_start_attempt(now_ts);
+      }
+      break;
+    case ActivitySpO2ActPhase_Sampling:
+      if (as->got_reading) {
+        // Success: resume HR and wait the full interval before the next point.
+        prv_activity_spo2_set_sampling(false);
+        as->phase = ActivitySpO2ActPhase_Wait;
+        as->phase_started_ts = now_ts;
+      } else if (now_ts - as->phase_started_ts >= ACTIVITY_SPO2_ACTIVITY_ATTEMPT_SEC) {
+        // Timed out with no valid reading: resume HR for a breather, then retry.
+        prv_activity_spo2_set_sampling(false);
+        as->phase = ActivitySpO2ActPhase_Backoff;
+        as->phase_started_ts = now_ts;
+      }
+      break;
+    case ActivitySpO2ActPhase_Backoff:
+      // Retry only once the signal is clean enough too, so a sustained noisy spell doesn't keep
+      // re-paying the red/IR LED + HR re-convergence for doomed attempts.
+      if (now_ts - as->phase_started_ts >= ACTIVITY_SPO2_ACTIVITY_BACKOFF_SEC &&
+          prv_activity_spo2_signal_clean_enough()) {
+        prv_activity_spo2_start_attempt(now_ts);
+      }
+      break;
+  }
+}
+
+// Kernel BG callback for the activity SpO2 session. Only fires while we are sampling (our session
+// is idle otherwise).
+T_STATIC void prv_activity_spo2_subscription_cb(PebbleHRMEvent *hrm_event, void *context) {
+  if (hrm_event->event_type != HRMEvent_SpO2) {
+    return;
+  }
+  const uint8_t pct = hrm_event->spo2.percent;
+  const HRMQuality quality = hrm_event->spo2.quality;
+
+  // Any reading the algorithm accepts counts: stash it for the next minute record (same channel as
+  // the daily SpO2 reader) and mark the attempt successful.
+  if (!hrm_event->spo2.invalid && quality != HRMQuality_OffWrist && pct > 0) {
+    s_activity_state.spo2.pending_percent = pct;
+    s_activity_state.spo2.pending_quality = prv_spo2_health_quality(quality);
+    s_activity_state.activity_spo2.got_reading = true;
+  }
+
+  prv_activity_spo2_update(time_get_uptime_seconds());
+}
+#endif // CONFIG_HRM
+
+
+// ---------------------------------------------------------------------------------------
+// Init / de-init activity-triggered SpO2 support
+static void prv_activity_spo2_init(void) {
+#ifdef CONFIG_HRM
+  s_activity_state.activity_spo2.phase = ActivitySpO2ActPhase_Idle;
+  s_activity_state.activity_spo2.hrm_session = hrm_manager_subscribe_with_callback(
+      INSTALL_ID_INVALID, ACTIVITY_HRM_SUBSCRIPTION_OFF_PERIOD_SEC, 0 /*expire_s*/,
+      HRMFeature_SpO2, false /*low_latency*/, prv_activity_spo2_subscription_cb, NULL);
+  PBL_ASSERTN(s_activity_state.activity_spo2.hrm_session != HRM_INVALID_SESSION_REF);
+#endif // CONFIG_HRM
+}
+
+static void prv_activity_spo2_deinit(void) {
+#ifdef CONFIG_HRM
+  // Make sure HR isn't left paused if we tear down mid-attempt. Mirror set_sampling(): an attempt
+  // pauses both the auto-activity HR and a manual workout's HR, so resume both here too.
+  if (s_activity_state.activity_spo2.phase == ActivitySpO2ActPhase_Sampling) {
+    activity_algorithm_activity_hrm_set_paused(false);
+    workout_service_set_hrm_paused(false);
+  }
+  sys_hrm_manager_unsubscribe(s_activity_state.activity_spo2.hrm_session);
+  s_activity_state.activity_spo2.phase = ActivitySpO2ActPhase_Idle;
+#endif // CONFIG_HRM
+}
 
 
 // ----------------------------------------------------------------------------------------------
@@ -520,6 +864,14 @@ static void NOINLINE prv_process_minute_data_tail(time_t utc_sec) {
 
     // Update the heart rate sampling period if necessary
     prv_heart_rate_subscription_update(time_get_uptime_seconds());
+
+    // Update the SpO2 sampling period if necessary
+    prv_spo2_subscription_update(time_get_uptime_seconds());
+
+#ifdef CONFIG_HRM
+    // Drive the activity-triggered SpO2 reader (backstop; the data callbacks drive it finer-grained)
+    prv_activity_spo2_update(time_get_uptime_seconds());
+#endif
   }
   mutex_unlock_recursive(s_activity_state.mutex);
 
@@ -851,6 +1203,8 @@ static void prv_start_tracking_cb(void *context) {
       // Subscribe to get heart rate updates and create our measurement logging
       // session if an hrm is present
       prv_heart_rate_init();
+      prv_spo2_init();
+      prv_activity_spo2_init();
     }
 
     // Set the user data
@@ -897,6 +1251,8 @@ static void prv_stop_tracking_cb(void *context) {
 
   // Close down heart rate support
   prv_heart_rate_deinit();
+  prv_spo2_deinit();
+  prv_activity_spo2_deinit();
 
   PBL_ASSERTN(activity_algorithm_deinit());
   s_activity_state.started = false;

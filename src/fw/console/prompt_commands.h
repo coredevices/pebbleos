@@ -270,6 +270,7 @@ extern void command_btle_unmod_tx_stop(void);
 
 #ifdef CONFIG_HRM
 extern void command_hrm_read(void);
+extern void command_spo2_read(void);
 #endif
 
 extern void command_perftest_line(const char *, const char *);
@@ -428,6 +429,7 @@ static const Command s_prompt_commands[] = {
 
 #ifdef CONFIG_HRM
   { "hrm read", command_hrm_read, 0},
+  { "spo2 read", command_spo2_read, 0},
 #endif
 
 #ifdef CONFIG_PMIC
