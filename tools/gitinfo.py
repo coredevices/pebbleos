@@ -12,12 +12,27 @@ def _git(*args):
     return subprocess.check_output(["git", *args], text=True).strip()
 
 
+def _is_dirty():
+    """Whether the working tree differs from HEAD.
+
+    `git describe --dirty` answers this too, but it descends into every
+    submodule, which on this tree costs ten times as much as the rest of
+    the version lookup put together. A submodule moved to another commit
+    still counts as dirty; uncommitted edits inside one do not.
+    """
+    return subprocess.call(
+        ["git", "diff-index", "--quiet", "--ignore-submodules=dirty", "HEAD", "--"]
+    ) != 0
+
+
 def get_git_revision():
-    commit = _git("rev-parse", "--short", "HEAD")
-    timestamp = _git("log", "-1", "--format=%ct", "HEAD")
+    # One process for both: the version rule runs on every build.
+    timestamp, commit = _git("log", "-1", "--format=%ct%n%h", "HEAD").split("\n")
 
     try:
-        tag = _git("describe", "--dirty")
+        tag = _git("describe")
+        if _is_dirty():
+            tag += "-dirty"
     except subprocess.CalledProcessError:
         tag = "v9.9.9-dev"
         print(f"Git tag not found, using {tag}", file=sys.stderr)
