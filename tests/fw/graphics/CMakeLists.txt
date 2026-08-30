@@ -73,7 +73,7 @@ set(graphics_draw_text_sources
   src/fw/applib/graphics/text_render.c
   src/fw/applib/graphics/utf8.c
   src/fw/applib/graphics/text_layout.c
-  src/fw/applib/graphics/rtl_support.c
+  src/fw/applib/graphics/bidi.c
   src/fw/applib/graphics/arabic_shaping.c
   src/fw/applib/graphics/perimeter.c
   src/fw/applib/graphics/text_resources.c
@@ -156,7 +156,7 @@ pbl_clar_test(test_graphics_draw_text_flow
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/utf8.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_resources.c

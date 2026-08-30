@@ -24,7 +24,7 @@ pbl_clar_test(test_launcher_menu_layer
     src/fw/applib/graphics/graphics_private_raw.c
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c

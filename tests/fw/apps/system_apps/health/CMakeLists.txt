@@ -31,7 +31,7 @@ pbl_clar_test(test_health_card_view
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
     src/fw/applib/graphics/utf8.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/ui/kino/kino_reel.c
     src/fw/applib/ui/kino/kino_reel_gbitmap.c
@@ -138,7 +138,7 @@ pbl_clar_test(test_health_activity_summary_card
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
     src/fw/applib/graphics/utf8.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/ui/kino/kino_reel.c
     src/fw/applib/ui/kino/kino_reel_gbitmap.c
@@ -240,7 +240,7 @@ pbl_clar_test(test_health_sleep_summary_card
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
     src/fw/applib/graphics/utf8.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/ui/kino/kino_reel.c
     src/fw/applib/ui/kino/kino_reel_gbitmap.c
@@ -342,7 +342,7 @@ pbl_clar_test(test_health_hr_summary_card
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
     src/fw/applib/graphics/utf8.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/ui/kino/kino_reel.c
     src/fw/applib/ui/kino/kino_reel_gbitmap.c
@@ -444,7 +444,7 @@ pbl_clar_test(test_health_activity_detail_card
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
     src/fw/applib/graphics/utf8.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/ui/kino/kino_reel.c
     src/fw/applib/ui/kino/kino_reel_gbitmap.c
@@ -545,7 +545,7 @@ pbl_clar_test(test_health_sleep_detail_card
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
     src/fw/applib/graphics/utf8.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/ui/kino/kino_reel.c
     src/fw/applib/ui/kino/kino_reel_gbitmap.c
@@ -646,7 +646,7 @@ pbl_clar_test(test_health_hr_detail_card
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
     src/fw/applib/graphics/utf8.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/ui/kino/kino_reel.c
     src/fw/applib/ui/kino/kino_reel_gbitmap.c
@@ -747,7 +747,7 @@ pbl_clar_test(test_health_detail_card
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
     src/fw/applib/graphics/utf8.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/ui/kino/kino_reel.c
     src/fw/applib/ui/kino/kino_reel_gbitmap.c
