@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     container:
-      image: ghcr.io/coredevices/pebbleos-docker:v6
+      image: ghcr.io/coredevices/pebbleos-docker:v7
 
     strategy:
       matrix:

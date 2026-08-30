@@ -43,7 +43,7 @@ jobs:
     if: needs.changes-test.outputs.should-test == 'true'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/coredevices/pebbleos-docker:v6
+      image: ghcr.io/coredevices/pebbleos-docker:v7
     steps:
       - name: Mark Github workspace as safe
         run: git config --system --add safe.directory "${GITHUB_WORKSPACE}" 
