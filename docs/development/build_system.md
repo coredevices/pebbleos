@@ -107,8 +107,10 @@ live in `tools/cmake/`:
 
 - `kconfig.py` — runs Kconfig, writes `.config`, `autoconf.h` and the
   CMake variables the build reads.
-- `resources.py` — resolves the board's resource maps into one build rule
-  per resource, and runs the resource, pbpack and resource-table steps.
+- `resources.py` — resolves the board's resource maps into build rules, in
+  batches so that a few hundred resources do not cost a few hundred
+  interpreter start-ups, and runs the resource, pbpack and
+  resource-table steps.
 - `generate.py` — the remaining source generators (version header, app
   registry, protocol endpoint table, applib allocator tables, log string
   hashing, stored apps).

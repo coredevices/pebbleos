@@ -25,6 +25,10 @@ from resources.types.resource_declaration import ResourceDeclaration
 
 RESOURCES_DIR = os.path.join(REPO_ROOT, "resources")
 
+# How many resources one generator process builds. Small enough that the
+# batches still fill the cores, large enough that start-up is not the bill.
+BATCH_SIZE = 16
+
 # Which module registers the generator for each resource type. Building one
 # resource only imports the module it needs: pulling in freetype, the PDC
 # tooling and libpebble2 for every one of the several hundred resources
@@ -135,6 +139,17 @@ def get_resources_dict(bld, variant):
     return resource_nodes, resources_dict
 
 
+def definition_deps(definition):
+    """Everything a resource is built from."""
+    deps = [os.path.join(RESOURCES_DIR, s) for s in definition.sources]
+    character_list = getattr(definition, "character_list", None)
+    # Some resource maps name a codepoint list that does not exist; the font
+    # generator only reads one for the formats that need it.
+    if character_list and os.path.exists(character_list):
+        deps.append(character_list)
+    return deps
+
+
 def reso_output(definition, builddir):
     """Where a resource's .reso lands: next to the source it is built
     from, under the build directory."""
@@ -179,29 +194,37 @@ def cmd_manifest(args):
     lines.extend(f'  "{path}"\n' for path in map_files)
     lines.append(")\n\n")
 
+    # One process per resource would be almost all interpreter start-up, so
+    # they are generated in batches. Batching by type keeps each process to
+    # the one generator module it needs, and a batch small enough that the
+    # several hundred resources still spread across the cores.
+    by_type = {}
     for index, definition in enumerate(definitions):
-        output = reso_output(definition, args.builddir)
-        reso_files.append(output)
-        deps = [os.path.join(RESOURCES_DIR, s) for s in definition.sources]
-        character_list = getattr(definition, "character_list", None)
-        # Some resource maps name a codepoint list that does not exist; the
-        # font generator only reads one for the formats that need it.
-        if character_list and os.path.exists(character_list):
-            deps.append(character_list)
-        deps_str = "\n    ".join(f'"{d}"' for d in deps)
-        lines.append(
-            f"add_custom_command(\n"
-            f'  OUTPUT "{output}"\n'
-            f"  COMMAND ${{PYTHON_EXECUTABLE}} ${{PBL_RESOURCES_PY}} reso\n"
-            f'          --manifest "{args.output}" --index {index}\n'
-            f'          --output "{output}"\n'
-            f"  DEPENDS\n    {deps_str}\n"
-            f'    "{args.output}"\n'
-            f"  WORKING_DIRECTORY ${{PBL_BASE}}\n"
-            f'  COMMENT "Generating resource {definition.name}"\n'
-            f"  VERBATIM\n"
-            f")\n"
-        )
+        by_type.setdefault(definition.type, []).append(index)
+
+    batches = 0
+    for resource_type, indices in sorted(by_type.items()):
+        for start in range(0, len(indices), BATCH_SIZE):
+            batch = indices[start : start + BATCH_SIZE]
+            outputs = [reso_output(definitions[i], args.builddir) for i in batch]
+            reso_files.extend(outputs)
+            deps = sorted({d for i in batch for d in definition_deps(definitions[i])})
+            outputs_str = "\n    ".join(f'"{o}"' for o in outputs)
+            deps_str = "\n    ".join(f'"{d}"' for d in deps)
+            index_str = " ".join(str(i) for i in batch)
+            lines.append(
+                f"add_custom_command(\n"
+                f"  OUTPUT\n    {outputs_str}\n"
+                f"  COMMAND ${{PYTHON_EXECUTABLE}} ${{PBL_RESOURCES_PY}} reso\n"
+                f'          --manifest "{args.output}" --index {index_str}\n'
+                f"  DEPENDS\n    {deps_str}\n"
+                f'    "{args.output}"\n'
+                f"  WORKING_DIRECTORY ${{PBL_BASE}}\n"
+                f'  COMMENT "Generating {len(batch)} {resource_type} resources"\n'
+                f"  VERBATIM\n"
+                f")\n"
+            )
+            batches += 1
 
     lines.append("set(PBL_RESO_FILES\n")
     lines.extend(f'  "{path}"\n' for path in reso_files)
@@ -210,7 +233,10 @@ def cmd_manifest(args):
     with open(args.cmake_output, "w") as f:
         f.writelines(lines)
 
-    print(f"{len(definitions)} resources, {len(declarations)} declarations")
+    print(
+        f"{len(definitions)} resources in {batches} batches, "
+        f"{len(declarations)} declarations"
+    )
 
 
 def load_manifest(path):
@@ -243,13 +269,14 @@ def ordered_resos(manifest):
 def cmd_reso(args):
     manifest = load_manifest(args.manifest)
     bld = bld_from_manifest(manifest)
-    definition = manifest["definitions"][args.index]
-    load_generators(definition.type)
-    inputs = [Node(os.path.join(RESOURCES_DIR, s)) for s in definition.sources]
-    output = Node(args.output)
-    output.parent.mkdir()
-    task = Task(bld, inputs, [output])
-    resource_generator.generate_object(task, definition).dump(output)
+    definitions = [manifest["definitions"][i] for i in args.index]
+    load_generators(*{d.type for d in definitions})
+    for definition in definitions:
+        inputs = [Node(os.path.join(RESOURCES_DIR, s)) for s in definition.sources]
+        output = Node(reso_output(definition, manifest["builddir"]))
+        output.parent.mkdir()
+        task = Task(bld, inputs, [output])
+        resource_generator.generate_object(task, definition).dump(output)
 
 
 def cmd_ball(args):
@@ -360,8 +387,7 @@ def main():
 
     p = sub.add_parser("reso")
     p.add_argument("--manifest", required=True)
-    p.add_argument("--index", type=int, required=True)
-    p.add_argument("--output", required=True)
+    p.add_argument("--index", type=int, nargs="+", required=True)
     p.set_defaults(func=cmd_reso)
 
     p = sub.add_parser("ball")
