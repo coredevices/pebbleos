@@ -32,9 +32,15 @@ function(pbl_link_firmware)
     -Wl,--start-group ${static_libs} ${PBL_LIBC_LIBS} -Wl,--end-group
   )
 
+  # The map is tens of megabytes and costs about a fifth of the link, so
+  # it is only written when something is going to read it.
+  set(map_options "")
+  if(CONFIG_LINKER_MAP)
+    set(map_options -Wl,--cref -Wl,-Map=pebbleos.map)
+  endif()
+
   target_link_options(pebbleos PRIVATE
-    -Wl,--cref
-    -Wl,-Map=pebbleos.map
+    ${map_options}
     -Wl,--gc-sections
     -Wl,--undefined=uxTopUsedPriority
     -Wl,--build-id=sha1

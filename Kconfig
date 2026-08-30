@@ -65,7 +65,22 @@ config DEBUG_INFO
     bool "Debug information"
     default y
     help
-      Compile with -g3 debug information.
+      Compile with debug information.
+
+config DEBUG_INFO_MACROS
+    bool "Macro definitions in the debug information"
+    depends on DEBUG_INFO
+    help
+      Compile with -g3 rather than -g, so a debugger can expand the
+      firmware's macros. It costs around 7% of the compile time and
+      makes the objects, and with them the link, noticeably larger.
+
+config LINKER_MAP
+    bool "Linker map file"
+    help
+      Write build/pebbleos.map, the cross-referenced link map that
+      tools/analyze_fw_static_memory_usage.py reads. It is tens of
+      megabytes and costs around a fifth of the link.
 
 endmenu
 

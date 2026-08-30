@@ -27,8 +27,14 @@ set(pbl_arch_flags
 )
 
 if(CONFIG_DEBUG_INFO)
-  # -g3 keeps macro definitions; -gdwarf-4 the more detailed debug info.
-  list(APPEND pbl_arch_flags -g3 -gdwarf-4)
+  # -gdwarf-4 is the more detailed debug info; -g3 additionally keeps the
+  # macro definitions, which is a good deal slower to produce.
+  if(CONFIG_DEBUG_INFO_MACROS)
+    list(APPEND pbl_arch_flags -g3)
+  else()
+    list(APPEND pbl_arch_flags -g)
+  endif()
+  list(APPEND pbl_arch_flags -gdwarf-4)
 endif()
 
 if(CONFIG_COMPILER_SAVE_TEMPS)

@@ -45,6 +45,16 @@ Enable manufacturing-only functionality in the PRF build.
 :`-DCONFIG_NO_WATCHDOG=y`:
 Disable watchdog
 
+:`-DCONFIG_DEBUG_INFO_MACROS=y`:
+Compile with `-g3` rather than `-g`, so a debugger can expand the
+firmware's macros. It costs around 7% of the compile time and makes the
+objects, and with them the link, noticeably larger.
+
+:`-DCONFIG_LINKER_MAP=y`:
+Write `build/pebbleos.map`, the cross-referenced link map that
+`tools/analyze_fw_static_memory_usage.py` reads. It is tens of megabytes
+and costs around a fifth of the link.
+
 ## Flashing
 
 The `flash`, `run` and `debug` commands talk to a connected device through a
