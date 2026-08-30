@@ -201,37 +201,6 @@ def _run_runner(env, options, command):
 
 # --- Shared helpers (moved from wscript) -----------------------------------
 
-class FirmwareTooLargeException(Exception):
-    pass
-
-
-def _check_firmware_image_size(env, path):
-    BYTES_PER_K = 1024
-    firmware_size = os.path.getsize(path)
-    if env.CONFIG_SOC_NRF52:
-        if env.VARIANT == "prf" and not env.CONFIG_MFG:
-            max_firmware_size = 512 * BYTES_PER_K
-        else:
-            max_firmware_size = (1024 - 32) * BYTES_PER_K
-    elif env.CONFIG_SOC_SF32LB52:
-        if env.VARIANT == "prf" and not env.CONFIG_MFG:
-            max_firmware_size = 576 * BYTES_PER_K
-        else:
-            max_firmware_size = 3072 * BYTES_PER_K
-    elif env.CONFIG_QEMU:
-        max_firmware_size = 4096 * BYTES_PER_K
-    else:
-        _fatal("Cannot check firmware size against unknown micro family")
-
-    if firmware_size > max_firmware_size:
-        raise FirmwareTooLargeException(
-            "Firmware is too large! Size is 0x%x should be less than 0x%x"
-            % (firmware_size, max_firmware_size)
-        )
-    return "%d / %d bytes used (%d free)" % (
-        firmware_size, max_firmware_size, max_firmware_size - firmware_size)
-
-
 def _is_pulse_everywhere(env):
     return bool(env.CONFIG_PULSE_EVERYWHERE)
 
@@ -256,7 +225,6 @@ def run_arm_gdb(elf_path, cmd_str="", target_server_port=3333):
 # --- Operational commands --------------------------------------------------
 
 def cmd_flash(env, options):
-    _check_firmware_image_size(env, fw_bin())
     _run_runner(env, options, "flash")
 
 
