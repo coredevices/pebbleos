@@ -18,6 +18,7 @@ import argparse
 import os
 import platform
 import shlex
+import signal
 import string
 import subprocess
 import sys
@@ -961,4 +962,10 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except KeyboardInterrupt:
+        # Ctrl+C reaches the whole process group, so whatever was running has
+        # already stopped; report it the way a shell expects instead of
+        # unwinding through the wait() it interrupted.
+        sys.exit(128 + signal.SIGINT)
