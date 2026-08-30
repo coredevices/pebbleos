@@ -274,9 +274,13 @@ static void prv_status_bar_style_menu_push(SettingsNotificationsData *data) {
 ////////////////////////
 
 static const char *s_notification_grouping_range_labels[] = {
+    /// Disable notification grouping
     [NotificationGroupingRange_Never] = i18n_noop("Never"),
-    [NotificationGroupingRange_OneDay] = i18n_noop("1 day"),
-    [NotificationGroupingRange_OneWeek] = i18n_noop("1 week"),
+    /// Group notifications received within one day
+    [NotificationGroupingRange_OneDay] = i18n_noop("1 Day"),
+    /// Group notifications received within one week
+    [NotificationGroupingRange_OneWeek] = i18n_noop("1 Week"),
+    /// Group all notifications
     [NotificationGroupingRange_All] = i18n_noop("All"),
 };
 
@@ -293,7 +297,8 @@ static void prv_notification_grouping_range_menu_push(SettingsNotificationsData 
   const OptionMenuCallbacks callbacks = {
       .select = prv_notification_grouping_range_menu_select,
   };
-  const char *title = i18n_noop("Group by sender");
+  /// Title for the notification sender grouping settings screen
+  const char *title = i18n_noop("Group by Sender");
   settings_option_menu_push(title, OptionMenuContentType_SingleLine,
                             alerts_preferences_get_notification_grouping_range(), &callbacks,
                             ARRAY_LENGTH(s_notification_grouping_range_labels),
@@ -346,7 +351,8 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       break;
     }
     case NotificationsItemGroupBySender: {
-      title = i18n_noop("Group by sender");
+      /// Notification settings item for grouping notifications by sender
+      title = i18n_noop("Group by Sender");
       subtitle = s_notification_grouping_range_labels
           [alerts_preferences_get_notification_grouping_range()];
       break;

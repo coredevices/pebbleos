@@ -315,7 +315,9 @@ static void prv_push_group_window(NotificationsData *data, const NotificationHis
   NotificationGroupWindow *group_window = app_zalloc_check(sizeof(*group_window));
   group_window->notifications_data = data;
   group_window->count = row->group.count;
-  group_window->sender = app_strdup(row->group.sender);
+  const size_t sender_size = strlen(row->group.sender) + 1;
+  group_window->sender = app_malloc_check(sender_size);
+  memcpy(group_window->sender, row->group.sender, sender_size);
   group_window->notification_ids = app_malloc_check(sizeof(Uuid) * group_window->count);
 
   NotificationHistoryMember *member = row->group.members;
@@ -670,7 +672,14 @@ static int16_t prv_get_cell_height(struct MenuLayer *menu_layer, MenuIndex *cell
 
 static const char *prv_get_group_title(NotificationsData *data, const NotificationHistoryRow *row) {
   const char *sender = row->group.sender;
-  const size_t required_size = strlen(sender) + 10;
+  /// Notification sender followed by the number of grouped notifications
+  const char *format = i18n_get("%s (%u)", data);
+  const int title_length = snprintf(NULL, 0, format, sender, (unsigned int)row->group.count);
+  if (title_length < 0) {
+    return sender;
+  }
+
+  const size_t required_size = (size_t)title_length + 1;
   if (required_size > data->group_title_size) {
     char *group_title = app_realloc(data->group_title, required_size);
     if (!group_title) {
@@ -680,7 +689,7 @@ static const char *prv_get_group_title(NotificationsData *data, const Notificati
     data->group_title_size = required_size;
   }
 
-  snprintf(data->group_title, data->group_title_size, "%s (%u)", sender,
+  snprintf(data->group_title, data->group_title_size, format, sender,
            (unsigned int)row->group.count);
   return data->group_title;
 }
