@@ -1,16 +1,39 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 #
-# The XS JavaScript engine. The Moddable host tools are built and
-# mcconfig is run at configure time; they generate mc.xs.c and
-# mc.resources.c, which are then compiled into the firmware like any
-# other source.
+# The XS JavaScript engine. The Moddable host tools are built and mcconfig
+# is run as a build step -- they need a host compiler, which has nothing to
+# do with the configuration -- and they generate mc.xs.c and
+# mc.resources.c, which are then compiled into the firmware like any other
+# source.
 
-execute_process(
-  COMMAND ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/build_moddable_host.py
-  WORKING_DIRECTORY ${PBL_BASE}
-  COMMAND_ERROR_IS_FATAL ANY
+set(moddable_host_dir ${CMAKE_CURRENT_SOURCE_DIR}/moddable/build/tmp/pebble/release/host)
+# The generated headers land here, so the directory has to be on the
+# include path before the step that fills it has run.
+file(MAKE_DIRECTORY ${moddable_host_dir})
+
+set(moddable_generated
+  ${moddable_host_dir}/mc.xs.c
+  ${moddable_host_dir}/mc.resources.c
+  ${moddable_host_dir}/mc.defines.h
+  ${moddable_host_dir}/mc.format.h
+  ${moddable_host_dir}/mc.rotation.h
+  ${moddable_host_dir}/mc.xs.h
 )
+
+add_custom_command(
+  OUTPUT ${moddable_generated}
+  COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/build_moddable_host.py
+  WORKING_DIRECTORY ${PBL_BASE}
+  COMMENT "Building the Moddable host tools"
+  VERBATIM
+)
+
+# xsHost.h includes mc.defines.h, so every library that reaches the engine's
+# headers has to wait for the generator, not just the ones built from its
+# generated sources.
+add_custom_target(pbl_moddable_host DEPENDS ${moddable_generated})
+add_dependencies(pbl_generated_headers pbl_moddable_host)
 
 set(sources
   moddable/xs/platforms/mc/xsHosts.c
@@ -150,8 +173,8 @@ set(sources
   moddable/build/devices/pebble/modules/dictation/dictation.c
   moddable/build/devices/pebble/modules/health/pebble-health.c
   moddable/modules/io/files/pebble/files-pebble.c
-  moddable/build/tmp/pebble/release/host/mc.xs.c
-  moddable/build/tmp/pebble/release/host/mc.resources.c
+  ${moddable_host_dir}/mc.xs.c
+  ${moddable_host_dir}/mc.resources.c
   moddable/build/devices/pebble/modules/archive-resource/Archive.c
   moddable/build/devices/pebble/modules/archive-resource/ArchivePebbleResource.c
   moddable/build/devices/pebble/host/main-appinfo.c
@@ -173,7 +196,7 @@ set(includes
   moddable/modules/io/display
   moddable/modules/piu/All
   moddable/modules/piu/MC
-  moddable/build/tmp/pebble/release/host
+  ${moddable_host_dir}
 )
 
 pbl_include_directories(${includes})
