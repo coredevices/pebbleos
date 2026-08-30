@@ -77,6 +77,15 @@ set_directory_properties(PROPERTIES
   LINK_OPTIONS ""
 )
 
+# An app is one blob: the firmware loads it into app RAM and runs it there,
+# so its single LOAD segment is both writable and executable by design.
+# binutils 2.39 and later warn about that unless told otherwise.
+execute_process(COMMAND ${CMAKE_LINKER} --help OUTPUT_VARIABLE ld_help ERROR_QUIET)
+set(app_rwx_flags "")
+if(ld_help MATCHES "--no-warn-rwx-segments")
+  set(app_rwx_flags -Wl,--no-warn-rwx-segments)
+endif()
+
 function(pbl_stored_app name)
   set(app_bin ${CMAKE_CURRENT_BINARY_DIR}/${name})
   set(app_ldscript ${CMAKE_CURRENT_SOURCE_DIR}/pebble_app.ld)
@@ -123,6 +132,7 @@ function(pbl_stored_app name)
     -fPIE
     -Os
     -Wl,--emit-relocs
+    ${app_rwx_flags}
     -T${app_ldscript}
   )
   set_property(TARGET stored_app_${name} APPEND PROPERTY
