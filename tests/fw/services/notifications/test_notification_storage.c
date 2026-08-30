@@ -183,6 +183,22 @@ static bool prv_items_iterator_callback(void *data, const CommonTimelineItemHead
   return true;
 }
 
+typedef struct {
+  Uuid expected_ids[2];
+  uint8_t item_count;
+} RecoveringNotificationItemsIteratorContext;
+
+static bool prv_recovering_items_iterator_callback(void *data,
+                                                   const CommonTimelineItemHeader *header,
+                                                   const TimelineItem *item) {
+  RecoveringNotificationItemsIteratorContext *context = data;
+  cl_assert(item);
+  cl_assert(context->item_count < ARRAY_LENGTH(context->expected_ids));
+  cl_assert(uuid_equal(&item->header.id, &context->expected_ids[context->item_count]));
+  context->item_count++;
+  return true;
+}
+
 // Tests
 ////////////////////////////////////
 void test_notification_storage__basic(void) {
@@ -256,6 +272,41 @@ void test_notification_storage__iterate_items_after_skips_old_and_deleted_payloa
 
   cl_assert_equal_i(context.header_count, 1);
   cl_assert_equal_i(context.item_count, 1);
+}
+
+void test_notification_storage__iterate_items_after_skips_corrupt_record(void) {
+  TimelineItem first = {
+      .header =
+          {
+              .id = UuidMake(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+              .timestamp = 100,
+              .type = TimelineItemTypeNotification,
+              .layout = LayoutIdGeneric,
+          },
+      .attr_list =
+          {
+              .num_attributes = ARRAY_LENGTH(attributes),
+              .attributes = attributes,
+          },
+  };
+  TimelineItem corrupt = first;
+  corrupt.header.id = UuidMake(2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+  corrupt.header.timestamp = 200;
+  corrupt.header.status = 0xC0;
+  TimelineItem last = first;
+  last.header.id = UuidMake(3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+  last.header.timestamp = 300;
+
+  notification_storage_store(&first);
+  notification_storage_store(&corrupt);
+  notification_storage_store(&last);
+
+  RecoveringNotificationItemsIteratorContext context = {
+      .expected_ids = {first.header.id, last.header.id},
+  };
+  notification_storage_iterate_items_after(0, prv_recovering_items_iterator_callback, &context);
+
+  cl_assert_equal_i(context.item_count, ARRAY_LENGTH(context.expected_ids));
 }
 
 void test_notification_storage__multiple(void) {
