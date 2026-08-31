@@ -7,32 +7,43 @@ with fakes and stubs that replace hardware and OS dependencies.
 
 ## Running tests
 
-Tests are built and run with waf, which the firmware build itself no longer
-uses; they get their own build directory, `build-test/`. Configure first
-(any board works; CI uses `qemu_gabbro`), then:
+The tests are a CMake project of their own, separate from the firmware
+build because they build for the host rather than for the watch. `./pbl
+test` configures `build-test/`, builds every test and runs them under
+ctest:
 
 ```shell
-./pbl waf configure --board qemu_gabbro
 ./pbl test
 ```
 
-Useful options (see `./pbl waf --help` for the full list):
+Anything `./pbl test` does not recognise is passed straight to ctest, so
+its selection and reporting options are all available:
 
-- `-M REGEX` / `--match REGEX`: only build/run test files matching the regex,
-  e.g. `./pbl test -M test_animation`
-- `-L` / `--list_tests`: list the tests in the matched files instead of
-  running them
-- `-T NAME` / `--test_name NAME`: run a single test case, e.g.
-  `./pbl test -M test_animation -T unschedule`
-- `-D` / `--debug_test`: run the test under GDB (use with `-M` to select the
-  test)
+- `-R REGEX`: run the tests whose name matches, e.g. `./pbl test -R animation`
+- `-L LABEL`: run by label; every test is labelled with its directory
+  (`tests/fw/ui`) and its platform (`obelix`, `gabbro`, `asterix`)
+- `-N`: list the tests that would run instead of running them
+- `--rerun-failed`: re-run only what failed last time
+- `-j N`: run N tests at once (the default is one per core)
+- `--stop-on-failure`: stop at the first failure instead of running on
+
+and `./pbl test`'s own options:
+
 - `-C` / `--coverage`: collect coverage and generate an lcov HTML report at
-  `build-test/test/tests/lcov-html/index.html`
-- `--show_output`: print test output while running
-- `--no_run`: build the test binaries without running them
-- `-k`: keep going after a failing test (used by CI)
+  `build-test/lcov-html/index.html`
+- `--no-images`: skip the image fixtures, which only some tests need and
+  which are the slow part of a clean build
+- `--build-only`: build the test binaries without running them
 
-Results are also written as JUnit XML to `build-test/test/junit.xml`. The `Test`
+Each test is a standalone binary under `build-test/`, so a failing one can
+be run directly or under a debugger:
+
+```shell
+gdb build-test/fw/ui/test_animation/runme
+```
+
+Results are written as JUnit XML to `build-test/junit.xml`, and a
+`compile_commands.json` for the tests lands in `build-test/`. The `Test`
 GitHub Actions workflow (`.github/workflows/test.yml`) runs the whole suite
 on pull requests that touch source, test or tooling paths.
 
@@ -42,7 +53,7 @@ out-of-bounds heap accesses abort the test immediately.
 ## Writing a test
 
 A test is a C file named `test_<suite>.c` under a `tests/` subdirectory,
-plus a `clar()` entry in that directory's `wscript_build`. The clar
+plus a `pbl_clar_test()` entry in that directory's `CMakeLists.txt`. The clar
 generator (`tools/clar/clar.py`) scans the file for functions named
 `test_<suite>__<case>` — no manual registration is needed:
 
@@ -68,32 +79,47 @@ The available assertion macros (`cl_assert`, `cl_assert_equal_i`,
 `cl_assert_equal_s`, `cl_must_pass`, ...) are defined in
 `tests/test_includes/clar_asserts.h`.
 
-The `wscript_build` entry declares which product sources, fakes and test
+The `CMakeLists.txt` entry declares which product sources, fakes and test
 files to compile:
 
-```python
-from tools.waf.pebble_test import clar
-
-clar(ctx, test_sources_ant_glob="test_crc32.c")
+```cmake
+pbl_clar_test(test_crc32)
 ```
 
-`crc32.c` lives in `libutil`, which `clar()` always links; code that is not
-part of the always-linked libraries — and any fakes from `tests/fakes/` —
-is listed explicitly in `sources_ant_glob`, e.g.
-`sources_ant_glob="src/fw/services/... tests/fakes/fake_rtc.c"`.
+`crc32.c` lives in `libutil`, which `pbl_clar_test()` always links; code
+that is not part of the always-linked libraries — and any fakes from
+`tests/fakes/` — is listed explicitly under `SOURCES`, as paths relative to
+the repository root:
 
-`clar()` (defined in `tools/waf/pebble_test.py`) builds one binary per test
-file/platform combination into `build/test/tests/...` and runs it. Commonly
-used keyword arguments:
+```cmake
+pbl_clar_test(test_pfs
+  SOURCES
+    src/fw/services/filesystem/pfs.c
+    tests/fakes/fake_rtc.c
+  OVERRIDES dummy_board
+)
+```
 
-- `sources_ant_glob` / `sources`: code under test plus any fakes from
-  `tests/fakes/`
-- `test_sources_ant_glob` / `test_sources`: the test file(s)
-- `defines`, `test_libs`, `add_includes`: extra compile defines, link
-  libraries and include paths
-- `override_includes`: opt-in header override directories (see below)
-- `platforms`: build the test once per listed platform (e.g.
-  `['asterix', 'obelix']`); the default is a single generic platform
+`pbl_clar_test()` (defined in `cmake/modules/pbl_test.cmake`) builds one
+binary per test file/platform combination and registers it with ctest. Its
+arguments:
+
+- `SOURCE`: the test file, when it is not `<name>.c` next to the
+  `CMakeLists.txt`
+- `SOURCES`: code under test plus any fakes from `tests/fakes/`;
+  `@PLATFORM@` and `@BITDEPTH@` in a path expand per platform
+- `PLATFORMS`: build the test once per listed platform (e.g.
+  `obelix gabbro`); the default is a single generic platform
+- `DEFINES`, `INCLUDES`, `LIBS`: extra compile defines, include paths and
+  link libraries
+- `OVERRIDES`: opt-in header override directories (see below)
+- `DEPENDS`: targets to build first, for a test that needs a generated
+  header
+- `TEST_IMAGES`: the test renders against the image fixtures
+
+A source needed by several tests is compiled once and shared between them
+whenever they agree on every compile flag, so adding a test that matches an
+existing one costs a single translation unit.
 
 ## Fakes, stubs and header overrides
 
@@ -112,9 +138,9 @@ Three mechanisms replace dependencies of the code under test:
 
 ## Broken tests
 
-`BROKEN_TESTS` in `tests/wscript_build` lists test files that are excluded
-from the build; matches are reported with a red `Skipping ...` line during
-the test run.
+`pbl_test_broken()` in `tests/CMakeLists.txt` lists tests that are not
+built. Their `pbl_clar_test()` declarations stay where they are, so what
+the test needs is still on record when someone picks it back up.
 
 ## JavaScript tests
 

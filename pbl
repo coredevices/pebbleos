@@ -7,8 +7,8 @@
 Drives the CMake firmware build (configure, build, bundle, menuconfig) and
 hosts the operational commands that are not build steps: flash, qemu,
 console, debug, screenshot, openocd, reset, bork, image_*, make_lang,
-pack_lang, pack_all_langs. The unit tests still build with waf; ``./pbl
-test`` forwards to it.
+pack_lang, pack_all_langs. The unit tests are their own CMake project,
+built and run by ``./pbl test``.
 
 Build state is read from the configured build directory
 (``build/pbl_env.json``). Run ``./pbl configure --board BOARD`` first.
@@ -25,12 +25,13 @@ import sys
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 BUILD_DIR = os.path.join(REPO_ROOT, "build")
+TEST_DIR = os.path.join(REPO_ROOT, "build-test")
 LANG_DIR_REL = "resources/normal/base/lang"
 
 # Commands that do not need a configured build directory.
-BUILD_COMMANDS = ("configure", "build", "bundle", "clean", "menuconfig")
-# The unit tests still build with waf, out of their own build directory.
-WAF_PASSTHROUGH = ("test", "waf")
+BUILD_COMMANDS = ("configure", "build", "bundle", "clean", "menuconfig", "test")
+# The SDK is still packaged by waf.
+WAF_PASSTHROUGH = ("waf",)
 
 # QEMU SDL decorations per board. The first entry is used as the default.
 QEMU_DECORATIONS = {
@@ -783,6 +784,69 @@ def cmd_build(argv):
     return _run(cmd)
 
 
+def cmd_test(argv):
+    """Build and run the unit tests, then hand the rest to ctest."""
+    parser = argparse.ArgumentParser(prog="pbl test", add_help=False)
+    parser.add_argument("-G", "--generator", default="Ninja",
+                        help="CMake generator (default: Ninja)")
+    parser.add_argument("-C", "--coverage", action="store_true",
+                        help="Instrument the tests and write an lcov report")
+    parser.add_argument("--no-images", action="store_true",
+                        help="Skip the image fixtures; only some tests need them")
+    parser.add_argument("--build-only", action="store_true",
+                        help="Build the tests without running them")
+    parser.add_argument("-h", "--help", action="store_true",
+                        help="Show this help, and ctest's")
+    options, extra = parser.parse_known_args(argv)
+
+    if options.help:
+        parser.print_help()
+        print("\nEverything else is passed to ctest:\n")
+        sys.stdout.flush()
+        return subprocess.call(["ctest", "--help"])
+
+    rc = _run(["cmake", "-B", TEST_DIR, "-S", "tests", "-G", options.generator,
+               "-DPBL_TEST_COVERAGE=" + ("ON" if options.coverage else "OFF"),
+               "-DPBL_TEST_IMAGES=" + ("OFF" if options.no_images else "ON")])
+    if rc:
+        return rc
+    rc = _run(["cmake", "--build", TEST_DIR])
+    if rc or options.build_only:
+        return rc
+
+    # ctest runs one test per core unless told otherwise, and always
+    # leaves a JUnit report behind for CI to pick up.
+    cmd = ["ctest", "--test-dir", TEST_DIR, "--output-on-failure",
+           "--output-junit", os.path.join(TEST_DIR, "junit.xml")]
+    if not any(a == "-j" or a.startswith("-j") or a == "--parallel" for a in extra):
+        cmd += ["-j", str(os.cpu_count() or 1)]
+    rc = _run(cmd + extra)
+
+    if options.coverage:
+        rc = _lcov_report() or rc
+    return rc
+
+
+def _lcov_report():
+    """Turn the gcov data the run produced into lcov.info and a HTML report."""
+    info = os.path.join(TEST_DIR, "lcov.info")
+    extra = ["--gcov-tool", "llvm-cov"] if sys.platform.startswith("linux") else []
+    html = os.path.join(TEST_DIR, "lcov-html")
+    steps = [
+        ["lcov", "--capture", "--directory", TEST_DIR, "--output-file", info] + extra,
+        # The tests themselves are not what the report is about.
+        ["lcov", "--remove", info, "tests/**", "-o", info] + extra,
+        ["genhtml", info, "--output-directory", html],
+    ]
+    for step in steps:
+        rc = _run(step)
+        if rc:
+            _pprint("RED", "Coverage report failed; are lcov and genhtml installed?")
+            return rc
+    _pprint("GREEN", f"Coverage report at {html}/index.html")
+    return 0
+
+
 def cmd_bundle(argv):
     return _build_target("bundle")
 
@@ -818,6 +882,7 @@ def cmd_menuconfig(argv):
 BUILD = {
     "configure": cmd_configure,
     "build": cmd_build,
+    "test": cmd_test,
     "bundle": cmd_bundle,
     "clean": cmd_clean,
     "menuconfig": cmd_menuconfig,
@@ -919,9 +984,10 @@ def build_parser():
         sp.add_argument("args", nargs=argparse.REMAINDER)
 
     # The unit tests still build with waf.
+    sub.add_parser("test", help="Build and run the unit tests")
+
     for name in WAF_PASSTHROUGH:
-        sp = sub.add_parser(name, help="Forward to ./waf %s" % (
-            name if name != "waf" else "<args...>"))
+        sp = sub.add_parser(name, help="Forward to ./waf <args...>")
         sp.add_argument("args", nargs=argparse.REMAINDER)
 
     return parser
