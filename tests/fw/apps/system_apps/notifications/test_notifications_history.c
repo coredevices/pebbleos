@@ -102,6 +102,7 @@ void test_notifications_history__same_sender_forms_one_group(void) {
   cl_assert(prv_row(0)->is_group);
   cl_assert_equal_i(notifications_history_row_get_count(prv_row(0)), 2);
   cl_assert(notifications_history_row_is_collapsed_group(prv_row(0)));
+  cl_assert(notifications_history_has_collapsed_groups(&s_history));
   cl_assert_equal_s(prv_row(0)->group.sender, "Anna");
   prv_assert_id(notifications_history_row_get_latest_id(prv_row(0)), 2);
 }
@@ -111,6 +112,7 @@ void test_notifications_history__single_message_is_not_collapsed_group(void) {
 
   cl_assert_equal_i(notifications_history_get_row_count(&s_history), 1);
   cl_assert(!notifications_history_row_is_collapsed_group(prv_row(0)));
+  cl_assert(!notifications_history_has_collapsed_groups(&s_history));
   prv_assert_id(notifications_history_row_get_latest_id(prv_row(0)), 1);
 }
 
@@ -204,6 +206,7 @@ void test_notifications_history__removing_notifications_updates_and_removes_grou
   cl_assert_equal_s(prv_row(0)->group.sender, "Bob");
   cl_assert_equal_i(prv_row(1)->group.count, 1);
   cl_assert(!notifications_history_row_is_collapsed_group(prv_row(1)));
+  cl_assert(!notifications_history_has_collapsed_groups(&s_history));
   prv_assert_id(notifications_history_row_get_latest_id(prv_row(1)), 1);
 
   id = prv_id(1);

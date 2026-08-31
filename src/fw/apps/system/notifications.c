@@ -339,7 +339,8 @@ static void prv_push_group_window(NotificationsData *data, const NotificationHis
 // Return true if successful
 static bool prv_push_notification_window(NotificationsData *data,
                                          NotificationHistoryRow *selected_row) {
-  notification_window_init_history(!data->history.group_by_sender);
+  const bool has_collapsed_groups = notifications_history_has_collapsed_groups(&data->history);
+  notification_window_init_history(!has_collapsed_groups);
 
   // Bail if a notification came in ahead of us and created a modal window
   // before we had a chance to react to the select button event.
@@ -347,14 +348,15 @@ static bool prv_push_notification_window(NotificationsData *data,
     return false;
   }
 
-  if (data->history.group_by_sender) {
+  if (has_collapsed_groups) {
     notification_window_add_notification_by_id(
         (Uuid *)notifications_history_row_get_latest_id(selected_row));
   } else {
     NotificationHistoryRow *row =
         (NotificationHistoryRow *)list_get_tail(&data->history.rows->node);
     while (row) {
-      notification_window_add_notification_by_id(&row->notification_id);
+      notification_window_add_notification_by_id(
+          (Uuid *)notifications_history_row_get_latest_id(row));
       row = (NotificationHistoryRow *)list_get_prev(&row->node);
     }
   }
@@ -882,7 +884,7 @@ static void prv_handle_notification_added(Uuid *id) {
   prv_group_window_add_notification(s_data, id);
   timeline_item_free_allocated_buffer(&notification);
 
-  if (!s_data->history.group_by_sender) {
+  if (!notifications_history_has_collapsed_groups(&s_data->history)) {
     app_notification_window_add_new_notification_by_id(id);
   }
 }

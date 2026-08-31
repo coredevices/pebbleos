@@ -50,6 +50,7 @@ bool notifications_history_remove(NotificationHistory *history, const Uuid *id);
 uint16_t notifications_history_get_row_count(const NotificationHistory *history);
 NotificationHistoryRow *notifications_history_get_row(const NotificationHistory *history,
                                                       uint16_t index);
+bool notifications_history_has_collapsed_groups(const NotificationHistory *history);
 bool notifications_history_row_is_collapsed_group(const NotificationHistoryRow *row);
 const Uuid *notifications_history_row_get_latest_id(const NotificationHistoryRow *row);
 uint16_t notifications_history_row_get_count(const NotificationHistoryRow *row);

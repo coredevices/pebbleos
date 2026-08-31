@@ -258,6 +258,17 @@ NotificationHistoryRow *notifications_history_get_row(const NotificationHistory 
   return (NotificationHistoryRow *)list_get_at((ListNode *)history->rows, index);
 }
 
+bool notifications_history_has_collapsed_groups(const NotificationHistory *history) {
+  NotificationHistoryRow *row = history->rows;
+  while (row) {
+    if (notifications_history_row_is_collapsed_group(row)) {
+      return true;
+    }
+    row = (NotificationHistoryRow *)list_get_next(&row->node);
+  }
+  return false;
+}
+
 bool notifications_history_row_is_collapsed_group(const NotificationHistoryRow *row) {
   return row->is_group && row->group.count > 1;
 }
