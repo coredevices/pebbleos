@@ -4,8 +4,6 @@
 #include "logging/logging_private.h"
 #include "system/die.h"
 #include "system/reboot_reason.h"
-#include "system/reset.h"
-#include "pbl/util/attributes.h"
 #include "util/bitset.h"
 #include "pbl/util/size.h"
 #include "pbl/util/string.h"
@@ -13,8 +11,6 @@
 #include <cmsis_core.h>
 
 #include <inttypes.h>
-#include <stdarg.h>
-#include <stdio.h>
 
 #include "kernel/pebble_tasks.h"
 

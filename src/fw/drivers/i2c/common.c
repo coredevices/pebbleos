@@ -8,23 +8,18 @@
 #include "board/board.h"
 #include "debug/power_tracking.h"
 #include "pbl/services/analytics/analytics.h"
-#include <pbl/drivers/gpio.h>
 #include <pbl/drivers/rtc.h>
 #include "FreeRTOS.h"
-#include "kernel/pbl_malloc.h"
 #include "pbl/os/tick.h"
 #include "kernel/util/sleep.h"
 #include "pbl/os/mutex.h"
 #include "semphr.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "pbl/util/size.h"
 
 #ifdef CONFIG_PMIC
 #include <pbl/drivers/pmic.h>
 #endif
-
-#include <inttypes.h>
 
 PBL_LOG_MODULE_DEFINE(driver_i2c, CONFIG_DRIVER_I2C_LOG_LEVEL);
 

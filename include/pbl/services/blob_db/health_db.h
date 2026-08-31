@@ -5,8 +5,6 @@
 
 #include "pbl/services/activity/activity.h"
 #include "system/status_codes.h"
-#include "pbl/util/attributes.h"
-
 
 //! Get the typical metric value for a given day.
 //! If you want "typical steps" you probably want health_db_get_typical_step_averages

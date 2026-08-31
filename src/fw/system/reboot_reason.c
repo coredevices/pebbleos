@@ -6,7 +6,6 @@
 #include "pbl/mcu/interrupts.h"
 #include "pbl/os/tick.h"
 #include <pbl/logging/logging.h>
-#include "system/bootbits.h"
 
 #ifdef CONFIG_SOC_SF32LB52
 #include <bf0_hal.h>
@@ -16,8 +15,6 @@
 extern void RTC_WriteBackupRegister(uint32_t reg_id, uint32_t value);
 extern uint32_t RTC_ReadBackupRegister(uint32_t reg_id);
 #endif
-
-#include <inttypes.h>
 
 #include "FreeRTOS.h"
 #include "task.h"

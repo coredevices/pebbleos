@@ -7,9 +7,7 @@
 #include <bluetooth/bt_driver_advert.h>
 #include <bluetooth/gatt.h>
 #include <bluetooth/pairing_confirm.h>
-#include <comm/bt_lock.h>
 #include <host/ble_gap.h>
-#include <host/ble_hs_hci.h>
 #include <kernel/pbl_malloc.h>
 #include <os/os_mbuf.h>
 #include <pbl/logging/logging.h>

@@ -4,10 +4,8 @@
 #include <pbl/drivers/rtc.h>
 
 #include "board/board.h"
-#include "system/passert.h"
 #include <pbl/logging/logging.h>
 
-#include <string.h>
 #include <stdio.h>
 
 #define REG32(addr) (*(volatile uint32_t *)(addr))

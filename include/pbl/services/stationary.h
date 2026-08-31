@@ -4,8 +4,6 @@
 #pragma once
 
 #include <stdbool.h>
-#include "applib/accel_service.h"
-#include "kernel/event_loop.h"
 
 //! Set up a timer that will check the position of the watch every minute to see
 //! if any motion has occured

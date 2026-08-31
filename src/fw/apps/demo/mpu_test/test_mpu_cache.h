@@ -5,7 +5,4 @@
 
 #include "process_management/pebble_process_md.h"
 
-#include <stdint.h>
-#include <stdbool.h>
-
 const PebbleProcessMd* test_mpu_cache_get_info();

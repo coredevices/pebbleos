@@ -6,7 +6,6 @@
 #include "kernel/events.h"
 #include "pbl/services/notifications/alerts_private.h"
 #include "pbl/services/notifications/do_not_disturb.h"
-#include "pbl/services/notifications/notification_types.h"
 #include "pbl/services/vibes/vibe_intensity.h"
 #include "util/time/time.h"
 #include "pbl/services/vibes/vibe_client.h"

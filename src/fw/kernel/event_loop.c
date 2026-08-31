@@ -11,29 +11,16 @@
 #include <stdbool.h>
 
 #include "applib/app_launch_reason.h"
-#include "applib/battery_state_service.h"
-#include "applib/connection_service.h"
 #include "applib/graphics/graphics.h"
-#include "applib/graphics/text.h"
-#include "applib/tick_timer_service.h"
-#include "applib/ui/animation_private.h"
-#include "applib/ui/app_window_click_glue.h"
 #include "applib/ui/ui.h"
-#include "applib/ui/window.h"
-#include "applib/ui/window_private.h"
 #include "comm/ble/kernel_le_client/kernel_le_client.h"
 #include "console/serial_console.h"
-#include "console/prompt.h"
-#include <pbl/drivers/backlight.h>
-#include <pbl/drivers/battery.h>
 #include <pbl/drivers/button.h>
 #include <pbl/drivers/task_watchdog.h>
 #include "kernel/core_dump.h"
 #include "kernel/kernel_applib_state.h"
 #include "kernel/low_power.h"
 #include "kernel/panic.h"
-#include "kernel/pbl_malloc.h"
-#include "kernel/ui/kernel_ui.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "kernel/util/factory_reset.h"
 #include "pbl/mcu/fpu.h"
@@ -42,7 +29,6 @@
 #include "process_management/app_run_state.h"
 #include "process_management/process_manager.h"
 #include "process_management/worker_manager.h"
-#include "resource/resource_ids.auto.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/battery/battery_state.h"
 #include "pbl/services/battery/battery_monitor.h"
@@ -58,7 +44,6 @@
 #include "pbl/services/light.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "pbl/services/put_bytes/put_bytes.h"
-#include "pbl/services/system_task.h"
 #ifdef CONFIG_TOUCH
 #include "pbl/services/touch/touch.h"
 #include "pbl/services/touch/touch_session.h"
@@ -66,7 +51,6 @@
 #include "pbl/services/vibe_pattern.h"
 #include "pbl/services/alarms/alarm.h"
 #include "pbl/services/app_fetch_endpoint.h"
-#include "pbl/services/blob_db/api.h"
 #include "pbl/services/notifications/alerts_preferences.h"
 #include "pbl/services/notifications/do_not_disturb.h"
 #include "pbl/services/stationary.h"
@@ -76,18 +60,13 @@
 #include "shell/normal/watchface.h"
 #include "shell/prefs.h"
 #include "shell/shell_event_loop.h"
-#include "shell/system_app_state_machine.h"
 #include "system/bootbits.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "system/reset.h"
 #include "system/testinfra.h"
-#include "util/bitset.h"
 #include "pbl/util/struct.h"
-#include "system/version.h"
 
 #include "FreeRTOS.h"
-#include "task.h"
 
 static const uint32_t FORCE_QUIT_HOLD_MS = 1500;
 static int s_back_hold_timer = TIMER_INVALID_ID;

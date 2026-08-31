@@ -11,7 +11,6 @@
 #include "pbl/mcu/fpu.h"
 #include "pbl/os/tick.h"
 #include "pbl/services/regular_timer.h"
-#include "system/passert.h"
 
 #include "FreeRTOS.h"
 #include "queue.h"

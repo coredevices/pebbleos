@@ -6,7 +6,6 @@
 #include "pbl/services/touch/touch_event.h"
 
 #include <stdbool.h>
-#include <stdint.h>
 
 //! Callback for touch events.
 //! @param event The touch event data

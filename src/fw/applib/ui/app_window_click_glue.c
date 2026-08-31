@@ -6,9 +6,6 @@
 #include "process_state/app_state/app_state.h"
 #include "applib/ui/click_internal.h"
 #include "applib/ui/window.h"
-#include "applib/ui/window_stack_private.h"
-#include "system/passert.h"
-#include "pbl/util/size.h"
 
 ////////////////////////////////////////////////
 // App + Click Recognizer + Window : Glue code

@@ -4,30 +4,14 @@
 #include "pbl/services/notifications/notifications.h"
 
 #include "pbl/services/notifications/notification_storage.h"
-#include "pbl/services/notifications/do_not_disturb.h"
 
-#include "applib/ui/vibes.h"
-#include <pbl/drivers/rtc.h>
-#include <pbl/drivers/battery.h>
-#include "resource/resource_ids.auto.h"
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
 #include "util/bitset.h"
 
 #include "kernel/events.h"
-#include "kernel/low_power.h"
 #include "kernel/pbl_malloc.h"
 
 #include "pbl/services/analytics/analytics.h"
-#include "pbl/services/evented_timer.h"
-#include "pbl/services/i18n/i18n.h"
-#include "pbl/services/blob_db/reminder_db.h"
-#include "pbl/services/phone_call.h"
-#include "pbl/services/timeline/attribute.h"
-#include "pbl/services/timeline/timeline.h"
 #include "pbl/services/vibes/vibe_intensity.h"
-
-#include <string.h>
 
 static void prv_notification_migration_iterator_callback(TimelineItem *notification,
     SerializedTimelineItemHeader *header, void *data) {

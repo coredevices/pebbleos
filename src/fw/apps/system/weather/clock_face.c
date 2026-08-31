@@ -2,7 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "clock_face.h"
-#include "weather.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/animation_interpolate.h"
 #include "weather_math.h"

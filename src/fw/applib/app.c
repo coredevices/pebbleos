@@ -3,12 +3,10 @@
 
 #include "app.h"
 
-#include "applib/graphics/graphics_private.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/window_stack.h"
 #include "applib/ui/window_private.h"
 #include "pbl/mcu/fpu.h"
-#include "process_management/app_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "syscall/syscall.h"
 #include <pbl/logging/logging.h>

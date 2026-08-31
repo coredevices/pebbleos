@@ -9,7 +9,6 @@
 #include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
 #include "kernel/util/sleep.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/filesystem/pfs.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
@@ -19,7 +18,6 @@
 
 #include <inttypes.h>
 #include <stddef.h>
-#include <stdio.h>
 
 PBL_LOG_MODULE_DECLARE(service_data_logging, CONFIG_SERVICE_DATA_LOGGING_LOG_LEVEL);
 

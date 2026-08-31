@@ -3,12 +3,8 @@
 
 #pragma once
 
-#include "pbl/services/shared_prf_storage/shared_prf_storage.h"
-
 #include <bluetooth/bluetooth_types.h>
 #include <pbl/util/attributes.h>
-
-#include <inttypes.h>
 
 #define SPRF_PAGE_IDX_INVALID ((uint16_t)~0)
 

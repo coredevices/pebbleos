@@ -7,11 +7,7 @@
 #include "console/prompt.h"
 #include <pbl/drivers/gpio.h>
 #include <pbl/drivers/i2c.h>
-#include <pbl/drivers/pmic.h>
-#include <pbl/drivers/pwm.h>
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/util/math.h"
 
 #include <string.h>
 

@@ -12,7 +12,6 @@
 #include "util/time/time.h"
 
 #include <locale.h>
-#include <string.h>
 
 typedef struct {
   Window window;

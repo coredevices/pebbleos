@@ -3,12 +3,9 @@
 
 #pragma once
 
-#include "modal_manager_private.h"
-
 #include "applib/graphics/graphics.h"
 #include "applib/ui/click_internal.h"
 #include "applib/ui/window.h"
-#include "applib/ui/window_stack_animation.h"
 #include "applib/ui/window_stack_private.h"
 #include "kernel/events.h"
 

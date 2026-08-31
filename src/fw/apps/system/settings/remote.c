@@ -4,10 +4,7 @@
 #include "remote.h"
 #include "bluetooth.h"
 
-#include "applib/fonts/fonts.h"
 #include "applib/ui/action_menu_window_private.h"
-#include "applib/ui/app_window_stack.h"
-#include "applib/ui/menu_layer.h"
 #include "applib/ui/text_layer.h"
 #include "applib/ui/ui.h"
 #include "applib/ui/dialogs/dialog.h"
@@ -17,15 +14,11 @@
 #include "kernel/ui/system_icons.h"
 #include "popups/ble_hrm/ble_hrm_stop_sharing_popup.h"
 #include "resource/resource_ids.auto.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/bluetooth/bluetooth_persistent_storage.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/bluetooth/ble_hrm.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-
-#include <stdio.h>
-#include <string.h>
 
 enum {
   RemoteMenuForget = 0,

@@ -5,14 +5,11 @@
 
 #include "applib/fonts/fonts.h"
 #include "applib/ui/dialogs/expandable_dialog.h"
-#include "applib/ui/ui.h"
-#include "applib/ui/window.h"
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/ui/kernel_ui.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "process_management/app_install_manager.h"
-#include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
 

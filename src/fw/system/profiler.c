@@ -9,9 +9,7 @@
 #include <cmsis_core.h>
 
 #include <inttypes.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <string.h>
 
 #ifdef CONFIG_SOC_NRF52
 #include <drivers/nrfx_common.h>

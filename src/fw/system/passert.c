@@ -3,7 +3,6 @@
 
 #include "passert.h"
 
-#include "system/die.h"
 #include "system/reboot_reason.h"
 #include "kernel/fault_handling.h"
 
@@ -12,11 +11,9 @@
 #include <pbl/logging/logging.h>
 #include "pbl/util/heap.h"
 
-#include <string.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #define CORE_NUMBER 0
 

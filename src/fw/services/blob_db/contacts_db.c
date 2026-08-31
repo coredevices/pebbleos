@@ -6,7 +6,6 @@
 #include "kernel/pbl_malloc.h"
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/settings/settings_file.h"
-#include "pbl/services/contacts/attributes_address.h"
 #include "pbl/services/contacts/contacts.h"
 #include "pbl/os/mutex.h"
 #include "system/passert.h"

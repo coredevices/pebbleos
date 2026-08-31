@@ -47,11 +47,7 @@ extern char *itoa(int value, char *str, int base);
 #include "pbl/util/attributes.h"
 #include "pbl/util/build_id.h"
 #include "pbl/util/math.h"
-#include "util/net.h"
 #include "pbl/util/size.h"
-#include "pbl/util/string.h"
-
-#include <cmsis_core.h>
 
 #ifdef CONFIG_SOC_NRF52
 #include <nrf52840.h>
@@ -60,10 +56,7 @@ extern char *itoa(int value, char *str, int base);
 #include "FreeRTOS.h"       /* FreeRTOS Kernal Prototypes/Constants.          */
 #include "task.h"           /* FreeRTOS Task Prototypes/Constants.            */
 
-#include <inttypes.h>
 #include <stdint.h>
-#include <stdio.h>
-
 
 //! Evaluates to 1 iff execution will use the process stack when returning from
 //! the exception.

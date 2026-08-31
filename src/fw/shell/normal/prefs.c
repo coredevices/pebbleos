@@ -14,12 +14,9 @@
 #include "board/board.h"
 #include "applib/graphics/gtypes.h"
 #include <pbl/drivers/ambient_light.h>
-#include <pbl/drivers/backlight.h>
-#include "mfg/mfg_info.h"
 #include "pbl/os/mutex.h"
 #include "popups/timeline/peek.h"
 #include "process_management/app_install_manager.h"
-#include "process_management/process_manager.h"
 #include "pbl/services/accel_manager.h"
 #include "pbl/services/touch/touch.h"
 #include "pbl/services/touch/touch_nav_service.h"

@@ -7,8 +7,6 @@
 #include "applib/applib_malloc.auto.h"
 #include "system/passert.h"
 
-#include <string.h>
-
 inline static void prv_inverter_layer_update_proc_color(GContext *ctx) {
   // ctx->draw_state.drawing_box is the correct rect when this function gets
   // called through layer_render_tree(),

@@ -11,13 +11,8 @@
 #include "applib/ui/shadows.h"
 #include "applib/ui/window.h"
 #include "process_management/app_manager.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/math.h"
-
-#include "animation_timing.h"
-
-#include <string.h>
 
 #ifdef CONFIG_TOUCH
 #include "applib/ui/recognizer/touch_nav.h"

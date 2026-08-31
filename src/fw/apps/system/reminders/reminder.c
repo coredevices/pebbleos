@@ -22,8 +22,6 @@
 #include "pbl/services/blob_db/watch_app_prefs_db.h"
 #include "util/time/time.h"
 
-#include <pbl/logging/logging.h>
-
 typedef enum ReminderAppUIState {
   ReminderAppUIState_Start,
   ReminderAppUIState_WaitForDictationEvent,

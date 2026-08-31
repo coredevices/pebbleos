@@ -6,7 +6,6 @@
 #include <bluetooth/bluetooth_types.h>
 #include <bluetooth/responsiveness.h>
 #include <host/ble_gap.h>
-#include <nimble/ble.h>
 #include <stdint.h>
 
 #define BLE_UUID_SWIZZLE_(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \

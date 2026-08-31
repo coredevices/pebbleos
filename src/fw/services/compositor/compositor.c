@@ -10,12 +10,10 @@
 #include "applib/graphics/gtypes.h"
 #include "applib/ui/animation.h"
 #include "applib/ui/animation_private.h"
-#include <pbl/drivers/display/display.h>
 #include "kernel/event_loop.h"
 #include "kernel/kernel_applib_state.h"
 #include "kernel/ui/kernel_ui.h"
 #include "kernel/ui/modals/modal_manager.h"
-#include "pbl/mcu/cache.h"
 #include "popups/timeline/peek.h"
 #include "process_management/app_manager.h"
 #include "process_management/process_manager.h"
@@ -24,7 +22,6 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "system/profiler.h"
-#include "pbl/util/size.h"
 #include "pbl/util/math.h"
 
 PBL_LOG_MODULE_DEFINE(service_compositor, CONFIG_SERVICE_COMPOSITOR_LOG_LEVEL);

@@ -4,11 +4,8 @@
 #include "testinfra.h"
 
 #include "console/pulse_internal.h"
-#include "kernel/core_dump.h"
 #include "pbl/services/new_timer/new_timer.h"
-#include "system/bootbits.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 
 #if !UNITTEST
 static void prv_emit_ready_log(void *unused) {

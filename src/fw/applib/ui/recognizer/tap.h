@@ -7,9 +7,6 @@
 
 #include "applib/graphics/gtypes.h"
 
-#include <stdbool.h>
-#include <stdint.h>
-
 typedef struct TapRecognizerData TapRecognizerData;
 
 //! @addtogroup UI

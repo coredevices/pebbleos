@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <stdbool.h>
-
 //! Auto-shutdown when idle in PRF to increase the changes of getting Pebbles shipped
 //! that have some level of battery charge in them.
 

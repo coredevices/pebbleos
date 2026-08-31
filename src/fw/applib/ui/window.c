@@ -25,8 +25,6 @@
 
 #include "status_bar_layer.h"
 
-#include <string.h>
-
 typedef enum {
   WindowHandlerOffsetLoad = offsetof(WindowHandlers, load),
   WindowHandlerOffsetAppear = offsetof(WindowHandlers, appear),

@@ -4,7 +4,6 @@
 #include "util/legacy_checksum.h"
 
 #include <stdint.h>
-#include <string.h>
 
 // Software implementation of the legacy checksum. This emulates the behaviour
 // of the CRC peripheral in the STM32F2/F4 series MCUs and the bugs in the

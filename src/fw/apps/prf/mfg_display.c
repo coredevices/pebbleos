@@ -7,8 +7,6 @@
 #include "applib/tick_timer_service.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/dialogs/confirmation_dialog.h"
-#include "applib/ui/text_layer.h"
-#include "applib/ui/vibes.h"
 #include "applib/ui/window.h"
 #include "apps/prf/mfg_test_result.h"
 #include "console/prompt.h"
@@ -18,9 +16,6 @@
 #include "process_management/app_manager.h"
 #include "process_management/pebble_process_md.h"
 #include "process_state/app_state/app_state.h"
-#include "resource/resource_ids.auto.h"
-#include "resource/system_resource.h"
-#include "pbl/services/light.h"
 #include "pbl/util/size.h"
 
 typedef enum {

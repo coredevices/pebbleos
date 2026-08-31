@@ -12,8 +12,6 @@
 #include "comm/ble/kernel_le_client/ancs/ancs_types.h"
 #include <pbl/drivers/rtc.h>
 #include "kernel/pbl_malloc.h"
-#include "pbl/services/analytics/analytics.h"
-#include "pbl/services/i18n/i18n.h"
 #include "pbl/services/blob_db/ios_notif_pref_db.h"
 #include "pbl/services/blob_db/pin_db.h"
 #include "pbl/services/blob_db/reminder_db.h"
@@ -23,8 +21,6 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "util/pstring.h"
-
-#include <stdio.h>
 
 PBL_LOG_MODULE_DECLARE(service_notifications, CONFIG_SERVICE_NOTIFICATIONS_LOG_LEVEL);
 

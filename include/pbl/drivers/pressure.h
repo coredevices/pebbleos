@@ -3,7 +3,5 @@
 
 #pragma once
 
-#include <stdbool.h>
-
 //! Initialize the pressure sensor driver. Call this once at startup.
 void pressure_init(void);

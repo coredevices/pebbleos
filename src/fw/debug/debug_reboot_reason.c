@@ -2,18 +2,11 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "debug.h"
-#include "advanced_logging.h"
-
-#include <stdbool.h>
-#include <stdint.h>
 
 #include "comm/ble/gatt_service_changed.h"
-#include <pbl/drivers/pmic.h>
 #include "kernel/core_dump.h"
 #include "kernel/event_loop.h"
-#include "kernel/pbl_malloc.h"
 #include "popups/crashed_ui.h"
-#include "pbl/services/analytics/analytics.h"
 #include <pbl/logging/logging.h>
 #include "system/reboot_reason.h"
 

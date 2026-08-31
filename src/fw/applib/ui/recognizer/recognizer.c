@@ -8,7 +8,6 @@
 #include "recognizer_private.h"
 
 #include "applib/applib_malloc.auto.h"
-#include "applib/ui/layer.h"
 #include "system/passert.h"
 #include "pbl/util/list.h"
 

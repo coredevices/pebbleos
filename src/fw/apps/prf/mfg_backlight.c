@@ -8,7 +8,6 @@
 #include "applib/ui/window.h"
 #include "apps/prf/mfg_test_result.h"
 #include <pbl/drivers/backlight.h>
-#include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "process_management/app_manager.h"
 #include "process_state/app_state/app_state.h"

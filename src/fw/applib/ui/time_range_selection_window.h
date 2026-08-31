@@ -8,8 +8,6 @@
 #include "applib/ui/text_layer.h"
 #include "applib/ui/window.h"
 
-#include <time.h>
-
 struct TimeRangeSelectionWindowData;
 
 typedef void (*TimeRangeSelectionCompleteCallback)(struct TimeRangeSelectionWindowData *window,

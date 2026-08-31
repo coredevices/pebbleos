@@ -4,7 +4,6 @@
 #include <bluetooth/gatt.h>
 
 #include "gatt_client_operations.h"
-#include "gatt_client_accessors.h"
 
 #include "comm/bt_lock.h"
 #include "kernel/events.h"

@@ -4,12 +4,8 @@
 #include "pbl/services/bluetooth/bluetooth_persistent_storage.h"
 
 #include "comm/ble/gap_le_connect.h"
-#include "comm/ble/gap_le_slave_reconnect.h"
-
-#include "comm/bt_lock.h"
 
 #include "pbl/services/bluetooth/pairability.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/shared_prf_storage/shared_prf_storage.h"
 

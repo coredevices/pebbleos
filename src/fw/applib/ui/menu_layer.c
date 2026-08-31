@@ -5,27 +5,20 @@
 #include "menu_layer_private.h"
 
 #include "applib/applib_malloc.auto.h"
-#include "applib/preferred_content_size.h"
 #include "applib/graphics/graphics.h"
-#include "applib/graphics/text.h"
 #include "pbl/util/trig.h"
-#include "applib/fonts/fonts.h"
 #include "applib/ui/animation_timing.h"
 #include "applib/ui/click.h"
 #include "applib/ui/window.h"
-#include "applib/pbl_std/pbl_std.h"
 #include "applib/legacy2/ui/menu_layer_legacy2.h"
 #include "kernel/pbl_malloc.h"
 #include "process_management/process_manager.h"
-#include "shell/system_theme.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/attributes.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
 #include "vibes.h"
-
-#include <string.h>
 
 #ifdef CONFIG_TOUCH
 #include "applib/ui/recognizer/touch_nav.h"

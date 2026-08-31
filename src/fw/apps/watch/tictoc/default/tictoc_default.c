@@ -6,7 +6,6 @@
 #include "applib/tick_timer_service.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/ui.h"
-#include "applib/unobstructed_area_service.h"
 #include "kernel/pbl_malloc.h"
 #include "process_state/app_state/app_state.h"
 #include "util/time/time.h"

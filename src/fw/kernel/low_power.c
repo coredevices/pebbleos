@@ -4,7 +4,6 @@
 #include "kernel/low_power.h"
 
 #include "apps/prf/low_power.h"
-#include <pbl/drivers/rtc.h>
 #include "kernel/event_loop.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "kernel/util/standby.h"
@@ -12,7 +11,6 @@
 #include "process_management/app_manager.h"
 #include "process_management/worker_manager.h"
 #include "pbl/services/analytics/analytics.h"
-#include "pbl/services/system_task.h"
 #include "pbl/services/runlevel.h"
 
 #include <stdbool.h>

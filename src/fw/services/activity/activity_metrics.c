@@ -6,14 +6,11 @@
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/os/mutex.h"
-#include "pbl/os/tick.h"
 #include "pbl/services/protobuf_log/protobuf_log.h"
 #include "syscall/syscall.h"
 #include "syscall/syscall_internal.h"
-#include "system/hexdump.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "util/base64.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
 #include "util/stats.h"
@@ -22,7 +19,6 @@
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/activity/activity_algorithm.h"
 #include "pbl/services/activity/activity_calculators.h"
-#include "pbl/services/activity/activity_insights.h"
 #include "pbl/services/activity/activity_private.h"
 
 PBL_LOG_MODULE_DECLARE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);

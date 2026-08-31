@@ -6,7 +6,6 @@
 //! instead of <pebble.h>. Over-inclusive on purpose; the linker drops unused.
 #pragma once
 
-#include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -17,28 +16,19 @@
 #include "applib/ui/ui.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/window_stack.h"
-#include "applib/ui/click.h"
-#include "applib/ui/recognizer/recognizer.h"
 
 // --- Graphics ---
 #include "applib/graphics/graphics.h"
-#include "applib/graphics/gtypes.h"
 #include "applib/graphics/gbitmap_png.h"
 #include "applib/graphics/gdraw_command_image.h"
-#include "applib/graphics/gdraw_command_sequence.h"
 #include "applib/graphics/gdraw_command_frame.h"
-#include "applib/graphics/gpath.h"  // sin_lookup / cos_lookup / TRIG_MAX_ANGLE
 #include "applib/graphics/text.h"
 
 // --- Fonts ---
-#include "applib/fonts/fonts.h"
 
 // --- App services / timers / events ---
 #include "applib/app.h"
 #include "applib/pbl_std/pbl_std.h"  // pbl_override_localtime
-#include "applib/app_timer.h"
-#include "applib/tick_timer_service.h"
-#include "applib/event_service_client.h"
 #include "applib/preferred_content_size.h"
 
 // --- Touch (firmware applib app-facing touch service: TouchEvent{type,x,y}) ---
@@ -48,10 +38,8 @@
 #include "applib/persist.h"
 
 // --- Process / app state / heap ---
-#include "process_management/pebble_process_md.h"
 #include "process_state/app_state/app_state.h"
 #include "kernel/pbl_malloc.h"
-#include "kernel/events.h"
 
 // --- Resources (real generated ids; replaces the stored-app pinned header) ---
 #include "resource/resource_ids.auto.h"
@@ -65,13 +53,9 @@
 // weather.c use the app's types + the neutral WxDsForecast struct.
 
 // --- Misc utils the ported code uses ---
-#include "pbl/services/i18n/i18n.h"
 #include "pbl/services/clock.h"
-#include "pbl/util/math.h"
 #include "pbl/util/trig.h"  // sin_lookup / cos_lookup / TRIG_MAX_ANGLE / TRIG_MAX_RATIO
 #include "util/time/time.h"
-#include "pbl/util/uuid.h"
-#include "pbl/logging/logging.h"
 
 // --- Window-stack call-site shims: the SDK names map 1:1 to the app-window
 //     variants firmware apps must use. ---

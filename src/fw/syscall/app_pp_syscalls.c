@@ -4,9 +4,7 @@
 #include "applib/app_message/app_message_internal.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/comm_session/app_session_capabilities.h"
-#include "pbl/services/comm_session/protocol.h"
 #include "pbl/services/comm_session/session.h"
 #include "syscall/syscall_internal.h"
 

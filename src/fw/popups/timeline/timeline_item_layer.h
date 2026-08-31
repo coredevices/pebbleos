@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <stdbool.h>
 #include "applib/graphics/text.h"
 #include "applib/ui/layer.h"
 #include "applib/ui/property_animation_private.h"

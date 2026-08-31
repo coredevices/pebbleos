@@ -3,7 +3,6 @@
 
 #include "console/prompt.h"
 #include <pbl/drivers/mcu.h>
-#include <pbl/drivers/pmic.h>
 #include "mfg/mfg_info.h"
 #include "mfg/mfg_serials.h"
 #include "resource/resource.h"
@@ -19,7 +18,6 @@
 #include "shell/system_app_ids.auto.h"
 #include "system/bootbits.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 #include "system/version.h"
 #include "pbl/util/attributes.h"
 #include "util/net.h"

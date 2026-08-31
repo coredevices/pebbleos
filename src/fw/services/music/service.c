@@ -9,8 +9,6 @@
 #include <pbl/drivers/rtc.h>
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "process_management/app_manager.h"
-#include "shell/system_app_ids.auto.h"
 #include "pbl/os/mutex.h"
 #include "pbl/os/tick.h"
 #include <pbl/logging/logging.h>

@@ -8,22 +8,16 @@
 #include "applib/ui/window.h"
 #include "applib/ui/window_manager.h"
 #include "apps/system/timeline/timeline.h"
-#include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
 #include "kernel/ui/kernel_ui.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "process_state/app_state/app_state.h"
-#include "pbl/services/timeline/actions_endpoint.h"
 #include "pbl/services/timeline/layout_layer.h"
-#include "pbl/services/timeline/timeline.h"
 #include "pbl/services/timeline/timeline_actions.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/math.h"
 
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 #include <time.h>
 
 ///////////////////////////////////////////////////////////

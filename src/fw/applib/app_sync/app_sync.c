@@ -5,8 +5,6 @@
 #include "syscall/syscall.h"
 #include "system/passert.h"
 
-#include <string.h>
-
 static void delegate_errors(AppSync *s, DictionaryResult dict_result,
                             AppMessageResult app_message_result) {
   if (dict_result == DICT_OK && app_message_result == APP_MSG_OK) {

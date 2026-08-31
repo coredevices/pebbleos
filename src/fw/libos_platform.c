@@ -6,9 +6,6 @@
 #include "system/passert.h"
 #include "pbl/util/attributes.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-
 void os_log(const char *filename, int line, const char *string) {
   pbl_log(LOG_LEVEL_INFO, filename, line, string);
 }

@@ -5,7 +5,6 @@
 
 #include <pbl/drivers/hrm.h>
 #include "board/board.h"
-#include "kernel/util/sleep.h"
 #include "pbl/services/analytics/analytics.h"
 #include <pbl/logging/logging.h>
 

@@ -6,9 +6,7 @@
 #include "kernel/kernel_applib_state.h"
 
 #include "event_service_client.h"
-#include "process_management/app_manager.h"
 #include "pbl/util/list.h"
-#include "applib/app_logging.h"
 #include "process_state/app_state/app_state.h"
 #include "process_state/worker_state/worker_state.h"
 

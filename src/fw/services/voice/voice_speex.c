@@ -8,7 +8,6 @@
 #include "system/passert.h"
 #include "kernel/pbl_malloc.h"
 #include <pbl/logging/logging.h>
-#include "pbl/services/audio_endpoint.h"
 #include <pbl/drivers/mic.h>
 
 #include "speex/speex.h"

@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <pbl/util/attributes.h>
-
 // The automated testing framework shouldn't start operating on the system
 // after a reset until PebbleOS is ready to handle requests. This function
 // handles that notification

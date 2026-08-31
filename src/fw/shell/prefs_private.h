@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "flash_region/flash_region.h"
 #include "kernel/events.h"
 
 #include <stddef.h>

@@ -5,8 +5,6 @@
 
 #include "applib/graphics/framebuffer.h"
 #include "applib/ui/animation_private.h"
-#include "console/pulse_protocol_impl.h"
-#include <pbl/drivers/display/display.h>
 #include "kernel/event_loop.h"
 #include "pbl/services/compositor/compositor.h"
 #include "pbl/services/compositor/compositor_display.h"

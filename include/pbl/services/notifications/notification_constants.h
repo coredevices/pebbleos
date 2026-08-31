@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include "applib/graphics/gtypes.h"
-
 #define SMS_REPLY_COLOR GColorIslamicGreen
 
 // Notif pref db key for send text

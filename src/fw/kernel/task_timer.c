@@ -11,8 +11,6 @@
 #include "system/passert.h"
 #include "pbl/util/list.h"
 
-#include "FreeRTOS.h"
-#include "queue.h"
 #include "semphr.h"
 
 

@@ -5,7 +5,6 @@
 
 #include "applib/applib_malloc.auto.h"
 #include "applib/event_service_client.h"
-#include "applib/graphics/graphics.h"
 #include "applib/ui/action_menu_hierarchy.h"
 #include "applib/ui/action_menu_window_private.h"
 #include "applib/ui/dialogs/dialog.h"
@@ -25,7 +24,6 @@
 #include "popups/ble_hrm/ble_hrm_stop_sharing_popup.h"
 #include "popups/notifications/notification_window.h"
 #include "process_state/app_state/app_state.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/event_service.h"
 #include "pbl/services/evented_timer.h"
@@ -42,7 +40,6 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/size.h"
-#include "pbl/util/struct.h"
 
 PBL_LOG_MODULE_DECLARE(service_timeline, CONFIG_SERVICE_TIMELINE_LOG_LEVEL);
 

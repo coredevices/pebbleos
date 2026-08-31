@@ -4,15 +4,10 @@
 #include "system_theme.h"
 
 #include "applib/fonts/fonts.h"
-#include "apps/system/settings/notifications_private.h"
 #include "process_management/process_manager.h"
-#include "pbl/services/analytics/analytics.h"
-#include "shell/prefs.h"
 #include "syscall/syscall_internal.h"
 #include "system/passert.h"
 #include "pbl/util/size.h"
-
-#include <string.h>
 
 typedef struct SystemThemeTextStyle {
   const char *fonts[TextStyleFontCount];

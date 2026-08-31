@@ -7,10 +7,6 @@
 #include "layout_layer.h"
 #include "timeline_layout.h"
 
-#include "applib/graphics/graphics.h"
-#include "applib/graphics/text.h"
-#include "applib/graphics/perimeter.h"
-#include "applib/ui/bitmap_layer.h"
 #include "applib/ui/kino/kino_layer.h"
 #include "pbl/services/timeline/attribute.h"
 #include "pbl/services/timeline/timeline_resources.h"

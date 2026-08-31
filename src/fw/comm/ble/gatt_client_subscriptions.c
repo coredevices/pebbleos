@@ -3,7 +3,6 @@
 
 #include "gatt_client_subscriptions.h"
 #include "gatt_client_accessors.h"
-#include "gatt_client_operations.h"
 #include "gatt_service_changed.h"
 
 #include <bluetooth/gatt.h>
@@ -16,7 +15,6 @@
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 
-#include "pbl/services/analytics/analytics.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 

@@ -2,10 +2,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "applib/app.h"
-#include "applib/tick_timer_service.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/window.h"
-#include "applib/ui/window_private.h"
 #include "applib/ui/text_layer.h"
 #include "apps/prf/mfg_test_result.h"
 #include "kernel/pbl_malloc.h"
@@ -18,7 +16,6 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 
 #define STATUS_STRING_LEN 200
 

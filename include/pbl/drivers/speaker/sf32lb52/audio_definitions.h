@@ -5,7 +5,6 @@
 
 #include "board/board.h"
 #include <pbl/drivers/audio.h>
-#include <pbl/os/mutex.h>
 #include <pbl/util/circular_buffer.h>
 
 #include <stdbool.h>

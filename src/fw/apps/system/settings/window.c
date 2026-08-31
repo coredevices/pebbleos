@@ -2,38 +2,21 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "settings.h"
-#include "activity_tracker.h"
 #include "system.h"
 #include "bluetooth.h"
-#include "display.h"
 #include "menu.h"
-#include "notifications.h"
-#include "quick_launch.h"
-#include "remote.h"
-#include "time.h"
 #include "window.h"
 
-#include "applib/app.h"
-#include "applib/battery_state_service.h"
 #include "applib/event_service_client.h"
-#include "applib/fonts/fonts.h"
 #include "applib/ui/menu_layer.h"
 #include "applib/ui/option_menu_window.h"
 #include "applib/ui/ui.h"
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "kernel/util/fw_reset.h"
-#include "process_management/app_manager.h"
 #include "process_state/app_state/app_state.h"
-#include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
-#include "pbl/services/system_task.h"
-#include "system/bootbits.h"
 #include "system/passert.h"
 #include "shell/prefs.h"
-
-#include <stdio.h>
-#include <string.h>
 
 typedef struct SettingsData {
   Window window;

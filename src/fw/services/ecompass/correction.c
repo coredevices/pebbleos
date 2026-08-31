@@ -3,13 +3,11 @@
 
 #include "pbl/services/ecompass.h"
 
-#include "pbl/util/trig.h"
 #include "kernel/pbl_malloc.h"
 #include <pbl/logging/logging.h>
 #include "pbl/util/math.h"
 
 #include <stdint.h>
-#include <stdio.h>
 
 PBL_LOG_MODULE_DECLARE(service_ecompass, CONFIG_SERVICE_ECOMPASS_LOG_LEVEL);
 

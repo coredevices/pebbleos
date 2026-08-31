@@ -4,10 +4,7 @@
 #include "board/board.h"
 #include "board/splash.h"
 #include <pbl/drivers/sf32lb52/debounced_button_definitions.h>
-#include <pbl/drivers/watchdog.h>
 #include "system/passert.h"
-
-#include "bf0_hal.h"
 
 static UARTDeviceState s_dbg_uart_state = {
   .huart = {

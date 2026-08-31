@@ -24,8 +24,6 @@
 #include "pbl/services/evented_timer.h"
 #include "pbl/services/event_service.h"
 #include "pbl/services/hrm/hrm_manager.h"
-#include "pbl/services/filesystem/pfs.h"
-#include "pbl/services/system_task.h"
 #include "pbl/services/app_cache.h"
 #include "pbl/services/blob_db/app_db.h"
 #include "pbl/services/data_logging/data_logging_service.h"

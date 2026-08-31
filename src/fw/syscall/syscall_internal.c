@@ -4,7 +4,6 @@
 #include "syscall_internal.h"
 
 #include "applib/app_logging.h"
-#include "kernel/memory_layout.h"
 #include "kernel/pebble_tasks.h"
 #include "pbl/mcu/privilege.h"
 #include "process_management/app_manager.h"
@@ -19,9 +18,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#include <cmsis_core.h>
 #include <stdint.h>
-#include <inttypes.h>
 #include <stddef.h>
 
 // Run App/Worker syscalls on a dedicated privileged stack instead of the

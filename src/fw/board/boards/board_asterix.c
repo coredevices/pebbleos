@@ -6,7 +6,6 @@
 #include "board/board.h"
 #include <pbl/drivers/audio.h>
 #include <pbl/drivers/flash/qspi_flash_definitions.h>
-#include <pbl/drivers/gpio.h>
 #include <pbl/drivers/i2c.h>
 #include <pbl/drivers/i2c/definitions.h>
 #include <pbl/drivers/mic.h>
@@ -15,20 +14,14 @@
 #include <pbl/drivers/i2c/nrf5.h>
 #include <pbl/drivers/uart/nrf5.h>
 #include <pbl/drivers/pmic/npm1300.h>
-#include <pbl/drivers/pwm.h>
 #include <pbl/drivers/qspi_definitions.h>
 #include <pbl/drivers/rtc.h>
 #include "flash_region/flash_region.h"
-#include "kernel/util/sleep.h"
-#include "system/passert.h"
-#include "util/units.h"
 
 // QSPI
 #include <hal/nrf_clock.h>
 #include <hal/nrf_gpio.h>
 #include <nrfx_gpiote.h>
-#include <nrfx_qspi.h>
-#include <nrfx_spim.h>
 #include <nrfx_twim.h>
 #include <nrfx_pdm.h>
 

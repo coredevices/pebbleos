@@ -16,17 +16,12 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
-#include <limits.h>
-#include <ctype.h>
 #include "time.h"
-#include "local.h"
 #include "timelocal.h"
 #include "applib/i18n.h"
 #include "pbl/services/i18n/i18n.h"
 #include "syscall/syscall.h"
-#include <pbl/logging/logging.h>
 #include "pbl/util/math.h"
 
 #define INTFMT_PADSPACE (0)

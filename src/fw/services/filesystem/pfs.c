@@ -14,7 +14,6 @@
 #include <pbl/drivers/rtc.h>
 #include <pbl/drivers/task_watchdog.h>
 #include "flash_region/filesystem_regions.h"
-#include "flash_region/flash_region.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
 #include "kernel/util/sleep.h"

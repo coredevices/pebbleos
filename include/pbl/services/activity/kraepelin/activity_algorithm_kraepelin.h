@@ -4,7 +4,6 @@
 #pragma once
 
 #include "util/time/time.h"
-#include "kraepelin_algorithm.h"
 
 // We divide the raw light sensor reading by this factor before storing it into AlgDlsMinuteData
 #define ALG_RAW_LIGHT_SENSOR_DIVIDE_BY 16

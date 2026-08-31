@@ -7,20 +7,16 @@
 
 #include "applib/template_string.h"
 #include "apps/system/workout/utils.h"
-#include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "process_management/app_install_manager.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/activity/health_util.h"
 #include "pbl/services/activity/workout_service.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/attributes.h"
 #include "pbl/util/string.h"
 #include "pbl/util/struct.h"
-
-#include <stdio.h>
 
 #define MAX_SUBTITLE_BUFFER_SIZE (16)
 

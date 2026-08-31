@@ -4,7 +4,6 @@
 #include "pebble_process_md.h"
 
 #include "process_loader.h"
-#include "board/display.h"
 #include <string.h>
 
 //////////////////////

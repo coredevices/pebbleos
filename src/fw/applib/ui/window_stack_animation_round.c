@@ -3,22 +3,15 @@
 
 #include "window_stack_animation_round.h"
 
-#include "animation_timing.h"
 #include "window_private.h"
 #include "window_stack.h"
 
-#include "applib/applib_malloc.auto.h"
 #include "applib/graphics/graphics.h"
 #include "applib/graphics/graphics_private.h"
-#include "applib/graphics/graphics_private_raw.h"
 #include "applib/graphics/gtypes.h"
-#include "board/display.h"
 #include "kernel/ui/kernel_ui.h"
 #include "pbl/services/compositor/compositor_transitions.h"
-#include "system/passert.h"
-#include "pbl/util/attributes.h"
 #include "pbl/util/math.h"
-#include "pbl/util/trig.h"
 
 // Window transition implementations
 //////////////////////////////////////

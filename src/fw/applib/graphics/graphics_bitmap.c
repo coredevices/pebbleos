@@ -4,7 +4,6 @@
 #include "graphics_bitmap.h"
 
 #include "bitblt.h"
-#include "bitblt_private.h"
 #include "gcontext.h"
 #include "graphics.h"
 #include "graphics_private.h"

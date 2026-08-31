@@ -8,7 +8,6 @@
 #include "applib/ui/dialogs/dialog.h"
 #include "applib/ui/kino/kino_reel/transform.h"
 #include "applib/ui/kino/kino_reel/scale_segmented.h"
-#include "applib/ui/kino/kino_reel_pdci.h"
 #include "applib/ui/vibes.h"
 #include "applib/ui/window_stack.h"
 #include "process_state/app_state/app_state.h"

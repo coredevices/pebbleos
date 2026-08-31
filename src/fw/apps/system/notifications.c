@@ -3,7 +3,6 @@
 
 #include "notifications.h"
 
-#include <stdio.h>
 #include <time.h>
 
 #include "applib/app.h"
@@ -12,13 +11,11 @@
 #include "applib/fonts/fonts.h"
 #include "applib/graphics/gdraw_command_image.h"
 #include "applib/graphics/gdraw_command_list.h"
-#include "applib/graphics/graphics.h"
 #include "applib/ui/dialogs/actionable_dialog.h"
 #include "applib/ui/dialogs/simple_dialog.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/menu_cell_layer.h"
 #include "applib/ui/ui.h"
-#include "applib/ui/window_stack_private.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/ui/system_icons.h"
 #include "popups/notifications/notification_window.h"
@@ -31,7 +28,6 @@
 #include "shell/prefs.h"
 #include "shell/system_theme.h"
 #include "system/passert.h"
-#include "util/date.h"
 #include "pbl/util/list.h"
 #include "pbl/util/string.h"
 

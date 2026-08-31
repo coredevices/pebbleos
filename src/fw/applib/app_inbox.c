@@ -7,7 +7,6 @@
 #include "pbl/services/app_inbox_service.h"
 #include "syscall/syscall.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 
 AppInbox *app_inbox_create_and_register(size_t buffer_size, uint32_t min_num_messages,
                                         AppInboxMessageHandler message_handler,

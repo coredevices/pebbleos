@@ -3,7 +3,6 @@
 
 #include "menu_layer.h"
 
-#include "applib/graphics/graphics.h"
 #include "applib/ui/kino/kino_reel.h"
 #include "applib/ui/kino/kino_reel_gbitmap_private.h"
 #include "kernel/pebble_tasks.h"

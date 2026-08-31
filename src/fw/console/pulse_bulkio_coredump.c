@@ -3,7 +3,6 @@
 
 #include "pulse_bulkio_domain_handler.h"
 
-#include "console/pulse_protocol_impl.h"
 #include <pbl/drivers/flash.h>
 #include "kernel/core_dump.h"
 #include "kernel/core_dump_private.h"

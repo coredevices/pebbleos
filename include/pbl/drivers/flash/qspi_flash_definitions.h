@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #include "board/board.h"
 #include <pbl/drivers/qspi.h>
 #include "qspi_flash_part_definitions.h"

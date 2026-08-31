@@ -7,14 +7,12 @@
 #include <pbl/drivers/rtc.h>
 #include "pbl/os/mutex.h"
 #include "pbl/services/analytics/backend.h"
-#include "pbl/services/system_task.h"
 #include "pbl/services/data_logging/data_logging_service.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/attributes.h"
 #include "pbl/util/build_id.h"
 #include "pbl/util/math.h"
-#include "pbl/util/size.h"
 #include "pbl/util/uuid.h"
 
 PBL_LOG_MODULE_DEFINE(service_analytics, CONFIG_SERVICE_ANALYTICS_LOG_LEVEL);

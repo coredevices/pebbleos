@@ -4,7 +4,6 @@
 #pragma once
 
 #include "gdraw_command_list.h"
-#include "applib/graphics/graphics.h"
 
 #include <stdint.h>
 #include <stdbool.h>

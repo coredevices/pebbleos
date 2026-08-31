@@ -7,7 +7,6 @@
 #include "applib/ui/dialogs/simple_dialog.h"
 #include "applib/ui/dialogs/actionable_dialog.h"
 #include "applib/ui/vibes.h"
-#include "applib/ui/window_stack.h"
 #include "kernel/event_loop.h"
 #include "kernel/low_power.h"
 #include "kernel/pbl_malloc.h"
@@ -22,7 +21,6 @@
 #include "util/time/time.h"
 
 #include <stdio.h>
-#include <string.h>
 
 #include "pbl/services/vibes/vibe_client.h"
 #include "pbl/services/vibes/vibe_score.h"

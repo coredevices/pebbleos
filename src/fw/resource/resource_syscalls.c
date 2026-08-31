@@ -4,7 +4,6 @@
 #include "resource.h"
 
 #include "process_management/app_manager.h"
-#include "kernel/memory_layout.h"
 #include "syscall/syscall_internal.h"
 #include <pbl/logging/logging.h>
 

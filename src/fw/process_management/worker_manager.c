@@ -6,13 +6,10 @@
 #include "process_loader.h"
 
 // Pebble stuff
-#include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/util/segment.h"
 #include "kernel/util/task_init.h"
-#include "pbl/mcu/cache.h"
 #include "pbl/mcu/privilege.h"
-#include "pbl/os/tick.h"
 #include "popups/crashed_ui.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
@@ -33,7 +30,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 

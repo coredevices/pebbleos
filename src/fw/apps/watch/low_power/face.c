@@ -13,11 +13,8 @@
 #include "kernel/pbl_malloc.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
-#include "pbl/services/battery/battery_monitor.h"
 #include "pbl/services/clock.h"
 #include "util/time/time.h"
-
-#include <string.h>
 
 typedef struct {
   Window low_power_window;

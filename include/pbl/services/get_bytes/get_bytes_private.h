@@ -5,7 +5,6 @@
 
 #include "get_bytes.h"
 
-#include <inttypes.h>
 #include <stdint.h>
 
 #include "kernel/core_dump_private.h"

@@ -13,12 +13,9 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "system/status_codes.h"
-#include "system/hexdump.h"
 #include "pbl/util/attributes.h"
-#include "util/net.h"
 
 #include <stdbool.h>
-#include <stdio.h>
 #include <string.h>
 
 PBL_LOG_MODULE_DECLARE(service_blob_db, CONFIG_SERVICE_BLOB_DB_LOG_LEVEL);

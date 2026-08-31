@@ -5,8 +5,6 @@
 
 #include "system/passert.h"
 
-#include <stdlib.h>
-
 void array_remove_nulls(void **array, size_t *num) {
   PBL_ASSERTN(array && num);
   size_t i = 0;

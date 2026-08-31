@@ -8,20 +8,15 @@
 #include "quick_launch_app_menu.h"
 #include "quick_launch_setup_menu.h"
 #include "quick_launch.h"
-#include "menu.h"
 #include "option_menu.h"
 
-#include "applib/graphics/graphics.h"
-#include "applib/graphics/text.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/option_menu_window.h"
-#include "applib/ui/window_stack.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/services/i18n/i18n.h"
 #include "process_management/app_install_manager.h"
 #include "apps/system/timeline/timeline.h"
 #include "process_management/app_menu_data_source.h"
-#include "resource/resource_ids.auto.h"
 #include "shell/prefs.h"
 
 typedef struct {

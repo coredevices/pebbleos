@@ -6,8 +6,6 @@
 #include "applib/graphics/gtypes.h"
 #include "applib/ui/property_animation.h"
 
-#include <string.h>
-
 void loading_layer_init(LoadingLayer *loading_layer, const GRect *frame) {
   *loading_layer = (LoadingLayer) {
     .full_frame = *frame

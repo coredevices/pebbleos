@@ -4,24 +4,16 @@
 #include "pbl/services/timeline/weather_layout.h"
 #include "pbl/services/timeline/timeline_layout.h"
 
-#include "applib/fonts/fonts.h"
 #include "applib/graphics/gtypes.h"
-#include "applib/graphics/text.h"
 #include "applib/preferred_content_size.h"
 #include "applib/ui/ui.h"
 #include "apps/system/timeline/text_node.h"
-#include <pbl/drivers/rtc.h>
 #include "font_resource_keys.auto.h"
 #include "kernel/pbl_malloc.h"
-#include "process_state/app_state/app_state.h"
 #include "pbl/services/clock.h"
-#include "pbl/services/i18n/i18n.h"
 #include <pbl/logging/logging.h>
-#include "system/hexdump.h"
 #include "pbl/util/size.h"
 #include "pbl/util/string.h"
-
-#include <stdio.h>
 
 #define WEATHER_CARD_TITLE_LENGTH 30 // We're limited to one line for this layout
 

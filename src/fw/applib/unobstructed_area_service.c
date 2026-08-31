@@ -7,9 +7,7 @@
 #include "applib/app.h"
 #include "applib/graphics/framebuffer.h"
 #include "kernel/events.h"
-#include "kernel/pbl_malloc.h"
 #include "process_state/app_state/app_state.h"
-#include "syscall/syscall_internal.h"
 #include "system/passert.h"
 
 static void prv_handle_unobstructed_area_event(PebbleEvent *event, void *context);

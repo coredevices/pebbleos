@@ -3,7 +3,6 @@
 
 #include "window_stack.h"
 
-#include "animation_private.h"
 #include "app_window_click_glue.h"
 #include "recognizer/recognizer_manager.h"
 #include "window_manager.h"
@@ -12,11 +11,7 @@
 #include "window_stack_private.h"
 
 #include "applib/applib_malloc.auto.h"
-#include "applib/legacy2/ui/status_bar_legacy2.h"
-#include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "kernel/ui/kernel_ui.h"
-#include "process_management/app_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "pbl/services/compositor/compositor.h"
 #include "syscall/syscall.h"

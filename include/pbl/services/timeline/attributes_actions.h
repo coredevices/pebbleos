@@ -6,7 +6,6 @@
 #include "item.h"
 
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdbool.h>
 
 //! Takes serialized data and fills two arrays: string_alloc_size_out and attributes_per_action_out

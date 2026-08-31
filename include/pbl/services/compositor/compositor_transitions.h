@@ -7,7 +7,6 @@
 #include "default/compositor_launcher_app_transitions.h"
 #include "default/compositor_slide_transitions.h"
 #include "default/compositor_shutter_transitions.h"
-#include "legacy/compositor_app_slide_transitions.h"
 #if CONFIG_SCREEN_COLOR_DEPTH_BITS == 1
 # include "legacy/compositor_modal_slide_transitions.h"
 #else

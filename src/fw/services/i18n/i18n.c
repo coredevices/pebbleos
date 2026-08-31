@@ -34,7 +34,6 @@
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "resource/resource.h"
-#include "pbl/services/filesystem/pfs.h"
 #include "shell/normal/language_ui.h"
 #include "shell/prefs.h"
 #include <pbl/logging/logging.h>

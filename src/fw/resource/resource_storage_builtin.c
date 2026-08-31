@@ -5,7 +5,6 @@
 #include "resource_storage_impl.h"
 
 #include "kernel/memory_layout.h"
-#include "kernel/pbl_malloc.h"
 #include "pbl/services/process_management/app_storage.h"
 
 #include <string.h>

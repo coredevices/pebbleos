@@ -9,7 +9,6 @@
 #include "freertos_types.h"
 #include "portmacro.h"
 
-#include <stdbool.h>
 #include <stdint.h>
 
 typedef enum I2CTransferEvent {

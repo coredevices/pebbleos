@@ -38,7 +38,6 @@
 #include "process_management/process_manager.h"
 
 #include <stdint.h>
-#include <string.h>
 #include <limits.h>
 
 static bool prv_char_iter_next_start_of_word(Iterator* char_iter);

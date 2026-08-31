@@ -6,8 +6,6 @@
 #include "system/passert.h"
 #include "pbl/util/size.h"
 
-#include <inttypes.h>
-
 #include <cmsis_core.h>
 
 // On SF32LB52 the SiFli vendor code (system_bf0_ap.c) programs its own MPU

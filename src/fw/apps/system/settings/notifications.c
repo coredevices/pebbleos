@@ -1,32 +1,22 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "notifications_private.h"
 #include "menu.h"
 #include "option_menu.h"
 #include "window.h"
 
 #include "applib/event_service_client.h"
-#include "applib/fonts/fonts.h"
 #include "applib/ui/action_menu_window_private.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/option_menu_window.h"
 #include "applib/ui/ui.h"
-#include <pbl/drivers/battery.h>
 #include "kernel/pbl_malloc.h"
-#include "popups/notifications/notification_window.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/notifications/alerts_preferences_private.h"
 #include "pbl/services/notifications/alerts_private.h"
-#include "pbl/services/vibes/vibe_intensity.h"
-#include "shell/prefs.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/size.h"
 #include "util/time/time.h"
-
-#include <stdio.h>
 
 // Offset between vibe intensity menu item index and vibe intensity enum values
 #define INTENSITY_ROW_OFFSET 1

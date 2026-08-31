@@ -51,8 +51,6 @@
 #include "pbl/util/math.h"
 #include "util/net.h"
 
-#include <string.h>
-
 PBL_LOG_MODULE_DECLARE(imu, CONFIG_DRIVER_IMU_LOG_LEVEL);
 
 static bool s_initialized;

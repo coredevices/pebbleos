@@ -4,8 +4,6 @@
 #include <bluetooth/gatt.h>
 #include <bluetooth/bluetooth_types.h>
 
-#include <inttypes.h>
-
 // -------------------------------------------------------------------------------------------------
 // Gatt Client Discovery API calls
 

@@ -5,7 +5,6 @@
 
 #include "popups/bluetooth_pairing_ui.h"
 
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/idle_watchdog.h"
 
 void shell_event_loop_init(void) {

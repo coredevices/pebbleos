@@ -19,7 +19,6 @@
 #include "applib/applib_malloc.auto.h"
 #include "applib/vendor/tinflate/tinflate.h"
 
-#include <limits.h>
 #include <string.h>
 
 #define GLOBE_FRAME_INTERVAL_MS 35  // ~28.6 FPS, matching Pebble's shredder PDC cadence

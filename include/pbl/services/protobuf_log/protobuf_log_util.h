@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include "pb.h"
-
 typedef struct PLogPackedVarintsEncoderArg {
   uint16_t num_values;
   uint32_t *values;

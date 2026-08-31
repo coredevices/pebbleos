@@ -5,9 +5,7 @@
 #include "detail_card.h"
 
 #include "kernel/pbl_malloc.h"
-#include "pbl/services/clock.h"
 #include "pbl/services/i18n/i18n.h"
-#include "pbl/services/activity/activity.h"
 #include "pbl/services/activity/health_util.h"
 
 #include <stdio.h>

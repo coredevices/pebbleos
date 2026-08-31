@@ -5,9 +5,6 @@
 
 #include "kernel/pebble_tasks.h"
 
-#include <stdint.h>
-#include <stdbool.h>
-
 typedef struct MemorySegment MemorySegment;
 typedef struct PebbleProcessMd PebbleProcessMd;
 

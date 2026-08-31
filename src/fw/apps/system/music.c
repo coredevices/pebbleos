@@ -22,11 +22,8 @@
 #include "pbl/services/vibes/vibe_score.h"
 #include "shell/prefs.h"
 #include "shell/system_theme.h"
-#include "process_management/app_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
 #include "pbl/util/math.h"
 #include "pbl/util/trig.h"
 

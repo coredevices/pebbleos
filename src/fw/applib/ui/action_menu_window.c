@@ -9,8 +9,6 @@
 #include "applib/ui/window.h"
 #include "applib/ui/window_stack.h"
 #include "process_state/app_state/app_state.h"
-#include "pbl/services/timeline/timeline.h"
-#include "pbl/services/i18n/i18n.h"
 
 #define ACTION_MENU_DEFAULT_BACKGROUND_COLOR GColorWhite
 

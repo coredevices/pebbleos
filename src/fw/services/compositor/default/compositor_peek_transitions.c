@@ -3,15 +3,11 @@
 
 #include "pbl/services/compositor/default/compositor_peek_transitions.h"
 
-#include "applib/graphics/bitblt.h"
 #include "applib/graphics/framebuffer.h"
 #include "applib/graphics/gtypes.h"
 #include "applib/ui/animation_interpolate.h"
-#include "apps/system/timeline/common.h"
 #include "popups/timeline/peek.h"
 #include "popups/timeline/peek_animations.h"
-#include "pbl/services/compositor/compositor_private.h"
-#include "pbl/services/compositor/compositor_transitions.h"
 
 #define NUM_FRAMES (3)
 

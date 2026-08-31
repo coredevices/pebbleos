@@ -2,11 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "gcontext.h"
-#include "graphics_private_raw.h"
-
-#include "applib/applib_malloc.auto.h"
-
-#include <string.h>
 
 GDrawMask *graphics_context_mask_create(const GContext *ctx, bool transparent) {
   return NULL;

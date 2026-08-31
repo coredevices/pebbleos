@@ -5,7 +5,6 @@
 
 #include "applib/app_logging.h"
 #include "applib/applib_malloc.auto.h"
-#include <pbl/logging/logging.h>
 #include "syscall/syscall.h"
 #include "util/net.h"
 

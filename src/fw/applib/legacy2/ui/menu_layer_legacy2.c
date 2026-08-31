@@ -4,7 +4,6 @@
 #include "menu_layer_legacy2.h"
 
 #include "kernel/pbl_malloc.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 
 extern void menu_layer_init_scroll_layer_callbacks(MenuLayer *menu_layer);

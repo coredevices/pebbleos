@@ -11,7 +11,6 @@
 #include "pbl/services/clock.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/util/math.h"
-#include "pbl/util/size.h"
 #include "pbl/util/string.h"
 #include "util/time/time.h"
 

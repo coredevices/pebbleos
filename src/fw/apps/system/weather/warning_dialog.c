@@ -3,7 +3,6 @@
 
 #include "warning_dialog.h"
 
-#include "applib/ui/app_window_stack.h"
 #include "applib/ui/dialogs/dialog.h"
 #include "applib/ui/dialogs/expandable_dialog.h"
 #include "kernel/pbl_malloc.h"

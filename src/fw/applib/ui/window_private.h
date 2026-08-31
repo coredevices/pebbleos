@@ -5,8 +5,6 @@
 
 #include "window.h"
 
-#include <stddef.h>
-
 //! Internal interface for glayer to schedule a render for the window:
 //! @param window Pointer to the window to schedule
 void window_schedule_render(Window *window);

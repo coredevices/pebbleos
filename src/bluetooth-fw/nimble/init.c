@@ -17,7 +17,6 @@
 #include <services/bas/ble_svc_bas.h>
 #include <services/gap/ble_svc_gap.h>
 #include <services/gatt/ble_svc_gatt.h>
-#include <stdlib.h>
 #include <pbl/logging/logging.h>
 #include <system/passert.h>
 

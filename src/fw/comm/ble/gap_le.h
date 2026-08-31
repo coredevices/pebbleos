@@ -3,7 +3,5 @@
 
 #pragma once
 
-#include <stdint.h>
-
 void gap_le_init(void);
 void gap_le_deinit(void);

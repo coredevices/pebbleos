@@ -6,13 +6,10 @@
 #include "applib/app.h"
 #include "applib/tick_timer_service.h"
 #include "applib/ui/ui.h"
-#include "applib/ui/window_private.h"
 #include "apps/prf/mfg_test_result.h"
 #include <pbl/drivers/battery.h>
 #include "kernel/pbl_malloc.h"
 #include "process_state/app_state/app_state.h"
-#include "pbl/services/battery/battery_curve.h"
-#include "pbl/services/idle_watchdog.h"
 #include <pbl/logging/logging.h>
 
 #include <stdio.h>

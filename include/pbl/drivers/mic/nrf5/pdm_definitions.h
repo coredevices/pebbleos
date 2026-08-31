@@ -11,8 +11,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "nrfx_pdm.h"
-
 // PDM Configuration
 #define PDM_BUFFER_SIZE_SAMPLES    (320)
 #define PDM_BUFFER_COUNT           (2)

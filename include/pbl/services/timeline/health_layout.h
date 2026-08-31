@@ -7,8 +7,6 @@
 #include "layout_layer.h"
 #include "timeline_layout.h"
 
-#include "applib/graphics/graphics.h"
-#include "applib/graphics/text.h"
 #include "pbl/util/attributes.h"
 
 #define HEALTH_METRIC_BUFFER_LENGTH 128

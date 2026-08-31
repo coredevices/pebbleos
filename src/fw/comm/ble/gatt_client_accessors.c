@@ -9,9 +9,6 @@
 
 #include "comm/bt_lock.h"
 
-#include "pbl/util/likely.h"
-
-#include <pbl/btutil/bt_device.h>
 #include <pbl/btutil/bt_uuid.h>
 
 // -------------------------------------------------------------------------------------------------

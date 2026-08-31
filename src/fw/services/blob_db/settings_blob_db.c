@@ -13,7 +13,6 @@
 #include "shell/prefs.h"
 #include "shell/prefs_private.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 #include "pbl/services/system_task.h"
 #include "pbl/util/list.h"
 #include "pbl/util/size.h"

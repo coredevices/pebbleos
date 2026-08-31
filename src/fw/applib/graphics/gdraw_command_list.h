@@ -6,7 +6,6 @@
 #include "gdraw_command.h"
 
 #include "applib/graphics/gtypes.h"
-#include "applib/graphics/graphics.h"
 
 #include <stdint.h>
 #include <stdbool.h>

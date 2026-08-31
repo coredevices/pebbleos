@@ -11,7 +11,6 @@
 #include "kernel/util/factory_reset.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/runlevel.h"
-#include "pbl/services/system_task.h"
 #include "process_management/app_manager.h"
 #include "system/bootbits.h"
 #include <pbl/logging/logging.h>

@@ -12,7 +12,6 @@
 #include "applib/graphics/text.h"
 
 #include <stdint.h>
-#include <stddef.h>
 
 //! @file menu_layer.h
 //! @addtogroup UI

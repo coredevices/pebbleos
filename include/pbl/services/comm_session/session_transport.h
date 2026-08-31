@@ -8,8 +8,6 @@
 
 #include "pbl/util/uuid.h"
 
-#include "comm/bt_conn_mgr.h"
-
 // -------------------------------------------------------------------------------------------------
 // Types and functions that a transport should use to manage the session:
 

@@ -8,7 +8,6 @@
 #include <stdint.h>
 
 #include "logging/logging_private.h"
-#include "kernel/memory_layout.h"
 #include "kernel/util/stack_info.h"
 #include "pbl/services/comm_session/session.h"
 #include "syscall/syscall_internal.h"

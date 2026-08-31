@@ -7,7 +7,6 @@
 #include "logging_private.h"
 #include "kernel/util/stack_info.h"
 
-#include "console/console_internal.h"
 #include "console/prompt.h"
 #include "console/serial_console.h"
 #include "debug/advanced_logging.h"
@@ -17,7 +16,6 @@
 #include "pbl/mcu/interrupts.h"
 #include "pbl/mcu/privilege.h"
 
-#include "pbl/util/math.h"
 #include "util/net.h"
 #include "pbl/util/string.h"
 

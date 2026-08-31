@@ -14,7 +14,6 @@
 #include "applib/ui/layer.h"
 #include "pbl/drivers/rtc.h"
 #include "pbl/logging/logging.h"
-#include "pbl/services/touch/touch.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
 #include "syscall/syscall.h"

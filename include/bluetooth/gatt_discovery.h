@@ -5,9 +5,6 @@
 
 #include <bluetooth/bluetooth_types.h>
 #include <bluetooth/gatt_service_types.h>
-#include <pbl/util/attributes.h>
-
-#include <stdint.h>
 
 typedef struct GAPLEConnection GAPLEConnection;
 typedef struct GATTService GATTService;

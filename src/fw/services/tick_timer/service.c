@@ -6,7 +6,6 @@
 #include "kernel/events.h"
 #include <pbl/drivers/rtc.h>
 #include "pbl/services/regular_timer.h"
-#include "process_management/app_manager.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 

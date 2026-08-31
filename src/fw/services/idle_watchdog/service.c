@@ -5,7 +5,6 @@
 
 #include "applib/event_service_client.h"
 #include "comm/ble/gap_le_connection.h"
-#include "pbl/services/battery/battery_monitor.h"
 #include "pbl/services/regular_timer.h"
 #include "pbl/services/system_task.h"
 #include "system/reboot_reason.h"

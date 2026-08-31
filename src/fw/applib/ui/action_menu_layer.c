@@ -11,15 +11,11 @@
 #include "applib/ui/animation.h"
 #include "applib/ui/menu_layer.h"
 #include "applib/ui/property_animation.h"
-#include "applib/ui/window_private.h"
-#include "kernel/pbl_malloc.h"
 #include "kernel/ui/kernel_ui.h"
 #include "resource/resource_ids.auto.h"
 #include "shell/system_theme.h"
 #include "system/passert.h"
 #include "pbl/util/math.h"
-
-#include <string.h>
 
 #define INDICATOR "»"
 

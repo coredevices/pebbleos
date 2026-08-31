@@ -5,7 +5,6 @@
 #include "applib/ui/layer.h"
 #include "applib/ui/click.h"
 #include "applib/ui/property_animation.h"
-#include "applib/graphics/gpath.h"
 #include "pbl/services/timeline/layout_layer.h"
 
 struct Window;

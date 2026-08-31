@@ -45,8 +45,6 @@
 #ifndef TINFLATE_H_INCLUDED
 #define TINFLATE_H_INCLUDED
 
-#include <stdint.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif

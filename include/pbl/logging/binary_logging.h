@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <pbl/logging/log_hashing.h>
 /*
  * This file defines the structures required for Binary Logging. Please see
  * https://docs.google.com/document/d/1AyRGwr8CiilAViha56EiuRSZFiW0fWMcsTfzkNxByZ8

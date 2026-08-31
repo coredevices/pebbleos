@@ -4,18 +4,13 @@
 #pragma once
 
 #include "action_menu_window.h"
-#include "click.h"
-#include "inverter_layer.h"
 #include "layer.h"
 #include "menu_layer.h"
-#include "scroll_layer.h"
 
 #include "applib/graphics/graphics.h"
 #include "applib/ui/animation.h"
 #include "applib/ui/window_private.h"
 #include "system/passert.h"
-
-#include <string.h>
 
 typedef void (*ActionMenuLayerCallback)(const ActionMenuItem *item, void *context);
 

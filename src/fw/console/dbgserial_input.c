@@ -5,7 +5,6 @@
 
 #include "board/board.h"
 #include <pbl/drivers/uart.h>
-#include "pbl/util/attributes.h"
 
 #if !defined(CONFIG_RELEASE) || defined(CONFIG_MFG)
 

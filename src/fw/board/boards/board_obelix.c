@@ -2,7 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "board/board.h"
-#include "board/display.h"
 #include "board/splash.h"
 #include <pbl/drivers/backlight.h>
 #include <pbl/drivers/pmic/npm1300.h>
@@ -10,8 +9,6 @@
 #include <pbl/drivers/hrm/gh3x2x.h>
 #include "system/passert.h"
 #include "kernel/util/delay.h"
-
-#include "bf0_hal.h"
 
 static UARTDeviceState s_dbg_uart_state = {
   .huart = {

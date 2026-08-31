@@ -13,7 +13,6 @@
 #include "applib/fonts/fonts.h"
 #include "applib/graphics/text_render.h"
 #include "applib/graphics/utf8.h"
-#include "pbl/util/uuid.h"
 #include "applib/ui/animation.h"
 #include "applib/ui/animation_interpolate.h"
 #include "applib/ui/app_window_stack.h"
@@ -34,14 +33,10 @@
 #if (0) // https://pebbletechnology.atlassian.net/browse/PBL-20406
 #include "applib/ui/vibes.h"
 #endif
-#include "kernel/event_loop.h"
-#include "kernel/pbl_malloc.h"
 #include "kernel/ui/kernel_ui.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "process_state/app_state/app_state.h"
-#include "process_management/app_manager.h"
 #include "resource/resource_ids.auto.h"
-#include "pbl/services/comm_session/session.h"
 #include "pbl/services/event_service.h"
 #include "pbl/services/voice/voice.h"
 #include "syscall/syscall.h"
@@ -49,7 +44,6 @@
 #include "system/passert.h"
 #include "syscall/syscall.h"
 #include "syscall/syscall_internal.h"
-#include "system/profiler.h"
 #include "pbl/util/size.h"
 
 #include <string.h>

@@ -3,13 +3,10 @@
 
 #pragma once
 
-#include <inttypes.h>
 #include <stdint.h>
 
 #include "pbl/util/attributes.h"
 #include "pebbleos/core_dump_structs.h"
-
-#include "portmacro.h"
 
 // Size of RAM
 // TODO: Do we have an equate for the total size of RAM somewhere else?

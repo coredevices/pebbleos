@@ -5,13 +5,7 @@
 #include "pbl/services/timeline/timeline_layout.h"
 
 #include "kernel/pbl_malloc.h"
-#include "resource/resource_ids.auto.h"
-#include "pbl/services/i18n/i18n.h"
 #include "pbl/services/activity/activity_insights.h"
-#include "pbl/services/activity/health_util.h"
-#include "pbl/util/size.h"
-
-#include <stdio.h>
 
 //////////////////////////////////////////
 //  Card Mode

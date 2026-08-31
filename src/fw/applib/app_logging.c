@@ -8,10 +8,7 @@
 
 // FIXME PBL-1629: move needed declarations into applib
 #include "syscall/syscall.h"
-#include "process_management/app_manager.h"
-#include "pbl/services/comm_session/session.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 
 void app_log_vargs(uint8_t log_level, const char* src_filename, int src_line_number, const char* fmt, va_list args) {
   char log_buffer[LOG_BUFFER_LENGTH];

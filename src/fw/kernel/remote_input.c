@@ -6,7 +6,6 @@
 #include "applib/event_service_client.h"
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include <pbl/drivers/display/display.h>
 #include <pbl/logging/logging.h>
 #include "pbl/services/comm_session/session.h"
 #include "pbl/os/mutex.h"

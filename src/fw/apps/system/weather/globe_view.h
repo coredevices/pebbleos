@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include "pebble_compat.h"
 #include "saved_locations.h"
 
 //! `ds_index` identifies the phone's weather record directly — no matching.

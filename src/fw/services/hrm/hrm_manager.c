@@ -9,10 +9,7 @@
 #include <pbl/drivers/hrm.h>
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "mfg/mfg_info.h"
 #include "pbl/os/tick.h"
-#include "process_management/app_manager.h"
-#include "process_management/worker_manager.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/activity/activity.h"

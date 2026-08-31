@@ -14,7 +14,6 @@
 #include "kernel/pbl_malloc.h"
 #include "pbl/services/bluetooth/bluetooth_persistent_storage.h"
 #include "pbl/services/bluetooth/ble_hrm.h"
-#include "system/hexdump.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 

@@ -4,7 +4,6 @@
 #include "pbl/services/notifications/do_not_disturb.h"
 #include "pbl/services/notifications/do_not_disturb_toggle.h"
 
-#include "applib/app_exit_reason.h"
 #include "applib/ui/action_toggle.h"
 #include "pbl/services/i18n/i18n.h"
 #include <pbl/logging/logging.h>

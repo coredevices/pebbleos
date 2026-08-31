@@ -4,12 +4,10 @@
 #include "app_custom_icon.h"
 
 #include "app_install_manager_private.h"
-#include "pebble_process_info.h"
 
 #include "apps/system_app_ids.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/services/comm_session/session.h"
-#include "pbl/services/i18n/i18n.h"
 #include <pbl/logging/logging.h>
 #include "pbl/util/attributes.h"
 #include "pbl/util/math.h"

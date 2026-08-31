@@ -5,9 +5,6 @@
 
 #include "touch_event.h"
 
-#include <stdint.h>
-#include <stdbool.h>
-
 //! Touch event callback
 //! @param event Touch event
 //! @param context callback context

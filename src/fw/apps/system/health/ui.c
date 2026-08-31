@@ -3,8 +3,6 @@
 
 #include "ui.h"
 
-#include <inttypes.h>
-
 #include "applib/pbl_std/pbl_std.h"
 #include "board/display.h"
 #include "pbl/services/clock.h"

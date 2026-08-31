@@ -17,7 +17,6 @@
 #include "kernel/pebble_tasks.h"
 #include "kernel/util/sleep.h"
 #include "resource/resource.h"
-#include "resource/resource_ids.auto.h"
 #include "pbl/services/comm_session/app_session_capabilities.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/app_cache.h"

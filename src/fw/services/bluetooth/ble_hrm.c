@@ -12,12 +12,9 @@
 #include "kernel/events.h"
 #include "popups/ble_hrm/ble_hrm_reminder_popup.h"
 #include "popups/ble_hrm/ble_hrm_sharing_popup.h"
-#include "process_management/app_manager.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/hrm/hrm_manager_private.h"
 #include "pbl/services/regular_timer.h"
 #include "pbl/services/activity/activity.h"
-#include "shell/system_app_ids.auto.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 

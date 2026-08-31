@@ -1,8 +1,6 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/health_sync_endpoint.h"
-
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/data_logging/data_logging_service.h"

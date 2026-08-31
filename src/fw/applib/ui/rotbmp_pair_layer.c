@@ -3,7 +3,6 @@
 
 #include "rotbmp_pair_layer.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 
 static void set_compositing(RotBmpPairLayer *pair) {
   rot_bitmap_set_compositing_mode(&pair->white_layer, GCompOpOr);

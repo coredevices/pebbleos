@@ -3,7 +3,6 @@
 
 #include "animations.h"
 
-#include "applib/ui/animation_timing.h"
 #include "applib/ui/property_animation.h"
 #include "applib/ui/ui.h"
 

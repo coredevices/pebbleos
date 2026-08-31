@@ -6,18 +6,14 @@
 
 #include "comm/ble/gap_le_connect.h"
 #include "comm/ble/gap_le_connection.h"
-#include "comm/ble/gap_le_slave_reconnect.h"
 #include "comm/ble/kernel_le_client/kernel_le_client.h"
-#include "comm/bt_lock.h"
 #include "console/prompt.h"
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/os/mutex.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/bluetooth/pairability.h"
 #include "pbl/services/bluetooth/local_addr.h"
 #include "pbl/services/shared_prf_storage/shared_prf_storage.h"
-#include "pbl/services/system_task.h"
 #include "pbl/services/settings/settings_file.h"
 #include "system/hexdump.h"
 #include <pbl/logging/logging.h>

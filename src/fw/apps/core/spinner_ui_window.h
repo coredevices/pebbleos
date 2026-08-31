@@ -4,7 +4,6 @@
 #pragma once
 
 #include "applib/graphics/gtypes.h"
-#include "applib/graphics/gcolor_definitions.h"
 #include "applib/ui/window_private.h"
 #include "applib/ui/window_stack.h"
 

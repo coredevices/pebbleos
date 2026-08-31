@@ -7,9 +7,7 @@
 
 #include "applib/graphics/bitblt.h"
 #include "applib/graphics/framebuffer.h"
-#include "applib/graphics/graphics_private_raw.h"
 #include "applib/graphics/graphics.h"
-#include "pbl/util/trig.h"
 #include "system/passert.h"
 
 //! Packed so we can squeeze this into a void* as the animation context

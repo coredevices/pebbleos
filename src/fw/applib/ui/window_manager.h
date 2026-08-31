@@ -5,7 +5,6 @@
 
 #include "kernel/ui/modals/modal_manager.h"
 #include "window.h"
-#include "window_stack.h"
 
 //! @internal
 //! Returns a boolean indicating whether or not the passed window resides

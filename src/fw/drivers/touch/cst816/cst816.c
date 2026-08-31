@@ -16,7 +16,6 @@
 #include "pbl/services/system_task.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "pbl/util/math.h"
 
 #include "cst816_fw.h"
 

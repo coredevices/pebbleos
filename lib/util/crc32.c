@@ -4,7 +4,6 @@
 #include "pbl/util/crc32.h"
 
 #include <stdint.h>
-#include <string.h>
 
 // Nybble-wide table driven CRC-32 algorithm
 //

@@ -7,11 +7,7 @@
 #include "kernel/task_timer_manager.h"
 #include "kernel/util/task_init.h"
 #include "kernel/pebble_tasks.h"
-#include "pbl/mcu/interrupts.h"
-#include "pbl/os/mutex.h"
-#include "pbl/os/tick.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 
 #include "FreeRTOS.h"
 #include "queue.h"

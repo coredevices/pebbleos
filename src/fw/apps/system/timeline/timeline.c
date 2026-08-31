@@ -8,9 +8,7 @@
 
 #include "applib/app.h"
 #include "applib/ui/animation_interpolate.h"
-#include "applib/ui/animation_timing.h"
 #include "applib/ui/app_window_stack.h"
-#include "applib/ui/kino/kino_reel/scale_segmented.h"
 #include "applib/ui/kino/kino_reel/unfold.h"
 #include "applib/ui/ui.h"
 #include <pbl/drivers/rtc.h>
@@ -19,19 +17,14 @@
 #include "process_management/app_manager.h"
 #include "resource/resource_ids.auto.h"
 #include "resource/timeline_resource_ids.auto.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/compositor/compositor_transitions.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/blob_db/pin_db.h"
-#include "pbl/services/timeline/actions_endpoint.h"
-#include "pbl/services/timeline/attribute.h"
 #include "shell/normal/watchface.h"
 #include "syscall/syscall.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "util/array.h"
 #include "pbl/util/attributes.h"
-#include "pbl/util/size.h"
 #include "pbl/util/uuid.h"
 
 // This is used to determine whether this app was launched as Timeline or Timeline Past.

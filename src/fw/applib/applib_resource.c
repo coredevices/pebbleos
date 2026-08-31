@@ -8,7 +8,6 @@
 #include "resource/resource_storage_builtin.h"
 #include "resource/resource_storage_flash.h"
 #include "syscall/syscall.h"
-#include "system/passert.h"
 
 ResHandle applib_resource_get_handle(uint32_t resource_id) {
   if (sys_resource_is_valid(sys_get_current_resource_num(), resource_id)) {

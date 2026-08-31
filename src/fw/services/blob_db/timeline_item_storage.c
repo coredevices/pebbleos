@@ -5,7 +5,6 @@
 
 #include <pbl/drivers/rtc.h>
 #include "kernel/pbl_malloc.h"
-#include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/settings/settings_raw_iter.h"
 #include <pbl/logging/logging.h>
 #include "util/units.h"

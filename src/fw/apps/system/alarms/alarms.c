@@ -8,7 +8,6 @@
 
 #include "applib/app.h"
 #include "applib/graphics/gtypes.h"
-#include "applib/preferred_content_size.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/dialogs/dialog.h"
 #include "applib/ui/dialogs/expandable_dialog.h"
@@ -23,13 +22,8 @@
 #include "pbl/services/timeline/timeline.h"
 #include "shell/prefs.h"
 #include "shell/system_theme.h"
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/util/string.h"
 #include "util/time/time.h"
-#include "pbl/util/trig.h"
 
-#include <stdio.h>
 #include <string.h>
 
 // Alarms app versions

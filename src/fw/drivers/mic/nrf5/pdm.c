@@ -16,11 +16,8 @@
 #include "system/passert.h"
 #include "pbl/util/circular_buffer.h"
 #include "pbl/util/heap.h"
-#include "pbl/util/math.h"
-#include "pbl/util/size.h"
 #include "util/time/time.h"
 
-#include "hal/nrf_clock.h"
 #include "nrfx_pdm.h"
 
 PBL_LOG_MODULE_DEFINE(driver_mic_nrf5, CONFIG_DRIVER_MIC_LOG_LEVEL);
@@ -472,7 +469,6 @@ void mic_stop(const MicDevice *this) {
 }
 
 #include "console/prompt.h"
-#include "console/console_internal.h"
 
 // Console command stubs for Asterix (since we don't have accessory connector)
 // These commands are defined in the console command table but Asterix doesn't need

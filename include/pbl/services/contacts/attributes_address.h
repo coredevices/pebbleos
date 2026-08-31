@@ -6,7 +6,6 @@
 #include "pbl/services/timeline/item.h"
 
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdbool.h>
 
 typedef enum {

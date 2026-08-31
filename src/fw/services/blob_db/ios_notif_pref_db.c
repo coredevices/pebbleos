@@ -17,8 +17,6 @@
 #include "pbl/util/attributes.h"
 #include "util/units.h"
 
-#include <stdio.h>
-
 PBL_LOG_MODULE_DECLARE(service_blob_db, CONFIG_SERVICE_BLOB_DB_LOG_LEVEL);
 
 T_STATIC const char *iOS_NOTIF_PREF_DB_FILE_NAME = "iosnotifprefdb";

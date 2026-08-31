@@ -7,7 +7,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <inttypes.h>
 
 // Below are some default implementations for system-specific functions required by libutil.
 // These functions assume a working C standard library is linked into the program.

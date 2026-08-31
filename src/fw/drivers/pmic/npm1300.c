@@ -13,15 +13,12 @@
 #include "console/prompt.h"
 #include <pbl/drivers/battery.h>
 #include <pbl/drivers/exti.h>
-#include <pbl/drivers/gpio.h>
 #include <pbl/drivers/i2c.h>
 #include "kernel/events.h"
 #include "kernel/util/delay.h"
 #include "kernel/util/sleep.h"
-#include "pbl/os/mutex.h"
 #include "pbl/services/system_task.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 
 PBL_LOG_MODULE_DEFINE(driver_pmic_npm1300, CONFIG_DRIVER_PMIC_LOG_LEVEL);
 

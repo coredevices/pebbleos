@@ -7,13 +7,7 @@
 #include <pbl/drivers/vibe.h>
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "mfg/mfg_info.h"
 #include "pbl/os/mutex.h"
-#include "pbl/os/tick.h"
-#include "popups/health_tracking_ui.h"
-#include "process_management/app_manager.h"
-#include "process_management/worker_manager.h"
-#include "pbl/services/battery/battery_state.h"
 #include "pbl/services/hrm/hrm_manager_private.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/vibe_pattern.h"
@@ -22,15 +16,12 @@
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/protobuf_log/protobuf_log.h"
 #include "pbl/services/protobuf_log/protobuf_log_hr.h"
-#include "shell/prefs.h"
 #include "syscall/syscall.h"
 #include "syscall/syscall_internal.h"
-#include "system/hexdump.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "util/base64.h"
 #include "pbl/util/math.h"
-#include "pbl/util/size.h"
 #include "util/units.h"
 
 #include <pebbleos/cron.h>

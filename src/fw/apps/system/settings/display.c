@@ -7,27 +7,19 @@
 #include "option_menu.h"
 #include "window.h"
 
-#include "applib/fonts/fonts.h"
 #include "applib/ui/ui.h"
 #include <pbl/drivers/ambient_light.h>
-#include <pbl/drivers/battery.h>
 #include "kernel/pbl_malloc.h"
-#include "kernel/util/sleep.h"
-#include "popups/notifications/notification_window.h"
 #include "process_state/app_state/app_state.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/light.h"
 #include "shell/prefs.h"
 #include "shell/system_theme.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/size.h"
 
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <inttypes.h>
 
 // Forward decl so the parent menu can push the Backlight submenu.
 static void prv_backlight_submenu_push(void);

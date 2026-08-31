@@ -11,7 +11,6 @@
 #include "applib/graphics/1_bit/framebuffer.h"
 #endif
 
-#include <stdint.h>
 #include <stdbool.h>
 
 extern volatile const int FrameBuffer_MaxX;

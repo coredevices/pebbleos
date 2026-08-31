@@ -11,7 +11,6 @@
 
 #include "applib/ui/kino/kino_reel.h"
 #include "applib/ui/menu_layer.h"
-#include "pbl/os/mutex.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/pebble_process_info.h"
 #include "process_management/pebble_process_md.h"

@@ -3,7 +3,6 @@
 
 #pragma once
 #include "app_install_manager.h"
-#include "pebble_process_md.h"
 
 //! @file app_install_manager_private.h
 //! These are the "private" functions used by submodules of app_install_manager.

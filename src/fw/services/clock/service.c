@@ -6,13 +6,11 @@
 #include "console/prompt.h"
 #include <pbl/drivers/rtc.h>
 #include "kernel/events.h"
-#include "kernel/pbl_malloc.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/regular_timer.h"
 #include "pbl/services/alarms/alarm.h"
 #include "pbl/services/timezone_database.h"
-#include "pbl/services/wakeup.h"
 #include "shell/prefs.h"
 #include "syscall/syscall.h"
 #include "syscall/syscall_internal.h"

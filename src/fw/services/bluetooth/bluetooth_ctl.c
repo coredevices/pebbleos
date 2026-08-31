@@ -9,7 +9,6 @@
 #include "comm/ble/gap_le.h"
 #include "comm/ble/gatt_client_subscriptions.h"
 #include "console/dbgserial.h"
-#include <pbl/drivers/clocksource.h>
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/os/mutex.h"
@@ -20,7 +19,6 @@
 #include "pbl/services/bluetooth/local_addr.h"
 #include "pbl/services/bluetooth/local_id.h"
 #include "pbl/services/bluetooth/pairability.h"
-#include "pbl/services/regular_timer.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/bluetooth/ble_hrm.h"
 #include <pbl/logging/logging.h>

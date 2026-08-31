@@ -14,7 +14,6 @@
 #include "process_management/pebble_process_md.h"
 #include "process_state/app_state/app_state.h"
 #include "pbl/services/evented_timer.h"
-#include "pbl/services/timeline/timeline.h"
 
 typedef enum {
   TimelineAppStateNone = 0,

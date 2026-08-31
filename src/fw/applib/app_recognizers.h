@@ -5,9 +5,6 @@
 
 #include "applib/ui/recognizer/recognizer.h"
 
-#include <stdbool.h>
-#include <stdint.h>
-
 //! Attach a recognizer to the app
 //! @param recognizer \ref Recognizer to attach
 void app_recognizers_attach_recognizer(Recognizer *recognizer);

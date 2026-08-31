@@ -11,8 +11,6 @@
 #include "light_mutex.h"
 #include "task.h"
 
-#include <string.h>
-
 typedef struct {
     uint32_t lr;
     LightMutexHandle_t freertos_mutex;

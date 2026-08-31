@@ -6,8 +6,6 @@
 #include "applib/fonts/codepoint.h"
 #include "utf8.h"
 
-#include <string.h>
-
 // Maximum number of codepoints we can handle in a single reversal.
 // 32 is sufficient for real Hebrew words including long morphological forms.
 #define MAX_RTL_CODEPOINTS 32

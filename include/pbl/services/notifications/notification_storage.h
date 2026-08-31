@@ -6,7 +6,6 @@
 #include "pbl/util/uuid.h"
 
 #include "kernel/events.h"
-#include "pbl/util/iterator.h"
 
 void notification_storage_init(void);
 

@@ -2,7 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "pbl/util/slist.h"
-#include "pbl/util/assert.h"
 #include "pbl/util/logging.h"
 
 #include <stddef.h>

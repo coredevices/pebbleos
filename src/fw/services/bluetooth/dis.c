@@ -4,7 +4,6 @@
 #include <bluetooth/dis.h>
 
 #include <inttypes.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 

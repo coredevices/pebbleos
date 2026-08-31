@@ -8,14 +8,12 @@
 
 #include "applib/applib_malloc.auto.h"
 #include "applib/app_logging.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/math.h"
 #include "util/swap.h"
 #include "pbl/util/trig.h"
 
 #include <string.h>
-#include <stdlib.h>
 
 #define GPATH_ERROR "Unable to allocate memory for GPath call"
 

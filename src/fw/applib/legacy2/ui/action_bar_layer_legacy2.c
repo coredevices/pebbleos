@@ -8,8 +8,6 @@
 #include "kernel/pbl_malloc.h"
 #include "system/passert.h"
 
-#include <string.h>
-
 inline static bool action_bar_legacy2_is_highlighted(ActionBarLayerLegacy2 *action_bar,
                                                      uint8_t index) {
   PBL_ASSERTN(index < NUM_ACTION_BAR_LEGACY2_ITEMS);

@@ -13,13 +13,11 @@
 #include "pbl/services/data_logging/data_logging_service.h"
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/settings/settings_file.h"
-#include "syscall/syscall.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "util/base64.h"
 #include "pbl/util/math.h"
 #include "util/shared_circular_buffer.h"
-#include "pbl/util/size.h"
 #include "util/time/time.h"
 #include "util/units.h"
 

@@ -7,8 +7,6 @@
 
 #include "system/passert.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/util/list.h"
-#include "util/net.h"
 
 static DictionaryResult dict_init(DictionaryIterator *iter, const uint8_t * const buffer, const uint16_t length) {
   if (iter == NULL ||

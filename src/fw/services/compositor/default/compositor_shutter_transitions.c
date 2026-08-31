@@ -5,7 +5,6 @@
 
 #include "pbl/services/compositor/compositor_transitions.h"
 
-#include "applib/graphics/bitblt.h"
 #include "applib/graphics/framebuffer.h"
 #include "applib/graphics/gpath.h"
 #include "applib/graphics/graphics.h"

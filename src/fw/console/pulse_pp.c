@@ -6,7 +6,6 @@
 #include "comm/bt_lock.h"
 
 #include "console/pulse_protocol_impl.h"
-#include "console/pulse2_transport_impl.h"
 
 #include "kernel/event_loop.h"
 #include "kernel/events.h"

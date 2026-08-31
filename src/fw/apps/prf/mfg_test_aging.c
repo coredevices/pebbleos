@@ -19,9 +19,7 @@
 #include <pbl/drivers/battery.h>
 #include <pbl/drivers/backlight.h>
 #include <pbl/drivers/mag.h>
-#include <pbl/drivers/vibe.h>
 #include "kernel/pbl_malloc.h"
-#include "kernel/util/sleep.h"
 #include "process_management/pebble_process_md.h"
 #include "process_state/app_state/app_state.h"
 #include "pbl/services/bluetooth/bluetooth_ctl.h"
@@ -29,8 +27,6 @@
 #include "pbl/services/idle_watchdog.h"
 #include <pbl/logging/logging.h>
 #include "util/time/time.h"
-
-#include <stdio.h>
 
 #define STATUS_STRING_LEN 200
 #define COMPONENT_TEST_DURATION_SEC 10

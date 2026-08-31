@@ -4,16 +4,13 @@
 #include <pbl/drivers/display/sf32lb/display_jdi.h>
 
 #include "board/board.h"
-#include "board/display.h"
 #include <pbl/drivers/display/display.h>
 #include <pbl/drivers/gpio.h>
 #include "kernel/events.h"
-#include "kernel/pbl_malloc.h"
 #include "kernel/util/delay.h"
 #include "pbl/soc/sf32lb/sleep.h"
 #include <pbl/drivers/rtc.h>
 #include "pbl/mcu/cache.h"
-#include "pbl/os/mutex.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
@@ -21,7 +18,6 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 
-#include "bf0_hal.h"
 #include "bf0_hal_lcdc.h"
 #include "bf0_hal_lptim.h"
 #include "bf0_hal_rtc.h"

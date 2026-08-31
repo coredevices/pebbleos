@@ -4,7 +4,6 @@
 #include "app_fetch_ui.h"
 
 #include <inttypes.h>
-#include <stdio.h>
 #include <string.h>
 
 #include "applib/app.h"
@@ -15,20 +14,13 @@
 #include <pbl/drivers/battery.h>
 #include "kernel/pbl_malloc.h"
 #include "process_management/app_install_manager.h"
-#include "process_management/app_manager.h"
 #include "process_management/worker_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/app_fetch_endpoint.h"
-#include "pbl/services/timeline/timeline_resources.h"
-#include "apps/system/timeline/peek_layer.h"
 #include "shell/normal/watchface.h"
-#include "shell/shell.h"
-#include "shell/system_app_state_machine.h"
 #include "pbl/services/compositor/compositor_transitions.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/services/evented_timer.h"
 
 #define FAIL_PAUSE_MS 1000
 #define SCROLL_OUT_MS 250

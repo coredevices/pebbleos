@@ -3,7 +3,6 @@
 
 #include "settings.h"
 #include "menu.h"
-#include "window.h"
 
 #include "applib/app.h"
 #include "applib/event_service_client.h"

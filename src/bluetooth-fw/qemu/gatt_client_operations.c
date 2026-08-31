@@ -4,8 +4,6 @@
 #include <bluetooth/bt_driver_ppog_reversed.h>
 #include <bluetooth/gatt.h>
 
-#include <pbl/btutil/bt_device.h>
-
 BTErrno bt_driver_gatt_write_without_response(GAPLEConnection *connection,
                                               const uint8_t *value,
                                               size_t value_length,

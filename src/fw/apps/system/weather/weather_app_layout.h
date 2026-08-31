@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "pebble_compat.h"
 #include <stdint.h>
 #include "weather_types.h"
 

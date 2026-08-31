@@ -21,7 +21,6 @@
 #include "system/passert.h"
 #include "pbl/util/attributes.h"
 #include "pbl/util/size.h"
-#include "pbl/util/string.h"
 #include "pbl/util/struct.h"
 
 #include <stdio.h>

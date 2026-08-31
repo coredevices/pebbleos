@@ -14,28 +14,18 @@
 #include "applib/ui/recognizer/recognizer_list.h"
 #include "applib/ui/recognizer/recognizer_manager.h"
 #include "applib/ui/recognizer/touch_nav.h"
-#include "applib/ui/click.h"
 #include "applib/ui/click_internal.h"
-#include "applib/ui/window_private.h"
 #include "applib/ui/window_stack.h"
-#include "applib/touch_service.h"
 #include "applib/touch_service_private.h"
 #include "pbl/services/touch/touch.h"
 #include "pbl/drivers/button_id.h"
-#include "applib/unobstructed_area_service.h"
 #include "kernel/util/segment.h"
 #include "process_management/app_install_types.h"
 #include "process_management/app_manager.h"
 #include "process_management/process_loader.h"
-#include "process_management/process_manager.h"
-#include "pbl/services/i18n/i18n.h"
-#include "pbl/services/persist.h"
-#include "syscall/syscall_internal.h"
 #include "system/passert.h"
 #include "pbl/util/attributes.h"
 #include "tinymt32.h"
-
-#include <string.h>
 
 typedef struct {
   Heap heap;

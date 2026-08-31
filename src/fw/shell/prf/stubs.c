@@ -9,14 +9,12 @@
 
 #include "pbl/util/uuid.h"
 #include "board/board.h"
-#include <pbl/drivers/backlight.h>
 #include "kernel/events.h"
 #include "popups/crashed_ui.h"
 #include "popups/notifications/notification_window.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/pebble_process_md.h"
 #include "resource/resource_ids.auto.h"
-#include "resource/resource_storage.h"
 #include "resource/resource_storage_file.h"
 #include "pbl/services/light.h"
 #include "pbl/services/notifications/do_not_disturb.h"
@@ -91,8 +89,6 @@ void wakeup_enable(bool enable) {
 bool phone_call_is_using_ANCS(void) {
   return true;
 }
-
-#include "pbl/services/notifications/alerts.h"
 
 #include "pbl/services/blob_db/app_db.h"
 #include "pbl/services/app_cache.h"

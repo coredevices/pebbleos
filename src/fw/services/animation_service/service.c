@@ -14,7 +14,6 @@
 
 #include "system/passert.h"
 
-#include "syscall/syscall.h"
 #include "syscall/syscall_internal.h"
 
 

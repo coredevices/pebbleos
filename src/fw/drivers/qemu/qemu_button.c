@@ -7,7 +7,6 @@
 #include "board/board.h"
 #include "console/prompt.h"
 #include "kernel/events.h"
-#include "system/passert.h"
 
 #include "FreeRTOS.h"
 

@@ -6,19 +6,13 @@
 #include "shell/prefs_private.h"
 
 #include "apps/system_app_ids.h"
-#include "apps/system/app_fetch_ui.h"
-#include "apps/system/settings/quick_launch.h"
 #include "apps/system/timeline/timeline.h"
-#include "kernel/low_power.h"
-#include "kernel/pbl_malloc.h"
 #include "popups/alarm_popup.h"
 #include "popups/bluetooth_pairing_ui.h"
 #include "popups/notifications/notification_window.h"
 #include "popups/timeline/peek.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
-#include "process_management/process_manager.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/blob_db/api.h"
 #include "pbl/services/bluetooth/bluetooth_persistent_storage.h"
 #include "pbl/services/shared_prf_storage/shared_prf_storage.h"
@@ -35,11 +29,8 @@
 #include "pbl/services/timeline/event.h"
 #include "shell/normal/app_idle_timeout.h"
 #include "shell/normal/battery_ui.h"
-#include "shell/normal/quick_launch.h"
 #include "shell/normal/watchface.h"
 #include "shell/prefs.h"
-#include <pbl/logging/logging.h>
-
 
 extern void shell_prefs_init(void);
 

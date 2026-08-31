@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <inttypes.h>
 #include "pbl/services/comm_session/session.h"
 
 //! Callback for handling a screenshot request message from the client

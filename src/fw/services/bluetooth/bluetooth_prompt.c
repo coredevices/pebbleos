@@ -8,14 +8,11 @@
 #include "pbl/services/bluetooth/bluetooth_ctl.h"
 #include "pbl/services/bluetooth/bluetooth_persistent_storage.h"
 #include "pbl/services/bluetooth/local_id.h"
-#include "pbl/services/bluetooth/pairability.h"
 #include "pbl/services/shared_prf_storage/shared_prf_storage.h"
 #include "pbl/util/string.h"
 
 #include <bluetooth/bluetooth_types.h>
 #include <bluetooth/id.h>
-
-#include <stdlib.h>
 
 void command_bt_print_mac(void) {
   char addr_hex_str[BT_ADDR_FMT_BUFFER_SIZE_BYTES];

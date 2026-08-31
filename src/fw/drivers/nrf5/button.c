@@ -2,7 +2,6 @@
 
 #include "board/board.h"
 #include "console/prompt.h"
-#include <pbl/drivers/gpio.h>
 #include "kernel/events.h"
 #include "system/passert.h"
 

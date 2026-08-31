@@ -9,7 +9,6 @@
 #include "pbl/services/compositor/compositor.h"
 #include "system/passert.h"
 
-#include "applib/graphics/graphics.h"
 #include "applib/ui/animation_private.h"
 
 static GContext s_kernel_grahics_context;

@@ -3,8 +3,6 @@
 
 #include "pbl/services/blob_db/health_db.h"
 
-#include "console/prompt.h"
-#include "kernel/pbl_malloc.h"
 #include "pbl/os/mutex.h"
 #include "pbl/services/activity/activity_private.h"
 #include "pbl/services/activity/hr_util.h"

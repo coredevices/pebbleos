@@ -9,9 +9,6 @@
 #include "pbl/services/comm_session/session.h"
 #include "pbl/util/uuid.h"
 
-#include <inttypes.h>
-#include <stdlib.h>
-
 //! Sends a request to the phone asking it to invoke an action
 //! @param id UUID of the pin/notification
 //! @param type Type of the pin/notification

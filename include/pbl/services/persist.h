@@ -19,7 +19,6 @@
 #include <stddef.h>
 
 #include "pbl/util/uuid.h"
-#include "process_management/app_install_types.h"
 #include "system/status_codes.h"
 
 typedef struct SettingsFile SettingsFile;

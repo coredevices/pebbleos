@@ -7,7 +7,6 @@
 #include "pbl/soc/sf32lb/sleep.h"
 #include "system/passert.h"
 
-#include "FreeRTOS.h"
 #include "bf0_hal_dma.h"
 #include "bf0_hal_uart.h"
 

@@ -4,7 +4,6 @@
 #pragma once
 
 #include <pbl/drivers/mcu_reboot_reason.h>
-#include <stdint.h>
 
 void debug_init(McuRebootReason reason);
 

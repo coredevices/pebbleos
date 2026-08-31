@@ -10,7 +10,6 @@
 
 #include <stdbool.h>
 #include <stddef.h>
-#include <inttypes.h>
 
 #define APP_FILE_NAME_SUFFIX "app"
 #define WORKER_FILE_NAME_SUFFIX "worker"

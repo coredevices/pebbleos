@@ -14,8 +14,6 @@
 
 #include <pbl/util/size.h>
 
-#include <stdio.h>
-
 #define BLE_HRM_CONFIRMATION_TIMEOUT_MS (2000)
 
 static void prv_respond(bool is_granted, ActionableDialog *actionable_dialog) {

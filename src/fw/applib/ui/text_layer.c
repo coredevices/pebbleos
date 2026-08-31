@@ -9,7 +9,6 @@
 #include "applib/fonts/fonts.h"
 #include "applib/graphics/graphics.h"
 #include "applib/graphics/gtypes.h"
-#include "applib/graphics/perimeter.h"
 #include "applib/preferred_content_size.h"
 #include "process_state/app_state/app_state.h"
 #include "shell/system_theme.h"

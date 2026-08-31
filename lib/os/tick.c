@@ -2,7 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "FreeRTOS.h"
-#include "portmacro.h"
 
 #include <stdint.h>
 

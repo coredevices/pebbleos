@@ -8,7 +8,6 @@
 #include "flash_region/flash_region.h"
 #include "system/passert.h"
 #include "system/status_codes.h"
-#include "pbl/util/math.h"
 #include "pbl/util/size.h"
 
 static bool s_protected;

@@ -1,17 +1,10 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "process_management/app_install_manager_private.h"
 #include "pbl/services/process_management/app_order_storage.h"
 #include "pbl/services/comm_session/session.h"
-#include "system/hexdump.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "system/status_codes.h"
 #include "pbl/util/uuid.h"
-
-#include <stdbool.h>
-#include <string.h>
 
 PBL_LOG_MODULE_DEFINE(service_app_order_endpoint, CONFIG_SERVICE_APP_ORDER_ENDPOINT_LOG_LEVEL);
 

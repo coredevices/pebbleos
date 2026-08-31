@@ -10,8 +10,6 @@
 #include "applib/ui/animation.h"
 #include "applib/ui/layer.h"
 #include "pbl/services/evented_timer.h"
-#include "pbl/services/blob_db/pin_db.h"
-#include "pbl/services/timeline/item.h"
 #include "pbl/services/timeline/timeline_layout.h"
 #include "pbl/services/timeline/timeline_layout_animations.h"
 

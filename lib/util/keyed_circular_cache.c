@@ -4,7 +4,6 @@
 #include "pbl/util/keyed_circular_cache.h"
 
 #include "pbl/util/assert.h"
-#include "pbl/util/math.h"
 
 #include <string.h>
 

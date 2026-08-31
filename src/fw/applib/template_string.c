@@ -10,7 +10,6 @@
 #include "pbl/util/attributes.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
-#include "pbl/util/string.h"
 
 #include <ctype.h>
 #include <limits.h>

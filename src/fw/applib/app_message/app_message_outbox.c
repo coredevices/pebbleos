@@ -4,9 +4,7 @@
 #include "applib/applib_malloc.auto.h"
 #include "applib/app_message/app_message_internal.h"
 #include "applib/app_outbox.h"
-#include "kernel/pbl_malloc.h"
 #include "process_state/app_state/app_state.h"
-#include "pbl/services/comm_session/session.h"
 #include "syscall/syscall.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"

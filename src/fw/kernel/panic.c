@@ -5,7 +5,6 @@
 
 #include "kernel/event_loop.h"
 #include "kernel/ui/modals/modal_manager.h"
-#include "process_management/app_manager.h"
 #include "shell/system_app_state_machine.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"

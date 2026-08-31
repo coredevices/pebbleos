@@ -5,7 +5,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "applib/accel_service.h"
 #include "pbl/services/activity/activity.h"
 
 // Version of our minute file minute records

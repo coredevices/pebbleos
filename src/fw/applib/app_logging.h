@@ -12,7 +12,6 @@
 
 // FIXME PBL-1629: move needed declarations into applib
 #include "logging/logging_private.h"
-#include <pbl/logging/logging.h>
 
 #include <stdint.h>
 

@@ -7,7 +7,6 @@
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/text_layer.h"
 #include "applib/ui/window.h"
-#include "board/board.h"
 #include <pbl/drivers/i2c.h>
 #include <pbl/drivers/flash.h>
 #include <pbl/drivers/clocksource.h>
@@ -16,12 +15,10 @@
 #include "kernel/util/sleep.h"
 #include "process_management/pebble_process_md.h"
 #include "process_state/app_state/app_state.h"
-#include "pbl/util/size.h"
 
 #include <FreeRTOS.h>
 #include <semphr.h>
 
-#include "hal/nrf_clock.h"
 #include "nrfx_i2s.h"
 #include "nrfx_pdm.h"
 

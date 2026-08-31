@@ -7,7 +7,6 @@
 #include "applib/graphics/gtypes.h"
 #include "applib/ui/dialogs/dialog_private.h"
 #include "kernel/ui/kernel_ui.h"
-#include "kernel/pbl_malloc.h"
 #include "resource/resource_ids.auto.h"
 #include "system/passert.h"
 

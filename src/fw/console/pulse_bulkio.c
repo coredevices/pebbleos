@@ -3,9 +3,7 @@
 
 #include "console/pulse_bulkio_domain_handler.h"
 #include "console/pulse_protocol_impl.h"
-#include "console/pulse2_transport_impl.h"
 
-#include <stdbool.h>
 #include <stdint.h>
 
 #include "kernel/pbl_malloc.h"

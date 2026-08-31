@@ -15,7 +15,6 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
-#include "queue.h"
 
 TaskHandle_t g_task_handles[NumPebbleTask] KERNEL_READONLY_DATA = { 0 };
 

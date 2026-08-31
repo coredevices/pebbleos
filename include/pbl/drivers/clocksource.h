@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <stdbool.h>
-
 #ifdef CONFIG_SOC_NRF52
 /** @brief Request HFXO clock (reference counted). */
 void clocksource_hfxo_request(void);

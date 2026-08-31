@@ -5,19 +5,14 @@
 
 #include "applib/applib_malloc.auto.h"
 #include "applib/fonts/fonts.h"
-#include "applib/ui/bitmap_layer.h"
 #include "applib/ui/dialogs/dialog.h"
 #include "applib/ui/dialogs/dialog_private.h"
-#include "applib/ui/kino/kino_reel/scale_segmented.h"
 #include "applib/ui/layer.h"
 #include "applib/ui/text_layer.h"
 #include "applib/ui/window.h"
 #include "kernel/ui/kernel_ui.h"
 #include "resource/resource_ids.auto.h"
 #include "system/passert.h"
-
-#include <limits.h>
-#include <string.h>
 
 static void prv_actionable_dialog_load(Window *window) {
   ActionableDialog *actionable_dialog = window_get_user_data(window);

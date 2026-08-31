@@ -4,7 +4,6 @@
 #include "applib/app_worker.h"
 #include "kernel/event_loop.h"
 #include "kernel/ui/modals/modal_manager.h"
-#include "kernel/ui/modals/modal_manager_private.h"
 #include "process_management/worker_manager.h"
 #include "process_management/app_manager.h"
 #include "popups/switch_worker_ui.h"

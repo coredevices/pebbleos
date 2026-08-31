@@ -7,13 +7,10 @@
 #include <pbl/drivers/qemu/qemu_serial.h>
 #include <pbl/drivers/qemu/qemu_serial_private.h>
 
-#include "system/passert.h"
 #include <pbl/logging/logging.h>
 
 #include "pbl/util/math.h"
 #include "util/net.h"
-#include "system/hexdump.h"
-
 
 // -----------------------------------------------------------------------------------------
 void qemu_serial_private_init_state(QemuSerialGlobals *state)

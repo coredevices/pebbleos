@@ -3,19 +3,14 @@
 
 #include "app_menu_data_source.h"
 
-#include "applib/fonts/fonts.h"
 #include "applib/ui/menu_layer.h"
 #include "apps/system_app_ids.h"
 #include "kernel/pbl_malloc.h"
 #include "process_management/app_manager.h"
 #include "resource/resource_ids.auto.h"
-#include "pbl/services/i18n/i18n.h"
 #include "pbl/services/process_management/app_order_storage.h"
 #include "system/passert.h"
 #include "pbl/util/size.h"
-
-#include "apps/demo/activity_demo/activity_demo.h"
-#include "shell/prefs.h"
 
 #include <string.h>
 

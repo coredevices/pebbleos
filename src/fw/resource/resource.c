@@ -8,7 +8,6 @@
 
 #include "process_management/app_manager.h"
 #include <pbl/drivers/flash.h>
-#include "flash_region/flash_region.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/os/mutex.h"
 #include "pbl/services/process_management/app_storage.h"
