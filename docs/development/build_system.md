@@ -22,8 +22,8 @@ cmake -B build -GNinja -DBOARD=asterix
 cmake --build build
 ```
 
-The unit tests still build with waf, out of their own build directory; see
-{doc}`testing`.
+The unit tests are a CMake project of their own -- they build for the host,
+not for the watch -- out of their own build directory; see {doc}`testing`.
 
 ## The library model
 

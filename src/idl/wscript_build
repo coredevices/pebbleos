@@ -1,4 +1,0 @@
-bld.pbl_include_directories(bld.path.get_bld())
-bld.recurse('nanopb')
-
-# vim:filetype=python

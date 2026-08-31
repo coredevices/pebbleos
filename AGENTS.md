@@ -15,8 +15,8 @@ PebbleOS is the operating system running on Pebble smartwatches.
   system, tests, etc.
 - `tools/libs`: Python packages used in multiple areas, e.g. log dehashing,
   console, etc.
-- `tools/cmake`: generators the CMake firmware build shells out to
-- `tools/waf`: scripts used by waf, which still builds the unit tests
+- `tools/cmake`: generators the CMake builds shell out to
+- `tools/waf`: scripts used by waf, which still packages the SDK
 
 ## Documentation
 

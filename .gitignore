@@ -1,5 +1,6 @@
 build
 build-test
+build-sdk
 xcode
 
 .ycm*

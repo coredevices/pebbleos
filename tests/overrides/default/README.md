@@ -4,7 +4,7 @@ Default Header Overrides
 This directory contains header files which always override headers in
 the firmware source tree when building unit tests. This is accomplished
 by prepending this directory to the `#include` search path in
-[`tools/waf/pebble_test.py`](../../../tools/waf/pebble_test.py).
+[`cmake/modules/pbl_test.cmake`](../../../cmake/modules/pbl_test.cmake).
 
 Overriding the default override for a test?
 -------------------------------------------

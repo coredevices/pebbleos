@@ -1,6 +1,0 @@
-from tools.waf.pebble_test import clar
-
-clar(ctx,
-    test_sources_ant_glob = "test_fake_mutex.c")
-
-# vim:filetype=python
