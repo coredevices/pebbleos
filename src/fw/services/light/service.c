@@ -592,6 +592,17 @@ void light_enable(bool enable) {
   mutex_unlock(s_mutex);
 }
 
+void light_off_now(void) {
+  mutex_lock(s_mutex);
+
+  if (s_num_buttons_down == 0) {
+    s_user_controlled_state = false;
+    prv_change_state(LIGHT_STATE_OFF);
+  }
+
+  mutex_unlock(s_mutex);
+}
+
 void light_enable_respect_settings(bool enable) {
   mutex_lock(s_mutex);
 

@@ -91,6 +91,9 @@ static bool s_backlight_motion_enabled = true;
 #define PREF_KEY_BACKLIGHT_TOUCH "lightTouch"
 static uint8_t s_backlight_touch_wake = BacklightTouchWake_DoubleTap;
 
+#define PREF_KEY_BACKLIGHT_PALM_SLEEP "lightPalmSleep"
+static bool s_backlight_palm_sleep = true;
+
 #define PREF_KEY_TOUCH_ENABLED "touchEnabled"
 static bool s_touch_enabled = true;
 
@@ -437,6 +440,11 @@ static bool prv_set_s_backlight_touch_wake(uint8_t *wake) {
 #ifdef CONFIG_TOUCH
   touch_set_backlight_enabled(*wake != BacklightTouchWake_Off);
 #endif
+  return true;
+}
+
+static bool prv_set_s_backlight_palm_sleep(bool *enable) {
+  s_backlight_palm_sleep = *enable;
   return true;
 }
 
@@ -1376,6 +1384,14 @@ BacklightTouchWake backlight_get_touch_wake(void) {
 void backlight_set_touch_wake(BacklightTouchWake wake) {
   uint8_t value = (uint8_t)wake;
   prv_pref_set(PREF_KEY_BACKLIGHT_TOUCH, &value, sizeof(value));
+}
+
+bool backlight_is_palm_sleep_enabled(void) {
+  return s_backlight_palm_sleep;
+}
+
+void backlight_set_palm_sleep_enabled(bool enable) {
+  prv_pref_set(PREF_KEY_BACKLIGHT_PALM_SLEEP, &enable, sizeof(enable));
 }
 
 bool touch_is_globally_enabled(void) {
