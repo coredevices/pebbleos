@@ -97,6 +97,12 @@ static bool s_notification_backlight = true;  // true = enable backlight (defaul
 #define PREF_KEY_NOTIF_STATUS_BAR_STYLE "notifStatusBarStyle"
 static NotificationStatusBarStyle s_notification_status_bar_style = NotificationStatusBarStyle_Default;
 
+#define PREF_KEY_NOTIF_SORT_MODE "notifSortMode"
+static NotificationSortMode s_notification_sort_mode = NotificationSortNewestFirst;
+
+#define PREF_KEY_NOTIF_GROUPING "notifGrouping"
+static bool s_notification_grouping = true;
+
 ///////////////////////////////////
 //! Legacy preference keys
 ///////////////////////////////////
@@ -345,6 +351,8 @@ void alerts_preferences_init(void) {
   RESTORE_PREF(PREF_KEY_NOTIF_VIBE_DELAY, s_notification_vibe_delay);
   RESTORE_PREF(PREF_KEY_NOTIF_BACKLIGHT, s_notification_backlight);
   RESTORE_PREF(PREF_KEY_NOTIF_STATUS_BAR_STYLE, s_notification_status_bar_style);
+  RESTORE_PREF(PREF_KEY_NOTIF_SORT_MODE, s_notification_sort_mode);
+  RESTORE_PREF(PREF_KEY_NOTIF_GROUPING, s_notification_grouping);
   RESTORE_PREF(PREF_KEY_DND_AUTO_DISMISS, s_dnd_auto_dismiss);
 #undef RESTORE_PREF
 
@@ -446,6 +454,27 @@ NotificationStatusBarStyle alerts_preferences_get_notification_status_bar_style(
 void alerts_preferences_set_notification_status_bar_style(NotificationStatusBarStyle style) {
   s_notification_status_bar_style = style;
   SET_PREF(PREF_KEY_NOTIF_STATUS_BAR_STYLE, s_notification_status_bar_style);
+}
+
+NotificationSortMode alerts_preferences_get_notification_sort_mode(void) {
+  return s_notification_sort_mode;
+}
+
+void alerts_preferences_set_notification_sort_mode(NotificationSortMode mode) {
+  if (mode >= NotificationSortModeCount) {
+    mode = NotificationSortNewestFirst;
+  }
+  s_notification_sort_mode = mode;
+  SET_PREF(PREF_KEY_NOTIF_SORT_MODE, s_notification_sort_mode);
+}
+
+bool alerts_preferences_get_notification_grouping(void) {
+  return s_notification_grouping;
+}
+
+void alerts_preferences_set_notification_grouping(bool enable) {
+  s_notification_grouping = enable;
+  SET_PREF(PREF_KEY_NOTIF_GROUPING, s_notification_grouping);
 }
 
 bool alerts_preferences_get_speaker_muted(void) {

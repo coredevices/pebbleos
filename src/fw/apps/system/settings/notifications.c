@@ -38,6 +38,8 @@ typedef struct {
 
 enum NotificationsItem {
   NotificationsItemFilter,
+  NotificationsItemSortOrder,
+  NotificationsItemGrouping,
   NotificationsItemWindowTimeout,
 #if PBL_BW
   NotificationsItemDesignStyle,
@@ -47,6 +49,22 @@ enum NotificationsItem {
   NotificationsItemStatusBarStyle,
   NotificationsItem_Count,
 };
+
+static const char *s_sort_labels[] = {
+  i18n_noop("Newest first"), i18n_noop("Oldest first"), i18n_noop("Alphabetical")
+};
+
+static void prv_sort_select(OptionMenu *menu, int selection, void *context) {
+  alerts_preferences_set_notification_sort_mode((NotificationSortMode)selection);
+  app_window_stack_remove(&menu->window, true);
+}
+
+static void prv_sort_push(SettingsNotificationsData *data) {
+  const OptionMenuCallbacks callbacks = {.select = prv_sort_select};
+  settings_option_menu_push(i18n_noop("Sort Order"), OptionMenuContentType_SingleLine,
+                            alerts_preferences_get_notification_sort_mode(), &callbacks,
+                            ARRAY_LENGTH(s_sort_labels), true, s_sort_labels, data);
+}
 
 // Filter Alerts
 //////////////////////////
@@ -287,6 +305,14 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       title = i18n_noop("Filter");
       subtitle = prv_alert_mask_to_label(alerts_get_mask());
       break;
+    case NotificationsItemSortOrder:
+      title = i18n_noop("Sort Order");
+      subtitle = s_sort_labels[alerts_preferences_get_notification_sort_mode()];
+      break;
+    case NotificationsItemGrouping:
+      title = i18n_noop("Group Notifications");
+      subtitle = alerts_preferences_get_notification_grouping() ? i18n_noop("On") : i18n_noop("Off");
+      break;
     case NotificationsItemWindowTimeout: {
       /// String within Settings->Notifications that describes the window timeout setting
       title = i18n_noop("Timeout");
@@ -339,6 +365,12 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
   switch (row) {
     case NotificationsItemFilter:
       prv_filter_menu_push(data);
+      break;
+    case NotificationsItemSortOrder:
+      prv_sort_push(data);
+      break;
+    case NotificationsItemGrouping:
+      alerts_preferences_set_notification_grouping(!alerts_preferences_get_notification_grouping());
       break;
     case NotificationsItemWindowTimeout:
       prv_window_timeout_menu_push(data);

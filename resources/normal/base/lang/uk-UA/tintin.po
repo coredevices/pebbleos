@@ -476,6 +476,26 @@ msgstr "Початок"
 msgid "End"
 msgstr "Кінець"
 
+#: ../src/fw/apps/system/settings/notifications.c:54
+msgid "Newest first"
+msgstr "Спочатку новіші"
+
+#: ../src/fw/apps/system/settings/notifications.c:54
+msgid "Oldest first"
+msgstr "Спочатку старіші"
+
+#: ../src/fw/apps/system/settings/notifications.c:54
+msgid "Alphabetical"
+msgstr "За алфавітом"
+#: ../src/fw/apps/system/settings/notifications.c:64
+#: ../src/fw/apps/system/settings/notifications.c:309
+msgid "Sort Order"
+msgstr "Порядок сортування"
+
+#: ../src/fw/apps/system/settings/notifications.c:313
+msgid "Group Notifications"
+msgstr "Групувати сповіщення"
+
 #: ../src/fw/applib/voice/voice_window.c:200
 msgid "Dictation is not available."
 msgstr "Диктування не доступне."

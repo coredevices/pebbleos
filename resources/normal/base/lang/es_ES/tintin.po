@@ -482,6 +482,28 @@ msgstr "Comienzo"
 msgid "End"
 msgstr "Final"
 
+
+#: ../src/fw/apps/system/settings/notifications.c:54
+msgid "Newest first"
+msgstr "Más recientes primero"
+#: ../src/fw/apps/system/settings/notifications.c:54
+msgid "Oldest first"
+msgstr "Más antiguos primero"
+
+#: ../src/fw/apps/system/settings/notifications.c:54
+msgid "Alphabetical"
+msgstr "Alfabético"
+#: ../src/fw/apps/system/settings/notifications.c:64
+#: ../src/fw/apps/system/settings/notifications.c:309
+msgid "Sort Order"
+msgstr "Orden de clasificación"
+
+#: ../src/fw/apps/system/settings/notifications.c:313
+msgid "Group Notifications"
+msgstr "Agrupar notificaciones"
+
+
+
 #: ../src/fw/applib/voice/voice_window.c:200
 msgid "Dictation is not available."
 msgstr "Dictado no disponible."

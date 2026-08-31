@@ -25,6 +25,7 @@
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
+#include "pbl/services/notifications/alerts_preferences_private.h"
 #include "pbl/services/blob_db/pin_db.h"
 #include "pbl/services/notifications/notification_storage.h"
 #include "pbl/services/timeline/notification_layout.h"
@@ -46,6 +47,9 @@ typedef struct NotificationNode {
   ListNode node;
   Uuid id;
 } NotificationNode;
+
+#define NOTIFICATION_SORT_KEY_MAX_LEN 32
+
 typedef struct NotificationDisplayNode {
   ListNode node;
   bool is_group;
@@ -53,16 +57,21 @@ typedef struct NotificationDisplayNode {
   uint16_t count;
   // Timestamp used to sort this row (for a group, this is its most recent member's timestamp).
   time_t timestamp;
+  // Title (or app name, if no title) used as the key for alphabetical sorting.
+  char sort_key[NOTIFICATION_SORT_KEY_MAX_LEN];
 } NotificationDisplayNode;
 typedef struct NotificationsData {
   Window window;
   MenuLayer menu_layer;
   TextLayer text_layer;
   NotificationNode *notification_list;
+  bool group_view;
   NotificationDisplayNode *display_list;
   LoadedNotificationNode *loaded_notification_list;
   EventServiceInfo notification_event_info;
   ActionableDialog *actionable_dialog;
+  // Zero-initialized by app_zalloc_check, so this defaults to NotificationSortNewestFirst.
+  NotificationSortMode sort_mode;
 #if PBL_ROUND
   StatusBarLayer status_bar_layer;
 #endif
@@ -70,15 +79,22 @@ typedef struct NotificationsData {
 
 static NotificationsData *s_data = NULL;
 
+static void prv_update_text_layer_visibility(NotificationsData *data);
+static void prv_rebuild_display_list(NotificationsData *data);
+static void prv_push_window(NotificationsData *data);
+
+
 static NotificationDisplayNode *prv_display_list_add(NotificationDisplayNode **display_list,
                                                      Uuid *id, bool is_group, uint16_t count,
-                                                     time_t timestamp) {
+                                                     time_t timestamp, const char *sort_key) {
   NotificationDisplayNode *new_node = app_malloc_check(sizeof(NotificationDisplayNode));
   list_init((ListNode *)new_node);
   new_node->is_group = is_group;
   new_node->representative_id = *id;
   new_node->count = count;
   new_node->timestamp = timestamp;
+  strncpy(new_node->sort_key, sort_key ? sort_key : "", NOTIFICATION_SORT_KEY_MAX_LEN - 1);
+  new_node->sort_key[NOTIFICATION_SORT_KEY_MAX_LEN - 1] = '\0';
   *display_list =
       (NotificationDisplayNode *)list_prepend((ListNode *)*display_list, (ListNode *)new_node);
   return new_node;
@@ -92,10 +108,33 @@ static void prv_display_list_deinit(NotificationDisplayNode *display_list) {
   }
 }
 
-// Sorts the display list in place by timestamp, fixing incorrect ordering of both single
-// and grouped rows. `sort_newest_first` stays a plain parameter until wired to a real setting.
+// Plain byte-by-byte, ASCII-only case-insensitive comparison - not real Unicode collation.
+// Sorting titles that mix Latin, Cyrillic, CJK, etc. "correctly" would need per-locale collation
+// tables we don't have room for on-watch. This keeps the common Latin "A-Z" case properly
+// ordered and just falls back to a stable byte-value ordering for anything else, instead of
+// trying (and failing) to offer per-alphabet sorting.
+static int prv_sort_key_casecmp(const char *a, const char *b) {
+  while (*a && *b) {
+    char ca = *a;
+    char cb = *b;
+    if (ca >= 'a' && ca <= 'z') {
+      ca = (char)(ca - ('a' - 'A'));
+    }
+    if (cb >= 'a' && cb <= 'z') {
+      cb = (char)(cb - ('a' - 'A'));
+    }
+    if (ca != cb) {
+      return (unsigned char)ca - (unsigned char)cb;
+    }
+    a++;
+    b++;
+  }
+  return (unsigned char)*a - (unsigned char)*b;
+}
+
+// Sorts the display list in place, fixing incorrect ordering of both single and grouped rows.
 static void prv_display_list_sort(NotificationDisplayNode **display_list,
-                                  bool sort_newest_first) {
+                                  NotificationSortMode sort_mode) {
   const uint32_t count = list_count((ListNode *)*display_list);
   if (count < 2) {
     return;
@@ -112,8 +151,19 @@ static void prv_display_list_sort(NotificationDisplayNode **display_list,
     NotificationDisplayNode *key = nodes[i];
     int32_t j = (int32_t)i - 1;
     while (j >= 0) {
-      const bool should_shift = sort_newest_first ? (nodes[j]->timestamp < key->timestamp)
-                                                  : (nodes[j]->timestamp > key->timestamp);
+      bool should_shift;
+      switch (sort_mode) {
+        case NotificationSortOldestFirst:
+          should_shift = (nodes[j]->timestamp > key->timestamp);
+          break;
+        case NotificationSortAlphabetical:
+          should_shift = (prv_sort_key_casecmp(nodes[j]->sort_key, key->sort_key) > 0);
+          break;
+        case NotificationSortNewestFirst:
+        default:
+          should_shift = (nodes[j]->timestamp < key->timestamp);
+          break;
+      }
       if (!should_shift) {
         break;
       }
@@ -133,11 +183,6 @@ static void prv_display_list_sort(NotificationDisplayNode **display_list,
   *display_list = sorted_list;
   app_free(nodes);
 }
-
-// Default sort direction: true = most recent notification at the top (normal behavior).
-// Deliberately not read from shell_prefs or any settings store yet - swap this constant for a
-// real preference getter later and every call site below will pick it up automatically.
-static const bool NOTIFICATIONS_SORT_NEWEST_FIRST_DEFAULT = true;
 
 static const unsigned int MAX_ACTIVE_NOTIFICATIONS = 6;
 
@@ -756,8 +801,8 @@ static void prv_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, vo
     return;
   }
 
-  // Selecting a group: push a temporary filtered list instead of the full notification list,
-  // so Up/Down stays within the group and Back returns here untouched.
+  // Selecting a group switches the main Notifications list to a filtered view. This keeps the
+  // normal list UI, instead of opening the notification detail window.
   if (display_node->is_group) {
     NotificationNode *group_list = prv_build_group_notification_list(
         notifications_data->notification_list, &display_node->representative_id);
@@ -765,13 +810,12 @@ static void prv_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, vo
       return;
     }
 
-    bool success = prv_push_notification_window_with_list(group_list);
-    if (success) {
-      const bool animated = false;
-      notification_window_focus_notification(&display_node->representative_id, animated);
-    }
-
-    prv_notification_list_deinit(group_list);
+    NotificationsData *group_data = app_zalloc_check(sizeof(NotificationsData));
+    group_data->notification_list = group_list;
+    group_data->group_view = true;
+    group_data->sort_mode = notifications_data->sort_mode;
+    prv_rebuild_display_list(group_data);
+    prv_push_window(group_data);
     return;
   }
 
@@ -811,11 +855,29 @@ static uint16_t prv_count_group_notifications(NotificationNode *notification_lis
   return count;
 }
 
-// `sort_newest_first` is a plain param for now, not read from a pref.
-static void prv_rebuild_display_list(NotificationsData *data, bool sort_newest_first) {
+// Best-effort label to alphabetize on: the notification's title if it has one, otherwise its
+// app name. For a group entry this uses the representative's own title/app name rather than
+// reproducing prv_get_group_display_name's "common to every member" logic - good enough for
+// sorting, without re-walking the whole notification list for every row on every rebuild.
+static void prv_get_notification_sort_key(Uuid *id, char *out, size_t out_size) {
+  out[0] = '\0';
+  TimelineItem notification = {};
+  if (!notification_storage_get(id, &notification)) {
+    return;
+  }
+  const char *title = attribute_get_string(&notification.attr_list, AttributeIdTitle, "");
+  const char *app_name = attribute_get_string(&notification.attr_list, AttributeIdAppName, "");
+  const char *key = !IS_EMPTY_STRING(title) ? title : app_name;
+  strncpy(out, key, out_size - 1);
+  out[out_size - 1] = '\0';
+  timeline_item_free_allocated_buffer(&notification);
+}
+
+static void prv_rebuild_display_list(NotificationsData *data) {
   prv_display_list_deinit(data->display_list);
   data->display_list = NULL;
 
+  char sort_key[NOTIFICATION_SORT_KEY_MAX_LEN];
   NotificationNode *notification_node;
   NotificationDisplayNode *display_node;
   NotificationDisplayNode *matching_group;
@@ -825,9 +887,10 @@ static void prv_rebuild_display_list(NotificationsData *data, bool sort_newest_f
     const uint16_t group_count =
         prv_count_group_notifications(data->notification_list, &notification_node->id);
 
-    if (group_count < 3) {
+    if (data->group_view || !alerts_preferences_get_notification_grouping() || group_count < 3) {
+      prv_get_notification_sort_key(&notification_node->id, sort_key, sizeof(sort_key));
       prv_display_list_add(&data->display_list, &notification_node->id, false, 1,
-                           prv_get_notification_timestamp(&notification_node->id));
+                           prv_get_notification_timestamp(&notification_node->id), sort_key);
       continue;
     }
 
@@ -845,13 +908,109 @@ static void prv_rebuild_display_list(NotificationsData *data, bool sort_newest_f
     }
 
     // Starting timestamp only; the sort below guarantees ordering, not traversal order.
+    prv_get_notification_sort_key(&notification_node->id, sort_key, sizeof(sort_key));
     prv_display_list_add(&data->display_list, &notification_node->id, true, group_count,
-                         prv_get_notification_timestamp(&notification_node->id));
+                         prv_get_notification_timestamp(&notification_node->id), sort_key);
   }
 
-  prv_display_list_sort(&data->display_list, sort_newest_first);
+  prv_display_list_sort(&data->display_list, data->sort_mode);
 }
 
+// Legacy long-press sort menu disabled; settings app now owns these controls.
+#if 0
+///////////////////
+// Sort menu (long press SELECT)
+
+typedef struct SortMenuData {
+  Window window;
+  MenuLayer menu_layer;
+  NotificationsData *notifications_data;
+} SortMenuData;
+
+static const char *prv_sort_mode_get_label(NotificationsSortMode sort_mode, void *i18n_owner) {
+  switch (sort_mode) {
+    case NotificationsSortOldestFirst:
+      return i18n_get("Plus anciennes d'abord", i18n_owner);
+    case NotificationsSortAlphabetical:
+      return i18n_get("Ordre alphabetique", i18n_owner);
+    case NotificationsSortNewestFirst:
+    default:
+      return i18n_get("Plus recentes d'abord", i18n_owner);
+  }
+}
+
+static uint16_t prv_sort_menu_get_num_rows_callback(MenuLayer *menu_layer, uint16_t section_index,
+                                                     void *context) {
+  return NotificationsSortModeCount;
+}
+
+static void prv_sort_menu_draw_row_callback(GContext *ctx, const Layer *cell_layer,
+                                            MenuIndex *cell_index, void *context) {
+  SortMenuData *sort_menu_data = context;
+  const NotificationSortMode row_sort_mode = (NotificationSortMode)cell_index->row;
+  const char *title = prv_sort_mode_get_label(row_sort_mode, sort_menu_data);
+  const bool is_current = (row_sort_mode == sort_menu_data->notifications_data->sort_mode);
+  menu_cell_basic_draw(ctx, cell_layer, title,
+                       is_current ? i18n_get("Tri actuel", sort_menu_data) : NULL, NULL);
+}
+
+static void prv_sort_menu_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index,
+                                          void *context) {
+  SortMenuData *sort_menu_data = context;
+  NotificationsData *notifications_data = sort_menu_data->notifications_data;
+
+  notifications_data->sort_mode = (NotificationSortMode)cell_index->row;
+  prv_rebuild_display_list(notifications_data);
+  menu_layer_reload_data(&notifications_data->menu_layer);
+
+  const bool animated = true;
+  app_window_stack_pop(animated);
+}
+
+static void prv_sort_menu_window_load(Window *window) {
+  SortMenuData *sort_menu_data = window_get_user_data(window);
+  MenuLayer *menu_layer = &sort_menu_data->menu_layer;
+
+  menu_layer_init(menu_layer, &window->layer.bounds);
+  menu_layer_set_callbacks(menu_layer, sort_menu_data,
+                           &(MenuLayerCallbacks){
+                               .get_num_rows = prv_sort_menu_get_num_rows_callback,
+                               .draw_row = prv_sort_menu_draw_row_callback,
+                               .select_click = prv_sort_menu_select_callback,
+                           });
+  menu_layer_set_click_config_onto_window(menu_layer, window);
+  menu_layer_set_selected_index(
+      menu_layer, MenuIndex(0, (uint16_t)sort_menu_data->notifications_data->sort_mode),
+      MenuRowAlignCenter, false);
+  layer_add_child(&window->layer, menu_layer_get_layer(menu_layer));
+}
+
+static void prv_sort_menu_window_unload(Window *window) {
+  SortMenuData *sort_menu_data = window_get_user_data(window);
+  menu_layer_deinit(&sort_menu_data->menu_layer);
+  i18n_free_all(sort_menu_data);
+  window_deinit(window);
+  app_free(sort_menu_data);
+}
+
+static void prv_push_sort_menu_window(NotificationsData *notifications_data) {
+  SortMenuData *sort_menu_data = app_malloc_check(sizeof(SortMenuData));
+  sort_menu_data->notifications_data = notifications_data;
+
+  Window *window = &sort_menu_data->window;
+  window_init(window, WINDOW_NAME("Sort Notifications"));
+  window_set_user_data(window, sort_menu_data);
+  window_set_window_handlers(window, &(WindowHandlers){
+                                         .load = prv_sort_menu_window_load,
+                                         .unload = prv_sort_menu_window_unload,
+                                     });
+
+  const bool animated = true;
+  app_window_stack_push(window, animated);
+}
+#endif
+
+// Long press on SELECT opens the sort menu. Nothing to sort when the list is empty.
 // Height of a normal row for the current text size. Factored out so group rows match it.
 static int16_t prv_get_base_row_height(void) {
   const PreferredContentSize runtime_platform_content_size =
@@ -892,7 +1051,7 @@ static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIn
       PBL_IF_RECT_ELSE(prv_draw_notification_cell_rect, prv_draw_notification_cell_round_selected);
 #if PBL_ROUND
   // on round: just draw the title for anything but the focused row
-  if (!menu_layer_is_index_selected(&s_data->menu_layer, cell_index)) {
+  if (!menu_layer_is_index_selected(&notifications_data->menu_layer, cell_index)) {
     draw_cell = prv_draw_notification_cell_round_unselected;
   }
 #endif
@@ -955,7 +1114,7 @@ static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIn
     // No dedicated "list" card on round: reuse the standard round cell renderer with
     // "(count)" appended to the title. On the selected row, show the list icon instead of
     // the representative's own (usually generic) icon.
-    if (menu_layer_is_index_selected(&s_data->menu_layer, cell_index)) {
+    if (menu_layer_is_index_selected(&notifications_data->menu_layer, cell_index)) {
       prv_draw_group_notification_cell_round_selected(ctx, cell_layer, group_title, body);
     } else {
       draw_cell(ctx, cell_layer, group_title, body, loaded_node->icon);
@@ -1059,7 +1218,7 @@ static void prv_handle_notification(PebbleEvent *e, void *context) {
         break;
         // Not implemented
     }
-    prv_rebuild_display_list(s_data, NOTIFICATIONS_SORT_NEWEST_FIRST_DEFAULT);
+    prv_rebuild_display_list(s_data);
     menu_layer_reload_data(&s_data->menu_layer);
     prv_update_text_layer_visibility(s_data);
   }
@@ -1079,6 +1238,21 @@ static void prv_window_disappear(Window *window) {
   NotificationsData *data = window_get_user_data(window);
   prv_loaded_notification_list_deinit(data->loaded_notification_list);
   data->loaded_notification_list = NULL;
+}
+
+static void prv_window_unload(Window *window) {
+  NotificationsData *data = window_get_user_data(window);
+  if (!data->group_view) {
+    return;
+  }
+#if PBL_ROUND
+  status_bar_layer_deinit(&data->status_bar_layer);
+#endif
+  menu_layer_deinit(&data->menu_layer);
+  prv_display_list_deinit(data->display_list);
+  prv_notification_list_deinit(data->notification_list);
+  i18n_free_all(data);
+  app_free(data);
 }
 
 static void prv_window_load(Window *window) {
@@ -1141,6 +1315,7 @@ static void prv_push_window(NotificationsData *data) {
                                          .load = prv_window_load,
                                          .appear = prv_window_appear,
                                          .disappear = prv_window_disappear,
+                                         .unload = prv_window_unload,
                                      });
 
   const bool animated = true;
@@ -1161,7 +1336,8 @@ static void prv_handle_init(void) {
   };
   event_service_client_subscribe(&data->notification_event_info);
   prv_load_notification_storage(data);
-  prv_rebuild_display_list(data, NOTIFICATIONS_SORT_NEWEST_FIRST_DEFAULT);
+  data->sort_mode = alerts_preferences_get_notification_sort_mode();
+  prv_rebuild_display_list(data);
 
   prv_push_window(data);
 }

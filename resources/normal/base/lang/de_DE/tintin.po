@@ -482,6 +482,18 @@ msgstr "Start"
 msgid "End"
 msgstr "Ende"
 
+msgid "Newest first"
+msgstr "Neueste zuerst"
+msgid "Oldest first"
+msgstr "Älteste zuerst"
+msgid "Alphabetical"
+msgstr "Alphabetisch"
+msgid "Sort Order"
+msgstr "Sortierreihenfolge"
+msgid "Group Notifications"
+msgstr "Benachrichtigungen gruppieren"
+
+
 #: ../src/fw/applib/voice/voice_window.c:200
 msgid "Dictation is not available."
 msgstr "Diktieren nicht verfügbar."
