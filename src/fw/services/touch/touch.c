@@ -361,6 +361,9 @@ void touch_handle_gesture(TouchGesture gesture, int16_t x, int16_t y) {
       PBL_ANALYTICS_ADD(gesture_double_tap_count, 1);
       prv_put_gesture_event(GestureEvent_DoubleTap, x, y);
       break;
+    case TouchGesture_Palm:
+      prv_put_gesture_event(GestureEvent_Palm, x, y);
+      break;
     default:
       break;
   }
