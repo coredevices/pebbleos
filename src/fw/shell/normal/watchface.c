@@ -6,7 +6,6 @@
 #include "apps/system_app_ids.h"
 #include "apps/system/launcher/launcher.h"
 #include "apps/system/settings/quick_launch.h"
-#include "apps/system/settings/quick_launch_app_menu.h"
 #include "apps/system/settings/quick_launch_setup_menu.h"
 #include "apps/system/timeline/timeline.h"
 #include "apps/watch/low_power/face.h"
