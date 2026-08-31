@@ -49,7 +49,8 @@ const PebbleProcessMd *backlight_state_toggle_get_app_info(void) {
       .uuid = BACKLIGHT_STATE_TOGGLE_UUID,
       .visibility = ProcessVisibilityQuickLaunch,
     },
-    .name = i18n_noop("Backlight"),
+    /// The Quick Launch action that toggles the backlight.
+    .name = i18n_noop("Toggle Backlight"),
   };
   return &s_app_info.common;
 }

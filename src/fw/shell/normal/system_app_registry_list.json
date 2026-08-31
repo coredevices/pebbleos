@@ -673,6 +673,11 @@
       "id": -100,
       "enum": "NOTIFICATIONS_CLEAR_HISTORY",
       "md_fn": "notifications_clear_history_app_get_info"
+    },
+    {
+      "id": -101,
+      "enum": "QUICK_LAUNCH_NOTHING",
+      "md_fn": "quick_launch_nothing_get_app_info"
     }
   ],
   "resource_apps": [

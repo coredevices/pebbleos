@@ -46,7 +46,8 @@ const PebbleProcessMd *motion_backlight_toggle_get_app_info(void) {
       .uuid = MOTION_BACKLIGHT_TOGGLE_UUID,
       .visibility = ProcessVisibilityQuickLaunch,
     },
-    .name = i18n_noop("Motion Backlight"),
+    /// The Quick Launch action that toggles the motion backlight.
+    .name = i18n_noop("Toggle Motion Backlight"),
   };
   return &s_app_info.common;
 }

@@ -21,7 +21,8 @@ const PebbleProcessMd *quiet_time_toggle_get_app_info(void) {
       .uuid = QUIET_TIME_TOGGLE_UUID,
       .visibility = ProcessVisibilityQuickLaunch,
     },
-    .name = i18n_noop("Quiet Time"),
+    /// The Quick Launch action that toggles Quiet Time.
+    .name = i18n_noop("Toggle Quiet Time"),
   };
   return &s_app_info.common;
 }

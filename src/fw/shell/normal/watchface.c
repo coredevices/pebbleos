@@ -6,7 +6,6 @@
 #include "apps/system_app_ids.h"
 #include "apps/system/launcher/launcher.h"
 #include "apps/system/settings/quick_launch.h"
-#include "apps/system/settings/quick_launch_app_menu.h"
 #include "apps/system/settings/quick_launch_setup_menu.h"
 #include "apps/system/timeline/timeline.h"
 #include "apps/watch/low_power/face.h"
@@ -187,6 +186,10 @@ static void prv_launch_timeline_app(AppInstallId app_id, ButtonId button,
 static void prv_launch_quick_launch_app(AppInstallId app_id, ButtonId button,
                                         AppLaunchReason timeline_reason,
                                         AppQuickLaunchAction action) {
+  if (app_id == APP_ID_QUICK_LAUNCH_NOTHING) {
+    return;
+  }
+
   const bool is_timeline = (app_id == APP_ID_TIMELINE) ||
                            (app_id == APP_ID_TIMELINE_PAST) ||
                            (app_id == APP_ID_TIMELINE_FULL);
