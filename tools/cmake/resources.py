@@ -349,26 +349,38 @@ def cmd_version_header(args):
     generators.build_version_header(args.output, args.pbpack)
 
 
-def cmd_tzdata(args):
+def _tzdata(olson):
     from io import BytesIO
-
-    from resources.types.resource_definition import ResourceDefinition
-    from resources.types.resource_object import ResourceObject
 
     import tools.timezones
 
-    zoneinfo_list = tools.timezones.build_zoneinfo_list(args.input)
-    dstrule_list = tools.timezones.dstrules_parse(args.input)
-    zonelink_list = tools.timezones.zonelink_parse(args.input)
+    zoneinfo_list = tools.timezones.build_zoneinfo_list(olson)
+    dstrule_list = tools.timezones.dstrules_parse(olson)
+    zonelink_list = tools.timezones.zonelink_parse(olson)
 
     data_file = BytesIO()
     tools.timezones.zoneinfo_to_bin(
         zoneinfo_list, dstrule_list, zonelink_list, data_file
     )
+    return data_file.getvalue()
+
+
+def cmd_tzdata(args):
+    from resources.types.resource_definition import ResourceDefinition
+    from resources.types.resource_object import ResourceObject
+
     reso = ResourceObject(
-        ResourceDefinition("raw", "TIMEZONE_DATABASE", None), data_file.getvalue()
+        ResourceDefinition("raw", "TIMEZONE_DATABASE", None), _tzdata(args.input)
     )
     reso.dump(Node(args.output))
+
+
+def cmd_tzdata_header(args):
+    """The same database, as a C array the timezone tests link against."""
+    import generate_c_byte_array
+
+    with open(args.output, "w") as f:
+        generate_c_byte_array.write(f, _tzdata(args.input), "s_timezone_database")
 
 
 def main():
@@ -453,6 +465,11 @@ def main():
     p.add_argument("--input", required=True)
     p.add_argument("--output", required=True)
     p.set_defaults(func=cmd_tzdata)
+
+    p = sub.add_parser("tzdata-header")
+    p.add_argument("--input", required=True)
+    p.add_argument("--output", required=True)
+    p.set_defaults(func=cmd_tzdata_header)
 
     args = parser.parse_args()
     args.func(args)
