@@ -136,6 +136,24 @@ void test_notifications_history__title_is_used_when_sender_is_missing(void) {
   cl_assert_equal_i(prv_row(0)->group.count, 2);
 }
 
+void test_notifications_history__title_conversation_prefix_groups_messages(void) {
+  prv_add_attribute(1, 100, AttributeIdTitle, "PG | Elite: Aloha");
+  prv_add_attribute(2, 200, AttributeIdTitle, "PG | Elite: Yeuhen");
+
+  cl_assert_equal_i(notifications_history_get_row_count(&s_history), 1);
+  cl_assert_equal_s(prv_row(0)->group.sender, "PG | Elite");
+  cl_assert_equal_i(prv_row(0)->group.count, 2);
+}
+
+void test_notifications_history__sender_attribute_is_not_split(void) {
+  prv_add(1, 100, "PG | Elite: Aloha");
+  prv_add(2, 200, "PG | Elite: Yeuhen");
+
+  cl_assert_equal_i(notifications_history_get_row_count(&s_history), 2);
+  cl_assert_equal_s(prv_row(0)->group.sender, "PG | Elite: Yeuhen");
+  cl_assert_equal_s(prv_row(1)->group.sender, "PG | Elite: Aloha");
+}
+
 void test_notifications_history__body_is_not_used_as_group_key(void) {
   prv_add_attribute(1, 100, AttributeIdBody, "Same body");
   prv_add_attribute(2, 200, AttributeIdBody, "Same body");

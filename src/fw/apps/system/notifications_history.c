@@ -66,6 +66,25 @@ static StringRange prv_trimmed_string_range(const char *string) {
   };
 }
 
+static StringRange prv_conversation_range_from_title(const char *title) {
+  StringRange range = prv_trimmed_string_range(title);
+  if (!range.start) {
+    return range;
+  }
+
+  const char *separator = strstr(range.start, ": ");
+  const char *end = range.start + range.length;
+  if (!separator || separator == range.start || separator + 2 >= end) {
+    return range;
+  }
+
+  range.length = (size_t)(separator - range.start);
+  while (range.length > 0 && isspace((unsigned char)range.start[range.length - 1])) {
+    range.length--;
+  }
+  return range;
+}
+
 static bool prv_group_sender_for_item(const TimelineItem *item, StringRange *sender_out) {
   static const Uuid s_android_notifications_source = UUID_NOTIFICATIONS_DATA_SOURCE;
 
@@ -75,11 +94,13 @@ static bool prv_group_sender_for_item(const TimelineItem *item, StringRange *sen
   }
 
   const char *sender = attribute_get_string(&item->attr_list, AttributeIdSender, NULL);
-  if (!sender) {
-    sender = attribute_get_string(&item->attr_list, AttributeIdTitle, NULL);
+  if (sender) {
+    *sender_out = prv_trimmed_string_range(sender);
+  } else {
+    const char *title = attribute_get_string(&item->attr_list, AttributeIdTitle, NULL);
+    *sender_out = prv_conversation_range_from_title(title);
   }
 
-  *sender_out = prv_trimmed_string_range(sender);
   return sender_out->length > 0;
 }
 
