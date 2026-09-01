@@ -45,7 +45,7 @@ The logic used to pull out and identify the stepping signal from the spectral de
 
 VMC, or Vector Magnitude Counts, is a measure of the overall amount of movement in the watch over time. When the watch is perfectly still, the VMC will be 0 and greater amounts of movement result in higher VMC numbers. Running, for example results in a higher VMC than walking. 
 
-The VMC computation in Pebble Health was developed in conjunction with the Stanford Wearables lab and has been calibrated to match the VMC numbers produced by the [Actigraph](http://www.actigraphcorp.com/product-category/activity-monitors/) wrist-worn device. The Actigraph is commonly used today for medical research studies. The Stanford Wearables lab will be publishing the VMC computation used in the Pebble Health algorithm and this transparency of the algorithm will enable the Pebble to be used for medical research studies as well. 
+The VMC computation in Pebble Health was developed in conjunction with the Stanford Wearables lab and has been calibrated to match the VMC numbers produced by the [Actigraph](https://ametris.com/actigraph-leap) wrist-worn device. The Actigraph is commonly used today for medical research studies. The Stanford Wearables lab will be publishing the VMC computation used in the Pebble Health algorithm and this transparency of the algorithm will enable the Pebble to be used for medical research studies as well. 
 
 VMC is computed using the formula below. Before the accelerometer readings are incorporated into this computation however, each axis’ signal is run through a bandpass filter with a design of 0.25Hz to 1.75Hz.
 
