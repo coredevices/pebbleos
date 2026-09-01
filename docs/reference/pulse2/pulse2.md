@@ -28,7 +28,7 @@ retransmissions into the application protocols in an ad-hoc manner,
 poorly. This has made the design and implementation of prompt and file
 transfer protocols more complex than necessary, and no attempt has yet
 been made to tunnel Pebble Protocol over PULSE. It's the [waterbed
-theory](http://wiki.c2.com/?WaterbedTheory) at work.
+theory](https://wiki.c2.com/?WaterbedTheory) at work.
 
 Adding support for reliable, ordered delivery of datagrams will allow
 for any application to make use of reliable service simply by requesting
@@ -102,12 +102,12 @@ Flag sequences constitute and empty frame, which is silently discarded.
 The Protocol field is used as prescribed by RFC 1661, Section 2. PPP
 assigned protocol numbers and their respective assigned protocols should
 be used wherever it makes sense. Custom protocols must not be assigned
-protocol numbers which overlap any [existing PPP assigned protocol](http://www.iana.org/assignments/ppp-numbers/ppp-numbers.xhtml).
+protocol numbers which overlap any [existing PPP assigned protocol](https://www.iana.org/assignments/ppp-numbers/ppp-numbers.xhtml).
 
 #### Frame Check Sequence field
 
 The Frame Check Sequence is transmitted least significant octet first.
-The check sequence is calculated using the [CRC-32](http://reveng.sourceforge.net/crc-catalogue/all.htm#crc.cat.crc-32)
+The check sequence is calculated using the [CRC-32](https://reveng.sourceforge.net/crc-catalogue/all.htm#crc.cat.crc-32)
 checksum. The parameters of the CRC algorithm are:
 
     width=32 poly=0x04c11db7 init=0xffffffff refin=true refout=true
@@ -412,6 +412,6 @@ Useful Links
 - [RFC 3772 - Point-to-Point Protocol (PPP) Vendor Protocol](https://tools.ietf.org/html/rfc3772)
 - [PPP Consistent Overhead Byte Stuffing (COBS)](https://tools.ietf.org/html/draft-ietf-pppext-cobs)
 - [ITU-T Recommendation X.25](https://www.itu.int/rec/T-REC-X.25-199610-I/en)
-- [Digital Data Communications Message Protocol](http://www.ibiblio.org/pub/historic-linux/early-ports/Mips/doc/DEC/ddcmp-4.1.txt)
+- [Digital Data Communications Message Protocol](https://www.ibiblio.org/pub/historic-linux/early-ports/Mips/doc/DEC/ddcmp-4.1.txt)
 
 <!-- vim: set tw=72: -->

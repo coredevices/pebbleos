@@ -26,7 +26,7 @@ high-latency links.
   maintain a minimal, fixed-size amount of state.
 
 > The idempotence of writing to flash is leveraged in the design of this
-> protocol to effectively implement a [Selective Repeat ARQ](http://en.wikipedia.org/wiki/Selective_Repeat_ARQ)
+> protocol to effectively implement a [Selective Repeat ARQ](https://en.wikipedia.org/wiki/Selective_Repeat_ARQ)
 > with an unlimited window size without requiring the server to keep
 > track of which frames are missing. Any Write Data command to the same
 > location in flash can be repeated any number of times with no ill
