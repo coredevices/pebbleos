@@ -361,6 +361,36 @@
       "file": "normal/snowy/vibes/gentle.json"
     },
     {
+      "type": "vibe",
+      "name": "VIBE_SCORE_DOUBLE_PULSE_MEDIUM",
+      "file": "normal/snowy/vibes/double_pulse_medium.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_PEBBLE_MORSE",
+      "file": "normal/snowy/vibes/pebble_morse.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_HEARTBEAT",
+      "file": "normal/snowy/vibes/heartbeat.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_DOUBLE_TAP",
+      "file": "normal/snowy/vibes/double_tap.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_WAVE",
+      "file": "normal/snowy/vibes/wave.json"
+    },
+    {
+      "type": "vibe",
+      "name": "VIBE_SCORE_IMPERIAL",
+      "file": "normal/snowy/vibes/imperial.json"
+    },
+    {
       "type": "png",
       "name": "SMART_ALARM_ICON_BLACK",
       "file": "normal/snowy/images/sa_list_icon_black.png"

@@ -1,0 +1,19 @@
+{
+  "comments": "Double Pulse Medium",
+  "notes": [
+    {
+      "id": "pulse_400ms",
+      "vibe_duration_ms": 400,
+      "brake_duration_ms": 0,
+      "strength": 100
+    },
+    {
+      "id": "pause_200ms",
+      "vibe_duration_ms": 200,
+      "brake_duration_ms": 0,
+      "strength": 0
+    }
+  ],
+  "pattern": ["pulse_400ms", "pause_200ms", "pulse_400ms"],
+  "repeat_delay_ms": 1000
+}
