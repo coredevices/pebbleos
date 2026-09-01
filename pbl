@@ -133,7 +133,7 @@ def setup(options):
 
     # Prefer an installed PebbleOS SDK's binaries (toolchain, QEMU, sftool).
     try:
-        from tools.waf.pebble_sdk_locator import activate_sdk
+        from tools.pebble_sdk_locator import activate_sdk
         activate_sdk(REPO_ROOT)
     except Exception:
         pass

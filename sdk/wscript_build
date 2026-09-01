@@ -17,24 +17,7 @@ def _generate_sdk_waf(ctx):
     :param bld:
     :return:
     """
-    sdk_waftools = [tool.path_from(ctx.path.parent) for tool in ctx.path.ant_glob('waftools/*.py')]
-    shared_waftools = [
-        "tools/resources/waftools/generate_resource_ball.py",
-        "tools/resources/waftools/generate_pbpack.py",
-        "tools/resources/waftools/generate_resource_id_header.py",
-        "tools/waf/file_name_c_define.py",
-        "tools/waf/ldscript.py",
-        "tools/waf/objcopy.py",
-        "tools/waf/pebble_sdk_gcc.py",
-        "tools/waf/pebble_sdk_version.py",
-    ]
-
-    pebble_waf_tools = []
-    for tool in sdk_waftools + shared_waftools:
-        path = ctx.path.parent.find_node(tool)
-        if path is None:
-            ctx.fatal("Trying to bundle non existent resource in pb-waf ({})".format(tool))
-        pebble_waf_tools.append(path)
+    pebble_waf_tools = ctx.path.ant_glob('waftools/*.py')
 
     # We cannot run this as a sub-wscript because we use a specific vendor-provided
     # wscript that provides the --make-waf option and needs to be run in its own clean

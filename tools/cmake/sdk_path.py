@@ -17,7 +17,7 @@ sys.path.insert(0, REPO_ROOT)
 import contextlib
 import io
 
-from tools.waf.pebble_sdk_locator import activate_sdk
+from tools.pebble_sdk_locator import activate_sdk
 
 # The locator announces what it found on stdout; keep that off the PATH
 # line CMake reads back and report it as a message instead.
