@@ -108,6 +108,8 @@ def build(bld):
     # cached_env is set to a shallow copy of the current ConfigSet for this BuildContext
     bld.env = bld.all_envs[""]
     bld.load("file_name_c_define")
+    # The features pbl_build and pbl_bundle ask for; they register on import.
+    bld.load("process_bundle process_headers process_js report_memory_usage")
 
     # Process message keys
     bld(features="message_keys")
