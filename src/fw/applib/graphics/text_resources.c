@@ -629,6 +629,149 @@ static const GlyphData *prv_get_glyph_in_font(FontCache *font_cache, Codepoint c
   return data;
 }
 
+// Convert any "styled" codepoints into their correspnding plain codepoints. Currently known styled
+// codepoints are in these blocks:
+//
+// - Mathematical Alphanumeric Symbols
+// - Letterlike Symbols
+// - Halfwidth and Fullwidth Forms
+//
+// For example:
+//
+// - All mathematical alphanumeric symbols will be converted to the corresponding Latin
+// alphanumeric codepoints.
+// - Any letterlike symbol that directly corresponds to a Latin alphanumeric will be mapped to
+// that codepoint.
+// - All "fullwidth Latin" codepoints will be mapped to plain Latin codepoints.
+//
+// If it is not a known styled codepoint, then the same codepoint will be returned unmodified.
+static Codepoint prv_normalize_styled_codepoint(Codepoint codepoint) {
+  // Fullwidth Latin codepoints; map to 0x21-0x7e
+  if (codepoint >= 0xff01 && codepoint <= 0xff5e) {
+    return codepoint - 0xff00 + 0x20;
+  }
+
+  switch (codepoint) {
+    // Reserved codepoints, which are exceptions in the ranges below which should not be mapped:
+    case 0x1d49d:
+    case 0x1d4a0:
+    case 0x1d4a1:
+    case 0x1d4a3:
+    case 0x1d4a4:
+    case 0x1d4a7:
+    case 0x1d4a8:
+    case 0x1d4ad:
+    case 0x1d506:
+    case 0x1d50b:
+    case 0x1d50c:
+    case 0x1d515:
+    case 0x1d51d:
+    case 0x1d53a:
+    case 0x1d53f:
+    case 0x1d545:
+    case 0x1d547:
+    case 0x1d548:
+    case 0x1d549:
+    case 0x1d455:
+    case 0x1d4ba:
+    case 0x1d4bc:
+    case 0x1d4c4:
+      return codepoint;
+
+    // Individual letters from the Letterlike Symbols block
+    // todo: would a lookup table be better for performance & flash space for this block?
+    case 0x2102:
+      return 'C';
+    case 0x210a:
+      return 'g';
+    case 0x210b:
+    case 0x210c:
+      return 'H';
+    case 0x2110:
+    case 0x2111:
+      return 'I';
+    case 0x2112:
+      return 'L';
+    case 0x2113:
+      return 'l';
+    case 0x2115:
+      return 'N';
+    case 0x2118:
+    case 0x2119:
+      return 'P';
+    case 0x211a:
+      return 'Q';
+    case 0x211b:
+    case 0x211c:
+    case 0x211d:
+      return 'R';
+    case 0x2124:
+    case 0x2128:
+      return 'Z';
+    case 0x212a:
+      return 'K';
+    case 0x212b:
+      return 'B';
+    case 0x212d:
+      return 'C';
+    case 0x212f:
+      return 'e';
+    case 0x2130:
+      return 'E';
+    case 0x2131:
+      return 'F';
+    case 0x2133:
+      return 'M';
+    case 0x2134:
+      return 'o';
+    case 0x2145:
+      return 'D';
+    case 0x2146:
+      return 'd';
+    case 0x2147:
+      return 'e';
+    case 0x2148:
+      return 'i';
+    case 0x2149:
+      return 'j';
+  }
+
+  // A-Z ranges starting with a styled capital A
+  const Codepoint capital_starts[] = {    
+    0x1d400, 0x1d434, 0x1d468, 0x1d49c, 0x1d4d0, 0x1d504, 0x1d538, 0x1d56c, 0x1d5a0, 0x1d5d4,
+    0x1d608, 0x1d63c, 0x1d680
+  };
+  for (unsigned int i = 0; i < ARRAY_LENGTH(capital_starts); i++) {
+    if (codepoint >= capital_starts[i] && codepoint < capital_starts[i] + 26) {
+      return codepoint - capital_starts[i] + 'A';
+    }
+  }
+
+  // a-z ranges starting with a styled small a
+  const Codepoint small_starts[] = {
+    0x1d41a, 0x1d44e, 0x1d482, 0x1d4b6, 0x1d4ea, 0x1d51e, 0x1d552, 0x1d586, 0x1d5ba, 0x1d5ee,
+    0x1d622, 0x1d656, 0x1d68a
+  };
+  for (unsigned int i = 0; i < ARRAY_LENGTH(small_starts); i++) {
+    if (codepoint >= small_starts[i] && codepoint < small_starts[i] + 26) {
+      return codepoint - small_starts[i] + 'a';
+    }
+  }
+
+  // 0-9 ranges starting with a styled zero 0
+  const Codepoint digit_starts[] = {
+    0x1d6a8, 0x1d6e2, 0x1d71c, 0x1d756, 0x1d790
+  };
+  for (unsigned int i = 0; i < ARRAY_LENGTH(digit_starts); i++) {
+    if (codepoint >= digit_starts[i] && codepoint < digit_starts[i] + 10) {
+      return codepoint - digit_starts[i] + '0';
+    }
+  }
+
+  // Nothing matched, so return it unmodified.
+  return codepoint;
+}
+
 // A substitute font bakes top_offset against its own baseline (== base max_height for PBF), so
 // drop its glyphs onto ours. Our own base/extension are already aligned; never shift up.
 static int16_t prv_baseline_adjust(const FontInfo *font_info, const FontInfo *owner) {
@@ -683,7 +826,21 @@ static const GlyphData *prv_get_glyph(FontCache *font_cache, Codepoint codepoint
     }
   }
 
-  // (c) Absent everywhere: fall back to the wildcard (square box) then ' ', looked up in the
+  // (c) Absent everywhere, and if the codepoint is a styled Latin codepoint: normalize it to the
+  // plain Latin codepoint and try again, so that it will at least be readable if there isn't a
+  // glyph for the styled codepoint.
+  Codepoint normalized = prv_normalize_styled_codepoint(codepoint);
+  if (normalized != codepoint) {
+    data = prv_get_glyph_in_font(font_cache, normalized, font_info, need_bitmap, &owner);
+    if (data) {
+      if (baseline_adjust_out) {
+        *baseline_adjust_out = prv_baseline_adjust(font_info, owner);
+      }
+      return data;
+    }
+  }
+
+  // (d) Absent everywhere: fall back to the wildcard (square box) then ' ', looked up in the
   //     PRIMARY font, so a glyph missing from every font still yields the primary font's box or
   //     space. We use the wildcard codepoint from the base font in case the extension pack has
   //     been deleted. The fallback font's own wildcard is deliberately never used: a single
