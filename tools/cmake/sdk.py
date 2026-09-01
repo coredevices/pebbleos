@@ -12,6 +12,7 @@ import shutil
 import string
 import subprocess
 import sys
+import zipfile
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SDK_ROOT = os.path.join(REPO_ROOT, "sdk")
@@ -34,27 +35,6 @@ SHARED_TOOLS = (
     "stm32_crc.py",
 )
 
-# The resource pipeline the app build shares with the firmware, copied to
-# common/waftools alongside the bundled resource waftools that import it.
-SHARED_RESOURCE_MODULES = (
-    "resources/__init__.py",
-    "resources/find_resource_filename.py",
-    "resources/generators.py",
-    "resources/resource_map/__init__.py",
-    "resources/resource_map/resource_generator.py",
-    "resources/resource_map/resource_generator_bitmap.py",
-    "resources/resource_map/resource_generator_font.py",
-    "resources/resource_map/resource_generator_js.py",
-    "resources/resource_map/resource_generator_pbi.py",
-    "resources/resource_map/resource_generator_png.py",
-    "resources/resource_map/resource_generator_raw.py",
-    "resources/types/__init__.py",
-    "resources/types/resource_ball.py",
-    "resources/types/resource_declaration.py",
-    "resources/types/resource_definition.py",
-    "resources/types/resource_object.py",
-)
-
 # .gitignore files only keep otherwise-empty directories in the checkout.
 _IGNORED = shutil.ignore_patterns("__pycache__", "*.pyc", ".gitignore")
 
@@ -66,6 +46,18 @@ def _copy(src, dst):
 
 def _copy_tree(src, dst):
     shutil.copytree(src, dst, ignore=_IGNORED, dirs_exist_ok=True)
+
+
+def _copy_python_package(src, dst):
+    """A package's modules, without __pycache__ or the docs sitting next to
+    them."""
+    def ignore(directory, names):
+        return {n for n in names
+                if n == "__pycache__"
+                or not (n.endswith(".py")
+                        or os.path.isdir(os.path.join(directory, n)))}
+
+    shutil.copytree(src, dst, ignore=ignore, dirs_exist_ok=True)
 
 
 def _substitute(src, dst, **values):
@@ -128,7 +120,23 @@ def _build_waf(work_dir, output):
     if result.returncode:
         sys.stderr.write(result.stdout + result.stderr)
         raise SystemExit("failed to build the SDK's waf")
+
+    _check_bundled_waftools(work_dir)
     _copy(os.path.join(work_dir, "waf"), os.path.join(output, "waf"))
+
+
+def _check_bundled_waftools(work_dir):
+    """waf runs everything it bundles through a minifier of its own; compile
+    what came out so a mangled tool fails here and not in an app developer's
+    first build."""
+    with zipfile.ZipFile(os.path.join(work_dir, "zip", "waflib.zip")) as z:
+        for name in sorted(z.namelist()):
+            if not name.endswith(".py"):
+                continue
+            try:
+                compile(z.read(name).decode(), name, "exec")
+            except SyntaxError as e:
+                raise SystemExit(f"the bundled {name} does not compile: {e}")
 
 
 def main():
@@ -168,9 +176,11 @@ def main():
     for tool in SHARED_TOOLS:
         _copy(os.path.join(REPO_ROOT, "tools", tool),
               os.path.join(common, "tools", tool))
-    for module in SHARED_RESOURCE_MODULES:
-        _copy(os.path.join(REPO_ROOT, "tools", module),
-              os.path.join(common, "waftools", module))
+    # The resource pipeline the app build shares with the firmware. It goes
+    # over whole: resource_generator loads the per-type generators by name,
+    # so a hand-picked subset breaks on whichever type nobody tried.
+    _copy_python_package(os.path.join(REPO_ROOT, "tools", "resources"),
+                         os.path.join(common, "waftools", "resources"))
 
     _build_waf(args.work_dir, args.output)
 
