@@ -3,6 +3,9 @@
 
 import os
 
+# binutils and memory_reports live in the SDK's common/tools, which sdk_paths
+# puts on the path; importing it first is what makes them resolvable.
+import sdk_paths  # noqa: F401
 from binutils import size
 from memory_reports import (
     app_appstore_resource_memory_error,
