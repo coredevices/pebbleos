@@ -1,6 +1,6 @@
 {
     "default": {
-        ".gitignore": "gitignore"
+        ".gitignore": "common/gitignore"
     },
     "app": {
         "default": {

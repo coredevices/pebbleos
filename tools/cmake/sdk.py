@@ -72,8 +72,8 @@ def _substitute(src, dst, **values):
 
 def _check_templates(defaults):
     """The project files `pebble new-project` instantiates are
-    string.Template sources; catch an unescaped '$' here rather than in an
-    app developer's first build."""
+    string.Template sources; catch a missing one or an unescaped '$' here
+    rather than in an app developer's first project."""
     with open(os.path.join(defaults, "templates.json")) as f:
         templates = json.load(f)
 
@@ -84,9 +84,8 @@ def _check_templates(defaults):
             elif isinstance(value, str):
                 path = os.path.join(defaults, value)
                 if not os.path.exists(path):
-                    print(f"{value} is defined in templates.json but missing",
-                          file=sys.stderr)
-                    continue
+                    raise SystemExit(
+                        f"{value} is listed in templates.json but is not there")
                 with open(path) as f:
                     try:
                         string.Template(f.read()).substitute()
