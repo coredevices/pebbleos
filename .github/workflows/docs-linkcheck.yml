@@ -7,6 +7,10 @@
 name: Docs Link Check
 
 on:
+  pull_request:
+    paths:
+      - .github/workflows/docs-linkcheck.yml
+      - docs/
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
