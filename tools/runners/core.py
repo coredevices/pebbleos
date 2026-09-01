@@ -4,10 +4,10 @@
 """Core binary-runner abstraction, modeled on Zephyr's west runners.
 
 A runner knows how to talk to a connected device for a small set of commands
-(flash/run/reset/erase/debug/debugserver). Frontends (the ./pbl CLI and the waf
-build) build a :class:`RunnerConfig`, register runner-specific CLI arguments via
-``do_add_parser()``, instantiate the selected runner with ``create()`` and
-dispatch a command with ``run()``.
+(flash/run/reset/erase/debug/debugserver). The ./pbl CLI builds a
+:class:`RunnerConfig`, registers runner-specific CLI arguments via
+``do_add_parser()``, instantiates the selected runner with ``create()`` and
+dispatches a command with ``run()``.
 """
 
 import shlex

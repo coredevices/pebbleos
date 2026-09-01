@@ -5,7 +5,7 @@
 """Standalone SDK generation script.
 
 Generates SDK files for one or more Pebble platforms without requiring
-a full waf configure/build cycle.
+a configured firmware build.
 
 Usage:
     python tools/build_sdk.py basalt            # Single platform
@@ -149,7 +149,7 @@ def build_sdk_for_platform(platform_name, output_dir, internal_sdk_build):
 def main():
     parser = argparse.ArgumentParser(
         description="Generate Pebble SDK files for one or more platforms "
-        "without a full waf build."
+        "without a configured firmware build."
     )
     parser.add_argument(
         "platforms",

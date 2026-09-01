@@ -4,8 +4,8 @@
 # The native SDK shims. The same generator produces the firmware side of
 # the syscall boundary (pebble.auto.c) and the app side (libpebble.a plus
 # the SDK headers), so the firmware build depends on it as well.
-# Packaging the shippable SDK is a separate, waf-driven step; see
-# docs/development/sdk_export.md.
+# The rest of the shippable SDK is packaged by the `sdk` target; see
+# cmake/modules/sdk.cmake and docs/development/sdk_export.md.
 
 function(pbl_native_sdk)
   set(script ${PBL_BASE}/tools/generate_native_sdk/generate_pebble_native_sdk_files.py)

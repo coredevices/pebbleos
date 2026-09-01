@@ -161,7 +161,7 @@ pbl_test_broken(
   test_gap_le_connect
 )
 
-# Every directory that declares tests, the way the waf build found them.
+# Every directory that declares tests.
 file(GLOB_RECURSE pbl_test_dirs CONFIGURE_DEPENDS
      RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} */CMakeLists.txt)
 list(SORT pbl_test_dirs)

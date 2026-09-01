@@ -9,7 +9,6 @@ import sys
 
 import sh
 from packaging import version
-from waflib import Logs
 
 REQUIREMENTS = "requirements.txt"
 REQUIREMENTS_BREW = "requirements-brew.txt"
@@ -21,9 +20,15 @@ BINARY_PACKAGES = {"meson", "ninja"}
 VERSION_REGEX = r"^(?P<package>.*)(?P<comparator>==|<=|>=|<|>)(?P<version>.*)"
 VERSION_PATTERN = re.compile(VERSION_REGEX)
 
+COLORS = {"RED": "31", "GREEN": "32", "YELLOW": "33", "CYAN": "36"}
+
+
+def pprint(color, msg):
+    sys.stdout.write(f"\033[{COLORS.get(color, '0')}m{msg}\033[0m\n")
+
 
 def tool_check():
-    Logs.pprint("CYAN", f"Checking {REQUIREMENTS}")
+    pprint("CYAN", f"Checking {REQUIREMENTS}")
 
     with open(REQUIREMENTS) as file:
         req_list = text_to_req_list(file.read())
@@ -36,11 +41,11 @@ def tool_check():
 
     if sys.platform.startswith("darwin"):
         if not shutil.which("brew") and os.environ.get("IN_NIX_SHELL"):
-            Logs.pprint("CYAN", f"Skipping {REQUIREMENTS_BREW} (in nix shell)")
+            pprint("CYAN", f"Skipping {REQUIREMENTS_BREW} (in nix shell)")
         elif not shutil.which("brew"):
-            Logs.pprint("RED", "brew not found! Install Homebrew or use nix develop.")
+            pprint("RED", "brew not found! Install Homebrew or use nix develop.")
         else:
-            Logs.pprint("CYAN", f"Checking {REQUIREMENTS_BREW}")
+            pprint("CYAN", f"Checking {REQUIREMENTS_BREW}")
 
             with open(REQUIREMENTS_BREW) as file:
                 brew_req_text = file.read()
@@ -92,7 +97,7 @@ def text_to_req_list(req_list_text):
             # Muliple requirements
             match2 = VERSION_PATTERN.match(match.group("package").strip(","))
             if not match2:
-                Logs.pprint("RED", f"Don't understand line '{raw_line}'")
+                pprint("RED", f"Don't understand line '{raw_line}'")
                 continue
             req_list.append(
                 (
@@ -124,7 +129,7 @@ def check_requirement(req, installed):
     if req[0] not in installed:
         if req[0] in BINARY_PACKAGES and shutil.which(req[0]):
             return
-        Logs.pprint("RED", f"Package '{req[0]}' not installed")
+        pprint("RED", f"Package '{req[0]}' not installed")
         return
 
     if not req[1]:
@@ -145,13 +150,14 @@ def check_requirement(req, installed):
     elif req[1] == ">":
         success = ver > version.parse(req[2])
     else:
-        Logs.pprint("RED", f"Don't understand comparison '{req[1]}'")
+        pprint("RED", f"Don't understand comparison '{req[1]}'")
 
     if not success:
-        Logs.pprint(
+        pprint(
             "RED",
             f"Package '{req[0]}' installed = {ver}, needed {req[1]} {req[2]} ",
         )
 
 
-# vim:filetype=python
+if __name__ == "__main__":
+    tool_check()

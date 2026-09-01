@@ -127,3 +127,7 @@ cmake/toolchain/            the bare-metal ARM toolchain
 cmake/modules/              the build model, split by concern
 tools/cmake/                the generators the build shells out to
 ```
+
+The one build system left besides CMake is the waf under `sdk/`, which is
+not used to build anything here: it is packaged into the SDK for app
+developers to build their own projects with. See {doc}`sdk_export`.

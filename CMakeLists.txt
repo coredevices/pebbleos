@@ -63,7 +63,7 @@ endif()
 project(pebbleos VERSION 1.0 LANGUAGES C ASM)
 
 # Kconfig symbols given on the command line (-DCONFIG_FOO=y) are passed
-# through as overrides, the way `waf configure -DCONFIG_FOO=y` did.
+# through to Kconfig as overrides.
 set(CONFIG_OVERRIDES "")
 get_cmake_property(cache_variables CACHE_VARIABLES)
 foreach(var ${cache_variables})

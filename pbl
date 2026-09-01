@@ -8,7 +8,8 @@ Drives the CMake firmware build (configure, build, bundle, menuconfig) and
 hosts the operational commands that are not build steps: flash, qemu,
 console, debug, screenshot, openocd, reset, bork, image_*, make_lang,
 pack_lang, pack_all_langs. The unit tests are their own CMake project,
-built and run by ``./pbl test``.
+built and run by ``./pbl test``, and the shippable SDK is the firmware
+build's ``sdk`` target (``./pbl build sdk``).
 
 Build state is read from the configured build directory
 (``build/pbl_env.json``). Run ``./pbl configure --board BOARD`` first.
@@ -30,8 +31,6 @@ LANG_DIR_REL = "resources/normal/base/lang"
 
 # Commands that do not need a configured build directory.
 BUILD_COMMANDS = ("configure", "build", "bundle", "clean", "menuconfig", "test")
-# The SDK is still packaged by waf.
-WAF_PASSTHROUGH = ("waf",)
 
 # QEMU SDL decorations per board. The first entry is used as the default.
 QEMU_DECORATIONS = {
@@ -983,24 +982,12 @@ def build_parser():
         sp = sub.add_parser(name, help=BUILD[name].__doc__ or name)
         sp.add_argument("args", nargs=argparse.REMAINDER)
 
-    # The unit tests still build with waf.
-    sub.add_parser("test", help="Build and run the unit tests")
-
-    for name in WAF_PASSTHROUGH:
-        sp = sub.add_parser(name, help="Forward to ./waf <args...>")
-        sp.add_argument("args", nargs=argparse.REMAINDER)
-
     return parser
 
 
 def main(argv):
-    # Build and pass-through commands are handled before argparse, so that
-    # flags like --board and -DCONFIG_FOO=y reach them untouched.
-    if argv and argv[0] in WAF_PASSTHROUGH:
-        cmd, rest = argv[0], argv[1:]
-        waf_cmd = [] if cmd == "waf" else [cmd]
-        return subprocess.call([sys.executable, "waf"] + waf_cmd + rest, cwd=REPO_ROOT)
-
+    # Build commands are handled before argparse, so that flags like --board
+    # and -DCONFIG_FOO=y reach them untouched.
     if argv and argv[0] in BUILD_COMMANDS:
         global _DRY_RUN
         rest = [a for a in argv[1:] if a != "--dry-run"]

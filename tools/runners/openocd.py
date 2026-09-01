@@ -13,7 +13,7 @@ from .core import Runner, RunnerCaps, RunnerError
 
 OPENOCD_TELNET_PORT = 4444
 OPENOCD_GDB_PORT = 3333
-OPENOCD_LOG = ".waf.openocd.log"
+OPENOCD_LOG = ".openocd.log"
 
 
 def _is_openocd_running():

@@ -15,10 +15,9 @@ from serial_port_wrapper import SerialPortWrapper
 This script will invoke the microphone test command on snowy, read the
 PCM encoded audio data from the serial port and store it to a .wav file, 
 which can be played back from any audio player. It can be invoked via
-the './waf record' command or by running the script from the command line.
+running the script from the command line.
 
-The output sample rate and sample size when recording using the waf script
-can be configured by modifying the 'freq' and 'sample_size' variables, 
+The output sample rate and sample size can be configured by modifying the 'freq' and 'sample_size' variables, 
 respectively.
 """
 

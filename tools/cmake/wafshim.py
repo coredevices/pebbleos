@@ -5,8 +5,8 @@
 resource generators from CMake.
 
 The resource generators (tools/resources/**) are shared with the SDK,
-which still builds with waf, so they keep taking waf-shaped arguments.
-These shims let the same code run from a plain command line.
+whose app builds still run under waf, so they keep taking waf-shaped
+arguments. These shims let the same code run from a plain command line.
 """
 
 import glob as globmod
