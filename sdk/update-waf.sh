@@ -28,3 +28,7 @@ wget -O - $DOWNLOAD |tar -yx         \
 # (they will be copied in extras and require the init)
 mkdir waf/waflib/extras
 touch waf/waflib/extras/__init__.py
+
+# waf's own --make-waf minifier drops the separator between a keyword and a
+# following prefixed string literal, mangling `return f"..."` into `returnf"..."`.
+patch -d waf -p1 < waf.patch
