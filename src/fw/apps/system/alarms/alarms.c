@@ -53,6 +53,7 @@ typedef struct AlarmsAppData {
   uint32_t current_plus_icon_resource_id;
 
   EventServiceInfo alarm_event_info;
+  EventServiceInfo alarm_updated_event_info;
 } AlarmsAppData;
 
 
@@ -175,6 +176,12 @@ static void prv_handle_alarm_editor_complete(AlarmEditorResult result, AlarmId i
 static void prv_handle_alarm_event(PebbleEvent *e, void *callback_context) {
   AlarmsAppData *data = (AlarmsAppData *)callback_context;
   prv_update_alarm_list(data);
+}
+
+static void prv_handle_alarm_updated_event(PebbleEvent *e, void *callback_context) {
+  AlarmsAppData *data = (AlarmsAppData *)callback_context;
+  prv_update_alarm_list(data);
+  prv_update_menu_layer(data, ALARM_INVALID_ID);
 }
 
 static void prv_create_new_alarm(AlarmsAppData* data) {
@@ -422,6 +429,13 @@ static void prv_handle_init(void) {
   };
   event_service_client_subscribe(&data->alarm_event_info);
 
+  data->alarm_updated_event_info = (EventServiceInfo) {
+    .type = PEBBLE_ALARM_UPDATED_EVENT,
+    .handler = prv_handle_alarm_updated_event,
+    .context = data,
+  };
+  event_service_client_subscribe(&data->alarm_updated_event_info);
+
   if (prv_are_alarms_scheduled(data)) {
     int list_idx = 1; // Default to first alarm entry in list
     if (app_launch_reason() == APP_LAUNCH_TIMELINE_ACTION) {
@@ -455,6 +469,7 @@ static void prv_handle_deinit(void) {
   i18n_free_all(data);
   prv_clear_alarm_list(data);
   event_service_client_unsubscribe(&data->alarm_event_info);
+  event_service_client_unsubscribe(&data->alarm_updated_event_info);
   app_free(data);
 }
 

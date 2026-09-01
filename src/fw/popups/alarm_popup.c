@@ -63,10 +63,12 @@ static void prv_show_snooze_confirm_dialog(void) {
 // ----------------------------------------------------------------------------------------------
 //! Dismiss confirm dialog
 
-static void prv_show_dismiss_confirm_dialog(void) {
+static void prv_show_dismiss_confirm_dialog(bool autodelete) {
   SimpleDialog *simple_dialog = simple_dialog_create("AlarmSnooze");
   Dialog *dialog = simple_dialog_get_dialog(simple_dialog);
-  const char *dismiss_text = i18n_noop("Alarm dismissed");
+  const char *dismiss_text = autodelete ?
+      i18n_noop("Alarm Deleted") :
+      i18n_noop("Alarm dismissed");
   dialog_set_text(dialog, i18n_get(dismiss_text, dialog));
   i18n_free(dismiss_text, dialog);
   dialog_set_icon(dialog, RESOURCE_ID_GENERIC_CONFIRMATION_LARGE);
@@ -276,9 +278,9 @@ static void prv_start_vibes(void) {
 // ----------------------------------------------------------------------------------------------
 //! Click Handler
 static void prv_dismiss_click_handler(ClickRecognizerRef recognizer, void *data) {
-  alarm_dismiss_alarm();
+  const bool autodelete = alarm_dismiss_alarm();
   actionable_dialog_pop(s_alarm_popup_data->alarm_popup);
-  prv_show_dismiss_confirm_dialog();
+  prv_show_dismiss_confirm_dialog(autodelete);
 }
 
 static void prv_snooze_click_handler(ClickRecognizerRef recognizer, void *data) {

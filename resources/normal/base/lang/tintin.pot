@@ -3022,6 +3022,14 @@ msgstr ""
 msgid "Once"
 msgstr ""
 
+#: ../src/fw/applib/ui/day_picker.c:51
+msgid "Just once then delete"
+msgstr ""
+
+#: ../src/fw/services/alarms/alarm.c:1416
+msgid "Once then delete"
+msgstr ""
+
 #. / A frequency option for alarms, i.e. the alarm would only go off on a custom choice of
 #. / days. Respect capitalization!
 #: ../src/fw/services/alarms/alarm.c:1386

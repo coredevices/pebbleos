@@ -64,6 +64,8 @@ static AlarmKind prv_day_picker_kind_to_alarm_kind(DayPickerKind kind) {
       return ALARM_KIND_CUSTOM;
     case DayPickerKindJustOnce:
       return ALARM_KIND_JUST_ONCE;
+    case DayPickerKindJustOnceThenDelete:
+      return ALARM_KIND_JUST_ONCE_DELETE;
     default:
       return ALARM_KIND_EVERYDAY;
   }
@@ -81,6 +83,8 @@ static DayPickerKind prv_alarm_kind_to_day_picker_kind(AlarmKind kind) {
       return DayPickerKindCustom;
     case ALARM_KIND_JUST_ONCE:
       return DayPickerKindJustOnce;
+    case ALARM_KIND_JUST_ONCE_DELETE:
+      return DayPickerKindJustOnceThenDelete;
     default:
       return DayPickerKindEveryday;
   }

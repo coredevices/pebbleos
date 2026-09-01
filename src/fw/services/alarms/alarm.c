@@ -110,6 +110,10 @@ typedef struct Alarm {
 
 typedef bool (*AlarmOperationCallback)(AlarmId id, AlarmConfig *config, void *context);
 
+static bool prv_is_just_once_kind(AlarmKind kind) {
+  return kind == ALARM_KIND_JUST_ONCE || kind == ALARM_KIND_JUST_ONCE_DELETE;
+}
+
 // Forward declarations
 static void prv_alarm_operation(AlarmId id, AlarmOperationCallback callback, void *context);
 static bool prv_reload_alarms(SettingsFile *file);
@@ -496,7 +500,7 @@ T_STATIC void prv_timer_kernel_bg_callback(void *data) {
   s_smart_snooze_counter = 0;
 
   // If this is a just once alarm, then disable it.
-  if (rv && config->kind == ALARM_KIND_JUST_ONCE) {
+  if (rv && prv_is_just_once_kind(config->kind)) {
     config->is_disabled = true;
     prv_alarm_set_config(file, id, config); // This will reload the alarms
   } else {
@@ -663,7 +667,7 @@ static void prv_assert_alarm_params(int hour, int minute) {
 // ----------------------------------------------------------------------------------------------
 static void prv_enable_alarm_config(AlarmConfig *config, bool enable) {
   config->is_disabled = !enable;
-  if (enable && config->kind == ALARM_KIND_JUST_ONCE) {
+  if (enable && prv_is_just_once_kind(config->kind)) {
     // Update the day required for the alarm
     prv_set_day_for_just_once_alarm(config, config->hour, config->minute);
   }
@@ -738,7 +742,7 @@ typedef struct SetAlarmTimeContext {
 
 static bool prv_set_alarm_time_op(AlarmId id, AlarmConfig *config, void *context) {
   SetAlarmTimeContext *ctx = context;
-  if (config->kind == ALARM_KIND_JUST_ONCE) {
+  if (prv_is_just_once_kind(config->kind)) {
     // We have to re-calculate the correct day
     prv_set_day_for_just_once_alarm(config, ctx->hour, ctx->minute);
   }
@@ -815,6 +819,12 @@ static bool prv_set_alarm_kind_op(AlarmId id, AlarmConfig *config, void *context
       config->kind = ALARM_KIND_JUST_ONCE;
       const bool no_day[DAYS_PER_WEEK] = { false, false, false, false, false, false, false };
       memcpy(&config->scheduled_days, no_day, sizeof(no_day));
+      prv_set_day_for_just_once_alarm(config, config->hour, config->minute);
+      break;
+    case ALARM_KIND_JUST_ONCE_DELETE:
+      config->kind = ALARM_KIND_JUST_ONCE_DELETE;
+      const bool no_day_delete[DAYS_PER_WEEK] = { false, false, false, false, false, false, false };
+      memcpy(&config->scheduled_days, no_day_delete, sizeof(no_day_delete));
       prv_set_day_for_just_once_alarm(config, config->hour, config->minute);
       break;
     default:
@@ -1109,9 +1119,20 @@ void alarm_set_snooze_delay(uint16_t delay_m) {
 }
 
 
-void alarm_dismiss_alarm(void) {
+bool alarm_dismiss_alarm(void) {
   prv_clear_snooze_timer();
 
+  if (s_most_recent_alarm_id != ALARM_INVALID_ID) {
+    AlarmKind current_kind;
+    if (alarm_get_kind(s_most_recent_alarm_id, &current_kind) &&
+        current_kind == ALARM_KIND_JUST_ONCE_DELETE) {
+      alarm_delete(s_most_recent_alarm_id);
+      PebbleEvent e = { .type = PEBBLE_ALARM_UPDATED_EVENT };
+      event_put(&e);
+      return true;
+    }
+  }
+  return false;
 }
 
 // ----------------------------------------------------------------------------------------------
@@ -1384,6 +1405,15 @@ const char *alarm_get_string_for_kind(AlarmKind kind, bool all_caps) {
       /// A frequency option for alarms, i.e. the alarm would only go off on a custom choice of
       /// days. Respect capitalization!
                           i18n_noop("Custom");
+      break;
+    case ALARM_KIND_JUST_ONCE_DELETE:
+      alarm_day_text = all_caps ?
+      /// A frequency option for alarms, i.e. the alarm would fire once and then be deleted automatically.
+      /// Respect capitalization!
+                          i18n_noop("JUST ONCE THEN DELETE") :
+      /// A frequency option for alarms, i.e. the alarm would fire once and then be deleted automatically.
+      /// Respect capitalization!
+                          i18n_noop("Just once then delete");
       break;
     default:
       alarm_day_text = "";
