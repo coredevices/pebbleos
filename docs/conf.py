@@ -59,6 +59,7 @@ html_theme_options = {
 # Sites that are alive but block automated requests
 linkcheck_ignore = [
     r"https?://reveng\.sourceforge\.net/.*",
+    r"https://https://www\.itu\.int/rec/T-REC-X\.25-199610-I/en",
 ]
 
 # -- Options for myst_parser extension -----------------------------------------
