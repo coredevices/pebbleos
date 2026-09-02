@@ -1000,7 +1000,7 @@ msgstr "Bluetooth"
 #: ../src/fw/apps/system/settings/display.c:48
 #: ../src/fw/services/alarms/alarm.c:1389
 msgid "Custom"
-msgstr "Anders"
+msgstr "Benutzerdefiniert"
 
 #: ../src/fw/apps/system/settings/display.c:69
 #: ../src/fw/apps/system/settings/display.c:705
@@ -2173,7 +2173,7 @@ msgstr "Spazieren"
 #: ../src/fw/apps/system/workout/utils.c:98
 #: ../src/fw/services/activity/activity_insights.c:1647
 msgid "Run"
-msgstr "Lauf"
+msgstr "Laufen"
 
 #. / Workout automatically detected dialog text
 #: ../src/fw/apps/system/workout/utils.c:116
