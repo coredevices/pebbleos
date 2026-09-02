@@ -72,8 +72,9 @@ extern char __stack_guard_size__[];
 //! Used by the "pebble gdb" command to locate the loaded app in memory.
 void * volatile g_app_load_address;
 
-static const int MAX_TO_APP_EVENTS = 32;
-static QueueHandle_t s_to_app_event_queue;
+#define MAX_TO_APP_EVENTS 32
+static PBL_MSGQ_DEFINE(s_to_app_event_queue, sizeof(PebbleEvent), MAX_TO_APP_EVENTS);
+static bool s_initialized;
 static ProcessContext s_app_task_context;
 static ProcessAppRunLevel s_minimum_run_level;
 
@@ -92,14 +93,13 @@ static NextApp s_next_app;
 
 // ---------------------------------------------------------------------------------------------
 void app_manager_init(void) {
-  s_to_app_event_queue = xQueueCreate(MAX_TO_APP_EVENTS, sizeof(PebbleEvent));
-
+  s_initialized = true;
   s_app_task_context = (ProcessContext) { 0 };
 }
 
 // ---------------------------------------------------------------------------------------------
 bool app_manager_is_initialized(void) {
-  return s_to_app_event_queue != NULL;
+  return s_initialized;
 }
 
 static bool s_first_app_launched = false;
@@ -336,7 +336,7 @@ static bool prv_app_start(const PebbleProcessMd *app_md, const void *args,
   app_manager_set_minimum_run_level(process_metadata_get_run_level(app_md));
 
   // Use the static app event queue:
-  s_app_task_context.to_process_event_queue = s_to_app_event_queue;
+  s_app_task_context.to_process_event_queue = &s_to_app_event_queue;
 
   // Init services required for this process before it starts to execute
   process_manager_process_setup(PebbleTask_App);

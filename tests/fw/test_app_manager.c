@@ -316,34 +316,31 @@ Heap *worker_state_get_heap(void) {
   return NULL;
 }
 
-QueueHandle_t xQueueGenericCreate( unsigned portBASE_TYPE uxQueueLength, unsigned portBASE_TYPE uxItemSize, unsigned char ucQueueType ) {
-  static intptr_t counter = 0;
-  // Return unique IDs for all the created queues
-  return (void*) ++counter;
+void pbl_msgq_init(struct pbl_msgq *q, void *buf, size_t msg_size, uint32_t max_msgs) {
 }
-signed portBASE_TYPE xQueueGenericSend( QueueHandle_t xQueue,
-    const void * const pvItemToQueue, TickType_t xTicksToWait, portBASE_TYPE xCopyPosition ) {
-  if (xQueue == app_manager_get_task_context()->to_process_event_queue) {
-    s_last_to_app_event = *(PebbleEvent*) pvItemToQueue;
+
+void pbl_msgq_kobj_init(void *def) {
+}
+
+int pbl_msgq_put(struct pbl_msgq *q, const void *msg, pbl_timeout_t timeout) {
+  if (q == app_manager_get_task_context()->to_process_event_queue) {
+    s_last_to_app_event = *(PebbleEvent*) msg;
   }
-  return pdTRUE;
-}
-
-BaseType_t event_queue_cleanup_and_reset(QueueHandle_t queue) {
-  return pdPASS;
-}
-
-signed portBASE_TYPE xQueueGenericReceive( QueueHandle_t pxQueue, void * const pvBuffer, TickType_t xTicksToWait, portBASE_TYPE xJustPeeking ) {
-  return pdTRUE;
-}
-BaseType_t xQueueGenericReset( QueueHandle_t xQueue, BaseType_t xNewQueue ) {
-  return pdTRUE;
-}
-UBaseType_t uxQueueMessagesWaiting( const QueueHandle_t xQueue ) {
   return 0;
 }
 
-void vQueueDelete( QueueHandle_t xQueue ) {
+void event_queue_cleanup_and_reset(struct pbl_msgq *queue) {
+}
+
+int pbl_msgq_get(struct pbl_msgq *q, void *msg, pbl_timeout_t timeout) {
+  return 0;
+}
+
+void pbl_msgq_purge(struct pbl_msgq *q) {
+}
+
+uint32_t pbl_msgq_num_used(const struct pbl_msgq *q) {
+  return 0;
 }
 
 void watchface_set_default_install_id(AppInstallId id) {

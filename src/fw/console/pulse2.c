@@ -29,8 +29,8 @@
 #include "pbl/util/size.h"
 
 #include "FreeRTOS.h"
+#include "pbl/kernel/msgq.h"
 #include "pbl/kernel/sem.h"
-#include "queue.h"
 #include "task.h"
 
 #include <stdbool.h>
@@ -147,7 +147,7 @@ static void prv_lcp_on_packet(void *packet, size_t length) {
 // running the reliable transport receive expiry timer.
 
 static TaskHandle_t s_pulse_task_handle;
-static QueueHandle_t s_pulse_task_queue;
+static PBL_MSGQ_DEFINE(s_pulse_task_queue, sizeof(uint8_t), RX_QUEUE_SIZE);
 // Wake up the PULSE task to process the receive queue or start the timer.
 static PBL_SEM_DEFINE(s_pulse_task_service_semaphore, 0, 1);
 static volatile bool s_pulse_task_idle = true;
@@ -252,7 +252,7 @@ static void prv_pulse_task_feed_watchdog(void) {
 }
 
 static void prv_pulse_task_idle_timer_callback(void* data) {
-  if (s_pulse_task_idle && uxQueueMessagesWaiting(s_pulse_task_queue) == 0) {
+  if (s_pulse_task_idle && pbl_msgq_num_used(&s_pulse_task_queue) == 0) {
     prv_pulse_task_feed_watchdog();
   }
 }
@@ -273,7 +273,7 @@ static void prv_pulse_task_main(void *unused) {
     uint8_t timer_sequence_number;
     TickType_t timeout = prv_poll_timer(&timer_sequence_number);
 
-    if (timeout && uxQueueMessagesWaiting(s_pulse_task_queue) == 0) {
+    if (timeout && pbl_msgq_num_used(&s_pulse_task_queue) == 0) {
       s_pulse_task_idle = true;
       pbl_sem_take(&s_pulse_task_service_semaphore, PBL_TICKS(timeout));
       s_pulse_task_idle = false;
@@ -286,7 +286,7 @@ static void prv_pulse_task_main(void *unused) {
     // We don't want to risk the queue filling up while the timer
     // handler is running.
     char c;
-    while (xQueueReceive(s_pulse_task_queue, &c, 0) == pdTRUE) {
+    while (pbl_msgq_get(&s_pulse_task_queue, &c, PBL_NO_WAIT) == 0) {
       if (UNLIKELY(c == FRAME_DELIMITER)) {
         size_t decoded_length = cobs_streaming_decode_finish(&frame_decode_ctx);
         prv_process_received_frame(decoded_length);
@@ -335,8 +335,6 @@ void pulse_init(void) {
 }
 
 void pulse_start(void) {
-  s_pulse_task_queue = xQueueCreate(RX_QUEUE_SIZE, sizeof(uint8_t));
-
   TaskParameters_t task_params = {
     .pvTaskCode = prv_pulse_task_main,
     .pcName = "PULSE",
@@ -379,12 +377,9 @@ static void prv_assert_tx_buffer(void *buf) {
 }
 
 void pulse_handle_character(char c, bool *should_context_switch) {
-  // FromISR calls only write pdTRUE when a higher-priority task is woken; they never
-  // write pdFALSE, so tmp must start as pdFALSE to avoid a spurious context switch.
-  portBASE_TYPE tmp = pdFALSE;
-  xQueueSendToBackFromISR(s_pulse_task_queue, &c, &tmp);
+  pbl_msgq_put(&s_pulse_task_queue, &c, PBL_NO_WAIT);
   pbl_sem_give(&s_pulse_task_service_semaphore);
-  *should_context_switch = (tmp == pdTRUE);
+  *should_context_switch = false;
 }
 
 static bool prv_safe_to_touch_mutex(void) {

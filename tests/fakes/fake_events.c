@@ -38,12 +38,11 @@ bool event_put_isr(PebbleEvent* event) {
   return false;
 }
 
-QueueHandle_t event_kernel_to_kernel_event_queue(void) {
-  return (NULL);
+struct pbl_msgq *event_kernel_to_kernel_event_queue(void) {
+  return NULL;
 }
 
-BaseType_t event_queue_cleanup_and_reset(QueueHandle_t queue) {
-  return pdPASS;
+void event_queue_cleanup_and_reset(struct pbl_msgq *queue) {
 }
 
 void fake_event_init(void) {

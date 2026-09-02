@@ -22,9 +22,6 @@
 #include "pbl/util/math.h"
 #include "util/shared_circular_buffer.h"
 
-#include "FreeRTOS.h"
-#include "queue.h"
-
 #include <inttypes.h>
 
 PBL_LOG_MODULE_DEFINE(service_accel_manager, CONFIG_SERVICE_ACCEL_MANAGER_LOG_LEVEL);
@@ -153,7 +150,6 @@ static void prv_double_tap_remove_subscriber_cb(PebbleTask task) {
   pbl_mutex_unlock(&s_accel_manager_mutex);
 }
 
-
 //! Out of all accel subscribers, figures out:
 //! @param[out] lowest_interval_us - the lowest sampling interval requested (in microseconds)
 //! @param[out] max_n_samples - the max number of samples requested for batching
@@ -262,10 +258,10 @@ static bool prv_call_data_callback(AccelManagerState *state) {
         },
       };
 
-      QueueHandle_t queue = pebble_task_get_to_queue(state->task);
+      struct pbl_msgq *queue = pebble_task_get_to_queue(state->task);
       // Note: This call may fail if the queue is full but when a new sample
       // becomes available from the driver, we will retry anyway
-      return xQueueSendToBack(queue, &event, 0);
+      return pbl_msgq_put(queue, &event, PBL_NO_WAIT) == 0;
     }
     case PebbleTask_KernelBackground:
       return system_task_add_callback(state->data_cb_handler, state->data_cb_context);
@@ -661,7 +657,6 @@ DEFINE_SYSCALL(bool, sys_accel_manager_consume_samples,
   pbl_mutex_unlock(&s_accel_manager_mutex);
   return success;
 }
-
 
 /*
  * TODO: APIs that still need to be implemented

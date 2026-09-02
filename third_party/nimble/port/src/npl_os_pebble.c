@@ -20,98 +20,59 @@
 
 struct ble_npl_event *npl_pebble_eventq_get(struct ble_npl_eventq *evq, ble_npl_time_t tmo) {
   struct ble_npl_event *ev = NULL;
-  BaseType_t woken;
-  BaseType_t ret;
 
   if (mcu_state_is_isr()) {
     assert(tmo == 0);
-    ret = xQueueReceiveFromISR(evq->q, &ev, &woken);
-    portYIELD_FROM_ISR(woken);
-  } else {
-    ret = xQueueReceive(evq->q, &ev, tmo);
-  }
-  assert(ret == pdPASS || ret == errQUEUE_EMPTY);
-
-  if (ev) {
-    ev->queued = false;
   }
 
+  if (pbl_msgq_get(&evq->q, &ev, PBL_TICKS(tmo)) != 0) {
+    return NULL;
+  }
+
+  ev->queued = false;
   return ev;
 }
 
 void npl_pebble_eventq_put(struct ble_npl_eventq *evq, struct ble_npl_event *ev) {
-  BaseType_t woken;
-  BaseType_t ret;
-
   if (ev->queued) {
     return;
   }
 
   ev->queued = true;
 
-  if (mcu_state_is_isr()) {
-    ret = xQueueSendToBackFromISR(evq->q, &ev, &woken);
-    portYIELD_FROM_ISR(woken);
-  } else {
-    ret = xQueueSendToBack(evq->q, &ev, vPortInCritical() ? 0U : portMAX_DELAY);
-  }
-
-  assert(ret == pdPASS);
+  const bool no_wait = mcu_state_is_isr() || vPortInCritical();
+  int rc = pbl_msgq_put(&evq->q, &ev, no_wait ? PBL_NO_WAIT : PBL_FOREVER);
+  assert(rc == 0);
 }
 
 void npl_pebble_eventq_remove(struct ble_npl_eventq *evq, struct ble_npl_event *ev) {
   struct ble_npl_event *tmp_ev;
-  BaseType_t ret;
-  int i;
-  int count;
-  BaseType_t woken, woken2;
 
   if (!ev->queued) {
     return;
   }
 
-  /*
-   * XXX We cannot extract element from inside FreeRTOS queue so as a quick
-   * workaround we'll just remove all elements and add them back except the
-   * one we need to remove. This is silly, but works for now - we probably
-   * better use counting semaphore with os_queue to handle this in future.
-   */
-
-  if (mcu_state_is_isr()) {
-    woken = pdFALSE;
-
-    count = uxQueueMessagesWaitingFromISR(evq->q);
-    for (i = 0; i < count; i++) {
-      ret = xQueueReceiveFromISR(evq->q, &tmp_ev, &woken2);
-      assert(ret == pdPASS);
-      woken |= woken2;
-
-      if (tmp_ev == ev) {
-        continue;
-      }
-
-      ret = xQueueSendToBackFromISR(evq->q, &tmp_ev, &woken2);
-      assert(ret == pdPASS);
-      woken |= woken2;
-    }
-
-    portYIELD_FROM_ISR(woken);
-  } else {
+  // The queue cannot remove an arbitrary element, so drain it and put back
+  // everything but the one being removed.
+  const bool in_isr = mcu_state_is_isr();
+  if (!in_isr) {
     vPortEnterCritical();
+  }
 
-    count = uxQueueMessagesWaiting(evq->q);
-    for (i = 0; i < count; i++) {
-      ret = xQueueReceive(evq->q, &tmp_ev, 0);
-      assert(ret == pdPASS);
+  uint32_t count = pbl_msgq_num_used(&evq->q);
+  for (uint32_t i = 0; i < count; i++) {
+    int rc = pbl_msgq_get(&evq->q, &tmp_ev, PBL_NO_WAIT);
+    assert(rc == 0);
 
-      if (tmp_ev == ev) {
-        continue;
-      }
-
-      ret = xQueueSendToBack(evq->q, &tmp_ev, 0);
-      assert(ret == pdPASS);
+    if (tmp_ev == ev) {
+      continue;
     }
 
+    rc = pbl_msgq_put(&evq->q, &tmp_ev, PBL_NO_WAIT);
+    assert(rc == 0);
+  }
+
+  if (!in_isr) {
     vPortExitCritical();
   }
 

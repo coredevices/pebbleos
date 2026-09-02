@@ -15,7 +15,7 @@
 #include "FreeRTOS.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/kernel/mutex.h"
-#include "queue.h"
+#include "pbl/kernel/msgq.h"
 #include "pbl/kernel/sem.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "task.h"
@@ -41,8 +41,11 @@ struct ble_npl_event {
   void *arg;
 };
 
+#define BLE_NPL_EVENTQ_DEPTH 32
+
 struct ble_npl_eventq {
-  QueueHandle_t q;
+  struct pbl_msgq q;
+  struct ble_npl_event *buf[BLE_NPL_EVENTQ_DEPTH];
 };
 
 struct ble_npl_callout {
@@ -83,7 +86,7 @@ static inline bool ble_npl_os_started(void) {
 static inline void *ble_npl_get_current_task_id(void) { return xTaskGetCurrentTaskHandle(); }
 
 static inline void ble_npl_eventq_init(struct ble_npl_eventq *evq) {
-  evq->q = xQueueCreate(32, sizeof(struct ble_npl_eventq *));
+  pbl_msgq_init(&evq->q, evq->buf, sizeof(struct ble_npl_event *), BLE_NPL_EVENTQ_DEPTH);
 }
 
 static inline struct ble_npl_event *ble_npl_eventq_get(struct ble_npl_eventq *evq,
@@ -102,7 +105,7 @@ static inline void ble_npl_eventq_remove(struct ble_npl_eventq *evq, struct ble_
 static inline void ble_npl_event_run(struct ble_npl_event *ev) { ev->fn(ev); }
 
 static inline bool ble_npl_eventq_is_empty(struct ble_npl_eventq *evq) {
-  return xQueueIsQueueEmptyFromISR(evq->q);
+  return pbl_msgq_num_used(&evq->q) == 0;
 }
 
 static inline void ble_npl_event_init(struct ble_npl_event *ev, ble_npl_event_fn *fn, void *arg) {

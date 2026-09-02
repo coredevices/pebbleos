@@ -212,8 +212,8 @@ void pbl_analytics_external_collect_task_cpu_stats(void) {
   PBL_ANALYTICS_SET_UNSIGNED(task_cpu_idle_pct, idle_pct);
 }
 
-QueueHandle_t pebble_task_get_to_queue(PebbleTask task) {
-  QueueHandle_t queue;
+struct pbl_msgq *pebble_task_get_to_queue(PebbleTask task) {
+  struct pbl_msgq *queue;
   switch (task) {
     case PebbleTask_KernelMain:
       queue = event_get_to_kernel_queue(pebble_task_get_current());

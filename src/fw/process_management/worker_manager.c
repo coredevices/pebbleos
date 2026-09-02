@@ -33,9 +33,9 @@
 #include <string.h>
 
 
-static const int MAX_TO_WORKER_EVENTS = 8;
+#define MAX_TO_WORKER_EVENTS 8
 static ProcessContext s_worker_task_context;
-static QueueHandle_t s_to_worker_event_queue;
+static PBL_MSGQ_DEFINE(s_to_worker_event_queue, sizeof(PebbleEvent), MAX_TO_WORKER_EVENTS);
 
 extern char __WORKER_RAM__[];
 extern char __WORKER_RAM_end__[];
@@ -59,7 +59,6 @@ static bool s_worker_crash_relaunches_disabled;
 
 // ---------------------------------------------------------------------------------------------
 void worker_manager_init(void) {
-  s_to_worker_event_queue = xQueueCreate(MAX_TO_WORKER_EVENTS, sizeof(PebbleEvent));
 }
 
 
@@ -148,7 +147,7 @@ bool worker_manager_launch_new_worker_with_args(const PebbleProcessMd *app_md, c
   }
 
   process_manager_init_context(&s_worker_task_context, app_md, args);
-  s_worker_task_context.to_process_event_queue = s_to_worker_event_queue;
+  s_worker_task_context.to_process_event_queue = &s_to_worker_event_queue;
 
   // Set up the worker's memory and load the binary into it.
   const size_t worker_segment_size = prv_get_worker_segment_size(app_md);

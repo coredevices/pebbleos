@@ -121,12 +121,19 @@ PlatformType process_metadata_get_app_sdk_platform(const PebbleProcessMd *md) {
   return (PlatformType)-1;
 }
 
-UBaseType_t uxQueueMessagesWaiting(const QueueHandle_t xQueue) {
+uint32_t pbl_msgq_num_used(const struct pbl_msgq *q) {
   return 0;
 }
 
-BaseType_t event_queue_cleanup_and_reset(QueueHandle_t queue) {
-  return pdPASS;
+int pbl_msgq_get(struct pbl_msgq *q, void *msg, pbl_timeout_t timeout) {
+  return 0;
+}
+
+int pbl_msgq_put(struct pbl_msgq *q, const void *msg, pbl_timeout_t timeout) {
+  return 0;
+}
+
+void event_queue_cleanup_and_reset(struct pbl_msgq *queue) {
 }
 
 void event_service_clear_process_subscriptions(void) {

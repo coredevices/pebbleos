@@ -17,7 +17,7 @@
 #include "stubs_passert.h"
 #include "stubs_persist.h"
 #include "stubs_prompt.h"
-#include "stubs_queue.h"
+#include "stubs_msgq.h"
 #include "stubs_resources.h"
 #include "stubs_serial.h"
 #include "stubs_syscall_internal.h"
@@ -55,7 +55,7 @@ void accel_set_shake_sensitivity_percent(uint8_t percent) {}
 bool shell_prefs_get_accel_shake_log_info_enabled(void) {
   return false;
 }
-QueueHandle_t pebble_task_get_to_queue(PebbleTask task) {
+struct pbl_msgq *pebble_task_get_to_queue(PebbleTask task) {
   return NULL;
 }
 

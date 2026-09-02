@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "freertos_types.h"
+#include "pbl/kernel/msgq.h"
 
 //! This is an enumeration of different tasks we've had in our system. Please don't rearrange
 //! these numbers! For example, the value of PebbleTask_Timers is hardcoded into our syscall
@@ -53,7 +54,7 @@ TaskHandle_t pebble_task_get_handle_for_task(PebbleTask task);
 void pebble_task_suspend(PebbleTask task);
 
 //! @return The queue handle to send events to the given task.
-QueueHandle_t pebble_task_get_to_queue(PebbleTask task);
+struct pbl_msgq *pebble_task_get_to_queue(PebbleTask task);
 
 void pebble_task_create(PebbleTask pebble_task, TaskParameters_t *task_params,
                         TaskHandle_t *handle);

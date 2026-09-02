@@ -21,9 +21,6 @@
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
 
-#include "FreeRTOS.h"
-#include "queue.h"
-
 #include <stddef.h>
 
 PBL_LOG_MODULE_DEFINE(service_hrm, CONFIG_SERVICE_HRM_LOG_LEVEL);
@@ -49,7 +46,6 @@ static struct HRMManagerState s_manager_state;
 // Forward declarations
 static void prv_update_enable_timer_cb(void *context);
 
-
 static bool prv_match_session_ref(ListNode *found_node, void *data) {
   const HRMSubscriberState *state = (HRMSubscriberState *)found_node;
   return (state->session_ref == (HRMSessionRef)data);
@@ -60,7 +56,6 @@ T_STATIC HRMSubscriberState * prv_get_subscriber_state_from_ref(HRMSessionRef se
                              (void *)(uintptr_t)session);
   return (HRMSubscriberState *)node;
 }
-
 
 typedef struct {
   AppInstallId  app_id;
@@ -485,7 +480,7 @@ static bool prv_event_put(HRMSubscriberState *state, PebbleHRMEvent *event) {
         .type = PEBBLE_HRM_EVENT,
         .hrm = *event,
       };
-      success = xQueueSendToBack(state->queue, &e, 0);
+      success = (pbl_msgq_put(state->queue, &e, PBL_NO_WAIT) == 0);
     } else {
       prv_queue_system_task_event(event);
       success = system_task_add_callback(prv_system_task_hrm_handler, NULL);
@@ -700,7 +695,6 @@ DEFINE_SYSCALL(HRMSessionRef, sys_hrm_manager_app_subscribe,
                                              NULL);
 }
 
-
 DEFINE_SYSCALL(bool, sys_hrm_manager_unsubscribe, HRMSessionRef session) {
   HRM_LOG("Unsubscribing");
   bool success = false;
@@ -728,7 +722,6 @@ DEFINE_SYSCALL(HRMSessionRef, sys_hrm_manager_get_app_subscription, AppInstallId
   pbl_mutex_unlock(&s_manager_state.lock);
   return ref;
 }
-
 
 DEFINE_SYSCALL(bool, sys_hrm_manager_get_subscription_info, HRMSessionRef session,
                AppInstallId *app_id, uint32_t *update_interval_s, uint16_t *expire_s,
@@ -775,7 +768,6 @@ DEFINE_SYSCALL(bool, sys_hrm_manager_get_subscription_info, HRMSessionRef sessio
   return (state != NULL);
 }
 
-
 DEFINE_SYSCALL(bool, sys_hrm_manager_set_features, HRMSessionRef session, HRMFeature features) {
   bool success = false;
   pbl_mutex_lock(&s_manager_state.lock, PBL_FOREVER);
@@ -811,7 +803,6 @@ void hrm_manager_enable(bool on) {
   system_task_add_callback(prv_update_hrm_enable_system_cb, NULL);
   pbl_mutex_unlock(&s_manager_state.lock);
 }
-
 
 static HRMSessionRef s_console_session = HRM_INVALID_SESSION_REF;
 static void prv_console_unsubscribe_callback(void *data) {

@@ -12,8 +12,9 @@
 #include "pbl/os/tick.h"
 #include "pbl/services/regular_timer.h"
 
+#include "pbl/kernel/msgq.h"
+#include "pbl/kernel/poll.h"
 #include "FreeRTOS.h"
-#include "queue.h"
 #include "task.h"
 
 PBL_LOG_MODULE_DEFINE(service_system_task, CONFIG_SERVICE_SYSTEM_TASK_LOG_LEVEL);
@@ -25,10 +26,14 @@ typedef struct {
   void *data;
 } SystemTaskEvent;
 
-static QueueHandle_t s_system_task_queue;
-static QueueHandle_t s_from_app_system_task_queue;
+#define SYSTEM_TASK_QUEUE_LENGTH 30
+#define FROM_APP_SYSTEM_TASK_QUEUE_LENGTH 8
 
-static QueueSetHandle_t s_system_task_queue_set;
+static PBL_MSGQ_DEFINE(s_system_task_queue, sizeof(SystemTaskEvent), SYSTEM_TASK_QUEUE_LENGTH);
+static PBL_MSGQ_DEFINE(s_from_app_system_task_queue, sizeof(SystemTaskEvent),
+                       FROM_APP_SYSTEM_TASK_QUEUE_LENGTH);
+static PBL_POLL_GROUP_DEFINE(s_system_task_queue_set);
+static bool s_initialized;
 
 static SystemTaskEventCallback s_current_cb;
 
@@ -36,11 +41,11 @@ static bool s_system_task_idle = true;
 static bool s_should_block_callbacks = false;
 
 static bool prv_is_accepting_callbacks() {
-  return s_system_task_queue != 0 && !s_should_block_callbacks;
+  return s_initialized && !s_should_block_callbacks;
 }
 
 static void system_task_idle_timer_callback(void* data) {
-  if (s_system_task_idle && uxQueueMessagesWaiting(s_system_task_queue_set) == 0) {
+  if (s_system_task_idle && pbl_poll_group_is_empty(&s_system_task_queue_set)) {
     system_task_watchdog_feed();
   }
 }
@@ -54,10 +59,10 @@ static void system_task_main(void* paramater) {
 
     SystemTaskEvent event;
 
-    QueueSetMemberHandle_t activated_queue = xQueueSelectFromSet(s_system_task_queue_set, portMAX_DELAY);
+    struct pbl_msgq *activated_queue = pbl_poll_group_wait(&s_system_task_queue_set, PBL_FOREVER);
 
     // Get event from the activated queue
-    portBASE_TYPE result = xQueueReceive(activated_queue, &event, 0);
+    bool result = (pbl_msgq_get(activated_queue, &event, PBL_NO_WAIT) == 0);
 
     // I believe its possible that we just reset the queue and accidently
     // pended an extra event to the queue set so handle that case gracefully
@@ -75,15 +80,9 @@ static void system_task_main(void* paramater) {
 }
 
 void system_task_init(void) {
-  static const int SYSTEM_TASK_QUEUE_LENGTH = 30;
-  static const int FROM_APP_SYSTEM_TASK_QUEUE_LENGTH = 8;
-
-  s_system_task_queue = xQueueCreate(SYSTEM_TASK_QUEUE_LENGTH, sizeof(SystemTaskEvent));
-  s_from_app_system_task_queue = xQueueCreate(FROM_APP_SYSTEM_TASK_QUEUE_LENGTH, sizeof(SystemTaskEvent));
-
-  s_system_task_queue_set = xQueueCreateSet(SYSTEM_TASK_QUEUE_LENGTH + FROM_APP_SYSTEM_TASK_QUEUE_LENGTH);
-  xQueueAddToSet(s_system_task_queue, s_system_task_queue_set);
-  xQueueAddToSet(s_from_app_system_task_queue, s_system_task_queue_set);
+  pbl_poll_group_add(&s_system_task_queue_set, &s_system_task_queue);
+  pbl_poll_group_add(&s_system_task_queue_set, &s_from_app_system_task_queue);
+  s_initialized = true;
 
   extern uint32_t __kernel_bg_stack_start__[];
   extern uint32_t __kernel_bg_stack_size__[];
@@ -144,9 +143,8 @@ static bool prv_send_to_queue_from_isr(SystemTaskEventCallback cb, void *data,
     .data = data,
   };
 
-  signed portBASE_TYPE tmp = pdFALSE;
-  bool success = (xQueueSendToBackFromISR(s_system_task_queue, &event, &tmp) == pdTRUE);
-  *should_context_switch = (tmp == pdTRUE);
+  bool success = (pbl_msgq_put(&s_system_task_queue, &event, PBL_NO_WAIT) == 0);
+  *should_context_switch = false;
 
   return success;
 }
@@ -189,12 +187,12 @@ bool system_task_add_callback(SystemTaskEventCallback cb, void *data) {
   if (pebble_task_get_current() == PebbleTask_App) {
     // If we're the app and we've filled up our system task, the app just gets to wait.
     // FIXME: In the future when we want to bound the amount of time a syscall can take this will have to change.
-    xQueueSendToBack(s_from_app_system_task_queue, &event, portMAX_DELAY);
+    pbl_msgq_put(&s_from_app_system_task_queue, &event, PBL_FOREVER);
     return true;
   } else {
     // Back ourselves up and wait a reasonable amount of time before failing. If the queue is really backed up
     // we want to fall through to the handle_system_task_send_failure and not just get killed by the watchdog.
-    bool success = (xQueueSendToBack(s_system_task_queue, &event, milliseconds_to_ticks(3000)) == pdTRUE);
+    bool success = (pbl_msgq_put(&s_system_task_queue, &event, PBL_MSEC(3000)) == 0);
     if (!success) {
       handle_system_task_send_failure(cb, caller_lr);
     }
@@ -209,7 +207,7 @@ void system_task_block_callbacks(bool block) {
 
 uint32_t system_task_get_available_space(void) {
   const bool is_app = pebble_task_get_current() == PebbleTask_App;
-  return uxQueueSpacesAvailable(is_app ? s_from_app_system_task_queue : s_system_task_queue);
+  return pbl_msgq_num_free(is_app ? &s_from_app_system_task_queue : &s_system_task_queue);
 }
 
 void* system_task_get_current_callback(void) {

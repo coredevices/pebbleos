@@ -13,16 +13,13 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 
-#include "FreeRTOS.h"
-#include "queue.h"
-
 #include <string.h>
 
 PBL_LOG_MODULE_DEFINE(service_event_service, CONFIG_SERVICE_EVENT_SERVICE_LOG_LEVEL);
 
 typedef struct {
   int num_subscribers;
-  QueueHandle_t subscribers[NumPebbleTask];
+  struct pbl_msgq *subscribers[NumPebbleTask];
   EventServiceAddSubscriberCallback add_subscriber_callback;
   EventServiceRemoveSubscriberCallback remove_subscriber_callback;
 } EventServiceEntry;
@@ -80,7 +77,6 @@ static void prv_event_service_unsubscribe(PebbleSubscriptionEvent *subscription)
   }
 }
 
-
 static void prv_event_service_subscribe(PebbleSubscriptionEvent *subscription) {
   EventServiceEntry *service = s_event_services[subscription->event_type];
 
@@ -109,9 +105,9 @@ void event_service_subscribe_from_kernel_main(PebbleSubscriptionEvent *subscript
   prv_event_service_subscribe(subscription);
 }
 
-static bool prv_event_service_send_event(QueueHandle_t queue, PebbleEvent *e) {
+static bool prv_event_service_send_event(struct pbl_msgq *queue, PebbleEvent *e) {
   PBL_ASSERTN(queue != NULL);
-  bool success = (xQueueSendToBack(queue, e, 0) == pdTRUE);
+  bool success = (pbl_msgq_put(queue, e, PBL_NO_WAIT) == 0);
   return success;
 }
 
@@ -122,7 +118,6 @@ void event_service_handle_subscription(PebbleSubscriptionEvent *subscription) {
     prv_event_service_unsubscribe(subscription);
   }
 }
-
 
 void event_service_clear_process_subscriptions(PebbleTask task) {
   EventServiceEntry *service;
@@ -352,7 +347,6 @@ unlock:
   pbl_mutex_unlock(&s_plugin_list_mutex);
   return result;
 }
-
 
 //! @param uuid the UUID of the plugin service, or NULL to use uuid of the current process
 //! @return non-negative service index, or -1 if error

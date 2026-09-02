@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "pbl/kernel/msgq.h"
 #include "hrm_manager.h"
 
 #include "applib/event_service_client.h"
@@ -30,7 +31,7 @@ typedef struct HRMSubscriberState {
   HRMSessionRef session_ref;  // The session ref assigned to this subscriber
   AppInstallId app_id;        // The subscriber's app_id
   PebbleTask task;            // The subscriber's task
-  QueueHandle_t queue;        // Queue to send events to. If NULL, then this is for KernelBG
+  struct pbl_msgq *queue;     // Queue to send events to. If NULL, then this is for KernelBG
 
   HRMSubscriberCallback callback_handler;  // only used for KernelBG subscribers
   void *callback_context;                  // only used for KernelBG subscribers

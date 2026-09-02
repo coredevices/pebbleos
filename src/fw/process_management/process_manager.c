@@ -589,9 +589,8 @@ void process_manager_process_cleanup(PebbleTask task) {
   context->app_md = 0;
   context->install_id = INSTALL_ID_INVALID;
 
-  if (context->to_process_event_queue &&
-      pdFAIL == event_queue_cleanup_and_reset(context->to_process_event_queue)) {
-    PBL_LOG_ERR("The to processs queue could not be reset!");
+  if (context->to_process_event_queue) {
+    event_queue_cleanup_and_reset(context->to_process_event_queue);
   }
   context->to_process_event_queue = NULL;
 }
@@ -623,7 +622,7 @@ bool process_manager_send_event_to_process(PebbleTask task, PebbleEvent* e) {
   }
 
   // Put on app's own queue:
-  if (!xQueueSend(context->to_process_event_queue, e, milliseconds_to_ticks(1000))) {
+  if (pbl_msgq_put(context->to_process_event_queue, e, PBL_MSEC(1000)) != 0) {
     PBL_LOG_ERR("Failed to send event %u to app! Closing it!", e->type);
     // We could be called from a timer task callback, so post a kill event rather than call
     //  process_manager_close_process directly.
@@ -644,7 +643,7 @@ uint32_t process_manager_process_events_waiting(PebbleTask task) {
     return 0;
   }
 
-  return uxQueueMessagesWaiting(context->to_process_event_queue);
+  return pbl_msgq_num_used(context->to_process_event_queue);
 }
 
 
@@ -706,7 +705,7 @@ DEFINE_SYSCALL(void, sys_get_pebble_event, PebbleEvent *event) {
     syscall_assert_userspace_buffer(event, sizeof(*event));
   }
 
-  xQueueReceive(prv_get_context()->to_process_event_queue, event, portMAX_DELAY);
+  pbl_msgq_get(prv_get_context()->to_process_event_queue, event, PBL_FOREVER);
 }
 
 // -------------------------------------------------------------------------------------------

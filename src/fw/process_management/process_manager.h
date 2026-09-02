@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "pbl/kernel/msgq.h"
 #include "launch_config.h"
 
 #include "applib/app_exit_reason.h"
@@ -44,7 +45,7 @@ typedef struct ProcessContext {
 
   //! Queue used to send events to the process. The process will read PebbleEvents from here using
   //! sys_get_pebble_event.
-  void* to_process_event_queue;
+  struct pbl_msgq *to_process_event_queue;
 
   //! This bool indicates that we can safely stop and delete the process without causing
   //! any instability to the rest of the system. This is set in both graceful (process closing

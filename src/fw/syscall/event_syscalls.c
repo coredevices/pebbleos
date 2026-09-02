@@ -107,7 +107,7 @@ DEFINE_SYSCALL(void, sys_event_service_client_subscribe, EventServiceInfo *handl
   PebbleTask task = pebble_task_get_current();
 
   // Get info
-  QueueHandle_t *event_queue;
+  struct pbl_msgq *event_queue;
   if (task == PebbleTask_App) {
     event_queue = app_manager_get_task_context()->to_process_event_queue;
   } else if (task == PebbleTask_Worker) {

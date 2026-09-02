@@ -14,7 +14,7 @@
 #include "fake_new_timer.h"
 #include "fake_pbl_malloc.h"
 #include "fake_system_task.h"
-#include "fake_queue.h"
+#include <errno.h>
 #include "fake_rtc.h"
 
 #include "stubs_accel_manager.h"
@@ -69,24 +69,24 @@ bool hrm_is_enabled(HRMDevice *dev) { return s_hrm_state.enabled; }
 // Queue Fakes
 // -----------------------------------------------------------------------------
 
-static const QueueHandle_t FAKE_APP_QUEUE = (QueueHandle_t) 1337;
+static struct pbl_msgq s_fake_app_queue;
+#define FAKE_APP_QUEUE (&s_fake_app_queue)
 static uint32_t s_event_count;
 static bool s_queue_full;
 static PebbleEvent s_events_received[16];
-signed portBASE_TYPE xQueueGenericSend(QueueHandle_t xQueue, const void * const pvItemToQueue,
-                                       TickType_t xTicksToWait, portBASE_TYPE xCopyPosition) {
-  cl_assert_equal_i((intptr_t) xQueue, (intptr_t) FAKE_APP_QUEUE);
+int pbl_msgq_put(struct pbl_msgq *q, const void *msg, pbl_timeout_t timeout) {
+  cl_assert_equal_p(q, FAKE_APP_QUEUE);
   if (s_queue_full) {
-    return pdFALSE;
+    return -EBUSY;
   }
   if (s_event_count < ARRAY_LENGTH(s_events_received)) {
-    s_events_received[s_event_count] = *((PebbleEvent *)pvItemToQueue);
+    s_events_received[s_event_count] = *((const PebbleEvent *)msg);
   }
   ++s_event_count;
-  return pdTRUE;
+  return 0;
 }
 
-QueueHandle_t pebble_task_get_to_queue(PebbleTask task) {
+struct pbl_msgq *pebble_task_get_to_queue(PebbleTask task) {
   switch (task) {
     case PebbleTask_App:
       return FAKE_APP_QUEUE;

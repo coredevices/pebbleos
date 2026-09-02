@@ -10,7 +10,7 @@
 #include <pbl/logging/logging.h>
 
 #include "FreeRTOS.h"
-#include "queue.h"
+#include "pbl/kernel/msgq.h"
 #include "pbl/kernel/sem.h"
 #include "task.h"
 
@@ -28,7 +28,8 @@ static PBL_SEM_DEFINE(s_wake_srv_loop, 1, 1);
 
 //! Queue of pointers to that should be called on the new_timer thread. This allows very high
 //! priority pieces of work to be done on the new_timer thread in between timers.
-static QueueHandle_t s_work_queue;
+#define WORK_QUEUE_SIZE 5
+static PBL_MSGQ_DEFINE(s_work_queue, sizeof(NewTimerWorkItem), WORK_QUEUE_SIZE);
 
 // Used by debugging facility
 static void *s_current_work_cb = 0;
@@ -86,7 +87,7 @@ static void new_timer_service_loop(void *data) {
 
     // See if we have any work to do
     NewTimerWorkItem work;
-    if (xQueueReceive(s_work_queue, &work, 0) == pdTRUE) {
+    if (pbl_msgq_get(&s_work_queue, &work, PBL_NO_WAIT) == 0) {
       s_current_work_cb = work.cb;
       work.cb(work.data);
       s_current_work_cb = NULL;
@@ -113,9 +114,6 @@ void new_timer_service_init(void) {
 
   task_timer_manager_init(&s_task_timer_manager, &s_wake_srv_loop);
 
-  const int WORK_QUEUE_SIZE = 5;
-  s_work_queue = xQueueCreate(WORK_QUEUE_SIZE, sizeof(NewTimerWorkItem));
-
   const int TASK_STACK_SIZE_BYTES = 1380;
 
   TaskParameters_t task_params = {
@@ -133,23 +131,20 @@ void new_timer_service_init(void) {
 // -----------------------------------------------------------------------------------------------------
 // Used by the console command to list timers
 bool new_timer_add_work_callback_from_isr(NewTimerWorkCallback cb, void *data) {
-  BaseType_t should_context_switch;
   NewTimerWorkItem work = { cb, data };
-  xQueueSendFromISR(s_work_queue, &work, &should_context_switch);
+  pbl_msgq_put(&s_work_queue, &work, PBL_NO_WAIT);
 
   // Wake up the thread to process the work item we just added.
-  // Reuse the previous bool since we don't actually care about the above result. No one blocks
-  // on the above queue, only this semaphore.
   pbl_sem_give(&s_wake_srv_loop);
 
-  return (should_context_switch == pdTRUE);
+  return false;
 }
 
 bool new_timer_add_work_callback(NewTimerWorkCallback cb, void *data) {
   TickType_t TICKS_TO_WAIT = 50;
 
   NewTimerWorkItem work = { cb, data };
-  if (xQueueSend(s_work_queue, &work, TICKS_TO_WAIT)) {
+  if (pbl_msgq_put(&s_work_queue, &work, PBL_TICKS(TICKS_TO_WAIT)) == 0) {
     // Wake up the thread to process the work item we just added.
     pbl_sem_give(&s_wake_srv_loop);
     return true;
