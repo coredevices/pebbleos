@@ -10,7 +10,7 @@
 
 #include <pbl/drivers/rtc.h>
 #include "pbl/mcu/privilege.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include "process_management/worker_manager.h"
 #include "logging/logging_private.h"
 #include <pbl/logging/logging.h>

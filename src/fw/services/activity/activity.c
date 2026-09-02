@@ -26,7 +26,6 @@
 
 #include <pebbleos/cron.h>
 
-#include "FreeRTOS.h"
 #include "pbl/kernel/sem.h"
 
 #include "pbl/services/activity/activity.h"
@@ -49,7 +48,6 @@ ActivityState *activity_private_state(void) {
   return &s_activity_state;
 }
 
-
 // ------------------------------------------------------------------------------------------------
 bool activity_is_hrm_present(void) {
 #ifdef CONFIG_HRM
@@ -65,7 +63,6 @@ bool activity_is_hrm_present(void) {
 static bool prv_activity_allowed_to_be_enabled(void) {
   return s_activity_state.enabled_run_level && s_activity_state.enabled_charging_state;
 }
-
 
 // ------------------------------------------------------------------------------------------------
 #ifdef CONFIG_HRM
@@ -152,7 +149,6 @@ static void prv_heart_rate_subscription_update(uint32_t now_ts) {
 #endif // CONFIG_HRM
 }
 
-
 // ------------------------------------------------------------------------------------------------
 // Kernel BG callback called by the Heart Rate Manager when new data arrives
 #ifdef CONFIG_HRM
@@ -218,7 +214,6 @@ T_STATIC void prv_hrm_subscription_cb(PebbleHRMEvent *hrm_event, void *context) 
 }
 #endif // CONFIG_HRM
 
-
 // ---------------------------------------------------------------------------------------
 // Init heart rate support
 static void prv_heart_rate_init(void) {
@@ -236,7 +231,6 @@ static void prv_heart_rate_init(void) {
 #endif // CONFIG_HRM
 }
 
-
 // ---------------------------------------------------------------------------------------
 // De-init heart rate support
 static void prv_heart_rate_deinit(void) {
@@ -246,8 +240,6 @@ static void prv_heart_rate_deinit(void) {
   activity_metrics_prv_reset_hr_stats();
 #endif // CONFIG_HRM
 }
-
-
 
 // ----------------------------------------------------------------------------------------------
 // Open the settings file and malloc space for the file struct
@@ -262,14 +254,12 @@ SettingsFile *activity_private_settings_open(void) {
   return file;
 }
 
-
 // ------------------------------------------------------------------------------------------------
 // Close the settings file and free the file struct
 void activity_private_settings_close(SettingsFile *file) {
   settings_file_close(file);
   kernel_free(file);
 }
-
 
 // ----------------------------------------------------------------------------------------------
 // Layout of an ActivitySettingsValueHistory record in settings file versions <= 2, when
@@ -360,7 +350,6 @@ static void prv_settings_rewrite_cb(SettingsFile *old_file, SettingsFile *new_fi
   kernel_free(data);
 }
 
-
 // ----------------------------------------------------------------------------------------------
 // Migrate settings from an earlier version now if necessary
 static SettingsFile *prv_settings_migrate(SettingsFile *file, uint16_t *written_version) {
@@ -410,7 +399,6 @@ static SettingsFile *prv_settings_migrate(SettingsFile *file, uint16_t *written_
   }
   return file;
 }
-
 
 // -----------------------------------------------------------------------------------------
 // Called from the prv_minute_system_task_cb(). Determines if we should update storage.
@@ -469,7 +457,6 @@ static void NOINLINE prv_update_storage(time_t utc_sec) {
   }
   pbl_mutex_unlock(&s_activity_state.mutex);
 }
-
 
 // ------------------------------------------------------------------------------------------------
 // Tail end of prv_process_minute_data, separated out to decrease stack requirements. This
@@ -530,7 +517,6 @@ static void NOINLINE prv_process_minute_data_tail(time_t utc_sec) {
   }
 }
 
-
 // ------------------------------------------------------------------------------------------------
 // Takes care of updating the history when we reach midnight as well as checking for changes in
 // sleep state. Returns true if the sleep metrics were updated
@@ -558,7 +544,6 @@ static void NOINLINE prv_process_minute_data(time_t utc_sec) {
   prv_process_minute_data_tail(utc_sec);
 }
 
-
 // ------------------------------------------------------------------------------------------------
 // This system task, triggered by a minute regular timer, takes care of updating the history
 // when we reach midnight, checking for changes in sleep state, and updating insights
@@ -583,7 +568,6 @@ T_STATIC void prv_minute_system_task_cb(void *data) {
   pbl_mutex_unlock(&s_activity_state.mutex);
 }
 
-
 // ------------------------------------------------------------------------------------------------
 // Runs on the timer task. Simply register a callback for the KernelBG task from here.
 static void prv_minute_cb(CronJob *job, void *data) {
@@ -598,7 +582,6 @@ static CronJob s_activity_job = {
   .month = CRON_MONTH_ANY,
   .cb = prv_minute_cb,
 };
-
 
 // ------------------------------------------------------------------------------------------------
 // Capture raw accel data
@@ -618,7 +601,6 @@ static void prv_collect_raw_samples(AccelRawData *accel_data, uint32_t num_sampl
       return;
     }
   }
-
 
   if (finish) {
     PBL_ASSERTN(num_samples == 0 && accel_data == NULL);
@@ -719,7 +701,6 @@ static void prv_collect_raw_samples(AccelRawData *accel_data, uint32_t num_sampl
   }
 }
 
-
 // ------------------------------------------------------------------------------------------------
 // Accel callback. Called from KernelBG task. Feeds new samples into the algorithm, saves
 // the updated step and sleep stats into our globals, and posts a service event if the steps
@@ -777,7 +758,6 @@ static void prv_accel_cb(AccelRawData *data, uint32_t num_samples, uint64_t time
   }
 }
 
-
 // ------------------------------------------------------------------------------------------------
 // Used by activity_test_feed_samples() to feed in accel samples manually for testing
 static void prv_feed_samples_system_cb(void *context_in) {
@@ -813,7 +793,6 @@ static void prv_stop_tracking_early(void) {
 
   PBL_LOG_DBG("Updated and persisted sessions before stopping activity tracking");
 }
-
 
 // ------------------------------------------------------------------------------------------------
 // Start activity tracking system callback
@@ -870,7 +849,6 @@ static void prv_start_tracking_cb(void *context) {
   }
 }
 
-
 // ------------------------------------------------------------------------------------------------
 // Stop activity tracking system callback
 static void prv_stop_tracking_cb(void *context) {
@@ -901,7 +879,6 @@ static void prv_stop_tracking_cb(void *context) {
   };
   event_put(&event);
 }
-
 
 // ------------------------------------------------------------------------------------------------
 // Enable/disable activity service KernelBG callback. Used by activity_set_enabled().
@@ -978,20 +955,19 @@ static bool prv_wait_system_task(SystemTaskEventCallback cb, void *context, bool
     return false;
   }
 
-  RtcTicks end_ticks = rtc_get_ticks() + timeout_sec * configTICK_RATE_HZ;
+  RtcTicks end_ticks = rtc_get_ticks() + timeout_sec * PBL_TICK_HZ;
   while (!(*cb_completed)) {
     // NOTE: we use while (!completed) and wait in 1 second chunks just in case the semaphore was
     // left set from an earlier call that timed out.
     if (rtc_get_ticks() > end_ticks) {
       return false;     // Timed out
     }
-    const TickType_t k_timeout = configTICK_RATE_HZ;
+    const pbl_tick_t k_timeout = PBL_TICK_HZ;
     pbl_sem_take(&s_activity_state.bg_wait_semaphore, PBL_TICKS(k_timeout));
   }
 
   return *cb_success;
 }
-
 
 // ------------------------------------------------------------------------------------------------
 bool activity_init(void) {
@@ -1075,14 +1051,12 @@ bool activity_init(void) {
   s_activity_state.enabled_charging_state = !battery_is_usb_connected();
 #endif
 
-
   return true;
 }
 
 bool activity_is_initialized(void) {
   return s_activity_initialized;
 }
-
 
 // ------------------------------------------------------------------------------------------------
 bool activity_start_tracking(bool test_mode) {
@@ -1091,7 +1065,6 @@ bool activity_start_tracking(bool test_mode) {
   }
   return system_task_add_callback(prv_start_tracking_cb, (void *)test_mode);
 }
-
 
 // ------------------------------------------------------------------------------------------------
 bool activity_stop_tracking(void) {
@@ -1106,7 +1079,6 @@ bool activity_stop_tracking(void) {
   return system_task_add_callback(prv_stop_tracking_cb, NULL);
 }
 
-
 // ------------------------------------------------------------------------------------------------
 bool activity_tracking_on(void) {
   if (!s_activity_initialized) {
@@ -1118,7 +1090,6 @@ bool activity_tracking_on(void) {
   pbl_mutex_unlock(&s_activity_state.mutex);
   return result;
 }
-
 
 // ------------------------------------------------------------------------------------------------
 // Enable/disable this service. Used by the service manager's services_set_runlevel() call.
@@ -1135,7 +1106,6 @@ void activity_set_enabled(bool enable) {
   pbl_mutex_unlock(&s_activity_state.mutex);
   prv_handle_activity_enabled_change();
 }
-
 
 // ------------------------------------------------------------------------------------------------
 bool activity_get_sessions(uint32_t *session_entries, ActivitySession *sessions) {
@@ -1157,7 +1127,6 @@ bool activity_get_sessions(uint32_t *session_entries, ActivitySession *sessions)
   pbl_mutex_unlock(&s_activity_state.mutex);
   return true;
 }
-
 
 // ------------------------------------------------------------------------------------------------
 DEFINE_SYSCALL(bool, sys_activity_get_sessions, uint32_t *session_entries,
@@ -1194,12 +1163,10 @@ DEFINE_SYSCALL(bool, sys_activity_is_initialized, void) {
   return s_activity_initialized;
 }
 
-
 // ------------------------------------------------------------------------------------------------
 DEFINE_SYSCALL(bool, sys_activity_prefs_heart_rate_is_enabled, void) {
   return activity_prefs_heart_rate_is_enabled();
 }
-
 
 // ------------------------------------------------------------------------------------------------
 typedef struct {
@@ -1245,7 +1212,6 @@ bool activity_get_minute_history(HealthMinuteData *minute_data, uint32_t *num_re
   return success;
 }
 
-
 // ------------------------------------------------------------------------------------------------
 DEFINE_SYSCALL(bool, sys_activity_get_minute_history, HealthMinuteData *minute_data,
                uint32_t *num_records, time_t *utc_start) {
@@ -1275,7 +1241,6 @@ DEFINE_SYSCALL(bool, sys_activity_get_minute_history, HealthMinuteData *minute_d
   return activity_get_minute_history(minute_data, num_records, utc_start);
 }
 
-
 // ------------------------------------------------------------------------------------------------
 bool activity_get_step_averages(DayInWeek day_of_week, ActivityMetricAverages *averages) {
   if (!s_activity_initialized) {
@@ -1283,7 +1248,6 @@ bool activity_get_step_averages(DayInWeek day_of_week, ActivityMetricAverages *a
   }
   return health_db_get_typical_step_averages(day_of_week, averages);
 }
-
 
 // ------------------------------------------------------------------------------------------------
 DEFINE_SYSCALL(bool, sys_activity_get_step_averages, DayInWeek day_of_week,
@@ -1361,7 +1325,6 @@ bool activity_raw_sample_collection(bool enable, bool disable, bool *enabled,
   return success;
 }
 
-
 // ------------------------------------------------------------------------------------------------
 // Get info on the sleep file
 typedef struct {
@@ -1396,7 +1359,6 @@ bool activity_dump_sleep_log(void) {
                                       &context.completed, 30 /*timeout_sec*/);
   return success;
 }
-
 
 // ------------------------------------------------------------------------------------------------
 bool activity_test_feed_samples(AccelRawData *data, uint32_t num_samples) {
@@ -1436,7 +1398,6 @@ bool activity_test_feed_samples(AccelRawData *data, uint32_t num_samples) {
   return true;
 }
 
-
 // ------------------------------------------------------------------------------------------------
 bool activity_test_run_minute_callback(void) {
   if (!s_activity_initialized) {
@@ -1444,7 +1405,6 @@ bool activity_test_run_minute_callback(void) {
   }
   return system_task_add_callback(prv_minute_system_task_cb, NULL);
 }
-
 
 // ------------------------------------------------------------------------------------------------
 // Writes history to settings file
@@ -1456,7 +1416,6 @@ static void prv_write_metric_history(ActivitySettingsKey key,
     activity_private_settings_close(file);
   }
 }
-
 
 // ------------------------------------------------------------------------------------------------
 // Used by unit tests to init state. Clears all stored data and re-initializes.
@@ -1498,7 +1457,6 @@ bool activity_test_reset(bool reset_settings, bool tracking_on,
   }
   return true;
 }
-
 
 // ------------------------------------------------------------------------------------------------
 // Get info on the sleep file
@@ -1552,7 +1510,6 @@ bool activity_test_minute_file_info(bool compact_first, uint32_t *num_records, u
   return success;
 }
 
-
 // ------------------------------------------------------------------------------------------------
 // Fill the sleep file
 typedef struct {
@@ -1588,7 +1545,6 @@ bool activity_test_fill_minute_file(void) {
   return success;
 }
 
-
 // ------------------------------------------------------------------------------------------------
 // Send a fake data logging records
 static void prv_send_fake_dls_records_system_cb(void *context_param) {
@@ -1619,7 +1575,6 @@ bool activity_test_send_fake_dls_records(void) {
   // Enqueue it for KernelBG to process
   return system_task_add_callback(prv_send_fake_dls_records_system_cb, NULL);
 }
-
 
 // ------------------------------------------------------------------------------------------------
 void activity_test_set_steps_and_avg(int32_t new_steps, int32_t current_avg, int32_t daily_avg) {
@@ -1656,7 +1611,6 @@ void activity_test_set_steps_and_avg(int32_t new_steps, int32_t current_avg, int
   pbl_mutex_unlock(&s_activity_state.mutex);
 }
 
-
 // ------------------------------------------------------------------------------------------------
 void activity_test_set_steps_history() {
   if (!s_activity_initialized) {
@@ -1677,7 +1631,6 @@ void activity_test_set_steps_history() {
 
   prv_write_metric_history(ActivitySettingsKeyStepCountHistory, &step_history);
 }
-
 
 // ------------------------------------------------------------------------------------------------
 void activity_test_set_sleep_history() {

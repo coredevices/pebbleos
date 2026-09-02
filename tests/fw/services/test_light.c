@@ -14,7 +14,6 @@
 
 // Stubs
 ///////////////////////////////////////////////////////////
-#include "stubs_queue.h"
 #include "stubs_fonts.h"
 #include "stubs_events.h"
 #include "stubs_print.h"

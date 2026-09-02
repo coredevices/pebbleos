@@ -20,8 +20,6 @@
 #include <pbl/logging/logging.h>
 #include "pbl/kernel/mutex.h"
 
-#include "FreeRTOS.h"
-
 PBL_LOG_MODULE_DEFINE(service_light, CONFIG_SERVICE_LIGHT_LOG_LEVEL);
 
 typedef enum {

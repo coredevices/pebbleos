@@ -20,8 +20,6 @@
 
 #include <inttypes.h>
 
-#include "FreeRTOS.h"
-
 PBL_LOG_MODULE_DECLARE(service_data_logging, CONFIG_SERVICE_DATA_LOGGING_LOG_LEVEL);
 
 typedef struct {
@@ -489,7 +487,6 @@ static void prv_empty_session(uint8_t session_id) {
     dls_private_send_session(logging_session, true /*empty_all_data*/);
   }
 }
-
 
 //! data_logging_protocol_msg_callback runs on Bluetooth task. Keep it quick.
 void data_logging_protocol_msg_callback(CommSession *session, const uint8_t *data, size_t length) {

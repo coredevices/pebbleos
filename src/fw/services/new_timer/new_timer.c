@@ -77,7 +77,7 @@ static void new_timer_service_loop(void *data) {
   task_init();
 
   while (1) {
-    TickType_t ticks_to_wait = task_timer_manager_execute_expired_timers(&s_task_timer_manager);
+    pbl_tick_t ticks_to_wait = task_timer_manager_execute_expired_timers(&s_task_timer_manager);
 
     pbl_sem_take(&s_wake_srv_loop, PBL_TICKS(ticks_to_wait));
 
@@ -133,7 +133,7 @@ bool new_timer_add_work_callback_from_isr(NewTimerWorkCallback cb, void *data) {
 }
 
 bool new_timer_add_work_callback(NewTimerWorkCallback cb, void *data) {
-  TickType_t TICKS_TO_WAIT = 50;
+  pbl_tick_t TICKS_TO_WAIT = 50;
 
   NewTimerWorkItem work = { cb, data };
   if (pbl_msgq_put(&s_work_queue, &work, PBL_TICKS(TICKS_TO_WAIT)) == 0) {

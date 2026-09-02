@@ -17,7 +17,7 @@
 
 #include "pebble_process_md.h"
 #include "kernel/pebble_tasks.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/animation_service.h"
 #include "pbl/services/analytics/analytics.h"

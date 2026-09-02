@@ -23,7 +23,6 @@
 #include "stubs_pebble_tasks.h"
 #include "stubs_print.h"
 #include "stubs_prompt.h"
-#include "stubs_queue.h"
 #include "stubs_serial.h"
 #include "stubs_sleep.h"
 #include "stubs_task_watchdog.h"

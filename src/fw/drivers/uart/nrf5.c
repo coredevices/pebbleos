@@ -16,7 +16,6 @@
 
 PBL_LOG_MODULE_DEFINE(driver_uart_nrf5, CONFIG_DRIVER_UART_LOG_LEVEL);
 
-
 // UART: 8n1, duplex
 
 static void _uart_event_handler(const nrfx_uarte_event_t *event, void *ctx);
@@ -171,7 +170,6 @@ void uart_set_baud_rate(UARTDevice *dev, uint32_t baud_rate) {
     WTF;
 }
 
-
 // Read / Write APIs
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -238,7 +236,6 @@ void uart_wait_for_tx_complete(UARTDevice *dev) {
   while (!uart_is_tx_complete(dev)) continue;
 }
 
-
 void uart_set_rx_interrupt_handler(UARTDevice *dev, UARTRXInterruptHandler irq_handler) {
   PBL_ASSERTN(dev->state->initialized);
   dev->state->rx_irq_handler = irq_handler;
@@ -264,7 +261,6 @@ void uart_clear_all_interrupt_flags(UARTDevice *dev) {
   WTF; /* only used internally? */
 }
 
-
 // DMA
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -274,7 +270,6 @@ void uart_clear_all_interrupt_flags(UARTDevice *dev) {
 
 static void _uart_event_handler(const nrfx_uarte_event_t *event, void *ctx) {
   UARTDevice *dev = (UARTDevice *)ctx;
-  bool should_context_switch = false;
 
   switch (event->type) {
   case NRFX_UARTE_EVT_RX_BUF_REQUEST:
@@ -304,7 +299,7 @@ static void _uart_event_handler(const nrfx_uarte_event_t *event, void *ctx) {
     const UARTRXErrorFlags err_flags = {}; /* ignored, for now */
     for (; ofs < dev->state->rx_dma_length; ofs++) {
       if (dev->state->rx_irq_handler && dev->state->rx_int_enabled) {
-        should_context_switch |= dev->state->rx_irq_handler(dev, buf[ofs], &err_flags);
+        dev->state->rx_irq_handler(dev, buf[ofs], &err_flags);
       }
     }
   }
@@ -316,12 +311,10 @@ static void _uart_event_handler(const nrfx_uarte_event_t *event, void *ctx) {
     const UARTRXErrorFlags err_flags = {}; /* ignored, for now */
     for (; dev->state->rx_cons_pos < curpos; dev->state->rx_cons_pos++) {
       if (dev->state->rx_irq_handler && dev->state->rx_int_enabled) {
-        should_context_switch |= dev->state->rx_irq_handler(dev, buf[dev->state->rx_cons_pos], &err_flags);
+        dev->state->rx_irq_handler(dev, buf[dev->state->rx_cons_pos], &err_flags);
       }
     }
   }
-  
-  portEND_SWITCHING_ISR(should_context_switch);
 }
 
 void uart_start_rx_dma(UARTDevice *dev, void *buffer, uint32_t length) {

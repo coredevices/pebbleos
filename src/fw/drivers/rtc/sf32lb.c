@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2025 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/sched.h"
+#include "pbl/kernel/types.h"
 #include <stdint.h>
 
 #include "board/board.h"
@@ -13,9 +15,6 @@
 #include "util/time/time.h"
 #include <pbl/logging/logging.h>
 #include "pbl/services/new_timer/new_timer.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
 
 #include "bf0_hal_rtc.h"
 
@@ -211,7 +210,7 @@ void rtc_init(void) {
 void rtc_init_timers(void) {}
 
 static RtcTicks get_ticks(void) {
-  static TickType_t s_last_freertos_tick_count = 0;
+  static pbl_tick_t s_last_freertos_tick_count = 0;
   static RtcTicks s_coarse_ticks = 0;
 
   bool ints_enabled = mcu_state_are_interrupts_enabled();
@@ -219,9 +218,9 @@ static RtcTicks get_ticks(void) {
     __disable_irq();
   }
 
-  TickType_t freertos_tick_count = xTaskGetTickCount();
+  pbl_tick_t freertos_tick_count = pbl_uptime_ticks();
   if (freertos_tick_count < s_last_freertos_tick_count) {
-    TickType_t rollover_amount = -1;
+    pbl_tick_t rollover_amount = -1;
     s_coarse_ticks += rollover_amount;
   }
 

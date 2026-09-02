@@ -1,9 +1,9 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <cmsis_core.h>
+#include "pbl/kernel/irq.h"
 #include "pbl/kernel/debug.h"
-#include "FreeRTOS.h"
-#include "task.h"
 #include <pbl/drivers/task_watchdog.h>
 
 #include <pbl/drivers/watchdog.h>
@@ -110,7 +110,7 @@ static void prv_log_stuck_task(RebootReason *reboot_reason, PebbleTask task) {
 
 #ifndef CONFIG_NO_WATCHDOG
 // TCB-only variant of prv_log_failed_message; no logging or FreeRTOS calls
-// so it's safe from above configMAX_SYSCALL_INTERRUPT_PRIORITY.
+// so it's safe from above PBL_IRQ_PRIO_MAX_SYSCALL.
 static void prv_capture_stuck_task_info(RebootReason *reboot_reason) {
   const PebbleTask tasks_in_reverse_priority[] = {
     PebbleTask_KernelBackground,
@@ -202,7 +202,7 @@ static void prv_system_task_starved_callback(void *data) {
 }
 
 // -------------------------------------------------------------------------------------------------
-// This is a lower priority interrupt (at configMAX_SYSCALL_INTERRUPT_PRIORITY) that we trigger
+// This is a lower priority interrupt (at PBL_IRQ_PRIO_MAX_SYSCALL) that we trigger
 // when we need to perform logging.
 void WATCHDOG_FREERTOS_IRQHandler(void) {
   PBL_LOG_DBG("WD: low priority ISR");
@@ -253,8 +253,8 @@ void WATCHDOG_FREERTOS_IRQHandler(void) {
 void task_watchdog_init(void) {
   // Setup another unused interrupt vector to handle our low priority interrupts. When we need to do higher
   // level functions (like PBL_LOG), we trigger this lower-priority interrupt to fire. Since it runs at
-  // configMAX_SYSCALL_INTERRUPT_PRIORITY or lower, it can at least call FreeRTOS ISR functions.
-  NVIC_SetPriority(WATCHDOG_FREERTOS_IRQn, configMAX_SYSCALL_INTERRUPT_PRIORITY);
+  // PBL_IRQ_PRIO_MAX_SYSCALL or lower, it can at least call FreeRTOS ISR functions.
+  NVIC_SetPriority(WATCHDOG_FREERTOS_IRQn, PBL_IRQ_PRIO_MAX_SYSCALL);
   NVIC_EnableIRQ(WATCHDOG_FREERTOS_IRQn);
 
   // create the app throttling timer
@@ -267,11 +267,11 @@ void task_watchdog_feed(void) {
 }
 
 static void task_watchdog_disable_interrupt() {
-  taskENTER_CRITICAL();
+  pbl_irq_lock();
 }
 
 static void task_watchdog_enable_interrupt() {
-  taskEXIT_CRITICAL();
+  pbl_irq_unlock();
 }
 
 void task_watchdog_bit_set_all(void) {
@@ -330,12 +330,12 @@ void task_watchdog_step_elapsed_time_ms(uint32_t elapsed_ms) {
 //! task from triggering a watchdog you can call task_watchdog_bit_set to feed it
 static void prv_task_watchdog_feed(void) {
   // NOTE! This function runs from a timer interrupt setup by the watchdog_feed_timer driver that is at a priority
-  // higher than configMAX_SYSCALL_INTERRUPT_PRIORITY. This means you can't call ANY FreeRTOS functions.
+  // higher than PBL_IRQ_PRIO_MAX_SYSCALL. This means you can't call ANY FreeRTOS functions.
   // Careful what you put here.
 
   // We do want to log watchdog actions, since it's really important for debugging watchdog stalls either on
   // bigboards through serial or using flash logging. To accomplish this trigger a lower priority interrupt to fire,
-  // which is at or below configMAX_SYSCALL_INTERRUPT_PRIORITY and make our logging calls from there.
+  // which is at or below PBL_IRQ_PRIO_MAX_SYSCALL and make our logging calls from there.
 
   // Handle pause state
   if (s_pause_ticks_remaining > 0) {

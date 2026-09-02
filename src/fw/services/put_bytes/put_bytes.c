@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/irq.h"
 #include "pbl/services/put_bytes/put_bytes.h"
 #include "pbl/services/put_bytes/put_bytes_storage.h"
 
@@ -8,7 +9,7 @@
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/system_message.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include "resource/resource_storage_file.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/comm_session/session_receive_router.h"
@@ -25,9 +26,7 @@
 #include "util/net.h"
 #include <bluetooth/analytics.h>
 
-#include "FreeRTOS.h"
 #include "pbl/kernel/sem.h"
-#include "task.h"
 
 #include <string.h>
 
@@ -182,11 +181,11 @@ static void prv_receiver_reset(void);
 static void prv_send_response(ResponseCode code, uint32_t token);
 
 static void prv_lock_pb_job_state(void) {
-  taskENTER_CRITICAL();
+  pbl_irq_lock();
 }
 
 static void prv_unlock_pb_job_state(void) {
-  taskEXIT_CRITICAL();
+  pbl_irq_unlock();
 }
 
 //! Simply returns the next free buffer from the PB jobs array. Returns NULL if none are available
@@ -214,7 +213,6 @@ static uint8_t *prv_get_next_pb_job_buffer(void) {
 
   return put_jobs->job[write_idx].buffer;
 }
-
 
 //! Marks the PB job as written to
 static void prv_finalize_pb_job(void) {
@@ -794,7 +792,7 @@ static bool prv_do_put(const PutRequest *request, uint32_t request_size, uint32_
 }
 
 static void prv_do_commit(void) {
-  uint32_t elapsed_time_ms = ticks_to_milliseconds(rtc_get_ticks() - s_pb_state.start_ticks);
+  uint32_t elapsed_time_ms = pbl_ticks_to_ms(rtc_get_ticks() - s_pb_state.start_ticks);
 
   const CommitRequest *request = (const CommitRequest *)s_pb_state.receiver.buffer;
 
@@ -1103,7 +1101,6 @@ void put_bytes_handle_comm_session_event(const PebbleCommSessionEvent *
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ReceiverImplementation
 
-
 static bool prv_receiver_contains_put_request(void) {
   return (s_pb_state.receiver.buffer[0] == PutBytesPut);
 }
@@ -1120,7 +1117,7 @@ static void prv_receiver_reset(void) {
 static bool prv_take_lock_with_short_timeout(void) {
   // This code executes on BT02, so don't stall for too long. If the lock is taken, there is
   // probably a Put Bytes session going on already anyway.
-  const TickType_t SEMAPHORE_TIMEOUT_TICKS = milliseconds_to_ticks(25);
+  const pbl_tick_t SEMAPHORE_TIMEOUT_TICKS = pbl_ms_to_ticks(25);
   if ((pbl_sem_take(&s_pb_semaphore, PBL_TICKS(SEMAPHORE_TIMEOUT_TICKS)) != 0)) {
     PBL_LOG_ERR("Failed to acquire the put-bytes semaphore, retry");
     return false;

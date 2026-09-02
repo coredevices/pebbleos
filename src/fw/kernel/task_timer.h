@@ -8,8 +8,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "FreeRTOS.h"
-
 //! task_timer.h
 //!
 //! This file implements timers in a way that allows any of our tasks to run timers on their own.
@@ -38,7 +36,6 @@ typedef void (*TaskTimerCallback)(void *data);
 #define TIMER_START_FLAG_REPEATING          0x01
 #define TIMER_START_FLAG_FAIL_IF_EXECUTING  0x02
 #define TIMER_START_FLAG_FAIL_IF_SCHEDULED  0x04
-
 
 //! Creates a new timer object. This timer will start out in the stopped state.
 //! @return the non-zero timer id or TIMER_INVALID_ID if OOM

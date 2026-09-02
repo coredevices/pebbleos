@@ -6,8 +6,6 @@
 #include "pbl/services/system_task.h"
 #include "pbl/services/touch/touch.h"
 
-#include "FreeRTOS.h"
-
 #include <cmsis_core.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -50,7 +48,6 @@ void TOUCH_IRQHandler(void) {
       s_callback_scheduled = true;
     }
   }
-  portEND_SWITCHING_ISR(should_context_switch);
 }
 
 void touch_sensor_init(void) {

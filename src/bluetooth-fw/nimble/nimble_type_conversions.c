@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2025 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "system/passert.h"
 #include "nimble_type_conversions.h"
 
 #include <pbl/btutil/bt_uuid.h>

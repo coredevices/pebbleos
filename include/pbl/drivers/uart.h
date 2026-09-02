@@ -26,7 +26,7 @@ typedef struct UARTRXErrorFlags {
 //! The type of function which can be called from within the UART ISR (@see
 //! uart_set_*_interrupt_handler)
 //! @return Whether or not the ISR should context switch at the end instead of resuming the previous
-//! task (@see portEND_SWITCHING_ISR)
+//! task (the kernel requests it)
 typedef bool (*UARTRXInterruptHandler)(UARTDevice *dev, uint8_t data,
                                        const UARTRXErrorFlags *err_flags);
 typedef bool (*UARTTXInterruptHandler)(UARTDevice *dev);

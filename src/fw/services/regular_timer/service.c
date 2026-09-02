@@ -1,14 +1,13 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/drivers/rtc.h"
 #include "pbl/services/regular_timer.h"
 
 #include "pbl/kernel/mutex.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-
-#include "FreeRTOS.h"
 
 #include <time.h>
 
@@ -28,8 +27,6 @@ static ListNode s_minutes_callbacks;
 #define MISSING_MINUTE_CB_LOG_THRESHOLD_S 90
 static time_t s_last_minute_fire_ts; // uses
 static int s_last_minute_fired = -1; // Track which minute we last fired on
-
-
 
 // -------------------------------------------------------------------------------------------
 // Passed to list_find() to determine if a callback is already registered or not
@@ -96,7 +93,7 @@ static void timer_callback(void* data) {
 
   if (should_fire_minute) {
     // Keep the logging to detect large time jumps (multiple minutes skipped)
-    const time_t now_ts = rtc_get_ticks() / configTICK_RATE_HZ;
+    const time_t now_ts = rtc_get_ticks() / PBL_TICK_HZ;
     if ((now_ts - s_last_minute_fire_ts) > MISSING_MINUTE_CB_LOG_THRESHOLD_S) {
       PBL_LOG_WRN("Large time jump detected. Previous ts: %lu, Now ts: %lu",
               s_last_minute_fire_ts, now_ts);
@@ -227,7 +224,6 @@ bool regular_timer_remove_callback(RegularTimerInfo* cb) {
   pbl_mutex_unlock(&s_callback_list_semaphore);
   return timer_removed;
 }
-
 
 // ---------------------------------------------------------------------------------------
 // For Testing:

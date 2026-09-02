@@ -7,7 +7,6 @@
 
 #include "system/passert.h"
 
-#include "FreeRTOS.h"
 #include "pbl/kernel/sem.h"
 
 #include <nrfx.h>
@@ -27,8 +26,7 @@ static void prv_twim_evt_handler(nrfx_twim_evt_t const *evt, void *ctx) {
   I2CBus *bus = (I2CBus *) ctx;
   bool success = evt->type == NRFX_TWIM_EVT_DONE;
   I2CTransferEvent event = success ? I2CTransferEvent_TransferComplete : I2CTransferEvent_Error;
-  bool should_csw = i2c_handle_transfer_event(bus, event);
-  portEND_SWITCHING_ISR(should_csw);
+  i2c_handle_transfer_event(bus, event);
 }
 
 static void prv_twim_init(I2CBus *bus) {

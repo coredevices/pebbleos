@@ -22,7 +22,6 @@
 #include "fake_pbl_malloc.h"
 #include "fake_bt_driver_gatt.h"
 #include "fake_new_timer.h"
-#include "fake_queue.h"
 #include "fake_sem.h"
 #include "fake_system_task.h"
 
@@ -661,7 +660,7 @@ void test_gatt_client_subscriptions__notification_app_and_kernel_subscribers(voi
 }
 
 static pbl_tick_t prv_taking_too_long_to_consume_yield_cb(struct pbl_sem *queue) {
-  return milliseconds_to_ticks(1000);
+  return pbl_ms_to_ticks(1000);
 }
 
 static pbl_tick_t prv_consume_in_time_yield_cb(struct pbl_sem *queue) {
@@ -672,7 +671,7 @@ static pbl_tick_t prv_consume_in_time_yield_cb(struct pbl_sem *queue) {
   gatt_client_subscriptions_consume_notification(&characteristic_out, value_out, &value_length,
                                                  GAPLEClientApp, NULL);
   free(value_out);
-  return milliseconds_to_ticks(5);
+  return pbl_ms_to_ticks(5);
 }
 
 void test_gatt_client_subscriptions__notification_buffer_full(void) {

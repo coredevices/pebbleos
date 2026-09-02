@@ -37,7 +37,6 @@
 #include "pbl/util/attributes.h"
 
 #include "pbl/kernel/msgq.h"
-#include "portmacro.h"
 
 #include <bluetooth/bluetooth_types.h>
 
@@ -355,7 +354,6 @@ typedef struct PACKED { // 3 byte?
   bool enabled;
   BtCtlModeOverride override;
 } PebbleBluetoothStateEvent;
-
 
 typedef enum {
   PebblePutBytesEventTypeStart,
@@ -745,7 +743,6 @@ typedef enum PebbleWorkoutEventType {
 typedef struct PebbleWorkoutEvent {
   PebbleWorkoutEventType type;
 } PebbleWorkoutEvent;
-
 
 typedef struct PACKED {
   union PACKED {

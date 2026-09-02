@@ -20,7 +20,6 @@ pbl_clar_test(test_session_send_buffer
   SOURCES
     src/fw/services/comm_session/default_kernel_sender.c
     src/fw/services/comm_session/session_send_queue.c
-    tests/fakes/fake_queue.c
     tests/fakes/fake_rtc.c
 )
 

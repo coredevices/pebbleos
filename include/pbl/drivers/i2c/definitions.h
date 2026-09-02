@@ -7,8 +7,6 @@
 #include <pbl/drivers/rtc.h>
 #include "pbl/kernel/mutex.h"
 
-#include "portmacro.h"
-
 #include <stdint.h>
 
 typedef enum I2CTransferEvent {
@@ -83,4 +81,4 @@ struct I2CSlavePort {
 void i2c_init(I2CBus *bus);
 
 //! Transfer event handler implemented in i2c.c and called by HAL implementation
-portBASE_TYPE i2c_handle_transfer_event(I2CBus *device, I2CTransferEvent event);
+void i2c_handle_transfer_event(I2CBus *device, I2CTransferEvent event);

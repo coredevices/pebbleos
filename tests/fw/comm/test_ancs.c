@@ -32,7 +32,6 @@
 #include "stubs_pebble_pairing_service.h"
 #include "stubs_prompt.h"
 #include "stubs_timeline.h"
-#include "stubs_queue.h"
 #include "stubs_rand_ptr.h"
 #include "stubs_reminder_db.h"
 #include "stubs_reminders.h"

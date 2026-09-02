@@ -18,14 +18,12 @@
 #include <pbl/util/attributes.h>
 #include <util/net.h>
 
-#include "FreeRTOS.h"
 #include "pbl/kernel/sem.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-
 
 //! Modulus for sequence numbers
 #define MODULUS (128u)

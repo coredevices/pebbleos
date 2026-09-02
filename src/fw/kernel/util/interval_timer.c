@@ -1,10 +1,11 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "system/passert.h"
+#include "pbl/kernel/irq.h"
 #include "interval_timer.h"
 
 #include <pbl/drivers/rtc.h>
-#include "FreeRTOS.h"
 
 static uint64_t prv_get_curr_system_time_ms(void) {
   time_t time_s;
@@ -27,7 +28,7 @@ void interval_timer_init(IntervalTimer *timer, uint32_t min_expected_ms, uint32_
 //! Record a sample that marks the start/end of an interval.
 //! Safe to call from an ISR.
 void interval_timer_take_sample(IntervalTimer *timer) {
-  portENTER_CRITICAL();
+  pbl_irq_lock();
   {
     const uint64_t current_time = prv_get_curr_system_time_ms();
 
@@ -65,18 +66,18 @@ void interval_timer_take_sample(IntervalTimer *timer) {
     timer->last_sample_timestamp_ms = current_time;
   }
 
-  portEXIT_CRITICAL();
+  pbl_irq_unlock();
 }
 
 uint32_t interval_timer_get(IntervalTimer *timer, uint32_t *average_ms_out) {
   uint32_t num_intervals;
 
-  portENTER_CRITICAL();
+  pbl_irq_lock();
   {
     num_intervals = timer->num_samples ? timer->num_samples - 1 : 0;
     *average_ms_out = timer->average_ms;
   }
-  portEXIT_CRITICAL();
+  pbl_irq_unlock();
 
   return num_intervals;
 }

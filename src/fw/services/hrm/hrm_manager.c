@@ -9,7 +9,7 @@
 #include <pbl/drivers/hrm.h>
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/activity/activity.h"
@@ -186,9 +186,9 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
     if (prv_can_turn_sensor_on()) {
       RtcTicks cur_ticks = rtc_get_ticks();
       int32_t remaining_ticks = INT32_MAX;
-      const int32_t spin_up_ticks = (int32_t)milliseconds_to_ticks(
+      const int32_t spin_up_ticks = (int32_t)pbl_ms_to_ticks(
                                              HRM_SENSOR_SPIN_UP_SEC * MS_PER_SECOND);
-      const int64_t unserved_timeout_ticks = milliseconds_to_ticks(
+      const int64_t unserved_timeout_ticks = pbl_ms_to_ticks(
           HRM_MAX_UNSERVED_TIME_SEC * MS_PER_SECOND);
       // True once the sensor has been on a full serve window without satisfying every
       // subscriber. Only counts continuous on-time, so subscribers that went overdue while the
@@ -206,7 +206,7 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
         }
         needed_features |= state->features;
         const int64_t interval_ticks =
-            (int64_t)milliseconds_to_ticks(state->update_interval_s * MS_PER_SECOND);
+            (int64_t)pbl_ms_to_ticks(state->update_interval_s * MS_PER_SECOND);
         int64_t subscriber_age_ticks;
         if (state->last_valid_bpm_ticks) {
           subscriber_age_ticks = cur_ticks - state->last_valid_bpm_ticks;
@@ -236,7 +236,7 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
       }
 
       // How many milliseconds till we need to send the next sensor reading
-      remaining_ms = ticks_to_milliseconds(remaining_ticks);
+      remaining_ms = pbl_ticks_to_ms(remaining_ticks);
       HRM_LOG("Need sensor on again in %"PRIu32" sec", remaining_ms / MS_PER_SECOND);
       turn_sensor_on = (remaining_ms <= 0);
     }

@@ -8,19 +8,19 @@
 #ifndef _NIMBLE_NPL_OS_H_
 #define _NIMBLE_NPL_OS_H_
 
+#include "pbl/kernel/irq.h"
+#include "pbl/kernel/sched.h"
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
 
-#include "FreeRTOS.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/kernel/mutex.h"
+#include "pbl/drivers/rtc.h"
 #include "pbl/kernel/msgq.h"
 #include "pbl/kernel/thread.h"
 #include "pbl/kernel/sem.h"
 #include "pbl/services/new_timer/new_timer.h"
-#include "task.h"
-#include "timers.h"
 
 #include "os/os_cputime.h"
 
@@ -31,7 +31,7 @@
 
 #define BLE_NPL_OS_ALIGNMENT 4
 
-#define BLE_NPL_TIME_FOREVER portMAX_DELAY
+#define BLE_NPL_TIME_FOREVER PBL_TICK_FOREVER
 
 typedef uint32_t ble_npl_time_t;
 typedef int32_t ble_npl_stime_t;
@@ -81,7 +81,7 @@ struct ble_npl_sem {
 #include "npl_pebble.h"
 
 static inline bool ble_npl_os_started(void) {
-  return xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED;
+  return pbl_kernel_is_started();
 }
 
 static inline void *ble_npl_get_current_task_id(void) { return pbl_thread_current(); }
@@ -214,14 +214,14 @@ void ble_npl_hw_set_isr(int irqn, void (*addr)(void));
 #endif
 
 static inline uint32_t ble_npl_hw_enter_critical(void) {
-  vPortEnterCritical();
+  pbl_irq_lock();
   return 0;
 }
 
-static inline void ble_npl_hw_exit_critical(uint32_t ctx) { vPortExitCritical(); }
+static inline void ble_npl_hw_exit_critical(uint32_t ctx) { pbl_irq_unlock(); }
 
 static inline bool ble_npl_hw_is_in_critical(void) {
-  return vPortInCritical();
+  return pbl_irq_is_locked();
 }
 #define realloc kernel_realloc
 

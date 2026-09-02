@@ -22,9 +22,8 @@
 #include "pbl/util/likely.h"
 
 #include "pbl/kernel/mutex.h"
-#include <pbl/os/tick.h>
+#include "pbl/kernel/types.h"
 
-#include "FreeRTOS.h"
 #include "pbl/kernel/sem.h"
 
 // TODO:
@@ -143,7 +142,7 @@ static bool prv_retain_buffer(GAPLEClient client);
 static bool prv_wait_until_write_space_available(const CircularBuffer *buffer,
                                                  size_t required_length, uint32_t timeout_ms) {
   bool did_stall = false;
-  const RtcTicks timeout_end_ticks = rtc_get_ticks() + milliseconds_to_ticks(timeout_ms);
+  const RtcTicks timeout_end_ticks = rtc_get_ticks() + pbl_ms_to_ticks(timeout_ms);
   while (true) {
     prv_lock();
     // bt_lock() is held when this function is called. Unsubscribing also requires taking bt_lock(),
@@ -154,7 +153,7 @@ static bool prv_wait_until_write_space_available(const CircularBuffer *buffer,
     if (LIKELY(write_space >= required_length)) {
       if (UNLIKELY(did_stall)) {
         PBL_LOG_DBG("GATT notification stalled for %d ms...",
-                (int)(timeout_ms - ticks_to_milliseconds(timeout_end_ticks - rtc_get_ticks())));
+                (int)(timeout_ms - pbl_ticks_to_ms(timeout_end_ticks - rtc_get_ticks())));
       }
       return true;
     }
@@ -166,7 +165,7 @@ static bool prv_wait_until_write_space_available(const CircularBuffer *buffer,
     }
     // Wait until space is freed up:
     const uint32_t timeout_ticks = (timeout_end_ticks - now_ticks);
-    if (pdFALSE == (pbl_sem_take(&s_gatt_client_subscriptions_semphr, PBL_TICKS(timeout_ticks)) == 0)) {
+    if (pbl_sem_take(&s_gatt_client_subscriptions_semphr, PBL_TICKS(timeout_ticks)) != 0) {
       // Timeout expired while waiting for the semaphore.
       return false;
     }

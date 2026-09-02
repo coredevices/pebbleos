@@ -10,7 +10,7 @@
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/kernel/mutex.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include <pbl/logging/logging.h>
 #include "pbl/util/math.h"
 
@@ -346,7 +346,7 @@ bool music_has_now_playing(void) {
 uint32_t music_get_ms_since_pos_last_updated(void) {
   pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   const RtcTicks time_elapsed_ticks = rtc_get_ticks() - s_music_ctx.track_pos_updated_at;
-  const uint32_t time_elapsed_ms = ticks_to_milliseconds(time_elapsed_ticks);
+  const uint32_t time_elapsed_ms = pbl_ticks_to_ms(time_elapsed_ticks);
   pbl_mutex_unlock(&s_music_ctx.mutex);
   return time_elapsed_ms;
 }

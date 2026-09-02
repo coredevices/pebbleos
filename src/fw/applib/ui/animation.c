@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/irq.h"
 #include "animation_private.h"
 
 #include "animation_timing.h"
@@ -1870,7 +1871,7 @@ static void prv_dump_legacy_animations(ListNode *head, char *buffer, int buffer_
 
 // -------------------------------------------------------------------------------------------
 static void prv_dump_scheduler(char* buffer, int buffer_size, AnimationState* state) {
-  portENTER_CRITICAL();
+  pbl_irq_lock();
   if (animation_private_using_legacy_2(state)) {
     AnimationLegacy2Scheduler *legacy_state = (AnimationLegacy2Scheduler *)state;
     prv_dump_legacy_animations(legacy_state->head, buffer, buffer_size);
@@ -1878,7 +1879,7 @@ static void prv_dump_scheduler(char* buffer, int buffer_size, AnimationState* st
     prv_dump_animations(state->scheduled_head, true, buffer, buffer_size);
     prv_dump_animations(state->unscheduled_head, false, buffer, buffer_size);
   }
-  portEXIT_CRITICAL();
+  pbl_irq_unlock();
 }
 
 

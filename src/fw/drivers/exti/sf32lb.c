@@ -19,7 +19,6 @@ typedef struct {
 } ExtiHandlerConfig_t;
 
 static ExtiHandlerConfig_t s_exti_gpio1_handler_configs[EXTI_MAX_GPIO1_PIN_NUM];
-static bool s_should_context_switch;
 
 static GPIO_TypeDef *prv_gpio_get_instance(GPIO_TypeDef *hgpio, uint16_t gpio_pin,
                                            uint16_t *offset) {
@@ -119,7 +118,6 @@ void HAL_GPIO_EXTI_Callback(GPIO_TypeDef *hgpio, uint16_t GPIO_Pin) {
       bool should_context_switch = false;
 
       s_exti_gpio1_handler_configs[index].callback(&should_context_switch);
-      s_should_context_switch |= should_context_switch;
       return;
     }
   }
@@ -128,7 +126,5 @@ void HAL_GPIO_EXTI_Callback(GPIO_TypeDef *hgpio, uint16_t GPIO_Pin) {
 }
 
 void GPIO1_IRQHandler(void) {
-  s_should_context_switch = false;
   HAL_GPIO_IRQHandler(hwp_gpio1);
-  portEND_SWITCHING_ISR(s_should_context_switch);
 }

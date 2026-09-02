@@ -1,13 +1,12 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/types.h"
 #include <pbl/drivers/rtc.h>
 #include "syscall/syscall_internal.h"
 #include "time.h"
 #include "pbl/util/math.h"
 #include <string.h>
-
-#include "FreeRTOS.h"
 
 // timezone abbreviation
 static char s_timezone_abbr[TZ_LEN] = { 0 }; // longest timezone abbreviation is 5 char + null
@@ -259,7 +258,6 @@ time_t time_util_utc_to_local_offset(void) {
   return (time_utc_to_local(now) - now);
 }
 
-
 // ---------------------------------------------------------------------------------------
 DayInWeek time_util_get_day_in_week(time_t utc_sec) {
   struct tm local_tm;
@@ -283,7 +281,6 @@ int time_util_get_minute_of_day(time_t utc_sec) {
   return (local_tm.tm_hour * MINUTES_PER_HOUR) + local_tm.tm_min;
 }
 
-
 // ---------------------------------------------------------------------------------------
 int time_util_minute_of_day_adjust(int minute, int delta) {
   minute += delta;
@@ -295,7 +292,6 @@ int time_util_minute_of_day_adjust(int minute, int delta) {
   return minute;
 }
 
-
 // ---------------------------------------------------------------------------------------
 time_t time_start_of_today(void) {
   time_t now = rtc_get_time();
@@ -306,9 +302,8 @@ DEFINE_SYSCALL(time_t, sys_time_start_of_today, void) {
   return time_start_of_today();
 }
 
-
 // ---------------------------------------------------------------------------------------
 uint32_t time_get_uptime_seconds(void) {
   RtcTicks ticks = rtc_get_ticks();
-  return ticks / configTICK_RATE_HZ;
+  return ticks / PBL_TICK_HZ;
 }

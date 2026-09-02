@@ -63,7 +63,6 @@
 #include "stubs_process_manager.h"
 #include "stubs_prompt.h"
 #include "stubs_put_bytes.h"
-#include "stubs_queue.h"
 #include "stubs_quick_launch.h"
 #include "stubs_rand_ptr.h"
 #include "stubs_serial.h"

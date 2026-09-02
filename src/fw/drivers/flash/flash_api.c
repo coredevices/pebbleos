@@ -12,7 +12,7 @@
 #include <pbl/drivers/task_watchdog.h>
 #include "flash_region/flash_region.h"
 #include "pbl/kernel/mutex.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include "process_management/worker_manager.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "pbl/services/analytics/analytics.h"

@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <pbl/logging/logging.h>
 #include "clar.h"
 
 #include "logging/pulse_logging.h"
@@ -14,8 +15,6 @@ const int LOG_METADATA_LENGTH = 29;
 #include "kernel/events.h"
 #include "kernel/pebble_tasks.h"
 
-#include "FreeRTOS.h"
-#include "task.h"
 
 static int s_num_event_puts;
 static PebbleEvent s_last_event;
@@ -69,19 +68,19 @@ void rtc_get_time_ms(time_t* out_seconds, uint16_t* out_ms) {
 }
 
 
-void vPortEnterCritical(void) {
+void pbl_irq_lock(void) {
 }
 
-void vPortExitCritical(void) {
+void pbl_irq_unlock(void) {
 }
 
 bool s_in_critical_section;
-bool vPortInCritical(void) {
+bool pbl_irq_is_locked(void) {
   return s_in_critical_section;
 }
 
-BaseType_t xTaskGetSchedulerState(void) {
-  return taskSCHEDULER_RUNNING;
+bool pbl_sched_is_locked(void) {
+  return false;
 }
 
 // Tests

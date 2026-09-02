@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/irq.h"
+#include "pbl/kernel/sched.h"
 #include "system/reset.h"
 
 #include "board/board.h"
@@ -15,9 +17,6 @@
 #ifdef CONFIG_SOC_SF32LB52
 #include <bf0_hal.h>
 #endif
-
-#include "FreeRTOS.h"
-#include "task.h"
 
 void system_reset_prepare(void) {
   fw_prepare_for_reset();
@@ -35,8 +34,8 @@ NORETURN system_reset(void) {
 
   // Skip safe teardown if doing so the first time already caused a second reset attempt; or
   // if we're in a critical section, interrupt or if the scheduler has been suspended
-  if (!already_failed && !mcu_state_is_isr() && !portIN_CRITICAL() &&
-      (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)) {
+  if (!already_failed && !mcu_state_is_isr() && !pbl_irq_is_locked() &&
+      (pbl_kernel_is_running())) {
     system_reset_prepare();
     reboot_reason_set_restarted_safely();
   }

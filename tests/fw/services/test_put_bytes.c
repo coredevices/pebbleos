@@ -4,7 +4,7 @@
 #include "pbl/services/put_bytes/put_bytes.h"
 
 #include "pbl/services/comm_session/session_receive_router.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include "system/bootbits.h"
 #include "system/firmware_storage.h"
 #include <pbl/logging/logging.h>
@@ -24,7 +24,6 @@
 #include "fake_pbl_malloc.h"
 #include "fake_new_timer.h"
 #include "fake_put_bytes_storage_mem.h"
-#include "fake_queue.h"
 #include "fake_sem.h"
 #include "fake_rtc.h"
 #include "fake_session.h"
@@ -32,7 +31,7 @@
 #include "fake_system_task.h"
 
 #include "stubs_bt_lock.h"
-#include "stubs_freertos.h"
+#include "stubs_irq.h"
 #include "stubs_hexdump.h"
 #include "stubs_logging.h"
 #include "stubs_mutex.h"
@@ -373,7 +372,7 @@ void test_put_bytes__cleanup(void) {
 
 
 static pbl_tick_t prv_taking_too_long_yield_cb(struct pbl_sem *queue) {
-  return milliseconds_to_ticks(1000);
+  return pbl_ms_to_ticks(1000);
 }
 
 void test_put_bytes__lock_contention_upon_prepare_message(void) {

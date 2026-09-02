@@ -25,7 +25,7 @@ typedef void (*SystemTaskEventCallback)(void *data);
 //! @param cb Callback function that will later be called from the system task
 //! @param data Context pointer passed to the callback
 //! @param should_context_switch A boolean that indicates our ISR should context switch at the end instead of
-//!                              resuming the previous task. See portEND_SWITCHING_ISR()
+//!                              resuming the previous task.
 bool system_task_add_callback_from_isr(SystemTaskEventCallback cb, void *data, bool* should_context_switch);
 
 //! Same as system_task_add_callback_from_isr(), except a full queue drops the callback and

@@ -1,17 +1,17 @@
 /* SPDX-FileCopyrightText: 2025 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/irq.h"
 #include <stdint.h>
 
 #include <system/passert.h>
 
-#include <FreeRTOS.h>
 #include <hal/nrf_clock.h>
 
 static uint8_t prv_refcnt;
 
 void clocksource_hfxo_request(void) {
-  portENTER_CRITICAL();
+  pbl_irq_lock();
 
   PBL_ASSERT(prv_refcnt < UINT8_MAX, "HFXO refcount overflow");
 
@@ -24,11 +24,11 @@ void clocksource_hfxo_request(void) {
 
   prv_refcnt++;
 
-  portEXIT_CRITICAL();
+  pbl_irq_unlock();
 }
 
 void clocksource_hfxo_release(void) {
-  portENTER_CRITICAL();
+  pbl_irq_lock();
 
   PBL_ASSERT(prv_refcnt != 0U, "HFXO refcount underflow");
 
@@ -37,5 +37,5 @@ void clocksource_hfxo_release(void) {
     nrf_clock_task_trigger(NRF_CLOCK, NRF_CLOCK_TASK_HFCLKSTOP);
   }
 
-  portEXIT_CRITICAL();
+  pbl_irq_unlock();
 }

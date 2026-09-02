@@ -1,14 +1,13 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/irq.h"
 #include <pbl/drivers/button.h>
 #include <pbl/drivers/debounced_button.h>
 
 #include "board/board.h"
 #include "console/prompt.h"
 #include "kernel/events.h"
-
-#include "FreeRTOS.h"
 
 #include <cmsis_core.h>
 #include <stdlib.h>
@@ -50,7 +49,6 @@ static void prv_gpio_irq_handler(void) {
   s_last_state = state;
 
   // Generate button events for each changed button
-  bool should_context_switch = false;
   for (int i = 0; i < NUM_BUTTONS; i++) {
     if (changed & s_button_bits[i]) {
       bool is_pressed = (state & s_button_bits[i]) != 0;
@@ -58,11 +56,9 @@ static void prv_gpio_irq_handler(void) {
         .type = is_pressed ? PEBBLE_BUTTON_DOWN_EVENT : PEBBLE_BUTTON_UP_EVENT,
         .button.button_id = i,
       };
-      should_context_switch |= event_put_isr(&e);
+      event_put_isr(&e);
     }
   }
-
-  portEND_SWITCHING_ISR(should_context_switch);
 }
 
 // IRQ trampoline for GPIO IRQ (IRQ 6)
@@ -79,7 +75,7 @@ void button_init(void) {
   // Enable edge interrupt
   REG32(base + GPIO_INTCTRL) = 1;
 
-  // Enable GPIO IRQ in NVIC - priority must be >= configMAX_SYSCALL_INTERRUPT_PRIORITY
+  // Enable GPIO IRQ in NVIC - priority must be >= PBL_IRQ_PRIO_MAX_SYSCALL
   // to safely call FreeRTOS API from ISR. Use priority 6 (lower urgency than max syscall).
   NVIC_SetPriority(GPIO_IRQn, 6);
   NVIC_EnableIRQ(GPIO_IRQn);

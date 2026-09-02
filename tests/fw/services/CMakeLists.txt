@@ -39,7 +39,6 @@ pbl_clar_test(test_put_bytes
     src/fw/util/legacy_checksum.c
     tests/fakes/fake_events.c
     tests/fakes/fake_put_bytes_storage_mem.c
-    tests/fakes/fake_queue.c
     tests/fakes/fake_resource_storage.c
     tests/fakes/fake_rtc.c
     tests/fakes/fake_spi_flash.c
@@ -486,7 +485,7 @@ pbl_clar_test(test_touch_session
 pbl_clar_test(test_hrm_manager
   SOURCES
     src/fw/services/hrm/hrm_manager.c
-    lib/os/tick.c
+    kernel/tick.c
     tests/fakes/fake_events.c
     tests/fakes/fake_rtc.c
     tests/fakes/fake_accel_service.c

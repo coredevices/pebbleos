@@ -9,8 +9,7 @@
 #include "debug/power_tracking.h"
 #include "pbl/services/analytics/analytics.h"
 #include <pbl/drivers/rtc.h>
-#include "FreeRTOS.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include "kernel/util/sleep.h"
 #include "pbl/kernel/mutex.h"
 #include "pbl/kernel/sem.h"
@@ -43,7 +42,7 @@ static bool prv_semaphore_take(I2CBusState *bus) {
 }
 
 static bool prv_semaphore_wait(I2CBusState *bus) {
-  TickType_t timeout_ticks = milliseconds_to_ticks(I2C_ERROR_TIMEOUT_MS);
+  pbl_tick_t timeout_ticks = pbl_ms_to_ticks(I2C_ERROR_TIMEOUT_MS);
   return ((pbl_sem_take(&bus->event_semaphore, PBL_TICKS(timeout_ticks)) == 0));
 }
 
@@ -52,9 +51,8 @@ static void prv_semaphore_give(I2CBusState *bus) {
   pbl_sem_give(&bus->event_semaphore);
 }
 
-static portBASE_TYPE prv_semaphore_give_from_isr(I2CBusState *bus) {
+static void prv_semaphore_give_from_isr(I2CBusState *bus) {
   pbl_sem_give(&bus->event_semaphore);
-  return pdFALSE;
 }
 
 /*-------------------BUS/PIN CONFIG FUNCTIONS--------------------------*/
@@ -397,7 +395,7 @@ bool i2c_write_read_block(I2CSlavePort *slave, uint32_t write_size, const uint8_
 
 /*----------------------HAL INTERFACE--------------------------------*/
 
-portBASE_TYPE i2c_handle_transfer_event(I2CBus *bus, I2CTransferEvent event) {
+void i2c_handle_transfer_event(I2CBus *bus, I2CTransferEvent event) {
   bus->state->transfer_event = event;
-  return prv_semaphore_give_from_isr(bus->state);
+  prv_semaphore_give_from_isr(bus->state);
 }

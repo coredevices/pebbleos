@@ -1,12 +1,13 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/drivers/rtc.h"
 #include "task_timer.h"
 #include "task_timer_manager.h"
 
 #include "kernel/pebble_tasks.h"
 #include "pbl/kernel/mutex.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/list.h"
@@ -147,7 +148,7 @@ TaskTimerID task_timer_create(TaskTimerManager *manager) {
 // Schedule a timer to run.
 bool task_timer_start(TaskTimerManager *manager, TaskTimerID timer_id,
                       uint32_t timeout_ms, TaskTimerCallback cb, void *cb_data, uint32_t flags) {
-  TickType_t timeout_ticks = milliseconds_to_ticks(timeout_ms);
+  pbl_tick_t timeout_ticks = pbl_ms_to_ticks(timeout_ms);
   RtcTicks current_time = rtc_get_ticks();
 
   // Grab lock on timer structures
@@ -215,7 +216,7 @@ bool task_timer_scheduled(TaskTimerManager *manager, TaskTimerID timer_id, uint3
   if (expire_ms_p != NULL && retval) {
     RtcTicks current_ticks = rtc_get_ticks();
     if (timer->expire_time > current_ticks) {
-      *expire_ms_p = ((timer->expire_time - current_ticks) * 1000)  / configTICK_RATE_HZ;
+      *expire_ms_p = ((timer->expire_time - current_ticks) * 1000)  / PBL_TICK_HZ;
     } else {
       *expire_ms_p = 0;
     }
@@ -304,9 +305,9 @@ void task_timer_manager_init(TaskTimerManager *manager, struct pbl_sem *semaphor
 }
 
 
-TickType_t task_timer_manager_execute_expired_timers(TaskTimerManager *manager) {
+pbl_tick_t task_timer_manager_execute_expired_timers(TaskTimerManager *manager) {
   while (1) {
-    TickType_t ticks_to_wait = 0;
+    pbl_tick_t ticks_to_wait = 0;
     RtcTicks next_expiry_time = 0;
 
     // -------------------------------------------------------------------------------------
@@ -343,7 +344,7 @@ TickType_t task_timer_manager_execute_expired_timers(TaskTimerManager *manager) 
       }
     } else {
       // No timers running
-      ticks_to_wait = portMAX_DELAY;
+      ticks_to_wait = PBL_TICK_FOREVER;
     }
 
     pbl_mutex_unlock(&manager->mutex);

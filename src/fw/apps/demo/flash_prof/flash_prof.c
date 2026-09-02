@@ -13,8 +13,6 @@
 #include "applib/ui/number_window.h"
 #include "applib/ui/window_stack.h"
 
-#include "FreeRTOS.h"
-
 static NumberWindow number_window;
 
 static uint32_t timed_read_bytes(uint32_t num_bytes) {

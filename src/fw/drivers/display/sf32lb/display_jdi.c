@@ -15,7 +15,6 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 
-#include "FreeRTOS.h"
 #include "pbl/kernel/sem.h"
 
 #include "bf0_hal_lcdc.h"
@@ -291,8 +290,6 @@ void display_jdi_irq_handler(DisplayJDIDevice *disp) {
 }
 
 void HAL_LCDC_SendLayerDataCpltCbk(LCDC_HandleTypeDef *lcdc) {
-  portBASE_TYPE woken = pdFALSE;
-
   // Tell the IRQ logger the HAL reached the completion path for this interrupt.
   s_lcdc_eof_cb_fired = true;
 
@@ -302,7 +299,6 @@ void HAL_LCDC_SendLayerDataCpltCbk(LCDC_HandleTypeDef *lcdc) {
     // Simulate the lost-completion failure mode: leave s_eof_observed false
     // and don't post the terminate event. The silent-loss timer should fire
     // ~DISPLAY_SILENT_LOSS_TIMEOUT_MS later and PBL_CROAK.
-    portEND_SWITCHING_ISR(woken);
     return;
   }
 #endif
@@ -321,12 +317,11 @@ void HAL_LCDC_SendLayerDataCpltCbk(LCDC_HandleTypeDef *lcdc) {
             },
     };
 
-    woken = event_put_isr(&e) ? pdTRUE : pdFALSE;
+    event_put_isr(&e);
   } else {
     pbl_sem_give(&s_sem);
   }
 
-  portEND_SWITCHING_ISR(woken);
 }
 
 void display_init(void) {
@@ -364,7 +359,6 @@ void display_init(void) {
 
   HAL_NVIC_SetPriority(DISPLAY->irqn, DISPLAY->irq_priority, 0);
   HAL_NVIC_EnableIRQ(DISPLAY->irqn);
-
 
   prv_display_on();
 

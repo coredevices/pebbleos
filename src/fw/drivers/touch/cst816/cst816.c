@@ -9,7 +9,7 @@
 #include <pbl/drivers/touch/touch_sensor.h>
 #include "kernel/events.h"
 #include "kernel/util/sleep.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/regular_timer.h"
 #include "pbl/services/touch/touch.h"
@@ -290,7 +290,7 @@ static void prv_process_pending_messages(void* context) {
 
   // Count interrupts spaced >=2s apart as sleep->awake transitions.
   RtcTicks now = rtc_get_ticks();
-  if (now - s_last_irq_ticks >= milliseconds_to_ticks(CST816_WAKE_SPACING_MS)) {
+  if (now - s_last_irq_ticks >= pbl_ms_to_ticks(CST816_WAKE_SPACING_MS)) {
     PBL_ANALYTICS_ADD(touch_driver_wake_cnt, 1);
   }
   s_last_irq_ticks = now;

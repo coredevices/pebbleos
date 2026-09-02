@@ -1,13 +1,12 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/irq.h"
 #include "board/board.h"
 #include <pbl/drivers/gpio.h>
 #include <pbl/drivers/backlight.h>
 #include "kernel/util/delay.h"
 #include "pbl/util/math.h"
-
-#include "FreeRTOS.h"
 
 // AW9364E 1-wire dimming protocol implementation
 // The AW9364E uses pulse counting for brightness control:
@@ -36,14 +35,14 @@ void backlight_init(void) {
 //! undefined territory (past 2.5ms it shuts down), so the train runs with
 //! the scheduler and most interrupts masked; worst case is ~55us.
 static void prv_send_pulses(uint8_t count, bool from_shutdown) {
-  portENTER_CRITICAL();
+  pbl_irq_lock();
   for (uint8_t i = 0U; i < count; i++) {
     gpio_output_set(&AW9364E.gpio, false);
     delay_us(AW9364E_TLO_US);
     gpio_output_set(&AW9364E.gpio, true);
     delay_us((from_shutdown && i == 0U) ? AW9364E_TON_US : AW9364E_THI_US);
   }
-  portEXIT_CRITICAL();
+  pbl_irq_unlock();
 }
 
 uint8_t backlight_get_level(uint8_t brightness) {

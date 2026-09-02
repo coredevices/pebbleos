@@ -189,7 +189,7 @@ pbl_clar_test(test_alerts
   OVERRIDES dummy_board
 )
 
-pbl_clar_test(test_freertos_utils)
+pbl_clar_test(test_tick)
 
 pbl_clar_test(test_heap
   SOURCES

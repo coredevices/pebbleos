@@ -9,7 +9,7 @@
 #include "kernel/pebble_tasks.h"
 #include "kernel/util/task_init.h"
 #include "pbl/mcu/fpu.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include "pbl/services/regular_timer.h"
 
 #include "pbl/kernel/msgq.h"
@@ -101,7 +101,7 @@ void system_task_init(void) {
 
 void system_task_timer_init(void) {
   // Register a regular timer to kick the watchdog while we're waiting for something
-  // to do. The other way to do this is to have the xQueueReceive in system_task_main timeout
+  // to do. The other way to do this is to have the queue wait in system_task_main time out
   // occasionally, but that isn't necessarily second aligned and will require the watch
   // to wakeup from sleep just to kick the watchdog. This way it's kicked at the same time as
   // all the other regular tasks. Note that the system_task_idle_timer_callback only kicks

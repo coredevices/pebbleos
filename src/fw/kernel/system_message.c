@@ -16,8 +16,6 @@
 #include "system/reset.h"
 #include "pbl/util/attributes.h"
 
-#include "FreeRTOS.h"
-
 #include <stdbool.h>
 #include <inttypes.h>
 

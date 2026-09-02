@@ -1,19 +1,17 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/irq.h"
+#include "pbl/kernel/sched.h"
 #include "kernel_applib_state.h"
 
 #include "applib/ui/layer.h"
 #include "pbl/mcu/interrupts.h"
 #include "pbl/kernel/mutex.h"
 
-#include "FreeRTOS.h"
-#include "task.h"
-
 static PBL_MUTEX_DEFINE(s_log_state_mutex);
 static bool s_log_state_mutex_ready;
 static bool s_log_state_task_entered[NumPebbleTask];   // which tasks have entered
-
 
 // ---------------------------------------------------------------------------------------------
 CompassServiceConfig **kernel_applib_get_compass_config(void) {
@@ -52,7 +50,6 @@ LogState *kernel_applib_get_log_state(void) {
   }
   s_log_state_task_entered[task] = true;
 
-
   // We have 3 possible phases of operation:
   //   1.) Before FreeRTOS has been initialized - only 1 "task", no mutexes available
   //   2.) After FreeRTOS, but before our mutex has been created (via kernel_applib_init())
@@ -63,7 +60,7 @@ LogState *kernel_applib_get_log_state(void) {
   // In phase 3, we log after locking the mutex only.
   // Note, if we are in an ISR or critical section in any of these phases, we cannot use a mutex
   if ((pebble_task_get_thread(PebbleTask_KernelMain) == NULL) || mcu_state_is_isr()
-        || portIN_CRITICAL() || (xTaskGetSchedulerState() != taskSCHEDULER_RUNNING)) {
+        || pbl_irq_is_locked() || (!pbl_kernel_is_running())) {
     // phase 1 || in an ISR || in a critical section
     use_mutex = false;
   } else if (!s_log_state_mutex_ready) {
@@ -103,15 +100,14 @@ exit_fail:
   return NULL;
 }
 
-
 // --------------------------------------------------------------------------------------------
 // Release the LogState buffer obtained by kernel_applib_get_log_state()
 void kernel_applib_release_log_state(LogState *state) {
   state->in_progress = false;
 
   // For phase 1 & when in an ISR, there is no mutex available
-  if (!portIN_CRITICAL() && !mcu_state_is_isr()  &&
-      (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) &&
+  if (!pbl_irq_is_locked() && !mcu_state_is_isr()  &&
+      (pbl_kernel_is_running()) &&
       s_log_state_mutex_ready) {
     pbl_mutex_unlock(&s_log_state_mutex);
   }
@@ -120,7 +116,6 @@ void kernel_applib_release_log_state(LogState *state) {
   PebbleTask task = prv_get_current_task();
   s_log_state_task_entered[task] = false;
 }
-
 
 // ---------------------------------------------------------------------------------------------
 EventServiceInfo* kernel_applib_get_event_service_state(void) {
@@ -163,5 +158,4 @@ void kernel_applib_init(void) {
   connection_service_state_init(kernel_applib_get_connection_service_state());
   battery_state_service_state_init(kernel_applib_get_battery_state_service_state());
 }
-
 

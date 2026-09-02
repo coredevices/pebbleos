@@ -3,6 +3,8 @@
 
 #ifdef CONFIG_PULSE_EVERYWHERE
 
+#include "pbl/kernel/irq.h"
+#include "pbl/kernel/sched.h"
 #include "pulse.h"
 #include "pulse2_reliable_retransmit_timer.h"
 #include "pulse2_transport_impl.h"
@@ -28,11 +30,9 @@
 #include "util/net.h"
 #include "pbl/util/size.h"
 
-#include "FreeRTOS.h"
 #include "pbl/kernel/msgq.h"
 #include "pbl/kernel/thread.h"
 #include "pbl/kernel/sem.h"
-#include "task.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -46,7 +46,6 @@
 
 #define FRAME_DELIMITER '\x55'
 #define LINK_HEADER_LEN sizeof(net16)
-
 
 // Link Control Protocol
 // =====================
@@ -137,7 +136,6 @@ static void prv_lcp_on_packet(void *packet, size_t length) {
   ppp_control_protocol_handle_incoming_packet(PULSE2_LCP, packet, length);
 }
 
-
 // Data link layer
 // ===============
 
@@ -220,7 +218,7 @@ void pulse2_reliable_retransmit_timer_cancel(void) {
 
 // Check the state of the timer.
 //
-// If there is no timer running, portMAX_DELAY is returned.
+// If there is no timer running, PBL_TICK_FOREVER is returned.
 //
 // If there is a timer running but it has not expired yet, the number of ticks
 // (not milliseconds) remaining before the timer expires is returned.
@@ -228,10 +226,10 @@ void pulse2_reliable_retransmit_timer_cancel(void) {
 // If there is a timer running that has expired, the timer state is cleared so
 // that subsequent calls do not expire the same timer twice, sequence_number is
 // filled with the sequence number of the expired timer, and 0 is returned.
-static TickType_t prv_poll_timer(uint8_t *const sequence_number) {
+static pbl_tick_t prv_poll_timer(uint8_t *const sequence_number) {
   pbl_mutex_lock(&s_reliable_timer_state_lock, PBL_FOREVER);
   RtcTicks timer_expiry_tick = s_reliable_timer_expiry_time_tick;
-  TickType_t timeout = portMAX_DELAY;
+  pbl_tick_t timeout = PBL_TICK_FOREVER;
   if (timer_expiry_tick) {  // A timer is pending
     RtcTicks now = rtc_get_ticks();
     if (now >= timer_expiry_tick) {  // Timer has expired
@@ -273,7 +271,7 @@ static void prv_pulse_task_main(void *unused) {
 
   while (true) {
     uint8_t timer_sequence_number;
-    TickType_t timeout = prv_poll_timer(&timer_sequence_number);
+    pbl_tick_t timeout = prv_poll_timer(&timer_sequence_number);
 
     if (timeout && pbl_msgq_num_used(&s_pulse_task_queue) == 0) {
       s_pulse_task_idle = true;
@@ -386,8 +384,8 @@ void pulse_handle_character(char c, bool *should_context_switch) {
 }
 
 static bool prv_safe_to_touch_mutex(void) {
-  return !(portIN_CRITICAL() || mcu_state_is_isr() ||
-           xTaskGetSchedulerState() != taskSCHEDULER_RUNNING);
+  return !(pbl_irq_is_locked() || mcu_state_is_isr() ||
+           !pbl_kernel_is_running());
 }
 
 void *pulse_link_send_begin(const uint16_t protocol) {

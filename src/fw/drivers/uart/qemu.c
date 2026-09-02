@@ -7,8 +7,6 @@
 #include "board/board.h"
 #include "system/passert.h"
 
-#include "FreeRTOS.h"
-
 #define REG32(addr) (*(volatile uint32_t *)(addr))
 
 // QEMU pebble-simple-uart register offsets
@@ -173,7 +171,6 @@ void uart_clear_rx_dma_buffer(UARTDevice *dev) {
 // Called from the IRQ handler trampoline defined via IRQ_MAP in the board file
 void uart_irq_handler(UARTDevice *dev) {
   uint32_t int_status = REG32(dev->base_addr + UART_INT);
-  bool should_context_switch = false;
 
   if (int_status & INT_RX_PENDING) {
     REG32(dev->base_addr + UART_INT) = INT_RX_PENDING;
@@ -184,7 +181,7 @@ void uart_irq_handler(UARTDevice *dev) {
              (REG32(dev->base_addr + UART_STATE) & STATE_RX_READY)) {
         uint8_t byte = (uint8_t)(REG32(dev->base_addr + UART_DATA) & 0xFF);
         UARTRXErrorFlags err = {};
-        should_context_switch |= dev->state->rx_irq_handler(dev, byte, &err);
+        dev->state->rx_irq_handler(dev, byte, &err);
       }
     }
   }
@@ -192,9 +189,8 @@ void uart_irq_handler(UARTDevice *dev) {
   if (int_status & INT_TX_PENDING) {
     REG32(dev->base_addr + UART_INT) = INT_TX_PENDING;
     if (dev->state->tx_irq_handler && dev->state->tx_int_enabled) {
-      should_context_switch |= dev->state->tx_irq_handler(dev);
+      dev->state->tx_irq_handler(dev);
     }
   }
 
-  portEND_SWITCHING_ISR(should_context_switch);
 }

@@ -18,7 +18,6 @@
 #include <nrfx_gppi.h>
 #include <nrfx_spim.h>
 
-#include "FreeRTOS.h"
 #include "pbl/kernel/sem.h"
 
 #define DISP_MODE_WRITE 0x01U
@@ -114,8 +113,6 @@ static void prv_terminate_transfer(void *data) {
 }
 
 static void prv_spim_evt_handler(nrfx_spim_evt_t const *evt, void *ctx) {
-  portBASE_TYPE woken = pdFALSE;
-
   if (s_updating) {
     PebbleEvent e = {
         .type = PEBBLE_CALLBACK_EVENT,
@@ -125,12 +122,11 @@ static void prv_spim_evt_handler(nrfx_spim_evt_t const *evt, void *ctx) {
             },
     };
 
-    woken = event_put_isr(&e) ? pdTRUE : pdFALSE;
+    event_put_isr(&e);
   } else {
     pbl_sem_give(&s_sem);
   }
 
-  portEND_SWITCHING_ISR(woken);
 }
 
 void display_init(void) {

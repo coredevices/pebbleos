@@ -78,7 +78,6 @@ pbl_clar_test(test_gatt_client_subscriptions
     tests/fakes/fake_gap_le_connect_params.c
     tests/fakes/fake_events.c
     tests/fakes/fake_bt_driver_gatt.c
-    tests/fakes/fake_queue.c
     tests/fakes/fake_rtc.c
   DEFINES CONFIG_BLE_GATT_NOTIF_WRITE_TIMEOUT_MS=100 CONFIG_BLE_GATT_SUBSCRIPTION_DEPTH=4
 )

@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/irq.h"
 #include "serial_console.h"
 
 #include "console/dbgserial_input.h"
@@ -9,7 +10,7 @@
 #include "prompt.h"
 
 #include "console/pulse_internal.h"
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 
@@ -77,10 +78,10 @@ void serial_console_set_state(SerialConsoleState new_state) {
 
   // This function is called from the USART3 IRQ, the new timer thread,
   // and the system task. It thus needs a critical section.
-  portENTER_CRITICAL();
+  pbl_irq_lock();
 
   if (new_state == s_serial_console_state) {
-    portEXIT_CRITICAL();
+    pbl_irq_unlock();
     return;
   }
 
@@ -105,7 +106,7 @@ void serial_console_set_state(SerialConsoleState new_state) {
       WTF; // Don't know this state
   }
 
-  portEXIT_CRITICAL();
+  pbl_irq_unlock();
 }
 
 SerialConsoleState serial_console_get_state(void) {
@@ -115,7 +116,7 @@ SerialConsoleState serial_console_get_state(void) {
 }
 
 void serial_console_set_rx_enabled(bool enabled) {
-  portENTER_CRITICAL();
+  pbl_irq_lock();
   dbgserial_set_input_enabled(enabled);
-  portEXIT_CRITICAL();
+  pbl_irq_unlock();
 }

@@ -162,7 +162,6 @@ void uart_set_tx_interrupt_enabled(UARTDevice *dev, bool enabled) {
 
 void uart_irq_handler(UARTDevice *dev) {
   PBL_ASSERTN(dev->state->initialized);
-  bool should_context_switch = false;
   uint32_t idx;
 
   if (dev->state->rx_irq_handler && dev->state->rx_int_enabled) {
@@ -185,9 +184,7 @@ void uart_irq_handler(UARTDevice *dev) {
       for (int32_t i = 0; i < recv_len; i++) {
         uint8_t data;
         data = dev->state->rx_dma_buffer[idx];
-        if (dev->state->rx_irq_handler(dev, data, &err_flags)) {
-          should_context_switch = true;
-        }
+        dev->state->rx_irq_handler(dev, data, &err_flags);
         idx++;
         if (idx >= dma_length) {
           idx = 0;
@@ -204,18 +201,13 @@ void uart_irq_handler(UARTDevice *dev) {
       // read the data register regardless to clear the error flags
       const uint8_t data = uart_read_byte(dev);
       if (has_byte) {
-        if (dev->state->rx_irq_handler(dev, data, &err_flags)) {
-          should_context_switch = true;
-        }
+        dev->state->rx_irq_handler(dev, data, &err_flags);
       }
     }
   }
   if (dev->state->tx_irq_handler && dev->state->tx_int_enabled && uart_is_tx_ready(dev)) {
-    if (dev->state->tx_irq_handler(dev)) {
-      should_context_switch = true;
-    }
+    dev->state->tx_irq_handler(dev);
   }
-  portEND_SWITCHING_ISR(should_context_switch);
 }
 
 void uart_clear_all_interrupt_flags(UARTDevice *dev) {
@@ -238,7 +230,6 @@ void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart) {
   size_t recv_len;
   size_t recv_total_index;
   uint32_t idx;
-  bool should_context_switch = false;
 
   UARTDeviceState *state = container_of(huart, UARTDeviceState, huart);
   UARTDevice *dev = (UARTDevice *)state->dev;
@@ -255,16 +246,13 @@ void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart) {
     for (size_t i = 0; i < recv_len; i++) {
       uint8_t data;
       data = state->rx_dma_buffer[idx];
-      if (state->rx_irq_handler(dev, data, NULL)) {
-        should_context_switch = true;
-      }
+      state->rx_irq_handler(dev, data, NULL);
       idx++;
       if (idx >= state->rx_dma_length) {
           idx = 0;
       }
     }
   }
-  portEND_SWITCHING_ISR(should_context_switch);
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {

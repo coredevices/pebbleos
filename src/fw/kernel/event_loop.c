@@ -66,8 +66,6 @@
 #include "system/testinfra.h"
 #include "pbl/util/struct.h"
 
-#include "FreeRTOS.h"
-
 static const uint32_t FORCE_QUIT_HOLD_MS = 1500;
 static int s_back_hold_timer = TIMER_INVALID_ID;
 

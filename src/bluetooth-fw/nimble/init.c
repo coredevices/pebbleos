@@ -3,7 +3,6 @@
 
 #include "gh3x2x_tuning_service.h"
 
-#include <FreeRTOS.h>
 #include <bluetooth/init.h>
 #include <comm/bt_lock.h>
 #include <host/ble_hs.h>
@@ -11,7 +10,7 @@
 #include <host/util/util.h>
 #include <kernel/pebble_tasks.h>
 #include <nimble/nimble_port.h>
-#include <pbl/os/tick.h>
+#include "pbl/kernel/types.h"
 #include "pbl/kernel/sem.h"
 #include "pbl/kernel/thread.h"
 #include <services/dis/ble_svc_dis.h>
@@ -84,7 +83,6 @@ static void prv_ble_hs_stop_cb(int status, void *arg) { pbl_sem_give(&s_host_sto
 void bt_driver_init(void) {
   bt_lock_init();
 
-
   nimble_discover_init();
   nimble_gattc_op_queue_init();
 
@@ -120,7 +118,7 @@ void bt_driver_init(void) {
 
 bool bt_driver_start(BTDriverConfig *config) {
   int rc;
-  BaseType_t f_rc;
+  bool f_rc;
 
   if (s_driver_state == DriverStateStarted) {
     PBL_LOG_WRN("Driver already started; skipping start");
@@ -158,7 +156,7 @@ bool bt_driver_start(BTDriverConfig *config) {
 
   ble_hs_sched_start();
   f_rc = (pbl_sem_take(&s_host_started, PBL_MSEC(s_bt_stack_start_stop_timeout_ms)) == 0);
-  if (f_rc != pdTRUE) {
+  if (!f_rc) {
     // core_dump wakes the LCPU itself, so its RAM is captured here too.
     PBL_CROAK("NimBLE host start timed out");
   }
@@ -185,7 +183,7 @@ err:
   }
 
   f_rc = (pbl_sem_take(&s_host_stopped, PBL_MSEC(s_bt_stack_start_stop_timeout_ms)) == 0);
-  PBL_ASSERT(f_rc == pdTRUE, "NimBLE host stop timed out after start failure");
+  PBL_ASSERT(f_rc, "NimBLE host stop timed out after start failure");
 
   s_driver_state = DriverStateStopped;
   (void)ble_gatts_reset();
@@ -194,13 +192,13 @@ err:
 }
 
 void bt_driver_stop(void) {
-  BaseType_t f_rc;
+  bool f_rc;
 
   s_driver_state = DriverStateStopping;
   (void)(pbl_sem_take(&s_host_stopped, PBL_NO_WAIT) == 0);
   ble_hs_stop(&s_listener, prv_ble_hs_stop_cb, NULL);
   f_rc = (pbl_sem_take(&s_host_stopped, PBL_MSEC(s_bt_stack_start_stop_timeout_ms)) == 0);
-  PBL_ASSERT(f_rc == pdTRUE, "NimBLE host stop timed out");
+  PBL_ASSERT(f_rc, "NimBLE host stop timed out");
   s_driver_state = DriverStateStopped;
 
   ble_gatts_reset();

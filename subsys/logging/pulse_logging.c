@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/irq.h"
+#include "pbl/kernel/sched.h"
 #include "pulse_logging.h"
 
 #include "logging_private.h"
@@ -15,9 +17,6 @@
 #include "pbl/util/circular_buffer.h"
 #include "pbl/util/math.h"
 #include "pbl/util/string.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
 
 #include <ctype.h>
 
@@ -44,7 +43,6 @@ static CircularBuffer s_isr_log_buffer;
 
 //! Underlying storage for s_isr_log_buffer
 static uint8_t s_isr_log_buffer_storage[256];
-
 
 static uint64_t prv_get_timestamp_ms(void) {
   time_t time_s;
@@ -80,7 +78,6 @@ static size_t prv_serialize_log_header(MessageContents *contents,
   return offsetof(MessageContents, message);
 }
 
-
 //! Serialize a message into contents, returning the number of bytes used.
 static size_t prv_serialize_log(MessageContents *contents,
                                 uint8_t log_level, uint64_t timestamp_ms, PebbleTask task,
@@ -110,20 +107,18 @@ static void prv_send_pulse_packet(uint8_t log_level, const char *src_filename,
   pulse_push_send(contents, payload_length);
 }
 
-
 static bool prv_isr_buffer_read_and_consume(void *buffer, size_t read_length) {
-  portENTER_CRITICAL();
+  pbl_irq_lock();
 
   const bool result = circular_buffer_copy(&s_isr_log_buffer, buffer, read_length);
   if (result) {
     circular_buffer_consume(&s_isr_log_buffer, read_length);
   }
 
-  portEXIT_CRITICAL();
+  pbl_irq_unlock();
 
   return result;
 }
-
 
 static void prv_event_cb(void *data) {
   while (true) {
@@ -167,11 +162,11 @@ static void prv_enqueue_log_message(uint8_t log_level, const char *message) {
   const bool buffer_was_empty = (circular_buffer_get_read_space_remaining(&s_isr_log_buffer) == 0);
 
   // Need to prevent other interrupts from corrupting the log buffer while we're writing to it
-  portENTER_CRITICAL();
+  pbl_irq_lock();
 
   if (circular_buffer_get_write_space_remaining(&s_isr_log_buffer) < sizeof(uint32_t)) {
     // Completely out of space, can't do anything.
-    portEXIT_CRITICAL();
+    pbl_irq_unlock();
     return;
   }
 
@@ -206,7 +201,7 @@ static void prv_enqueue_log_message(uint8_t log_level, const char *message) {
     event_put_isr(&e);
   }
 
-  portEXIT_CRITICAL();
+  pbl_irq_unlock();
 }
 
 void pulse_logging_init(void) {
@@ -216,8 +211,8 @@ void pulse_logging_init(void) {
 
 void pulse_logging_log(uint8_t log_level, const char* src_filename,
                        uint16_t src_line_number, const char* message) {
-  if (portIN_CRITICAL() || mcu_state_is_isr() ||
-      xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED) {
+  if (pbl_irq_is_locked() || mcu_state_is_isr() ||
+      pbl_sched_is_locked()) {
     // We're in a state where we can't immediately send the message, save it to an internal buffer
     // instead for later sending.
     prv_enqueue_log_message(log_level, message);

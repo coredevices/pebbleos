@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2025 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/irq.h"
+#include "pbl/kernel/types.h"
 #include <pbl/drivers/rtc.h>
 
 #include <pbl/drivers/exti.h>
@@ -14,8 +16,6 @@
 #include "system/passert.h"
 
 #include "util/time/time.h"
-
-#include "FreeRTOS.h"
 
 #include <hal/nrf_rtc.h>
 
@@ -235,7 +235,6 @@ const char *time_t_to_string(char *buffer, time_t t) {
   return buffer;
 }
 
-
 //! We attempt to save registers by placing both the timezone abbreviation
 //! timezone index and the daylight_savingtime into the same register set
 void rtc_set_timezone(TimezoneInfo *tzinfo) {
@@ -315,7 +314,7 @@ void rtc_init(void) {
   prv_restore_rtc_time_state();
   s_did_init_rtc = true;
 
-  NVIC_SetPriority(BOARD_RTC_IRQN, configKERNEL_INTERRUPT_PRIORITY);
+  NVIC_SetPriority(BOARD_RTC_IRQN, PBL_IRQ_PRIO_KERNEL);
   NVIC_EnableIRQ(BOARD_RTC_IRQN);
 
 #if TEST_RTC_FREQ
@@ -339,7 +338,7 @@ void rtc_enable_synthetic_systick(void) {
   // Now that the RTC is awake, we can switch from SysTick to RTC interrupt
   // ticks.  We need to do this so that we actually get ticks in wfi, since
   // nRF5 stops SysTick in sleep.
-  _Static_assert(RTC_TICKS_HZ == configTICK_RATE_HZ);
+  _Static_assert(RTC_TICKS_HZ == PBL_TICK_HZ);
   if (!s_did_init_rtc) {
     rtc_init();
   }

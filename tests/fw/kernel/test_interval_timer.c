@@ -10,10 +10,10 @@
 void passert_failed_no_message(const char* filename, int line_number) {
 }
 
-void vPortEnterCritical(void) {
+void pbl_irq_lock(void) {
 }
 
-void vPortExitCritical(void) {
+void pbl_irq_unlock(void) {
 }
 
 void test_interval_timer__initialize(void) {

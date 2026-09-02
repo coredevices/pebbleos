@@ -9,7 +9,6 @@
 #include <cmsis_core.h>
 
 #if defined(CONFIG_NO_WATCHDOG)
-#include "FreeRTOS.h"
 #endif
 
 void prepare_for_software_failure(void) {

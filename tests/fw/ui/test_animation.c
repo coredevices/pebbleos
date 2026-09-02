@@ -24,7 +24,7 @@
 
 #include "stubs_app_state.h"
 #include "stubs_app_timer.h"
-#include "stubs_freertos.h"
+#include "stubs_irq.h"
 #include "stubs_heap.h"
 #include "stubs_mutex.h"
 #include "stubs_resources.h"

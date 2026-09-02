@@ -18,8 +18,6 @@ static void prv_exti_handler(nrfx_gpiote_pin_t pin, nrfx_gpiote_trigger_t trigge
   
   bool should_context_switch = false;
   cb(&should_context_switch);
-  
-  portEND_SWITCHING_ISR(should_context_switch);
 }
 
 void exti_configure_pin(ExtiConfig cfg, ExtiTrigger trigger, ExtiHandlerCallback cb) {

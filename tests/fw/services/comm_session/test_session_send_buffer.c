@@ -34,7 +34,6 @@ extern void comm_session_send_queue_cleanup(CommSession *session);
 ///////////////////////////////////////////////////////////
 
 #include "fake_kernel_malloc.h"
-#include "fake_queue.h"
 #include "fake_sem.h"
 #include "fake_rtc.h"
 

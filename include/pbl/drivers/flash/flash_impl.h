@@ -85,7 +85,7 @@ status_t flash_impl_read_dma_begin(void *buffer, FlashAddress addr,
 //! Called from an interrupt context when the DMA read has completed. It is
 //! guaranteed that the call is made from an interrupt of low enough priority
 //! that RTOS API calls are safe to use, and that it is a tail-call from the end
-//! of the implementation's ISR (read: portEND_SWITCHING_ISR is permissible).
+//! of the implementation's ISR (read: kernel calls are permissible).
 //!
 //! @param result S_SUCCESS iff the read completed successfully.
 extern void flash_impl_on_read_dma_complete_from_isr(status_t result);

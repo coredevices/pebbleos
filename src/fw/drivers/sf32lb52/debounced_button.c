@@ -13,8 +13,6 @@
 #include "util/bitset.h"
 #include "bf0_hal_tim.h"
 
-#include "FreeRTOS.h"
-
 /* Timer period 100us, auto reload is 2ms. */
 #define TIMER_FREQUENCY_HZ    10000
 #define TIMER_PERIOD_TICKS    20
@@ -106,7 +104,6 @@ void debounced_button_irq_handler(GPT_TypeDef *timer)
 }
 
 static void prv_timer_handler(void) {
-  bool should_context_switch = pdFALSE;
   bool can_disable_timer = true;
 
   static uint32_t s_button_timers[NUM_BUTTONS] = {0, 0, 0, 0};
@@ -134,7 +131,7 @@ static void prv_timer_handler(void) {
         .type = (is_pressed) ? PEBBLE_BUTTON_DOWN_EVENT : PEBBLE_BUTTON_UP_EVENT,
         .button.button_id = i
       };
-      should_context_switch = event_put_isr(&e);
+      event_put_isr(&e);
     }
   }
 
@@ -175,7 +172,6 @@ static void prv_timer_handler(void) {
     __enable_irq();
   }
 
-  portEND_SWITCHING_ISR(should_context_switch);
 }
 
 // Serial commands

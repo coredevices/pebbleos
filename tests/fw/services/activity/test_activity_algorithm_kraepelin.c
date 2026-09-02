@@ -28,7 +28,7 @@
 
 // Stubs
 #include "stubs_analytics.h"
-#include "stubs_freertos.h"
+#include "stubs_irq.h"
 #include "stubs_hexdump.h"
 #include "stubs_hr_util.h"
 #include "stubs_logging.h"

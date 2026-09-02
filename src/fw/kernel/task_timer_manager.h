@@ -38,8 +38,8 @@ void task_timer_manager_init(TaskTimerManager *manager, struct pbl_sem *semaphor
 
 //! Execute any timers that are currently expired.
 //! @return the number of ticks until the next timer expires. If there are no timers running,
-//!         returns portMAX_DELAY.
-TickType_t task_timer_manager_execute_expired_timers(TaskTimerManager *manager);
+//!         returns PBL_TICK_FOREVER.
+pbl_tick_t task_timer_manager_execute_expired_timers(TaskTimerManager *manager);
 
 //! Debugging interface to help understand why the task_timer exuction is stuck and what
 //! its stuck on.

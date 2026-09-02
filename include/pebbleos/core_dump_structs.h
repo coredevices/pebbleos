@@ -11,7 +11,6 @@
  *
  */
 
-#include "portmacro.h"
 #include "pbl/util/attributes.h"
 
 // r0-r12, sp, lr, pc, xpsr
@@ -36,8 +35,6 @@ typedef struct PACKED {
   uint8_t   faultmask;
   uint8_t   control;
 } CoreDumpExtraRegInfo;
-
-
 
 // We save all the important registers on entry to core_dump_reset() in a structure of this type
 // on the core_dump_reset() stack and save a pointer to it in the s_saved_registers global.

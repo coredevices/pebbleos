@@ -4,7 +4,7 @@
 #include "clar.h"
 
 #include <pbl/drivers/hrm.h>
-#include "pbl/os/tick.h"
+#include "pbl/kernel/types.h"
 #include "pbl/services/hrm/hrm_manager.h"
 #include "pbl/services/hrm/hrm_manager_private.h"
 #include "pbl/util/size.h"
@@ -658,7 +658,7 @@ void test_hrm_manager__enable_disable(void) {
 
 // Advance time the given number of milliseconds
 static void prv_advance_time_ms(uint32_t ms) {
-  RtcTicks delta_ticks = milliseconds_to_ticks(ms);
+  RtcTicks delta_ticks = pbl_ms_to_ticks(ms);
   fake_rtc_set_ticks(rtc_get_ticks() + delta_ticks);
   rtc_set_time(rtc_get_time() + ms / MS_PER_SECOND);
 }

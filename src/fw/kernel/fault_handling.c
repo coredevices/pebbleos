@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/irq.h"
+#include "pbl/kernel/sched.h"
 #include "pbl/kernel/thread.h"
 #include "kernel/core_dump.h"
 #include "logging/logging_private.h"
@@ -25,9 +27,6 @@
 
 #include <cmsis_core.h>
 
-#include "FreeRTOS.h"
-#include "task.h"
-
 #include <stdint.h>
 #include <stdio.h>
 
@@ -40,9 +39,9 @@ static uint32_t s_fault_saved_lr;
 static uint32_t s_fault_saved_pc;
 
 void enable_fault_handlers(void) {
-  NVIC_SetPriority(MemoryManagement_IRQn, configMAX_SYSCALL_INTERRUPT_PRIORITY);
-  NVIC_SetPriority(BusFault_IRQn, configMAX_SYSCALL_INTERRUPT_PRIORITY);
-  NVIC_SetPriority(UsageFault_IRQn, configMAX_SYSCALL_INTERRUPT_PRIORITY);
+  NVIC_SetPriority(MemoryManagement_IRQn, PBL_IRQ_PRIO_MAX_SYSCALL);
+  NVIC_SetPriority(BusFault_IRQn, PBL_IRQ_PRIO_MAX_SYSCALL);
+  NVIC_SetPriority(UsageFault_IRQn, PBL_IRQ_PRIO_MAX_SYSCALL);
 
   SCB->SHCSR |= SCB_SHCSR_MEMFAULTENA_Msk;
   SCB->SHCSR |= SCB_SHCSR_BUSFAULTENA_Msk;
@@ -52,7 +51,6 @@ void enable_fault_handlers(void) {
   __DSB();
   __ISB();
 }
-
 
 typedef struct CrashInfo {
   PebbleTask task;
@@ -170,7 +168,7 @@ NORETURN trigger_oom_fault(size_t bytes, uint32_t lr, Heap *heap_ptr) {
   // sys_app_fault suspends this task for KernelMain to reap; only safe with the
   // scheduler running and outside an ISR, else reboot.
   bool can_kill_safely =
-      !mcu_state_is_isr() && (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING);
+      !mcu_state_is_isr() && (pbl_kernel_is_running());
 
   if (!mcu_state_is_privileged() || (process_heap_oom && can_kill_safely)) {
     sys_app_fault(lr);
@@ -217,7 +215,6 @@ static void prv_kill_user_process(uint32_t stashed_lr) {
   // Wait for the kernel to kill us...
   pbl_thread_suspend(NULL);
 }
-
 
 DEFINE_SYSCALL(NORETURN, sys_app_fault, uint32_t stashed_lr) {
   // This is the privileged side of handling a failed assert/croak from unprivileged code.
@@ -300,7 +297,6 @@ static void attempt_handle_stack_overflow(unsigned int* stacked_args, uintptr_t 
   prv_return_to_landing_zone(0, 0, stacked_args);   // We can't get LR or PC, so just set to 0's.
 }
 
-
 static void attempt_handle_generic_fault(unsigned int* stacked_args) {
   uintptr_t stacked_lr = (uintptr_t) stacked_args[5];;
   uintptr_t stacked_pc = (uintptr_t) stacked_args[6];;;
@@ -314,7 +310,6 @@ static void attempt_handle_generic_fault(unsigned int* stacked_args) {
   // We got this! Let's redirect this task to a spin function and tell the app manager to kill us.
   prv_return_to_landing_zone(stacked_pc, stacked_lr, stacked_args);   // We can't get LR or PC, so just set to 0's.
 }
-
 
 // Hardware Fault Handlers
 ///////////////////////////////////////////////////////////
