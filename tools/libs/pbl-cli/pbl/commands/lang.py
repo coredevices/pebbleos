@@ -8,7 +8,6 @@ import os
 import string
 import subprocess
 import sys
-import tempfile
 from collections import OrderedDict
 
 from pbl.command import PblCommand
@@ -158,7 +157,10 @@ class MakeLang(_LangCommand):
             "make_lang",
             "Create or update a language's translation catalog",
             "Seed a new language from the build's .pot, or merge newly "
-            "extracted strings into an existing catalog.",
+            "extracted strings into an existing catalog, keeping what is "
+            "already translated. The .pot only covers what the configured "
+            "build compiles, so configure a fully featured board before "
+            "regenerating, or strings behind disabled options are dropped.",
         )
 
     def do_add_parser(self, parser_adder):
@@ -169,8 +171,6 @@ class MakeLang(_LangCommand):
         return parser
 
     def do_run(self, args, unknown):
-        import polib
-
         build = self.build_dir()
         pot = build.join(f"{build.project}.pot")
         if not os.path.exists(pot):
@@ -179,7 +179,6 @@ class MakeLang(_LangCommand):
         lang = args.lang
         source = self.lang_dir(lang)
         catalog = os.path.join(source, CATALOG)
-        msginit = ["msginit", "-l", lang, "--no-translator", "-i", pot]
 
         if not os.path.exists(source):
             os.mkdir(source)
@@ -187,20 +186,16 @@ class MakeLang(_LangCommand):
                 f.write(LANG_MAP_TEMPLATE.substitute(lang=lang) + "\n")
 
         if not os.path.exists(catalog):
-            return self.run_cmd(msginit + ["-o", catalog])
-
-        # Keep the existing header, regenerate, then merge the new strings in.
-        header = str(polib.pofile(catalog).metadata_as_entry())
-        with open(catalog, "w") as f:
-            f.write(header)
-
-        with tempfile.NamedTemporaryFile(suffix=".po") as regenerated:
-            rc = self.run_cmd(msginit + ["-o", regenerated.name])
-            if rc:
-                return rc
+            # A new language starts from the template with an initialized header.
             return self.run_cmd(
-                ["msgmerge", f"--lang={lang}", "--update", catalog, regenerated.name]
+                ["msginit", "-l", lang, "--no-translator", "-i", pot, "-o", catalog]
             )
+
+        # An existing one keeps its translations and its header; the merge
+        # brings in what the template gained and marks what it lost obsolete.
+        return self.run_cmd(
+            ["msgmerge", f"--lang={lang}", "--update", "--backup=none", catalog, pot]
+        )
 
 
 class PackLang(_LangCommand):
