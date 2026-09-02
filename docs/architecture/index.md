@@ -120,4 +120,5 @@ Longer design documents live as their own pages:
 :maxdepth: 1
 activity/index.md
 kernel.md
+kernel_native.md
 ```
