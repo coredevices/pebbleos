@@ -47,9 +47,6 @@ target_include_directories(pdc2png PRIVATE
   ${PBL_BASE}/kernel/freertos/include
   ${PBL_BASE}/subsys
   ${PBL_BASE}/src/fw
-  ${PBL_BASE}/third_party/freertos
-  ${PBL_BASE}/third_party/freertos/FreeRTOS-Kernel/FreeRTOS/Source/include
-  ${PBL_BASE}/third_party/freertos/FreeRTOS-Kernel/FreeRTOS/Source/portable/GCC/ARM_CM3
 )
 
 # pdc2png resolves pbi2png against its own directory, so it gets a copy.

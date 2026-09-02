@@ -130,13 +130,13 @@ void assert_failed(uint8_t* file, uint32_t line);
  */
 #define NRFX_IRQ_IS_PENDING(irq_number) (NVIC_GetPendingIRQ(irq_number) == 1)
 
+#include "pbl/kernel/irq.h"
+
 /** @brief Macro for entering into a critical section. */
-#define NRFX_CRITICAL_SECTION_ENTER() vPortEnterCritical()
-void vPortEnterCritical(void);
+#define NRFX_CRITICAL_SECTION_ENTER() pbl_irq_lock()
 
 /** @brief Macro for exiting from a critical section. */
-#define NRFX_CRITICAL_SECTION_EXIT() vPortExitCritical()
-void vPortExitCritical(void);
+#define NRFX_CRITICAL_SECTION_EXIT() pbl_irq_unlock()
 
 //------------------------------------------------------------------------------
 

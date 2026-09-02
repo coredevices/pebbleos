@@ -65,3 +65,11 @@ read from FreeRTOS internals: a thread walk with saved registers in the
 canonical order the core dump format expects, saved PC/LR/CONTROL of a
 blocked thread, stack bounds and high-water marks, and a run-time stats
 snapshot.
+
+## Boundary
+
+`third_party/freertos` exports its include directories only to
+`kernel/freertos`, which also holds `FreeRTOSConfig.h` and the port hooks.
+Anything else that includes a FreeRTOS header fails to compile. The SoC
+tickless-idle code talks to the kernel through `pbl/kernel/idle.h`; NimBLE's
+NPL port is written against the pbl API.

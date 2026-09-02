@@ -65,9 +65,6 @@ set(PBL_TEST_INCLUDES_TAIL
   src/boot
   src/fw/applib/vendor/tinflate
   src/fw/applib/vendor/uPNG
-  third_party/freertos
-  third_party/freertos/FreeRTOS-Kernel/FreeRTOS/Source/include
-  third_party/freertos/FreeRTOS-Kernel/FreeRTOS/Source/portable/GCC/ARM_CM3
   third_party/nanopb/nanopb
   third_party/tinymt/TinyMT/tinymt
 )

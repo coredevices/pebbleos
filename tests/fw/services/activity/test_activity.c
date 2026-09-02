@@ -1,7 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "FreeRTOS.h"
+#include "pbl/kernel/types.h"
 #include "applib/accel_service.h"
 #include "applib/data_logging.h"
 #include "applib/health_service.h"
@@ -769,7 +769,7 @@ static void prv_feed_cannned_accel_data(uint32_t num_sec, uint32_t steps_per_min
 
     // Advance time
     fake_rtc_increment_time(1);
-    fake_rtc_increment_ticks(configTICK_RATE_HZ);
+    fake_rtc_increment_ticks(PBL_TICK_HZ);
 
     // Is it time to call the minute callback?
     utc_secs += 1;
@@ -809,7 +809,7 @@ static void prv_feed_raw_accel_data(AccelRawData *samples, uint32_t num_samples)
 
     // Advance time
     fake_rtc_increment_time(1);
-    fake_rtc_increment_ticks(configTICK_RATE_HZ);
+    fake_rtc_increment_ticks(PBL_TICK_HZ);
 
     // Is it time to call the minute callback?
     utc_secs += 1;
@@ -829,7 +829,7 @@ static void prv_advance_by_days(uint32_t num_days) {
   for (int i = 0; i < num_days; i++) {
     // Advance time
     fake_rtc_increment_time(SECONDS_PER_DAY);
-    fake_rtc_increment_ticks(configTICK_RATE_HZ * SECONDS_PER_DAY);
+    fake_rtc_increment_ticks(PBL_TICK_HZ * SECONDS_PER_DAY);
 
     fake_cron_job_fire();
     fake_system_task_callbacks_invoke_pending();
@@ -2384,7 +2384,7 @@ static void prv_advance_time_hr(uint32_t num_sec, uint8_t bpm, HRMQuality qualit
   // Call the minute handler, which computes the minute stats and saves them to data logging
   // as well as the sleep PFS file.
   for (int i = 0; i < num_sec; i++) {
-    fake_rtc_set_ticks(rtc_get_ticks() + configTICK_RATE_HZ);
+    fake_rtc_set_ticks(rtc_get_ticks() + PBL_TICK_HZ);
     rtc_set_time(rtc_get_time() + 1);
 
     if ((s_hrm_manager_update_interval == 1) || force_continuous) {

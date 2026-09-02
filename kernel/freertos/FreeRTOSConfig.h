@@ -72,7 +72,6 @@
  *----------------------------------------------------------*/
 
 
-#include <pbl/drivers/rtc.h>
 #include <cmsis_core.h>
 // Per-task newlib reentrancy needs newlib's struct _reent. picolibc uses
 // TLS instead (and has no reent.h), the Pebble libc has no per-thread
@@ -139,7 +138,7 @@ extern uint32_t SystemCoreClock;
 #define configENABLE_BACKWARD_COMPATIBILITY 0
 
 /* Thread local storage for syscall information */
-#define configNUM_THREAD_LOCAL_STORAGE_POINTERS 3
+#define configNUM_THREAD_LOCAL_STORAGE_POINTERS 1
 
 /* Set the following definitions to 1 to include the API function, or zero
 to exclude the API function. */
@@ -201,7 +200,6 @@ NVIC value of 255. */
 #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
 #define portGET_RUN_TIME_COUNTER_VALUE() xTaskGetTickCount()
 
-#include "system/passert.h"
 #include "pbl/os/assert.h"
 #define configASSERT( x ) OS_ASSERT(x)
 

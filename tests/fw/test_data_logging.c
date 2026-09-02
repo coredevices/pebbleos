@@ -57,11 +57,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "FreeRTOS.h"
-#include "timers.h"
 
 
-TickType_t xTaskGetTickCount(void) {
+#include "pbl/kernel/sched.h"
+pbl_tick_t pbl_uptime_ticks(void) {
   return 1337;
 }
 

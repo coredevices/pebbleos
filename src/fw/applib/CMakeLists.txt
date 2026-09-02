@@ -73,3 +73,8 @@ pbl_gettext(${CMAKE_CURRENT_BINARY_DIR}/applib.pot ${sources})
 
 pbl_library()
 pbl_library_sources(${sources} ${applib_malloc_c})
+
+# The moddable platform headers in the submodule still include FreeRTOS;
+# only this glue file gets to see it until they are ported to the pbl API.
+set_source_files_properties(moddable/moddable.c PROPERTIES
+  INCLUDE_DIRECTORIES "${FREERTOS_INCLUDE_DIRS}")

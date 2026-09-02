@@ -23,7 +23,6 @@
 // Stubs
 ///////////////////////////////////////////////////////////
 
-void MPU_vTaskSuspendAll(void) {}
 void MPU_xTaskResumeAll(void) {}
 
 // Tests

@@ -15,14 +15,13 @@ file(GLOB sources CONFIGURE_DEPENDS
   ${kernel}/portable/GCC/${port}/*.c
 )
 
+# Only kernel/freertos may see these; FreeRTOSConfig.h lives there too.
 set(FREERTOS_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}/${kernel}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/${kernel}/portable/GCC/${port}
   ${PBL_BASE}/kernel/freertos
+  CACHE INTERNAL "FreeRTOS include directories, private to the kernel shim"
 )
-
-# Visible to the whole tree until every call site is on the pbl kernel API.
-pbl_include_directories(${FREERTOS_INCLUDE_DIRS})
 
 pbl_library_named(freertos)
 pbl_library_kind(stlib)

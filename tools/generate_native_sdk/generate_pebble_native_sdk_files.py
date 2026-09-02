@@ -111,13 +111,6 @@ def generate_shim_files(
 
     compiler_flags = [f"-D{d}" for d in platform_info["DEFINES"]]
 
-    freertos_port_name = "ARM_CM3" if platform_name == "aplite" else "ARM_CM4F"
-    compiler_flags.extend(
-        [
-            f"-I{pbl_src_dir}/../third_party/freertos/FreeRTOS-Kernel/FreeRTOS/Source/{p}"
-            for p in ["include", f"portable/GCC/{freertos_port_name}"]
-        ]
-    )
     compiler_flags.append(f"-I{pbl_src_dir}/../kernel/freertos/include")
     if autoconf:
         compiler_flags.extend(["-imacros", autoconf])

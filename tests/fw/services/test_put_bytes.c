@@ -13,7 +13,6 @@
 
 #include <bluetooth/conn_event_stats.h>
 
-#include "FreeRTOS.h"
 #include "pbl/kernel/sem.h"
 
 #include "clar.h"

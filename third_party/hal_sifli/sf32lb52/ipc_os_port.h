@@ -4,17 +4,15 @@
 #pragma once
 
 #include "bf0_hal.h"
-
-void vPortEnterCritical(void);
-void vPortExitCritical(void);
+#include "pbl/kernel/irq.h"
 
 static inline int os_interrupt_disable(void) {
-  vPortEnterCritical();
+  pbl_irq_lock();
   return 0;
 }
 
 static inline void os_interrupt_enable(int mask) {
-  vPortExitCritical();
+  pbl_irq_unlock();
 }
 
 #define os_interrupt_enter()

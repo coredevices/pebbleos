@@ -476,3 +476,27 @@ void pbl_kernel_syscall_entered(uintptr_t orig_sp, uintptr_t *lr_ptr) {
   // Set the return address of the syscall to be the drop privilege code
   *lr_ptr = (uintptr_t)&prv_drop_privilege;
 }
+
+bool pbl_kernel_privilege_raise_allowed(uint32_t caller_pc) {
+  // Called by the kernel with the PC of the function that issued the SVC
+  // requesting privilege elevation; this is a hot path, so the memory_region.c
+  // helpers are not used.
+
+  // mcu_call_unprivileged() has one internal re-entry SVC. It is not part of
+  // the generated syscall island; accept it only while the current task is
+  // returning from mcu_call_unprivileged(). The setup path rechecks the PC
+  // before rewriting the exception frame.
+  if (mcu_call_unprivileged_reentry_is_allowed(caller_pc)) {
+    return true;
+  }
+
+  // All syscall functions are lumped together in one place in the firmware
+  // image to reduce the attack surface. Don't allow privilege to be raised by
+  // any code outside of that region, even if that code is in flash.
+  // See WHT-114 and PBL-34044.
+  extern const uint32_t __syscall_text_start__[];
+  extern const uint32_t __syscall_text_end__[];
+  const uint32_t priv_code_start = (uint32_t) __syscall_text_start__;
+  const uint32_t priv_code_end = (uint32_t) __syscall_text_end__;
+  return (caller_pc >= priv_code_start && caller_pc < priv_code_end);
+}

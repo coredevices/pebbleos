@@ -204,6 +204,9 @@ pbl_include_directories(${includes})
 pbl_library_named(libxs)
 pbl_library_kind(stlib)
 pbl_library_sources(${sources})
+# The Pebble platform glue in the submodule still calls FreeRTOS directly;
+# keep that visible only here until it is ported to the pbl kernel API.
+pbl_library_include_directories(${FREERTOS_INCLUDE_DIRS})
 pbl_library_compile_options(
   -Og
   -Dpebble
