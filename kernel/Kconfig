@@ -13,6 +13,14 @@ config KERNEL_BACKEND_FREERTOS
 	  Implements the pbl kernel API on the FreeRTOS fork in
 	  third_party/freertos.
 
+config KERNEL_BACKEND_NATIVE
+	bool "Native kernel"
+	depends on !MODDABLE_XS
+	help
+	  PebbleOS's own scheduler and Cortex-M port in kernel/native. The
+	  moddable platform glue still calls FreeRTOS directly, so the two
+	  are exclusive until it is ported.
+
 endchoice
 
 config KERNEL_IDLE_STACK_SIZE

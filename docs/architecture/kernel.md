@@ -73,3 +73,9 @@ snapshot.
 Anything else that includes a FreeRTOS header fails to compile. The SoC
 tickless-idle code talks to the kernel through `pbl/kernel/idle.h`; NimBLE's
 NPL port is written against the pbl API.
+
+## Backends
+
+`CONFIG_KERNEL_BACKEND` selects the implementation. The FreeRTOS shim is the
+default; `CONFIG_KERNEL_BACKEND_NATIVE=y` selects PebbleOS's own kernel in
+`kernel/native`, described in [the native backend](kernel_native.md).

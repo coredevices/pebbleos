@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(cmsis_core)
-add_subdirectory(freertos)
+pbl_add_subdirectory_ifdef(CONFIG_KERNEL_BACKEND_FREERTOS freertos)
 add_subdirectory(nanopb)
 add_subdirectory(tinymt)
 add_subdirectory(qr_code_generator)
