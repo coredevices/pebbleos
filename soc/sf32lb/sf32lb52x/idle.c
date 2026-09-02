@@ -19,8 +19,7 @@
 
 #include <ipc_queue.h>
 
-#include "FreeRTOS.h"
-#include "task.h"
+#include "pbl/kernel/idle.h"
 
 // HAL tick counter (milliseconds) - used by HAL timeout functions
 extern __IO uint32_t uwTick;
@@ -181,7 +180,7 @@ static uint32_t prv_calc_elapsed_ticks(uint32_t gtimer_cyc) {
   return elapsed_ticks;
 }
 
-void vPortSuppressTicksAndSleep(TickType_t xExpectedIdleTime) {
+void pbl_soc_idle(pbl_tick_t max_ticks) {
   if (!idle_is_allowed()) {
     return;
   }
@@ -193,11 +192,11 @@ void vPortSuppressTicksAndSleep(TickType_t xExpectedIdleTime) {
 
   __disable_irq();
 
-  if (eTaskConfirmSleepModeStatus() != eAbortSleep) {
+  if (pbl_idle_confirm()) {
     SocSf32lbSleepLevel max_level = soc_sf32lb_sleep_max_level();
 
     // Deep sleep needs a minimum idle window.
-    if (xExpectedIdleTime < MIN_DEEPSLEEP_TICKS) {
+    if (max_ticks < MIN_DEEPSLEEP_TICKS) {
       max_level = MIN(max_level, SOC_SF32LB_DEEPWFI);
     }
 
@@ -226,7 +225,7 @@ void vPortSuppressTicksAndSleep(TickType_t xExpectedIdleTime) {
         SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk;
 
         // configure LPTIM to wake us up after expected idle time
-        sleep_ticks = xExpectedIdleTime - EARLY_WAKEUP_TICKS;
+        sleep_ticks = max_ticks - EARLY_WAKEUP_TICKS;
         lptim_ticks = MIN(sleep_ticks * rc10k_get_freq_hz() / RTC_TICKS_HZ,
                           MAX_LPTIM_CNT);
         HAL_LPTIM_Counter_Start_IT(&s_lptim, lptim_ticks);
@@ -249,7 +248,7 @@ void vPortSuppressTicksAndSleep(TickType_t xExpectedIdleTime) {
 
         elapsed_ticks = prv_calc_elapsed_ticks(gtimer_delta);
 
-        vTaskStepTick(elapsed_ticks);
+        pbl_idle_slept(elapsed_ticks);
 
         // increment HAL tick counter by elapsed ticks
         uwTick += elapsed_ticks;
@@ -277,7 +276,7 @@ void vPortSuppressTicksAndSleep(TickType_t xExpectedIdleTime) {
   __enable_irq();
 }
 
-bool vPortEnableTimer() {
+bool pbl_soc_tick_enable(void) {
   HAL_LPTIM_InitDefault(&s_lptim);
   HAL_LPTIM_Init(&s_lptim);
 
@@ -332,8 +331,7 @@ void AON_IRQHandler(void)
 }
 
 void SysTick_Handler(void) {
-  extern void xPortSysTickHandler(void);
-  xPortSysTickHandler();
+  pbl_kernel_tick_isr();
 
   HAL_IncTick();
 

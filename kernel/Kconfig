@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+menu "Kernel"
+
+choice KERNEL_BACKEND
+	prompt "Kernel backend"
+	default KERNEL_BACKEND_FREERTOS
+
+config KERNEL_BACKEND_FREERTOS
+	bool "FreeRTOS shim"
+	help
+	  Implements the pbl kernel API on the FreeRTOS fork in
+	  third_party/freertos.
+
+endchoice
+
+config KERNEL_IDLE_STACK_SIZE
+	int "Idle thread stack size in bytes"
+	default 1024
+
+config KERNEL_TICK_HZ
+	int "Tick rate in Hz"
+	default 1000 if QEMU || SOC_SF32LB52
+	default 1024
+
+config KERNEL_IRQ_PRIO_KERNEL
+	int "NVIC priority of the kernel's interrupts"
+	default 255
+
+config KERNEL_IRQ_PRIO_MAX_SYSCALL
+	int "Highest NVIC priority allowed to call into the kernel"
+	default 191
+
+config KERNEL_NUM_PRIORITIES
+	int "Number of thread priorities"
+	default 5
+
+config KERNEL_MAX_THREADS
+	int "Maximum number of threads alive at once"
+	default 12
+
+config KERNEL_THREAD_TLS_SLOTS
+	int "Per-thread pointer slots"
+	default 2
+
+config KERNEL_STACK_ALIGN
+	int "Thread stack alignment"
+	default 32 if MPU_TYPE_ARMV8M
+	default 256
+	help
+	  Alignment that lets the bottom of a stack be covered by an MPU
+	  guard region on the target core.
+
+config KERNEL_MUTEX_LOCK_LR
+	bool "Record the caller of the outermost mutex lock"
+	default y
+
+endmenu

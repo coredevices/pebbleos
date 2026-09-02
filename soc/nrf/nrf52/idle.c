@@ -16,8 +16,7 @@
 
 #include <hal/nrf_nvmc.h>
 
-#include "FreeRTOS.h"
-#include "task.h"
+#include "pbl/kernel/idle.h"
 
 static RtcTicks s_analytics_sleep_ticks = 0;
 static RtcTicks s_analytics_full_sleep_ticks = 0;
@@ -25,15 +24,15 @@ static RtcTicks s_analytics_full_sleep_ticks = 0;
 static const RtcTicks EARLY_WAKEUP_TICKS = 2;
 static const RtcTicks MIN_FULL_SLEEP_TICKS = 5;
 
-extern void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime ) {
+void pbl_soc_idle(pbl_tick_t max_ticks) {
   if (!rtc_alarm_is_initialized() || !idle_is_allowed()) {
     return;
   }
 
   __disable_irq();
 
-  if (eTaskConfirmSleepModeStatus() != eAbortSleep) {
-    if (xExpectedIdleTime < MIN_FULL_SLEEP_TICKS || !soc_nrf_sleep_full_is_allowed()) {
+  if (pbl_idle_confirm()) {
+    if (max_ticks < MIN_FULL_SLEEP_TICKS || !soc_nrf_sleep_full_is_allowed()) {
       RtcTicks sleep_start_ticks = rtc_get_ticks();
 
       NRF_NVMC->ICACHECNF &= ~NVMC_ICACHECNF_CACHEEN_Msk;
@@ -46,7 +45,7 @@ extern void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime ) {
 
       s_analytics_sleep_ticks += rtc_get_ticks() - sleep_start_ticks;
     } else {
-      const RtcTicks sleep_ticks = xExpectedIdleTime - EARLY_WAKEUP_TICKS;
+      const RtcTicks sleep_ticks = max_ticks - EARLY_WAKEUP_TICKS;
       RtcTicks elapsed_ticks;
 
       flash_power_down_for_stop_mode();
@@ -64,7 +63,7 @@ extern void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime ) {
 
       rtc_systick_resume();
       elapsed_ticks = rtc_alarm_get_elapsed_ticks();
-      vTaskStepTick(elapsed_ticks);
+      pbl_idle_slept(elapsed_ticks);
 
       flash_power_up_after_stop_mode();
       task_watchdog_step_elapsed_time_ms((elapsed_ticks * 1000) / RTC_TICKS_HZ);
@@ -76,7 +75,7 @@ extern void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime ) {
   __enable_irq();
 }
 
-bool vPortEnableTimer() {
+bool pbl_soc_tick_enable(void) {
   rtc_enable_synthetic_systick();
   return true;
 }

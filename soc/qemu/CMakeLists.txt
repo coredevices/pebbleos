@@ -4,5 +4,5 @@
 pbl_library()
 pbl_library_sources(
   init.c
-  freertos.c
+  idle.c
 )

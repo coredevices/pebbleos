@@ -5,12 +5,18 @@
 #include "kernel/pbl_malloc.h"
 #include "process_management/worker_manager.h"
 #include "syscall/syscall_internal.h"
+#include "system/reboot_reason.h"
+#include "system/reset.h"
+
+#include <pbl/logging/logging.h>
+
+#include "pbl/kernel/thread.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
 
-void vApplicationStackOverflowHook(TaskHandle_t task_handle, signed char *name) {
-  PebbleTask task = pebble_task_get_task_for_handle(task_handle);
+void pbl_thread_stack_overflow(struct pbl_thread *t, const char *name) {
+  PebbleTask task = pebble_task_get_task_for_handle(xTaskGetCurrentTaskHandle());
 
   // If the task is application or worker, ignore this hook. We have a memory protection region
   // setup at the bottom of those stacks and the code that catches MPU violiations to that
@@ -28,7 +34,7 @@ void vApplicationStackOverflowHook(TaskHandle_t task_handle, signed char *name) 
   }
 }
 
-bool xApplicationIsAllowedToRaisePrivilege(uint32_t caller_pc) {
+bool pbl_kernel_privilege_raise_allowed(uint32_t caller_pc) {
   // This function is called by portSVCHandler with the PC value of the
   // function which initiated the SVC call requesting privilege elevation.
 
@@ -52,14 +58,4 @@ bool xApplicationIsAllowedToRaisePrivilege(uint32_t caller_pc) {
   const uint32_t priv_code_start = (uint32_t) __syscall_text_start__;
   const uint32_t priv_code_end = (uint32_t) __syscall_text_end__;
   return (caller_pc >= priv_code_start && caller_pc < priv_code_end);
-}
-
-#undef vPortFree
-void vPortFree(void* pv) {
-  kernel_free(pv);
-}
-
-#undef pvPortMalloc
-void* pvPortMalloc(size_t xSize) {
-  return kernel_malloc(xSize);
 }

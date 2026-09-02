@@ -283,10 +283,10 @@ void syscall_assert_userspace_buffer(const void* buf, size_t num_bytes) {
 static StackType_t s_app_syscall_stack[SYSCALL_STACK_WORDS] __attribute__((aligned(8)));
 static StackType_t s_worker_syscall_stack[SYSCALL_STACK_WORDS] __attribute__((aligned(8)));
 
-// Port hook: top of the current task's dedicated syscall stack (base in
+// Kernel hook: top of the current task's dedicated syscall stack (base in
 // *base_out), or NULL to keep it on the caller's stack. App + Worker only;
 // moddable apps use mcu_call_unprivileged() and stay on their own stack.
-uint32_t *xApplicationGetSyscallStack(uintptr_t *base_out) {
+uint32_t *pbl_kernel_syscall_stack(uintptr_t *base_out) {
   StackType_t *stack;
   switch (pebble_task_get_current()) {
     case PebbleTask_App:
@@ -456,7 +456,7 @@ bool syscall_internal_check_return_address(void * ret_addr) {
 // stack pointer, and a pointer to the saved LR on the stack.
 // It then stores the SP and LR in thread local storage,
 // and updates the saved LR to point at the drop privilege code.
-void vSetupSyscallRegisters(uintptr_t orig_sp, uintptr_t *lr_ptr) {
+void pbl_kernel_syscall_entered(uintptr_t orig_sp, uintptr_t *lr_ptr) {
   if (mcu_call_unprivileged_reentry_setup(orig_sp, lr_ptr)) {
     return;
   }

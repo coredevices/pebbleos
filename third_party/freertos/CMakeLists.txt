@@ -15,32 +15,16 @@ file(GLOB sources CONFIGURE_DEPENDS
   ${kernel}/portable/GCC/${port}/*.c
 )
 
-pbl_include_directories(
-  .
-  ${kernel}/include
-  ${kernel}/portable/GCC/${port}
+set(FREERTOS_INCLUDE_DIRS
+  ${CMAKE_CURRENT_SOURCE_DIR}/${kernel}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/${kernel}/portable/GCC/${port}
+  ${PBL_BASE}/kernel/freertos
 )
 
-# SF32LB52: SiFli's HAL programs MPU regions 0..4 and Pebble's static MPU
-# setup uses 5..7, so the per-task configurable regions live at 8..11
-# (four slots: AppRAM, WorkerRAM and two NULL placeholders, to satisfy the
-# FreeRTOS port's multiple-of-four invariant).
-if(CONFIG_SOC_SF32LB52)
-  pbl_compile_definitions(
-    FREERTOS_FIRST_MPU_REGION=8
-    FREERTOS_LAST_MPU_REGION=11
-  )
-endif()
-
-# QEMU CM33 has no vendor-reserved MPU regions, so Pebble's static regions
-# take 0..3 and the FreeRTOS task regions 4..7.
-if(CONFIG_QEMU AND CONFIG_CORTEX_M33)
-  pbl_compile_definitions(
-    FREERTOS_FIRST_MPU_REGION=4
-    FREERTOS_LAST_MPU_REGION=7
-  )
-endif()
+# Visible to the whole tree until every call site is on the pbl kernel API.
+pbl_include_directories(${FREERTOS_INCLUDE_DIRS})
 
 pbl_library_named(freertos)
 pbl_library_kind(stlib)
 pbl_library_sources(${sources})
+pbl_library_include_directories(${FREERTOS_INCLUDE_DIRS})

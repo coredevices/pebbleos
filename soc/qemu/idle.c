@@ -5,17 +5,16 @@
 
 #include "kernel/util/idle.h"
 
-#include "FreeRTOS.h"
-#include "task.h"
+#include "pbl/kernel/idle.h"
 
-extern void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime ) {
+void pbl_soc_idle(pbl_tick_t max_ticks) {
   if (!idle_is_allowed()) {
     return;
   }
 
   __disable_irq();
 
-  if (eTaskConfirmSleepModeStatus() != eAbortSleep) {
+  if (pbl_idle_confirm()) {
     __DSB();
     __WFI();
     __ISB();
@@ -24,7 +23,7 @@ extern void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime ) {
   __enable_irq();
 }
 
-bool vPortEnableTimer() {
+bool pbl_soc_tick_enable(void) {
   return false;
 }
 

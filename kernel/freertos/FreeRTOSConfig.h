@@ -71,8 +71,8 @@
  * See http://www.freertos.org/a00110.html.
  *----------------------------------------------------------*/
 
-#include <pbl/drivers/rtc.h>
 
+#include <pbl/drivers/rtc.h>
 #include <cmsis_core.h>
 // Per-task newlib reentrancy needs newlib's struct _reent. picolibc uses
 // TLS instead (and has no reent.h), the Pebble libc has no per-thread
@@ -88,8 +88,8 @@ extern uint32_t SystemCoreClock;
 #define configUSE_IDLE_HOOK      0
 #define configUSE_TICK_HOOK      0
 #define configCPU_CLOCK_HZ       ((unsigned long)SystemCoreClock)
-#define configTICK_RATE_HZ       ((TickType_t)RTC_TICKS_HZ)
-#define configMAX_PRIORITIES     ((unsigned portBASE_TYPE)5)
+#define configTICK_RATE_HZ       ((TickType_t)CONFIG_KERNEL_TICK_HZ)
+#define configMAX_PRIORITIES     ((unsigned portBASE_TYPE)CONFIG_KERNEL_NUM_PRIORITIES)
 #define configMINIMAL_STACK_SIZE ((unsigned short)196)
 #define configTOTAL_HEAP_SIZE    ((size_t)(30 * 1024))
 #define configMAX_TASK_NAME_LEN  (16)
@@ -99,11 +99,16 @@ extern uint32_t SystemCoreClock;
 #define configUSE_TICKLESS_IDLE  2   // Use STOP mode
 #define configUSE_STATS_FORMATTING_FUNCTIONS 1
 
-#ifdef FREERTOS_FIRST_MPU_REGION
-#define configFIRST_MPU_REGION FREERTOS_FIRST_MPU_REGION
-#endif
-#ifdef FREERTOS_LAST_MPU_REGION
-#define configLAST_MPU_REGION FREERTOS_LAST_MPU_REGION
+/* SF32LB52: SiFli's HAL programs MPU regions 0..4 and Pebble's static MPU
+ * setup uses 5..7, so the per-thread regions live at 8..11. QEMU CM33 has
+ * no vendor-reserved regions: Pebble's static regions take 0..3 and the
+ * per-thread regions 4..7. */
+#if defined(CONFIG_SOC_SF32LB52)
+#define configFIRST_MPU_REGION 8
+#define configLAST_MPU_REGION 11
+#elif defined(CONFIG_QEMU) && defined(CONFIG_CORTEX_M33)
+#define configFIRST_MPU_REGION 4
+#define configLAST_MPU_REGION 7
 #endif
 
 #define configUSE_TIMERS 0
@@ -134,7 +139,7 @@ extern uint32_t SystemCoreClock;
 #define configENABLE_BACKWARD_COMPATIBILITY 0
 
 /* Thread local storage for syscall information */
-#define configNUM_THREAD_LOCAL_STORAGE_POINTERS 2
+#define configNUM_THREAD_LOCAL_STORAGE_POINTERS 3
 
 /* Set the following definitions to 1 to include the API function, or zero
 to exclude the API function. */
@@ -157,8 +162,8 @@ to exclude the API function. */
 
 /* This is the raw value as per the Cortex-M3 NVIC.  Values can be 255
 (lowest) to 0 (1?) (highest). */
-#define configKERNEL_INTERRUPT_PRIORITY      255
-#define configMAX_SYSCALL_INTERRUPT_PRIORITY 191 /* equivalent to 0xb0, or priority 11. */
+#define configKERNEL_INTERRUPT_PRIORITY      CONFIG_KERNEL_IRQ_PRIO_KERNEL
+#define configMAX_SYSCALL_INTERRUPT_PRIORITY CONFIG_KERNEL_IRQ_PRIO_MAX_SYSCALL
 
 
 /* This is the value being used as per the ST library which permits 16
@@ -197,8 +202,8 @@ NVIC value of 255. */
 #define portGET_RUN_TIME_COUNTER_VALUE() xTaskGetTickCount()
 
 #include "system/passert.h"
-#define configASSERT( x ) \
-  PBL_ASSERT(x, "FreeRTOS assert at " __FILE_NAME__ ":%d", __LINE__);
+#include "pbl/os/assert.h"
+#define configASSERT( x ) OS_ASSERT(x)
 
 #if configCHECK_CALL_SAFETY
   #include "pbl/mcu/interrupts.h"

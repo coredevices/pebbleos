@@ -68,6 +68,8 @@
 
 #include "debug/debug.h"
 
+#include "pbl/kernel/sched.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -77,9 +79,6 @@
 #include <bluetooth/init.h>
 
 void soc_early_init(void);
-
-/* here is as good as anywhere else ... */
-const int __attribute__((used)) uxTopUsedPriority = configMAX_PRIORITIES - 1;
 
 static TimerID s_lowpower_timer = TIMER_INVALID_ID;
 #ifndef CONFIG_MFG
@@ -117,6 +116,7 @@ int main(void) {
   enable_fault_handlers();
 
   kernel_heap_init();
+  pbl_kernel_init();
 
   mbuf_init();
   delay_init();

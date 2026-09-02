@@ -105,6 +105,7 @@ endif()
 
 add_subdirectory(third_party)
 add_subdirectory(lib)
+add_subdirectory(kernel)
 add_subdirectory(soc)
 add_subdirectory(subsys)
 add_subdirectory(src)

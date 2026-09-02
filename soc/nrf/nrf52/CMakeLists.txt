@@ -5,6 +5,6 @@ pbl_library()
 pbl_library_sources(
   init.c
   sleep.c
-  freertos.c
+  idle.c
 )
 pbl_linker_sources(memory linker.ld)
