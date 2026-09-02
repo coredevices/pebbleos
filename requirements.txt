@@ -31,6 +31,7 @@ prompt_toolkit>=3
 requests
 libpebble2>=0.0.16
 
+-e tools/libs/pbl-cli
 -e tools/libs/pebble-commander
 -e tools/libs/pulse2
 -e tools/libs/pebble-loghash

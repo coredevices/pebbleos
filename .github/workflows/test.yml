@@ -64,7 +64,7 @@ jobs:
       - name: Run tests
         # ctest runs the whole suite before reporting, so one failure does
         # not hide the rest. The job still fails if anything failed.
-        run: ./pbl test
+        run: pbl test
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v6

@@ -75,10 +75,10 @@ jobs:
         run: echo "dir=$(npm config get cache)" >> ${GITHUB_OUTPUT}
 
       - name: Configure
-        run: ./pbl configure --board ${{ matrix.board }} -DCONFIG_SHELL_SDK=y
+        run: pbl configure --board ${{ matrix.board }} -DCONFIG_SHELL_SDK=y
 
       - name: Build
-        run: ./pbl build qemu_image_micro qemu_image_spi
+        run: pbl build qemu_image_micro qemu_image_spi
 
       - name: Copy artifacts
         run: |

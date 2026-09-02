@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pbl"
+version = "1.0.0"
+description = "PebbleOS developer CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["PyYAML"]
+
+[project.scripts]
+pbl = "pbl.app.main:main"
+
+[tool.setuptools.packages.find]
+include = ["pbl", "pbl.*"]

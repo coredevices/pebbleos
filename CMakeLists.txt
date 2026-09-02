@@ -114,19 +114,3 @@ endif()
 
 pbl_resources()
 pbl_link_firmware()
-
-# What ./pbl needs to know about this build.
-execute_process(
-  COMMAND ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/pbl_env.py
-    --config ${PBL_DOTCONFIG} --output ${PROJECT_BINARY_DIR}/pbl_env.json
-    --set BOARD=${PBL_BOARD}
-    --set BOARD_NAME=${PBL_BOARD_NAME}
-    --set BOARD_REVISION=${PBL_BOARD_REVISION}
-    --set BOARD_NORMALIZED=${PBL_BOARD_NORMALIZED}
-    --set VARIANT=${VARIANT}
-    --set PLATFORM_NAME=${PBL_PLATFORM_NAME}
-    --set SLOT=${PBL_SLOT}
-    --set RUNNER=${PBL_RUNNER}
-    --set "SUPPORTED_RUNNERS=${PBL_BOARD_RUNNERS}"
-  COMMAND_ERROR_IS_FATAL ANY
-)

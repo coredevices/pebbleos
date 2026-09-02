@@ -105,13 +105,13 @@ jobs:
           fi
 
       - name: Configure
-        run: ./pbl configure --board '${{ matrix.board }}' -DCONFIG_FIRMWARE_SLOT=${{ matrix.slot }} -DCONFIG_RELEASE=y
+        run: pbl configure --board '${{ matrix.board }}' -DCONFIG_FIRMWARE_SLOT=${{ matrix.slot }} -DCONFIG_RELEASE=y
 
       - name: Build
-        run: ./pbl build
+        run: pbl build
 
       - name: Bundle
-        run: ./pbl bundle
+        run: pbl bundle
 
       - name: Copy artifacts
         env:
