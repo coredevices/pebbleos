@@ -9,11 +9,12 @@ NO_REVISION = "_"
 
 
 class BoardSpec:
-    def __init__(self, target, name, revision=None, runners=None):
+    def __init__(self, target, name, revision=None, runners=None, qemu=None):
         self.target = target
         self.name = name
         self.revision = revision
         self.runners = runners or []
+        self.qemu = qemu or {}
 
     @property
     def normalized(self):
@@ -100,6 +101,20 @@ def load_runners(board_dir, board):
     return _validate_string_list(manifest, data, "runners")
 
 
+def load_qemu(board_dir, board):
+    """The board's emulator settings, e.g. the SDL decorations it ships."""
+    manifest, data = _load_manifest(board_dir, board)
+    if manifest is None:
+        return {}
+
+    qemu = data.get("qemu", {})
+    if not isinstance(qemu, dict):
+        raise TypeError(f"Invalid revision manifest {manifest}: expected qemu mapping")
+
+    decorations = _validate_string_list(manifest, qemu, "decorations")
+    return {"decorations": decorations}
+
+
 def available_boards(srcdir):
     choices = []
     for board in sorted(os.listdir(_boards_dir(srcdir))):
@@ -152,4 +167,10 @@ def parse_board(srcdir, target):
     elif revision is not None:
         raise ValueError(f"Board '{board}' does not define revisions")
 
-    return BoardSpec(target, board, revision, load_runners(board_dir, board))
+    return BoardSpec(
+        target,
+        board,
+        revision,
+        load_runners(board_dir, board),
+        load_qemu(board_dir, board),
+    )
