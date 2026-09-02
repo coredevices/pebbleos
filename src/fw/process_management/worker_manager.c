@@ -23,15 +23,11 @@
 #include "system/passert.h"
 
 // FreeRTOS stuff
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
 
 #define MAX_TO_WORKER_EVENTS 8
 static ProcessContext s_worker_task_context;
@@ -60,7 +56,6 @@ static bool s_worker_crash_relaunches_disabled;
 // ---------------------------------------------------------------------------------------------
 void worker_manager_init(void) {
 }
-
 
 // ---------------------------------------------------------------------------------------------
 // This is the wrapper function for the worker. It's not allowed to return as it's the top frame on the stack
@@ -141,7 +136,7 @@ bool worker_manager_launch_new_worker_with_args(const PebbleProcessMd *app_md, c
   s_next_worker = (NextWorker) {};
 
   // Error if a worker already launched
-  if (pebble_task_get_handle_for_task(PebbleTask_Worker) != NULL) {
+  if (pebble_task_get_thread(PebbleTask_Worker) != NULL) {
     PBL_LOG_WRN("Worker already launched");
     return false;
   }
@@ -171,8 +166,7 @@ bool worker_manager_launch_new_worker_with_args(const PebbleProcessMd *app_md, c
   // to clobber actual data. And syscalls assume that the stack is always at the
   // top of WORKER_RAM; violating this assumption will result in syscalls
   // sometimes failing when the worker hasn't done anything wrong.
-  portSTACK_TYPE *stack = memory_segment_split(&worker_segment, NULL,
-                                               stack_size);
+  void *stack = memory_segment_split(&worker_segment, NULL, stack_size);
   PBL_ASSERTN(stack);
   s_worker_task_context.load_start = worker_segment.start;
   g_worker_load_address = worker_segment.start;
@@ -206,21 +200,22 @@ bool worker_manager_launch_new_worker_with_args(const PebbleProcessMd *app_md, c
   // Init services required for this process before it starts to execute
   process_manager_process_setup(PebbleTask_Worker);
 
-  char task_name[configMAX_TASK_NAME_LEN];
+  char task_name[PBL_THREAD_NAME_LEN];
   snprintf(task_name, sizeof(task_name), "Worker <%s>", process_metadata_get_name(s_worker_task_context.app_md));
 
-  TaskParameters_t task_params = {
-    .pvTaskCode = prv_worker_task_main,
-    .pcName = task_name,
-    .usStackDepth = stack_size / sizeof(portSTACK_TYPE),
-    .pvParameters = entry_point,
-    .uxPriority = (tskIDLE_PRIORITY + 1) | portPRIVILEGE_BIT,
-    .puxStackBuffer = stack,
+  struct pbl_thread_attr attr = {
+    .name = task_name,
+    .entry = prv_worker_task_main,
+    .arg = entry_point,
+    .prio = PBL_PRIO_IDLE + 1,
+    .privileged = true,
+    .stack = stack,
+    .stack_size = stack_size,
   };
 
   PBL_LOG_DBG("Starting %s", task_name);
 
-  pebble_task_create(PebbleTask_Worker, &task_params, &s_worker_task_context.task_handle);
+  s_worker_task_context.task_handle = pebble_task_create(PebbleTask_Worker, &attr);
 
   // If no default yet, set as the default so that it can be relaunched upon system reset
   if (worker_manager_get_default_install_id() == INSTALL_ID_INVALID) {
@@ -333,12 +328,10 @@ AppInstallId worker_manager_get_current_worker_id(void) {
   return s_worker_task_context.install_id;
 }
 
-
 // ------------------------------------------------------------------------------------------------
 ProcessContext* worker_manager_get_task_context(void) {
   return &s_worker_task_context;
 }
-
 
 // ------------------------------------------------------------------------------------------------
 void worker_manager_put_launch_worker_event(AppInstallId id) {
@@ -354,18 +347,15 @@ void worker_manager_put_launch_worker_event(AppInstallId id) {
   event_put(&e);
 }
 
-
 // ------------------------------------------------------------------------------------------------
 AppInstallId worker_manager_get_default_install_id(void) {
   return worker_preferences_get_default_worker();
 }
 
-
 // ------------------------------------------------------------------------------------------------
 void worker_manager_set_default_install_id(AppInstallId id) {
   worker_preferences_set_default_worker(id);
 }
-
 
 // ------------------------------------------------------------------------------------------------
 void worker_manager_enable(void) {
@@ -378,7 +368,6 @@ void worker_manager_enable(void) {
   }
 }
 
-
 // ------------------------------------------------------------------------------------------------
 void worker_manager_disable(void) {
   if (s_workers_enabled) {
@@ -387,12 +376,10 @@ void worker_manager_disable(void) {
   }
 }
 
-
 // ------------------------------------------------------------------------------------------------
 void command_worker_kill(void) {
   process_manager_put_kill_process_event(PebbleTask_Worker, true /*graceful*/);
 }
-
 
 // ------------------------------------------------------------------------------------------------
 DEFINE_SYSCALL(AppInstallId, sys_worker_manager_get_current_worker_id, void) {

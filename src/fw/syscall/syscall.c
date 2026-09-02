@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/thread.h"
 #include "time.h"
 
 #include "syscall.h"
@@ -14,9 +15,6 @@
 #include "logging/logging_private.h"
 #include <pbl/logging/logging.h>
 #include "pbl/util/string.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
 
 DEFINE_SYSCALL(int, sys_test, int arg) {
   uint32_t ipsr;
@@ -89,5 +87,5 @@ DEFINE_SYSCALL(NORETURN, sys_exit, void) {
 }
 
 DEFINE_SYSCALL(void, sys_psleep, int millis) {
-  vTaskDelay(milliseconds_to_ticks(millis));
+  pbl_thread_sleep(PBL_MSEC(millis));
 }

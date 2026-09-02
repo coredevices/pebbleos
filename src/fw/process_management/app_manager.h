@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "pbl/kernel/types.h"
 #include "launch_config.h"
 #include "process_manager.h"
 
@@ -13,7 +14,7 @@
 
 #include <stdbool.h>
 
-#define APP_TASK_PRIORITY (tskIDLE_PRIORITY + 2)
+#define APP_TASK_PRIORITY (PBL_PRIO_IDLE + 2)
 
 typedef enum {
   AppTaskCtxIdxLauncher = 0,

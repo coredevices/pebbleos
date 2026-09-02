@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/debug.h"
 #include "syscall_internal.h"
 
 #include "applib/app_logging.h"
@@ -14,9 +15,6 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/size.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -33,25 +31,24 @@
 #  endif
 #endif
 
-// Indices into FreeRTOS thread local storage
+// Per-thread slots for the syscall return address and pre-syscall stack pointer
 #define TLS_SYSCALL_LR_IDX 0
 #define TLS_SYSCALL_SP_IDX 1
 
-// Helper functions to access FreeRTOS TLS
 static uintptr_t prv_get_syscall_sp(void) {
-  return (uintptr_t)pvTaskGetThreadLocalStoragePointer(NULL, TLS_SYSCALL_SP_IDX);
+  return (uintptr_t)pbl_thread_tls_get(pbl_thread_current(), TLS_SYSCALL_SP_IDX);
 }
 
 static void prv_set_syscall_sp(uintptr_t new_sp) {
-  vTaskSetThreadLocalStoragePointer(NULL, TLS_SYSCALL_SP_IDX, (void *)new_sp);
+  pbl_thread_tls_set(pbl_thread_current(), TLS_SYSCALL_SP_IDX, (void *)new_sp);
 }
 
 USED uintptr_t get_syscall_lr(void) {
-  return (uintptr_t)pvTaskGetThreadLocalStoragePointer(NULL, TLS_SYSCALL_LR_IDX);
+  return (uintptr_t)pbl_thread_tls_get(pbl_thread_current(), TLS_SYSCALL_LR_IDX);
 }
 
 static void prv_set_syscall_lr(uintptr_t new_lr) {
-  vTaskSetThreadLocalStoragePointer(NULL, TLS_SYSCALL_LR_IDX, (void *)new_lr);
+  pbl_thread_tls_set(pbl_thread_current(), TLS_SYSCALL_LR_IDX, (void *)new_lr);
 }
 
 typedef struct McuUnprivilegedCallContext {
@@ -63,7 +60,7 @@ typedef struct McuUnprivilegedCallContext {
   uintptr_t outer_syscall_lr;
   uintptr_t outer_syscall_sp;
   bool active;
-  TaskHandle_t handle;
+  uint32_t thread_id;
 } McuUnprivilegedCallContext;
 
 _Static_assert(sizeof(((McuUnprivilegedCallContext *)0)->saved_r4_r11) == 32,
@@ -92,10 +89,10 @@ static USED void mcu_call_unprivileged_enter(void (*fn)(void *), void *ctx,
   McuUnprivilegedCallContext *state = prv_unprivileged_call_ctx_for_current_task();
   PBL_ASSERTN(state != NULL);
 
-  const TaskHandle_t handle = xTaskGetCurrentTaskHandle();
-  if (state->active && state->handle != handle) {
+  const uint32_t thread_id = pbl_thread_id(pbl_thread_current());
+  if (state->active && state->thread_id != thread_id) {
     // Slots are indexed by PebbleTask. If a task died mid-callback and a new
-    // FreeRTOS task reused the PebbleTask, discard the old call state first.
+    // thread reused the PebbleTask, discard the old call state first.
     *state = (McuUnprivilegedCallContext) { 0 };
   }
 
@@ -103,7 +100,7 @@ static USED void mcu_call_unprivileged_enter(void (*fn)(void *), void *ctx,
 
   *state = (McuUnprivilegedCallContext) {
     .active = true,
-    .handle = handle,
+    .thread_id = thread_id,
     .caller_lr = caller_lr,
     .entry_sp = entry_sp,
     .outer_syscall_lr = get_syscall_lr(),
@@ -127,7 +124,7 @@ static uintptr_t prv_mcu_call_unprivileged_reentry_return_pc(void) {
 static McuUnprivilegedCallContext *prv_active_unprivileged_call_ctx_for_current_task(void) {
   McuUnprivilegedCallContext *state = prv_unprivileged_call_ctx_for_current_task();
   if (state == NULL || !state->active ||
-      state->handle != xTaskGetCurrentTaskHandle()) {
+      state->thread_id != pbl_thread_id(pbl_thread_current())) {
     return NULL;
   }
   return state;
@@ -160,7 +157,7 @@ bool mcu_call_unprivileged_reentry_setup(uintptr_t orig_sp, uintptr_t *lr_ptr) {
   }
 
   state->active = false;
-  state->handle = NULL;
+  state->thread_id = 0;
 
   // The inner SVC uses the same TLS slots as the app syscall that entered XS.
   // Put them back before the runtime continues.
@@ -280,14 +277,14 @@ void syscall_assert_userspace_buffer(const void* buf, size_t num_bytes) {
 // in the privileged-only .kernel_bss output (KERNEL_RAM): unreadable by app
 // code, zeroed at boot. (Not section(".kernel_bss") -- that would orphan them.)
 #define SYSCALL_STACK_WORDS 512u  // 2 KiB each; size against measured high-water.
-static StackType_t s_app_syscall_stack[SYSCALL_STACK_WORDS] __attribute__((aligned(8)));
-static StackType_t s_worker_syscall_stack[SYSCALL_STACK_WORDS] __attribute__((aligned(8)));
+static uint32_t s_app_syscall_stack[SYSCALL_STACK_WORDS] __attribute__((aligned(8)));
+static uint32_t s_worker_syscall_stack[SYSCALL_STACK_WORDS] __attribute__((aligned(8)));
 
 // Kernel hook: top of the current task's dedicated syscall stack (base in
 // *base_out), or NULL to keep it on the caller's stack. App + Worker only;
 // moddable apps use mcu_call_unprivileged() and stay on their own stack.
 uint32_t *pbl_kernel_syscall_stack(uintptr_t *base_out) {
-  StackType_t *stack;
+  uint32_t *stack;
   switch (pebble_task_get_current()) {
     case PebbleTask_App:
 #ifdef CONFIG_MODDABLE_XS
@@ -310,7 +307,7 @@ uint32_t *pbl_kernel_syscall_stack(uintptr_t *base_out) {
   return (uint32_t *)&stack[SYSCALL_STACK_WORDS];
 }
 
-static bool prv_psp_in_syscall_stack(uintptr_t psp, const StackType_t *stack) {
+static bool prv_psp_in_syscall_stack(uintptr_t psp, const uint32_t *stack) {
   return (psp > (uintptr_t)&stack[0]) && (psp <= (uintptr_t)&stack[SYSCALL_STACK_WORDS]);
 }
 
@@ -321,7 +318,9 @@ USED uint64_t syscall_stack_restore_target(void) {
   if (prv_psp_in_syscall_stack(psp, s_app_syscall_stack) ||
       prv_psp_in_syscall_stack(psp, s_worker_syscall_stack)) {
     const uint32_t sp = (uint32_t)prv_get_syscall_sp();  // slot1 = pre-syscall task SP
-    const uint32_t psplim = (uint32_t)ulTaskGetStackStart(xTaskGetCurrentTaskHandle());
+    struct pbl_thread_stack_info info;
+    pbl_thread_stack_info(pbl_thread_current(), &info);
+    const uint32_t psplim = (uint32_t)info.start;
     return ((uint64_t)psplim << 32) | sp;
   }
   return 0;
@@ -329,12 +328,12 @@ USED uint64_t syscall_stack_restore_target(void) {
 
 // Peak unused bytes on a syscall stack: scan the zeroed .bss from the base to
 // the first written word (the high-water). For sizing during validation.
-static uint16_t prv_syscall_stack_free_bytes(const StackType_t *stack) {
+static uint16_t prv_syscall_stack_free_bytes(const uint32_t *stack) {
   uint32_t i = 0;
   while (i < SYSCALL_STACK_WORDS && stack[i] == 0) {
     i++;
   }
-  return (uint16_t)(i * sizeof(StackType_t));
+  return (uint16_t)(i * sizeof(uint32_t));
 }
 
 uint16_t syscall_app_stack_free_bytes(void) {

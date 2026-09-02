@@ -43,6 +43,7 @@ for f in files:
   add_custom_command(
     OUTPUT ${outputs}
     COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${script} --sdk-dir=${sdk_dir}
+            --autoconf ${PROJECT_BINARY_DIR}/autoconf.h
             ${symbols} ${PBL_BASE}/src ${PROJECT_BINARY_DIR}/src
             ${PBL_PLATFORM_NAME}
     DEPENDS ${script} ${symbols} ${headers}

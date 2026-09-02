@@ -53,8 +53,9 @@ extern char *itoa(int value, char *str, int base);
 #include <nrf52840.h>
 #endif
 
-#include "FreeRTOS.h"       /* FreeRTOS Kernal Prototypes/Constants.          */
-#include "task.h"           /* FreeRTOS Task Prototypes/Constants.            */
+#include "pbl/kernel/debug.h"
+
+#include <cmsis_core.h>
 
 #include <stdint.h>
 
@@ -309,14 +310,14 @@ static uint32_t prv_flash_start_address(bool new) {
 
 
 // -------------------------------------------------------------------------------------------------
-// This callback gets called by FreeRTOS for each task during the call to vTaskListWalk.
-static void prvTaskInfoCallback( const xPORT_TASK_INFO * const task_info, void * data) {
+_Static_assert(CORE_DUMP_NUM_REGISTERS == PBL_THREAD_REG_COUNT, "register layout mismatch");
+
+// Called for each thread during the pbl_thread_foreach() walk.
+static void prv_thread_info_cb(const struct pbl_thread_info *task_info, void *data) {
   CoreDumpChunkHeader chunk_hdr;
   CoreDumpThreadInfo packed_info;
 
-  void *current_task_id = (void *)xTaskGetCurrentTaskHandle();
-
-  prv_debug_str_str("CD: Th info ", task_info->pcName);
+  prv_debug_str_str("CD: Th info ", task_info->name);
 
   // Unit testing various types of fault?
   if (s_test_force_bus_fault) {
@@ -332,18 +333,18 @@ static void prvTaskInfoCallback( const xPORT_TASK_INFO * const task_info, void *
   }
 
   // Create the packed chunk header
-  strncpy ((char *)packed_info.name, task_info->pcName, CORE_DUMP_THREAD_NAME_SIZE);
-  packed_info.id = (uint32_t)task_info->taskHandle;
-  packed_info.running = (current_task_id == task_info->taskHandle);
-  for (int i = 0; i < portCANONICAL_REG_COUNT; i++) {
+  strncpy ((char *)packed_info.name, task_info->name, CORE_DUMP_THREAD_NAME_SIZE);
+  packed_info.id = (uint32_t)task_info->id;
+  packed_info.running = task_info->current;
+  for (int i = 0; i < PBL_THREAD_REG_COUNT; i++) {
     // registers [r0-r12, sp, lr, pc, sr]
-    packed_info.registers[i] = task_info->registers[i];
+    packed_info.registers[i] = task_info->regs[i];
   }
 
   // If this is the current task, adjust the registers based on whether or not we were handling
   //  an exception at the time core_dump_reset() was called.
   if (packed_info.running) {
-    if (!RETURNS_TO_PSP(s_saved_registers.core_reg[portCANONICAL_REG_INDEX_LR])) {
+    if (!RETURNS_TO_PSP(s_saved_registers.core_reg[PBL_THREAD_REG_LR])) {
       // The core dump handler got invoked from another exception, therefore the
       // running task was interrupted by an exception.
       // Get R0-R3, R12, R14, PC, xpsr for the task off the process stack used
@@ -354,19 +355,19 @@ static void prvTaskInfoCallback( const xPORT_TASK_INFO * const task_info, void *
       // information available. Unfortunately mainline GDB is unable to unwind
       // across the MSP/PSP split stack so this incomplete hack is required to
       // get useable information.
-      for (int i = 0; i < portCANONICAL_REG_COUNT; i++) {
+      for (int i = 0; i < PBL_THREAD_REG_COUNT; i++) {
         // Clear out all of the bogus values in the info
         packed_info.registers[i] = 0xa5a5a5a5;
       }
       uint32_t *sp = (uint32_t *)s_saved_registers.extra_reg.psp;
-      packed_info.registers[portCANONICAL_REG_INDEX_R0] = sp[0];
-      packed_info.registers[portCANONICAL_REG_INDEX_R1] = sp[1];
-      packed_info.registers[portCANONICAL_REG_INDEX_R2] = sp[2];
-      packed_info.registers[portCANONICAL_REG_INDEX_R3] = sp[3];
-      packed_info.registers[portCANONICAL_REG_INDEX_R12] = sp[4];
-      packed_info.registers[portCANONICAL_REG_INDEX_LR] = sp[5];
-      packed_info.registers[portCANONICAL_REG_INDEX_PC] = sp[6];
-      packed_info.registers[portCANONICAL_REG_INDEX_XPSR] = sp[7];
+      packed_info.registers[PBL_THREAD_REG_R0] = sp[0];
+      packed_info.registers[PBL_THREAD_REG_R1] = sp[1];
+      packed_info.registers[PBL_THREAD_REG_R2] = sp[2];
+      packed_info.registers[PBL_THREAD_REG_R3] = sp[3];
+      packed_info.registers[PBL_THREAD_REG_R12] = sp[4];
+      packed_info.registers[PBL_THREAD_REG_LR] = sp[5];
+      packed_info.registers[PBL_THREAD_REG_PC] = sp[6];
+      packed_info.registers[PBL_THREAD_REG_XPSR] = sp[7];
       // Pop the exception stack frame, taking stack alignment into account.
       // The 10th bit of the pushed xPSR indicates whether an alignment word was
       // inserted into the stack frame during exception entry in order to make
@@ -376,19 +377,19 @@ static void prvTaskInfoCallback( const xPORT_TASK_INFO * const task_info, void *
       // pushed during exception entry requires unwinding the ISR stack to
       // determine the EXC_RETURN value of the bottom-most ISR.
       if (sp[7] & 0x200) {
-        packed_info.registers[portCANONICAL_REG_INDEX_SP] = (uint32_t)(&sp[9]);
+        packed_info.registers[PBL_THREAD_REG_SP] = (uint32_t)(&sp[9]);
       } else {
-        packed_info.registers[portCANONICAL_REG_INDEX_SP] = (uint32_t)(&sp[8]);
+        packed_info.registers[PBL_THREAD_REG_SP] = (uint32_t)(&sp[8]);
       }
     } else {
       // If current task called core_dump_reset directly, then jam in the
       // registers we saved at the beginning.
-      for (int i = 0; i < portCANONICAL_REG_COUNT; i++) {
+      for (int i = 0; i < PBL_THREAD_REG_COUNT; i++) {
         // registers [r0-r12, msp, lr, pc, psr]
         packed_info.registers[i] = s_saved_registers.core_reg[i];
       }
       // Set sp to the saved psp so that GDB can unwind the task's stack.
-      packed_info.registers[portCANONICAL_REG_INDEX_SP] =
+      packed_info.registers[PBL_THREAD_REG_SP] =
           s_saved_registers.extra_reg.psp;
     }
   }
@@ -522,7 +523,7 @@ void __attribute__((naked)) NMI_Handler(void) {
     "  b core_dump_handler_c    \n"
     :
     : [s_saved_registers] "i"
-          (&s_saved_registers.core_reg[portCANONICAL_REG_INDEX_R4])
+          (&s_saved_registers.core_reg[PBL_THREAD_REG_R4])
     : "r0", "r1", "r2", "r3", "cc"
     );
 }
@@ -532,16 +533,16 @@ EXTERNALLY_VISIBLE void core_dump_handler_c(void) {
   // NMI handler was executed so that the saved state can be copied into
   // s_saved_registers.
   uint32_t *process_sp = (uint32_t *)(
-    RETURNS_TO_PSP(s_saved_registers.core_reg[portCANONICAL_REG_INDEX_LR])?
+    RETURNS_TO_PSP(s_saved_registers.core_reg[PBL_THREAD_REG_LR])?
       s_saved_registers.extra_reg.psp : s_saved_registers.extra_reg.msp);
-  s_saved_registers.core_reg[portCANONICAL_REG_INDEX_R0] = process_sp[0];
-  s_saved_registers.core_reg[portCANONICAL_REG_INDEX_R1] = process_sp[1];
-  s_saved_registers.core_reg[portCANONICAL_REG_INDEX_R2] = process_sp[2];
-  s_saved_registers.core_reg[portCANONICAL_REG_INDEX_R3] = process_sp[3];
+  s_saved_registers.core_reg[PBL_THREAD_REG_R0] = process_sp[0];
+  s_saved_registers.core_reg[PBL_THREAD_REG_R1] = process_sp[1];
+  s_saved_registers.core_reg[PBL_THREAD_REG_R2] = process_sp[2];
+  s_saved_registers.core_reg[PBL_THREAD_REG_R3] = process_sp[3];
   // Replace the r12 saved earlier with the real value.
-  s_saved_registers.core_reg[portCANONICAL_REG_INDEX_R12] = process_sp[4];
+  s_saved_registers.core_reg[PBL_THREAD_REG_R12] = process_sp[4];
   // Make it look like the processor had halted at the start of this function.
-  s_saved_registers.core_reg[portCANONICAL_REG_INDEX_PC] = (uint32_t)NMI_Handler;
+  s_saved_registers.core_reg[PBL_THREAD_REG_PC] = (uint32_t)NMI_Handler;
   // Save the special registers that the C compiler won't clobber.
   s_saved_registers.extra_reg.primask = __get_PRIMASK();
   s_saved_registers.extra_reg.basepri = __get_BASEPRI();
@@ -657,19 +658,21 @@ EXTERNALLY_VISIBLE void core_dump_handler_c(void) {
   // In that case, the core dump will at least contain the RAM and registers info and perhaps some of the
   // threads. The format of the binary core dump is streamable and is read until we reach a chunk key
   // of 0xFFFFFFFF (what gets placed into flash after an erase).
-  vTaskListWalk(prvTaskInfoCallback, NULL);
+  pbl_thread_foreach(prv_thread_info_cb, NULL);
 
   // If we core dumped from an ISR, we make up a special "ISR" thread to hold the registers
-  if (!RETURNS_TO_PSP(s_saved_registers.core_reg[portCANONICAL_REG_INDEX_LR])) {
+  if (!RETURNS_TO_PSP(s_saved_registers.core_reg[PBL_THREAD_REG_LR])) {
     // Another exception invoked the core dump handler
-    xPORT_TASK_INFO task_info;
-    task_info.pcName = "ISR";
-    task_info.taskHandle = (void *)1;
-    for (int i = 0; i < portCANONICAL_REG_COUNT; i++) {
+    struct pbl_thread_info task_info = {
+      .name = "ISR",
+      .id = 1,
+      .current = false,
+    };
+    for (int i = 0; i < PBL_THREAD_REG_COUNT; i++) {
       // registers [r0-r12, sp, lr, pc, sr]
-      task_info.registers[i] = s_saved_registers.core_reg[i];
+      task_info.regs[i] = s_saved_registers.core_reg[i];
     }
-    prvTaskInfoCallback(&task_info, NULL);
+    prv_thread_info_cb(&task_info, NULL);
   }
 
 #if defined(CONFIG_SOC_SF32LB52)

@@ -56,6 +56,7 @@ def generate_shim_files(
     platform_name,
     internal_sdk_build=False,
     build_shim_lib=True,
+    autoconf=None,
 ):
     if internal_sdk_build:
         try:
@@ -118,6 +119,8 @@ def generate_shim_files(
         ]
     )
     compiler_flags.append(f"-I{pbl_src_dir}/../kernel/freertos/include")
+    if autoconf:
+        compiler_flags.extend(["-imacros", autoconf])
 
     extract_symbol_info(
         files,
@@ -221,6 +224,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--internal-sdk-build", action="store_true", help="build internal SDK"
     )
+    parser.add_argument("--autoconf", help="Kconfig autoconf.h to predefine while parsing")
 
     options = parser.parse_args()
 
@@ -262,4 +266,5 @@ if __name__ == "__main__":
         sdk_lib_dir,
         options.platform_name,
         internal_sdk_build=options.internal_sdk_build,
+        autoconf=options.autoconf,
     )

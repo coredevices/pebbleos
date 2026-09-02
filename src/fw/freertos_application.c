@@ -15,25 +15,6 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-void pbl_thread_stack_overflow(struct pbl_thread *t, const char *name) {
-  PebbleTask task = pebble_task_get_task_for_handle(xTaskGetCurrentTaskHandle());
-
-  // If the task is application or worker, ignore this hook. We have a memory protection region
-  // setup at the bottom of those stacks and the code that catches MPU violiations to that
-  // area in fault_handling.c has the logic to safely kill those user tasks without forcing
-  // a reboot.
-  if ((task != PebbleTask_App) && (task != PebbleTask_Worker)) {
-    PBL_LOG_SYNC_ERR("Stack overflow [task: %s]", name);
-    RebootReason reason = {
-      .code = RebootReasonCode_StackOverflow,
-      .data8[0] = task
-    };
-    reboot_reason_set(&reason);
-
-    reset_due_to_software_failure();
-  }
-}
-
 bool pbl_kernel_privilege_raise_allowed(uint32_t caller_pc) {
   // This function is called by portSVCHandler with the PC value of the
   // function which initiated the SVC call requesting privilege elevation.

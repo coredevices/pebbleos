@@ -32,8 +32,6 @@ bool menu_cell_layer_is_highlighted(const Layer *cell_layer) {
 }
 
 // Controllable replacement for stubs_pebble_tasks.h so tests can simulate an app task
-#include "FreeRTOS.h"
-#include "task.h"
 
 static PebbleTask s_current_task = PebbleTask_KernelMain;
 
@@ -41,7 +39,7 @@ PebbleTask pebble_task_get_current(void) {
   return s_current_task;
 }
 
-TaskHandle_t pebble_task_get_handle_for_task(PebbleTask task) {
+struct pbl_thread *pebble_task_get_thread(PebbleTask task) {
   return NULL;
 }
 
@@ -52,8 +50,8 @@ const char* pebble_task_get_name(PebbleTask task) {
 void pebble_task_unregister(PebbleTask task) {
 }
 
-void pebble_task_create(PebbleTask pebble_task, TaskParameters_t *task_params,
-                        TaskHandle_t *handle) {
+struct pbl_thread *pebble_task_create(PebbleTask pebble_task, struct pbl_thread_attr *attr) {
+  return NULL;
 }
 
 //! System install ids are negative, app-db (third-party) install ids are positive

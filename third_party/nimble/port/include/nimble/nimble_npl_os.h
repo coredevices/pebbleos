@@ -16,6 +16,7 @@
 #include "kernel/pbl_malloc.h"
 #include "pbl/kernel/mutex.h"
 #include "pbl/kernel/msgq.h"
+#include "pbl/kernel/thread.h"
 #include "pbl/kernel/sem.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "task.h"
@@ -83,7 +84,7 @@ static inline bool ble_npl_os_started(void) {
   return xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED;
 }
 
-static inline void *ble_npl_get_current_task_id(void) { return xTaskGetCurrentTaskHandle(); }
+static inline void *ble_npl_get_current_task_id(void) { return pbl_thread_current(); }
 
 static inline void ble_npl_eventq_init(struct ble_npl_eventq *evq) {
   pbl_msgq_init(&evq->q, evq->buf, sizeof(struct ble_npl_event *), BLE_NPL_EVENTQ_DEPTH);
@@ -206,7 +207,7 @@ static inline ble_npl_time_t ble_npl_time_ms_to_ticks32(uint32_t ms) { return ms
 
 static inline uint32_t ble_npl_time_ticks_to_ms32(ble_npl_time_t ticks) { return ticks; }
 
-static inline void ble_npl_time_delay(ble_npl_time_t ticks) { vTaskDelay(ticks); }
+static inline void ble_npl_time_delay(ble_npl_time_t ticks) { pbl_thread_sleep(PBL_TICKS(ticks)); }
 
 #if NIMBLE_CFG_CONTROLLER
 void ble_npl_hw_set_isr(int irqn, void (*addr)(void));

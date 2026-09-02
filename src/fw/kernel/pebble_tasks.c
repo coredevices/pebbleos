@@ -4,7 +4,9 @@
 #include "pebble_tasks.h"
 
 #include "kernel/memory_layout.h"
-#include "kernel/pbl_malloc.h"
+#include "system/reboot_reason.h"
+#include "system/die.h"
+#include <pbl/logging/logging.h>
 
 #include "process_management/app_manager.h"
 #include "process_management/worker_manager.h"
@@ -13,48 +15,41 @@
 #include "system/passert.h"
 #include "pbl/util/size.h"
 
-#include "FreeRTOS.h"
-#include "task.h"
+#include "pbl/kernel/debug.h"
 
-TaskHandle_t g_task_handles[NumPebbleTask] KERNEL_READONLY_DATA = { 0 };
+static struct pbl_thread s_threads[NumPebbleTask];
+struct pbl_thread *g_task_threads[NumPebbleTask] KERNEL_READONLY_DATA = { 0 };
 
 // Cycles consumed by tasks that have already been destroyed in each slot.
 // Captured at unregister time so the analytics heartbeat can keep accounting
 // for App/Worker activity across short-lived task instances.
 static uint32_t s_dead_task_cycles[NumPebbleTask];
 
-static void prv_task_register(PebbleTask task, TaskHandle_t task_handle) {
-  g_task_handles[task] = task_handle;
+static void prv_task_register(PebbleTask task, struct pbl_thread *thread) {
+  g_task_threads[task] = thread;
 }
 
-static uint32_t prv_read_task_run_time(TaskHandle_t handle) {
-  UBaseType_t num_tasks = uxTaskGetNumberOfTasks();
-  TaskStatus_t *statuses = kernel_malloc(num_tasks * sizeof(TaskStatus_t));
-  if (!statuses) {
-    return 0;
-  }
-  UBaseType_t count = uxTaskGetSystemState(statuses, num_tasks, NULL);
-  uint32_t cycles = 0;
-  for (UBaseType_t i = 0; i < count; i++) {
-    if (statuses[i].xHandle == handle) {
-      cycles = statuses[i].ulRunTimeCounter;
-      break;
+static uint32_t prv_read_task_run_time(const struct pbl_thread *thread) {
+  struct pbl_thread_stats stats[CONFIG_KERNEL_MAX_THREADS];
+  size_t count = pbl_thread_stats_snapshot(stats, ARRAY_LENGTH(stats), NULL);
+  for (size_t i = 0; i < count; i++) {
+    if (stats[i].thread == thread) {
+      return stats[i].run_time;
     }
   }
-  kernel_free(statuses);
-  return cycles;
+  return 0;
 }
 
 void pebble_task_unregister(PebbleTask task) {
-  TaskHandle_t handle = g_task_handles[task];
-  if (handle == NULL) {
+  struct pbl_thread *thread = g_task_threads[task];
+  if (thread == NULL) {
     return;
   }
-  uint32_t cycles = prv_read_task_run_time(handle);
+  uint32_t cycles = prv_read_task_run_time(thread);
   // Clear the handle before crediting the cycles: the collector reads
   // s_dead_task_cycles before walking the task list, so this ordering
   // ensures cycles are never seen in both buckets simultaneously.
-  g_task_handles[task] = NULL;
+  g_task_threads[task] = NULL;
   s_dead_task_cycles[task] += cycles;
 }
 
@@ -66,11 +61,11 @@ const char* pebble_task_get_name(PebbleTask task) {
     WTF;
   }
 
-  TaskHandle_t task_handle = g_task_handles[task];
-  if (!task_handle) {
+  struct pbl_thread *thread = g_task_threads[task];
+  if (!thread) {
     return "Unknown";
   }
-  return (const char*) pcTaskGetTaskName(task_handle);
+  return pbl_thread_name(thread);
 }
 
 // NOTE: The logging support calls toupper() this character if the task is currently running privileged, so
@@ -104,34 +99,38 @@ char pebble_task_get_char(PebbleTask task) {
 }
 
 PebbleTask pebble_task_get_current(void) {
-  TaskHandle_t task_handle = xTaskGetCurrentTaskHandle();
-  return pebble_task_get_task_for_handle(task_handle);
+  return pebble_task_get_task_for_thread(pbl_thread_current());
 }
 
-PebbleTask pebble_task_get_task_for_handle(TaskHandle_t task_handle) {
-  for (int i = 0; i < (int) ARRAY_LENGTH(g_task_handles); ++i) {
-    if (g_task_handles[i] == task_handle) {
+PebbleTask pebble_task_get_task_for_thread(const struct pbl_thread *thread) {
+  if (thread == NULL) {
+    return PebbleTask_Unknown;
+  }
+  for (int i = 0; i < (int) ARRAY_LENGTH(g_task_threads); ++i) {
+    if (g_task_threads[i] == thread) {
       return i;
     }
   }
   return PebbleTask_Unknown;
 }
 
-TaskHandle_t pebble_task_get_handle_for_task(PebbleTask task) {
-  return g_task_handles[task];
+struct pbl_thread *pebble_task_get_thread(PebbleTask task) {
+  return g_task_threads[task];
 }
 
 static uint16_t prv_task_get_stack_free(PebbleTask task) {
   // If task doesn't exist, return a dummy with max value
-  if (g_task_handles[task] == NULL) {
+  if (g_task_threads[task] == NULL) {
     return 0xFFFF;
   }
-  return uxTaskGetStackHighWaterMark(g_task_handles[task]);
+  struct pbl_thread_stack_info info;
+  pbl_thread_stack_info(g_task_threads[task], &info);
+  return info.high_water;
 }
 
 void pebble_task_suspend(PebbleTask task) {
   PBL_ASSERTN(task < NumPebbleTask);
-  vTaskSuspend(g_task_handles[task]);
+  pbl_thread_suspend(g_task_threads[task]);
 }
 
 void pbl_analytics_external_collect_stack_free(void) {
@@ -169,33 +168,27 @@ void pbl_analytics_external_collect_task_cpu_stats(void) {
     dead_cycles[task] = s_dead_task_cycles[task];
   }
 
-  UBaseType_t num_tasks = uxTaskGetNumberOfTasks();
-  TaskStatus_t *statuses = kernel_malloc(num_tasks * sizeof(TaskStatus_t));
-  if (!statuses) {
-    return;
-  }
-
+  struct pbl_thread_stats stats[CONFIG_KERNEL_MAX_THREADS];
   uint32_t total_run_time;
-  UBaseType_t count = uxTaskGetSystemState(statuses, num_tasks, &total_run_time);
+  size_t count = pbl_thread_stats_snapshot(stats, ARRAY_LENGTH(stats), &total_run_time);
 
   uint32_t delta_total = total_run_time - s_prev_total_run_time;
   s_prev_total_run_time = total_run_time;
 
-  TaskHandle_t idle_handle = xTaskGetIdleTaskHandle();
+  struct pbl_thread *idle_thread = pbl_thread_idle();
   uint32_t curr_task_run_time[NumPebbleTask] = {0};
   uint32_t curr_idle_run_time = 0;
-  for (UBaseType_t i = 0; i < count; i++) {
-    if (statuses[i].xHandle == idle_handle) {
-      curr_idle_run_time = statuses[i].ulRunTimeCounter;
+
+  for (size_t i = 0; i < count; i++) {
+    if (stats[i].thread == idle_thread) {
+      curr_idle_run_time = stats[i].run_time;
       continue;
     }
-    PebbleTask task = pebble_task_get_task_for_handle(statuses[i].xHandle);
+    PebbleTask task = pebble_task_get_task_for_thread(stats[i].thread);
     if (task < NumPebbleTask) {
-      curr_task_run_time[task] = statuses[i].ulRunTimeCounter;
+      curr_task_run_time[task] = stats[i].run_time;
     }
   }
-
-  kernel_free(statuses);
 
   for (int task = 0; task < NumPebbleTask; task++) {
     uint32_t total = dead_cycles[task] + curr_task_run_time[task];
@@ -233,10 +226,10 @@ struct pbl_msgq *pebble_task_get_to_queue(PebbleTask task) {
   return queue;
 }
 
-void pebble_task_create(PebbleTask pebble_task, TaskParameters_t *task_params,
-                        TaskHandle_t *handle) {
+struct pbl_thread *pebble_task_create(PebbleTask pebble_task, struct pbl_thread_attr *attr) {
   MpuRegion app_region;
   MpuRegion worker_region;
+
   switch (pebble_task) {
     case PebbleTask_App:
       mpu_init_region_from_region(&app_region, memory_layout_get_app_region(),
@@ -269,12 +262,12 @@ void pebble_task_create(PebbleTask pebble_task, TaskParameters_t *task_params,
   const MpuRegion *stack_guard_region = NULL;
 #ifndef CONFIG_MPU_TYPE_ARMV8M
   // Per-task stack overflow detection: on ARMv7-M we plant a no-access
-  // MPU region at the bottom of each task's stack. On ARMv8-M, the
-  // FreeRTOS CM33 port sets PSPLIM to the same address via portSetupTCB(),
-  // so the hardware stack-pointer-limit check catches overflows directly
-  // -- and the ARMv8-M MPU AP encoding can't actually express "no access"
-  // anyway (the closest is priv-RO, which is half a guard at best).
-  // Skip programming the redundant MPU region and reclaim the slot.
+  // MPU region at the bottom of each task's stack. On ARMv8-M the kernel
+  // sets PSPLIM to the same address, so the hardware stack-pointer-limit
+  // check catches overflows directly -- and the ARMv8-M MPU AP encoding
+  // can't actually express "no access" anyway (the closest is priv-RO,
+  // which is half a guard at best). Skip the redundant region and reclaim
+  // the slot.
   switch (pebble_task) {
     case PebbleTask_App:
       stack_guard_region = memory_layout_get_app_stack_guard_region();
@@ -299,45 +292,54 @@ void pebble_task_create(PebbleTask pebble_task, TaskParameters_t *task_params,
   }
 #endif
 
-  const MpuRegion *region_ptrs[portNUM_CONFIGURABLE_REGIONS] = {
-    &app_region,
-    &worker_region,
-    stack_guard_region,
-    NULL
-  };
-  mpu_set_task_configurable_regions(task_params->xRegions, region_ptrs);
+  attr->regions[0] = &app_region;
+  attr->regions[1] = &worker_region;
+  attr->regions[2] = stack_guard_region;
+  attr->regions[3] = NULL;
 
-  TaskHandle_t new_handle;
-  PBL_ASSERT(xTaskCreateRestricted(task_params, &new_handle) == pdTRUE, "Could not start task %s",
-             task_params->pcName);
-  if (handle) {
-    *handle = new_handle;
-  }
-  prv_task_register(pebble_task, new_handle);
+  struct pbl_thread *thread = &s_threads[pebble_task];
+  PBL_ASSERT(pbl_thread_create(thread, attr) == 0, "Could not start task %s", attr->name);
+  prv_task_register(pebble_task, thread);
+  return thread;
 }
 
 void pebble_task_configure_idle_task(void) {
-  // We don't have the opportunity to configure the IDLE task before FreeRTOS
-  // creates it, so we have to configure the MPU regions properly after the
-  // fact. This is only an issue on platforms with a cache, as altering the base
-  // address, length or cacheability attributes of MPU regions (i.e. during
-  // context switches) causes cache incoherency when data is read/written to the
-  // memory covered by the regions before or after the change. This is
-  // problematic from the IDLE task as ISRs inherit the MPU configuration of the
-  // task that is currently running at the time.
+  // The idle thread exists before we can hand it regions, so configure it
+  // after the fact. This only matters on platforms with a cache, where
+  // altering the base address, length or cacheability attributes of MPU
+  // regions during context switches causes cache incoherency for memory
+  // covered by the regions; ISRs inherit the MPU configuration of the
+  // thread that is running at the time.
   MpuRegion app_region;
   MpuRegion worker_region;
   mpu_init_region_from_region(&app_region, memory_layout_get_app_region(),
                               false /* allow_user_access */);
   mpu_init_region_from_region(&worker_region, memory_layout_get_worker_region(),
                               false /* allow_user_access */);
-  const MpuRegion *region_ptrs[portNUM_CONFIGURABLE_REGIONS] = {
+  const MpuRegion *regions[PBL_THREAD_MAX_MEM_REGIONS] = {
     &app_region,
     &worker_region,
     NULL,
     NULL
   };
-  MemoryRegion_t region_config[portNUM_CONFIGURABLE_REGIONS] = {};
-  mpu_set_task_configurable_regions(region_config, region_ptrs);
-  vTaskAllocateMPURegions(xTaskGetIdleTaskHandle(), region_config);
+  pbl_thread_regions_set(pbl_thread_idle(), regions);
+}
+
+void pbl_thread_stack_overflow(struct pbl_thread *thread, const char *name) {
+  PebbleTask task = pebble_task_get_task_for_thread(thread);
+
+  // If the task is application or worker, ignore this hook. We have a memory protection region
+  // setup at the bottom of those stacks and the code that catches MPU violiations to that
+  // area in fault_handling.c has the logic to safely kill those user tasks without forcing
+  // a reboot.
+  if ((task != PebbleTask_App) && (task != PebbleTask_Worker)) {
+    PBL_LOG_SYNC_ERR("Stack overflow [task: %s]", name);
+    RebootReason reason = {
+      .code = RebootReasonCode_StackOverflow,
+      .data8[0] = task
+    };
+    reboot_reason_set(&reason);
+
+    reset_due_to_software_failure();
+  }
 }

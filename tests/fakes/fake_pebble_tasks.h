@@ -7,8 +7,6 @@
 
 #include "kernel/pebble_tasks.h"
 
-#include "FreeRTOS.h"
-#include "task.h"
 
 static PebbleTask s_current_task = PebbleTask_KernelMain;
 

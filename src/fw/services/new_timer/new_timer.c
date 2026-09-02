@@ -9,13 +9,11 @@
 #include "kernel/pebble_tasks.h"
 #include <pbl/logging/logging.h>
 
-#include "FreeRTOS.h"
 #include "pbl/kernel/msgq.h"
+#include "pbl/kernel/thread.h"
 #include "pbl/kernel/sem.h"
-#include "task.h"
 
 PBL_LOG_MODULE_DEFINE(service_new_timer, CONFIG_SERVICE_NEW_TIMER_LOG_LEVEL);
-
 
 typedef struct {
   NewTimerWorkCallback cb;
@@ -29,6 +27,9 @@ static PBL_SEM_DEFINE(s_wake_srv_loop, 1, 1);
 //! Queue of pointers to that should be called on the new_timer thread. This allows very high
 //! priority pieces of work to be done on the new_timer thread in between timers.
 #define WORK_QUEUE_SIZE 5
+#define TASK_STACK_SIZE_BYTES 1380
+
+PBL_THREAD_STACK_DEFINE(s_new_timer_stack, TASK_STACK_SIZE_BYTES);
 static PBL_MSGQ_DEFINE(s_work_queue, sizeof(NewTimerWorkItem), WORK_QUEUE_SIZE);
 
 // Used by debugging facility
@@ -45,7 +46,6 @@ TimerID new_timer_create(void) {
   return task_timer_create(&s_task_timer_manager);
 }
 
-
 // --------------------------------------------------------------------------------
 // Schedule a timer to run. 
 bool new_timer_start(TimerID timer_id, uint32_t timeout_ms, NewTimerCallback cb, void *cb_data,
@@ -53,13 +53,11 @@ bool new_timer_start(TimerID timer_id, uint32_t timeout_ms, NewTimerCallback cb,
   return task_timer_start(&s_task_timer_manager, timer_id, timeout_ms, cb, cb_data, flags);
 }
 
-
 // --------------------------------------------------------------------------------
 // Return scheduled status
 bool new_timer_scheduled(TimerID timer_id, uint32_t *expire_ms_p) {
   return task_timer_scheduled(&s_task_timer_manager, timer_id, expire_ms_p);
 }
-
 
 // --------------------------------------------------------------------------------
 // Stop a timer. If the timer callback is currently executing, return false, else return true.
@@ -67,13 +65,11 @@ bool new_timer_stop(TimerID timer_id) {
   return task_timer_stop(&s_task_timer_manager, timer_id);
 }
 
-
 // --------------------------------------------------------------------------------
 // Delete a timer
 void new_timer_delete(TimerID timer_id) {
   task_timer_delete(&s_task_timer_manager, timer_id);
 }
-
 
 // ========================================================================================
 // Service Implementation
@@ -95,7 +91,6 @@ static void new_timer_service_loop(void *data) {
   }
 }
 
-
 // -----------------------------------------------------------------------------------------------
 // Used by the watchdog timer logic
 void* new_timer_debug_get_current_callback(void) {
@@ -111,22 +106,19 @@ void* new_timer_debug_get_current_callback(void) {
 void new_timer_service_init(void) {
   PBL_LOG_DBG("NT: Initializing");
 
-
   task_timer_manager_init(&s_task_timer_manager, &s_wake_srv_loop);
 
-  const int TASK_STACK_SIZE_BYTES = 1380;
-
-  TaskParameters_t task_params = {
-    .pvTaskCode = new_timer_service_loop,
-    .pcName = "NewTimer",
-    .usStackDepth = TASK_STACK_SIZE_BYTES / sizeof( portSTACK_TYPE ),
-    .uxPriority =  (configMAX_PRIORITIES - 1) | portPRIVILEGE_BIT, // Max priority
-    .puxStackBuffer = NULL,
+  struct pbl_thread_attr attr = {
+    .name = "NewTimer",
+    .entry = new_timer_service_loop,
+    .prio = PBL_PRIO_MAX,
+    .privileged = true,
+    .stack = s_new_timer_stack,
+    .stack_size = sizeof(s_new_timer_stack),
   };
 
-  pebble_task_create(PebbleTask_NewTimers, &task_params, NULL);
+  pebble_task_create(PebbleTask_NewTimers, &attr);
 }
-
 
 // -----------------------------------------------------------------------------------------------------
 // Used by the console command to list timers

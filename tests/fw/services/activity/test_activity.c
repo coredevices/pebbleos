@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "FreeRTOS.h"
 #include "applib/accel_service.h"
 #include "applib/data_logging.h"
 #include "applib/health_service.h"

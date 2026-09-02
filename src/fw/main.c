@@ -69,9 +69,7 @@
 #include "debug/debug.h"
 
 #include "pbl/kernel/sched.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
+#include "pbl/kernel/thread.h"
 
 #include "mfg/mfg_info.h"
 #include "mfg/mfg_serials.h"
@@ -133,22 +131,18 @@ int main(void) {
   extern uint32_t __kernel_main_stack_start__[];
   extern uint32_t __kernel_main_stack_size__[];
   extern uint32_t __stack_guard_size__[];
-  const uint32_t kernel_main_stack_words = ( (uint32_t)__kernel_main_stack_size__
-                            - (uint32_t) __stack_guard_size__ ) / sizeof(portSTACK_TYPE);
-
-  TaskParameters_t task_params = {
-    .pvTaskCode = main_task,
-    .pcName = "KernelMain",
-    .usStackDepth = kernel_main_stack_words,
-    .uxPriority = (tskIDLE_PRIORITY + 3) | portPRIVILEGE_BIT,
-    .puxStackBuffer = (void*)(uintptr_t)((uint32_t)__kernel_main_stack_start__
-                                          + (uint32_t)__stack_guard_size__)
+  struct pbl_thread_attr attr = {
+    .name = "KernelMain",
+    .entry = main_task,
+    .prio = PBL_PRIO_IDLE + 3,
+    .privileged = true,
+    .stack = (void *)((uintptr_t)__kernel_main_stack_start__ + (uintptr_t)__stack_guard_size__),
+    .stack_size = (uintptr_t)__kernel_main_stack_size__ - (uintptr_t)__stack_guard_size__,
   };
 
-  pebble_task_create(PebbleTask_KernelMain, &task_params, NULL);
+  pebble_task_create(PebbleTask_KernelMain, &attr);
 
-  vTaskStartScheduler();
-  for(;;);
+  pbl_kernel_start();
 }
 
 static void watchdog_timer_callback(void* data) {

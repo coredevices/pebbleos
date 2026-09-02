@@ -7,7 +7,6 @@
 #include <pbl/drivers/rtc.h>
 #include "pbl/kernel/mutex.h"
 
-#include "freertos_types.h"
 #include "portmacro.h"
 
 #include <stdint.h>

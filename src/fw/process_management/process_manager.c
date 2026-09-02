@@ -43,13 +43,9 @@
 
 #include "apps/system/app_fetch_ui.h"
 
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
-
+#include "pbl/kernel/debug.h"
 
 static TimerID s_deinit_timer_id = TIMER_INVALID_ID;
-
 
 // -------------------------------------------------------------------------------------------
 static ProcessContext *prv_get_context_for_task(PebbleTask task) {
@@ -61,12 +57,10 @@ static ProcessContext *prv_get_context_for_task(PebbleTask task) {
   }
 }
 
-
 // -------------------------------------------------------------------------------------------
 static ProcessContext *prv_get_context(void) {
   return prv_get_context_for_task(pebble_task_get_current());
 }
-
 
 // --------------------------------------------------------------------------------------------------
 // This timer callback gets called if the process doesn't finish it's deinit within the required timeout (currently
@@ -78,22 +72,21 @@ static void prv_graceful_close_timer_callback(void* data) {
   process_manager_put_kill_process_event(task, false /*gracefully*/);
 }
 
-
 // ---------------------------------------------------------------------------------------------
 static bool prv_force_stop_task_if_unprivileged(ProcessContext *context) {
-  vTaskSuspend((TaskHandle_t) context->task_handle);
+  pbl_thread_suspend(context->task_handle);
 
-  uint32_t control_reg = ulTaskDebugGetStackedControl((TaskHandle_t) context->task_handle);
-  if ((control_reg & 0x1) == 0) {
+  struct pbl_thread_saved_regs regs;
+  pbl_thread_saved_regs(context->task_handle, &regs);
+  if ((regs.control & 0x1) == 0) {
     // We're priviledged, it's not safe to just kill the app task.
-    vTaskResume((TaskHandle_t) context->task_handle);
+    pbl_thread_resume(context->task_handle);
     return false;
   }
 
   context->safe_to_kill = true;
   return true;
 }
-
 
 // --------------------------------------------------------------------------------------------------
 static void prv_force_close_timer_callback(void* data) {
@@ -106,7 +99,6 @@ static void prv_force_close_timer_callback(void* data) {
   process_manager_put_kill_process_event(task, false /*graceful*/);
 }
 
-
 // ---------------------------------------------------------------------------------------------
 EXTERNALLY_VISIBLE void process_manager_handle_syscall_exit(void) {
   PebbleTask task = pebble_task_get_current();
@@ -117,16 +109,14 @@ EXTERNALLY_VISIBLE void process_manager_handle_syscall_exit(void) {
     context->safe_to_kill = true;
     process_manager_put_kill_process_event(task, false);
 
-    vTaskSuspend(xTaskGetCurrentTaskHandle());
+    pbl_thread_suspend(NULL);
   }
 }
-
 
 // ---------------------------------------------------------------------------------------------
 void process_manager_init(void) {
   s_deinit_timer_id = new_timer_create();
 }
-
 
 // -----------------------------------------------------------------------------------------------------------
 void process_manager_put_kill_process_event(PebbleTask task, bool gracefully) {
@@ -153,7 +143,6 @@ void process_manager_put_kill_process_event(PebbleTask task, bool gracefully) {
 
   event_put_from_process(task, &event);
 }
-
 
 // ---------------------------------------------------------------------------------------------
 //! Init the context variables for a task.
@@ -514,7 +503,7 @@ NORETURN process_manager_task_exit(void) {
   process_manager_put_kill_process_event(task, true);
 
   // Better to die in our sleep ...
-  vTaskSuspend(NULL /* self */);
+  pbl_thread_suspend(NULL /* self */);
 
   // We don't expect someone to resume us.
   PBL_CROAK("");
@@ -527,7 +516,6 @@ const void *process_manager_get_current_process_args(void) {
   return prv_get_context()->args;
 }
 
-
 // ---------------------------------------------------------------------------------------------
 // Setup the system services required for this process. Called by app_manager and worker_manager
 // right before we launch the task for the new process.
@@ -535,7 +523,6 @@ void process_manager_process_setup(PebbleTask task) {
   ProcessContext *context = prv_get_context_for_task(task);
   persist_service_client_open(&context->app_md->uuid);
 }
-
 
 // ---------------------------------------------------------------------------------------------
 //! Kills the process, giving it no chance to clean things up or exit gracefully. The proces must already be in a
@@ -578,7 +565,7 @@ void process_manager_process_cleanup(PebbleTask task) {
   new_timer_stop(s_deinit_timer_id);
 
   if (context->task_handle) {
-    vTaskDelete(context->task_handle);
+    pbl_thread_abort(context->task_handle);
     context->task_handle = NULL;
   }
 
@@ -595,8 +582,6 @@ void process_manager_process_cleanup(PebbleTask task) {
   context->to_process_event_queue = NULL;
 }
 
-
-
 // -----------------------------------------------------------------------------------------------------------
 void process_manager_close_process(PebbleTask task, bool gracefully) {
   if (task == PebbleTask_App) {
@@ -610,7 +595,6 @@ void process_manager_close_process(PebbleTask task, bool gracefully) {
     WTF;
   }
 }
-
 
 // ----------------------------------------------------------------------------------------------
 bool process_manager_send_event_to_process(PebbleTask task, PebbleEvent* e) {
@@ -633,7 +617,6 @@ bool process_manager_send_event_to_process(PebbleTask task, PebbleEvent* e) {
   return true;
 }
 
-
 // ----------------------------------------------------------------------------------------------
 uint32_t process_manager_process_events_waiting(PebbleTask task) {
   ProcessContext *context = prv_get_context_for_task(task);
@@ -645,7 +628,6 @@ uint32_t process_manager_process_events_waiting(PebbleTask task) {
 
   return pbl_msgq_num_used(context->to_process_event_queue);
 }
-
 
 // ----------------------------------------------------------------------------------------------
 void process_manager_send_callback_event_to_process(PebbleTask task, void (*callback)(void *data), void *data) {
@@ -671,7 +653,6 @@ void *process_manager_address_to_offset(PebbleTask task, void *system_address) {
   // Not in app space:
   return system_address;
 }
-
 
 // ----------------------------------------------------------------------------------------------
 

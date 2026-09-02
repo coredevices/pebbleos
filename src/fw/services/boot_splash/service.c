@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/thread.h"
 #include "pbl/services/boot_splash.h"
 
 #if defined(CONFIG_PBLBOOT) || defined(CONFIG_QEMU)
@@ -10,9 +11,6 @@
 #include <pbl/drivers/display/display.h>
 #include "kernel/pbl_malloc.h"
 #include "kernel/util/sleep.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
 
 #include <string.h>
 
@@ -40,11 +38,13 @@
 #define PROGRESS_INDICATOR_WIDTH 20
 #define PROGRESS_FRAME_DELAY_MS 100
 #define PROGRESS_TOTAL_FRAMES   20
-#define BOOT_SPLASH_TASK_STACK_SIZE 512
-#define BOOT_SPLASH_TASK_PRIORITY   (configMAX_PRIORITIES - 2)
+#define BOOT_SPLASH_TASK_STACK_SIZE 2048
+#define BOOT_SPLASH_TASK_PRIORITY   (PBL_PRIO_MAX - 1)
 
 // Boot splash state
-static TaskHandle_t s_boot_splash_task;
+static struct pbl_thread s_boot_splash_thread;
+PBL_THREAD_STACK_DEFINE(s_boot_splash_stack, BOOT_SPLASH_TASK_STACK_SIZE);
+static struct pbl_thread *s_boot_splash_task;
 static volatile bool s_boot_splash_running;
 static uint8_t *s_boot_splash_fb;
 
@@ -133,7 +133,7 @@ static void prv_boot_splash_task(void *param) {
 
     // Wait for next frame using short delays to allow quick stop
     for (uint8_t i = 0; i < (PROGRESS_FRAME_DELAY_MS / 10) && s_boot_splash_running; i++) {
-      vTaskDelay(pdMS_TO_TICKS(10));
+      pbl_thread_sleep(PBL_MSEC(10));
     }
   }
 
@@ -141,7 +141,7 @@ static void prv_boot_splash_task(void *param) {
   kernel_free(fb);
   s_boot_splash_fb = NULL;
   s_boot_splash_task = NULL;
-  vTaskDelete(NULL);
+  pbl_thread_abort(NULL);
 }
 
 void boot_splash_start(void) {
@@ -156,12 +156,17 @@ void boot_splash_start(void) {
 
   // Start the boot splash task
   s_boot_splash_running = true;
-  xTaskCreate(prv_boot_splash_task,
-              "BootSplash",
-              BOOT_SPLASH_TASK_STACK_SIZE,
-              NULL,
-              BOOT_SPLASH_TASK_PRIORITY,
-              &s_boot_splash_task);
+  struct pbl_thread_attr attr = {
+    .name = "BootSplash",
+    .entry = prv_boot_splash_task,
+    .prio = BOOT_SPLASH_TASK_PRIORITY,
+    .privileged = true,
+    .stack = s_boot_splash_stack,
+    .stack_size = sizeof(s_boot_splash_stack),
+  };
+  if (pbl_thread_create(&s_boot_splash_thread, &attr) == 0) {
+    s_boot_splash_task = &s_boot_splash_thread;
+  }
 }
 
 void boot_splash_stop(void) {

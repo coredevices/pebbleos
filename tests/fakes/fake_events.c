@@ -4,7 +4,6 @@
 #include "fake_events.h"
 #include "kernel/pbl_malloc.h"
 
-#include "freertos_types.h"
 #include "projdefs.h"
 
 static PebbleEvent s_last_pebble_event;

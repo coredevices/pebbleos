@@ -47,9 +47,6 @@
 #include "pbl/util/math.h"
 
 // FreeRTOS stuff
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -269,7 +266,7 @@ static bool prv_app_start(const PebbleProcessMd *app_md, const void *args,
   // to clobber actual data. And syscalls assume that the stack is always at the
   // top of APP_RAM; violating this assumption will result in syscalls sometimes
   // failing when the app hasn't done anything wrong.
-  portSTACK_TYPE *stack = memory_segment_split(&app_segment, NULL, stack_size);
+  void *stack = memory_segment_split(&app_segment, NULL, stack_size);
   PBL_ASSERTN(stack);
   s_app_task_context.load_start = app_segment.start;
   g_app_load_address = app_segment.start;
@@ -341,16 +338,17 @@ static bool prv_app_start(const PebbleProcessMd *app_md, const void *args,
   // Init services required for this process before it starts to execute
   process_manager_process_setup(PebbleTask_App);
 
-  char task_name[configMAX_TASK_NAME_LEN];
+  char task_name[PBL_THREAD_NAME_LEN];
   snprintf(task_name, sizeof(task_name), "App <%s>", process_metadata_get_name(s_app_task_context.app_md));
 
-  TaskParameters_t task_params = {
-    .pvTaskCode = prv_app_task_main,
-    .pcName = task_name,
-    .usStackDepth = stack_size / sizeof(portSTACK_TYPE),
-    .pvParameters = entry_point,
-    .uxPriority = APP_TASK_PRIORITY | portPRIVILEGE_BIT,
-    .puxStackBuffer = stack,
+  struct pbl_thread_attr attr = {
+    .name = task_name,
+    .entry = prv_app_task_main,
+    .arg = entry_point,
+    .prio = APP_TASK_PRIORITY,
+    .privileged = true,
+    .stack = stack,
+    .stack_size = stack_size,
   };
 
   PBL_LOG_DBG("Starting %s", task_name);
@@ -360,7 +358,7 @@ static bool prv_app_start(const PebbleProcessMd *app_md, const void *args,
       (app_md->process_storage == ProcessStorageFlash) ?
           process_metadata_get_code_bank_num(app_md) : SYSTEM_APP_BANK_ID);
 
-  pebble_task_create(PebbleTask_App, &task_params, &s_app_task_context.task_handle);
+  s_app_task_context.task_handle = pebble_task_create(PebbleTask_App, &attr);
 
   // Always notify the phone that the application is running
   app_run_state_send_update(&app_md->uuid, RUNNING);
@@ -593,7 +591,6 @@ static bool prv_app_switch(bool gracefully) {
 
   return true;
 }
-
 
 // ---------------------------------------------------------------------------------------------
 void app_manager_start_first_app(void) {
@@ -854,7 +851,6 @@ bool app_manager_is_app_supported(const PebbleProcessMd *md) {
   return prv_get_app_segment_size(md) > 0;
 }
 
-
 // Commands
 ///////////////////////////////////////////////////////////
 
@@ -874,7 +870,6 @@ void command_get_active_app_metadata(void) {
     prompt_send_response("metadata lookup failed: no app running");
   }
 }
-
 
 // -------------------------------------------------------------------------------------------
 /*!

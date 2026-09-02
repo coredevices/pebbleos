@@ -8,7 +8,6 @@
 
 #include "applib/event_service_client.h"
 #include <pbl/drivers/rtc.h>
-#include "freertos_types.h"
 #include "kernel/events.h"
 #include "pbl/kernel/mutex.h"
 #include "process_management/app_install_types.h"

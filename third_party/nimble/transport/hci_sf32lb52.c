@@ -9,6 +9,7 @@
 #include <bf0_hal.h>
 #include <kernel/pebble_tasks.h>
 #include <pbl/kernel/sem.h>
+#include <pbl/kernel/thread.h>
 #include <system/hexdump.h>
 #include <pbl/logging/logging.h>
 #include <system/passert.h>
@@ -41,7 +42,8 @@
 
 #define BLE_HCI_EXT_SF32LB52_BLE_READY 0xFC11U
 
-static TaskHandle_t s_hci_task_handle;
+static struct pbl_thread *s_hci_task_handle;
+PBL_THREAD_STACK_DEFINE(s_hci_task_stack, 1024);
 static PBL_SEM_DEFINE(s_ipc_data_ready, 0, 1);
 /* Given by prv_acl_put_signal() whenever an LL-direction ACL mbuf is returned
  * to the transport pool; taken by the HCI RX task when an alloc fails so we
@@ -316,15 +318,16 @@ void ble_transport_ll_init(void) {
 
   ble_transport_register_put_acl_from_ll_cb(prv_acl_put_signal);
 
-  TaskParameters_t task_params = {
-    .pvTaskCode = prv_hci_task_main,
-    .pcName = "NimbleHCI",
-    .usStackDepth = 1024 / sizeof(StackType_t),
-    .uxPriority = (tskIDLE_PRIORITY + 3) | portPRIVILEGE_BIT,
-    .puxStackBuffer = NULL,
+  struct pbl_thread_attr attr = {
+    .name = "NimbleHCI",
+    .entry = prv_hci_task_main,
+    .prio = PBL_PRIO_IDLE + 3,
+    .privileged = true,
+    .stack = s_hci_task_stack,
+    .stack_size = sizeof(s_hci_task_stack),
   };
 
-  pebble_task_create(PebbleTask_BTHCI, &task_params, &s_hci_task_handle);
+  s_hci_task_handle = pebble_task_create(PebbleTask_BTHCI, &attr);
   PBL_ASSERTN(s_hci_task_handle);
 }
 

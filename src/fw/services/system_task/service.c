@@ -14,12 +14,11 @@
 
 #include "pbl/kernel/msgq.h"
 #include "pbl/kernel/poll.h"
-#include "FreeRTOS.h"
-#include "task.h"
+#include "pbl/kernel/thread.h"
 
 PBL_LOG_MODULE_DEFINE(service_system_task, CONFIG_SERVICE_SYSTEM_TASK_LOG_LEVEL);
 
-#define SYSTEM_TASK_PRIORITY (tskIDLE_PRIORITY + 1)
+#define SYSTEM_TASK_PRIORITY (PBL_PRIO_IDLE + 1)
 
 typedef struct {
   SystemTaskEventCallback cb;
@@ -87,19 +86,17 @@ void system_task_init(void) {
   extern uint32_t __kernel_bg_stack_start__[];
   extern uint32_t __kernel_bg_stack_size__[];
   extern uint32_t __stack_guard_size__[];
-  const uint32_t kernel_bg_stack_words = ( (uint32_t)__kernel_bg_stack_size__
-                       - (uint32_t)__stack_guard_size__) / sizeof(portSTACK_TYPE);
 
-  TaskParameters_t task_params = {
-    .pvTaskCode = system_task_main,
-    .pcName = "KernelBG",
-    .usStackDepth = kernel_bg_stack_words,
-    .uxPriority = SYSTEM_TASK_PRIORITY | portPRIVILEGE_BIT,
-    .puxStackBuffer = (void*)(uintptr_t)((uint32_t)__kernel_bg_stack_start__
-                                          + (uint32_t)__stack_guard_size__)
+  struct pbl_thread_attr attr = {
+    .name = "KernelBG",
+    .entry = system_task_main,
+    .prio = SYSTEM_TASK_PRIORITY,
+    .privileged = true,
+    .stack = (void *)((uintptr_t)__kernel_bg_stack_start__ + (uintptr_t)__stack_guard_size__),
+    .stack_size = (uintptr_t)__kernel_bg_stack_size__ - (uintptr_t)__stack_guard_size__,
   };
 
-  pebble_task_create(PebbleTask_KernelBackground, &task_params, NULL);
+  pebble_task_create(PebbleTask_KernelBackground, &attr);
 }
 
 void system_task_timer_init(void) {
@@ -215,14 +212,12 @@ void* system_task_get_current_callback(void) {
 }
 
 void system_task_enable_raised_priority(bool is_raised) {
-  const uint32_t raised_priority_level = tskIDLE_PRIORITY + 3; // Same as KernelMain / BT tasks
-  vTaskPrioritySet(pebble_task_get_handle_for_task(PebbleTask_KernelBackground),
-                   (is_raised ? raised_priority_level : SYSTEM_TASK_PRIORITY) | portPRIVILEGE_BIT);
+  const pbl_prio_t raised_priority_level = PBL_PRIO_IDLE + 3; // Same as KernelMain / BT tasks
+  pbl_thread_prio_set(pebble_task_get_thread(PebbleTask_KernelBackground),
+                      is_raised ? raised_priority_level : SYSTEM_TASK_PRIORITY);
 }
 
 bool system_task_is_ready_to_run(void) {
-  const eTaskState bg_task_state =
-        eTaskGetState(pebble_task_get_handle_for_task(PebbleTask_KernelBackground));
   // check if system task is ready to go (instead of e.g. waiting for a mutex)
-  return (bg_task_state == eReady);
+  return pbl_thread_state(pebble_task_get_thread(PebbleTask_KernelBackground)) == PBL_THREAD_READY;
 }

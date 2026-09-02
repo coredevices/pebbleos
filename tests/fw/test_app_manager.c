@@ -52,7 +52,7 @@
 #include "stubs_serial.h"
 #include "stubs_simple_dialog.h"
 #include "stubs_syscall_internal.h"
-#include "stubs_task.h"
+#include "stubs_thread.h"
 #include "stubs_tick.h"
 #include "stubs_timeline_peek.h"
 #include "stubs_worker_manager.h"
@@ -250,12 +250,9 @@ void light_reset_user_controlled(void) {
 void light_set_system_color(void) {
 }
 
-void mpu_set_task_configurable_regions(MemoryRegion_t *task_params, const MpuRegion **region_ptrs) {
-}
-
 void task_init(void) {}
 
-void pebble_task_register(PebbleTask task, TaskHandle_t task_handle) {
+void pebble_task_register(PebbleTask task, struct pbl_thread *thread) {
 }
 
 void pebble_task_unregister(PebbleTask task) {
@@ -265,8 +262,8 @@ const char* pebble_task_get_name(PebbleTask task) {
   return "?";
 }
 
-void pebble_task_create(PebbleTask pebble_task, TaskParameters_t *task_params,
-                        TaskHandle_t *handle) {
+struct pbl_thread *pebble_task_create(PebbleTask pebble_task, struct pbl_thread_attr *attr) {
+  return NULL;
 }
 
 void * process_loader_load(const PebbleProcessMd *app_md, PebbleTask task,

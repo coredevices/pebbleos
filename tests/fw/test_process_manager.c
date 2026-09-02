@@ -33,7 +33,7 @@
 #include "stubs_queue.h"
 #include "stubs_resources.h"
 #include "stubs_syscalls.h"
-#include "stubs_task.h"
+#include "stubs_thread.h"
 #include "stubs_tick.h"
 #include "stubs_watchface.h"
 #include "stubs_worker_manager.h"

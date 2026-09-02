@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "freertos_types.h"
 
 typedef enum MpuCachePolicy {
   MpuCachePolicy_NotCacheable,
@@ -63,8 +62,6 @@ MpuRegion mpu_get_region(int region_num);
 void mpu_get_register_settings(const MpuRegion* region, uint32_t *base_address_reg,
                                uint32_t *attributes_reg);
 
-void mpu_set_task_configurable_regions(MemoryRegion_t *memory_regions,
-                                       const MpuRegion **region_ptrs);
 
 bool mpu_memory_is_cachable(const void *addr);
 

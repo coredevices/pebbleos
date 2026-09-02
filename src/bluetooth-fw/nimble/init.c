@@ -13,6 +13,7 @@
 #include <nimble/nimble_port.h>
 #include <pbl/os/tick.h>
 #include "pbl/kernel/sem.h"
+#include "pbl/kernel/thread.h"
 #include <services/dis/ble_svc_dis.h>
 #include <services/bas/ble_svc_bas.h>
 #include <services/gap/ble_svc_gap.h>
@@ -32,9 +33,11 @@ extern void nimble_discover_init(void);
 extern void nimble_gattc_op_queue_init(void);
 
 #if NIMBLE_CFG_CONTROLLER
-static TaskHandle_t s_ll_task_handle;
+static struct pbl_thread *s_ll_task_handle;
+PBL_THREAD_STACK_DEFINE(s_ll_task_stack, 1384);
 #endif
-static TaskHandle_t s_host_task_handle;
+static struct pbl_thread *s_host_task_handle;
+PBL_THREAD_STACK_DEFINE(s_host_task_stack, 5000);
 static PBL_SEM_DEFINE(s_host_started, 0, 1);
 static PBL_SEM_DEFINE(s_host_stopped, 0, 1);
 static DisInfo s_dis_info;
@@ -88,27 +91,29 @@ void bt_driver_init(void) {
   nimble_port_init();
   nimble_store_init();
 
-  TaskParameters_t host_task_params = {
-      .pvTaskCode = prv_host_task_main,
-      .pcName = "NimbleHost",
-      .usStackDepth = 5000 / sizeof(StackType_t),
-      .uxPriority = (configMAX_PRIORITIES - 2) | portPRIVILEGE_BIT,
-      .puxStackBuffer = NULL,
+  struct pbl_thread_attr host_attr = {
+      .name = "NimbleHost",
+      .entry = prv_host_task_main,
+      .prio = PBL_PRIO_MAX - 1,
+      .privileged = true,
+      .stack = s_host_task_stack,
+      .stack_size = sizeof(s_host_task_stack),
   };
 
-  pebble_task_create(PebbleTask_BTHost, &host_task_params, &s_host_task_handle);
+  s_host_task_handle = pebble_task_create(PebbleTask_BTHost, &host_attr);
   PBL_ASSERTN(s_host_task_handle);
 
 #if NIMBLE_CFG_CONTROLLER
-  TaskParameters_t ll_task_params = {
-      .pvTaskCode = nimble_port_ll_task_func,
-      .pcName = "NimbleLL",
-      .usStackDepth = (configMINIMAL_STACK_SIZE + 600) / sizeof(StackType_t),
-      .uxPriority = (configMAX_PRIORITIES - 1) | portPRIVILEGE_BIT,
-      .puxStackBuffer = NULL,
+  struct pbl_thread_attr ll_attr = {
+      .name = "NimbleLL",
+      .entry = nimble_port_ll_task_func,
+      .prio = PBL_PRIO_MAX,
+      .privileged = true,
+      .stack = s_ll_task_stack,
+      .stack_size = sizeof(s_ll_task_stack),
   };
 
-  pebble_task_create(PebbleTask_BTController, &ll_task_params, &s_ll_task_handle);
+  s_ll_task_handle = pebble_task_create(PebbleTask_BTController, &ll_attr);
   PBL_ASSERTN(s_ll_task_handle);
 #endif
 }

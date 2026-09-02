@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/thread.h"
 #include "kernel/core_dump.h"
 #include "logging/logging_private.h"
 #include "process_management/process_manager.h"
@@ -214,7 +215,7 @@ static void prv_kill_user_process(uint32_t stashed_lr) {
   process_manager_put_kill_process_event(task, false /* gracefully */);
 
   // Wait for the kernel to kill us...
-  vTaskSuspend(xTaskGetCurrentTaskHandle());
+  pbl_thread_suspend(NULL);
 }
 
 

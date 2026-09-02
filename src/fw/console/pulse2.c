@@ -30,6 +30,7 @@
 
 #include "FreeRTOS.h"
 #include "pbl/kernel/msgq.h"
+#include "pbl/kernel/thread.h"
 #include "pbl/kernel/sem.h"
 #include "task.h"
 
@@ -146,7 +147,8 @@ static void prv_lcp_on_packet(void *packet, size_t length) {
 // This task handles both the processing of bytes received over dbgserial and
 // running the reliable transport receive expiry timer.
 
-static TaskHandle_t s_pulse_task_handle;
+static struct pbl_thread *s_pulse_task_handle;
+PBL_THREAD_STACK_DEFINE(s_pulse_task_stack, 1024);
 static PBL_MSGQ_DEFINE(s_pulse_task_queue, sizeof(uint8_t), RX_QUEUE_SIZE);
 // Wake up the PULSE task to process the receive queue or start the timer.
 static PBL_SEM_DEFINE(s_pulse_task_service_semaphore, 0, 1);
@@ -238,7 +240,7 @@ static TickType_t prv_poll_timer(uint8_t *const sequence_number) {
       timeout = 0;
       *sequence_number = s_reliable_timer_sequence_number;
     } else {
-      _Static_assert(pdMS_TO_TICKS(1000) == RTC_TICKS_HZ,
+      _Static_assert(1000 * RTC_TICKS_HZ / 1000 == RTC_TICKS_HZ,
                      "RtcTicks uses different units than FreeRTOS ticks");
       timeout = timer_expiry_tick - now;
     }
@@ -335,15 +337,16 @@ void pulse_init(void) {
 }
 
 void pulse_start(void) {
-  TaskParameters_t task_params = {
-    .pvTaskCode = prv_pulse_task_main,
-    .pcName = "PULSE",
-    .usStackDepth = 1024 / sizeof( StackType_t ),
-    .uxPriority = (tskIDLE_PRIORITY + 3) | portPRIVILEGE_BIT,
-    .puxStackBuffer = NULL,
+  struct pbl_thread_attr attr = {
+    .name = "PULSE",
+    .entry = prv_pulse_task_main,
+    .prio = PBL_PRIO_IDLE + 3,
+    .privileged = true,
+    .stack = s_pulse_task_stack,
+    .stack_size = sizeof(s_pulse_task_stack),
   };
 
-  pebble_task_create(PebbleTask_PULSE, &task_params, &s_pulse_task_handle);
+  s_pulse_task_handle = pebble_task_create(PebbleTask_PULSE, &attr);
 
   // FIXME: the initializers could be run more than once if pulse_start is
   // called more than one time. These initializers can't be run during

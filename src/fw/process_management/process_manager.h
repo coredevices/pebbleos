@@ -4,6 +4,7 @@
 #pragma once
 
 #include "pbl/kernel/msgq.h"
+#include "pbl/kernel/thread.h"
 #include "launch_config.h"
 
 #include "applib/app_exit_reason.h"
@@ -34,8 +35,8 @@ typedef struct ProcessContext {
   //! The app install id for this process if it represents an application.
   AppInstallId install_id;
 
-  //! The FreeRTOS task we're using the run the app. See xTaskHandle
-  void* task_handle;
+  //! The thread running the process.
+  struct pbl_thread *task_handle;
 
   //! The address range the process was loaded into. It is used to
   //! convert physical addresses into relative addresses in order to

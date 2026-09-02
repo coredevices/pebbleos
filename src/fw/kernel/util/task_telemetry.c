@@ -1,41 +1,36 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/kernel/debug.h"
+#include "pbl/util/size.h"
 #include "console/prompt.h"
 #include "kernel/pbl_malloc.h"
 
-#include "FreeRTOS.h"
-#include "task.h"
-
 #if 0
 void command_print_task_list(void) {
-#if ( configUSE_TRACE_FACILITY == 1 )
   char str_buffer[100];
 
-  prompt_send_response(
-      "name                  state    pri   fstk        num   stk_beg     stk_ptr");
+  prompt_send_response("name                  state    pri   fstk        num");
 
-  int num_tasks = uxTaskGetNumberOfTasks();
-  TaskStatus_t *task_info = kernel_malloc(num_tasks * sizeof( TaskStatus_t ));
-  if (!task_info) {
-    return;
-  }
-  num_tasks = uxTaskGetSystemState( task_info, num_tasks, NULL );
+  struct pbl_thread_stats stats[CONFIG_KERNEL_MAX_THREADS];
+  size_t count = pbl_thread_stats_snapshot(stats, ARRAY_LENGTH(stats), NULL);
 
-  // Print info on each task
-  char status;
-  for (int i=0; i<num_tasks; i++) {
-    switch(task_info[i].eCurrentState) {
-      case eReady:
+  for (size_t i = 0; i < count; i++) {
+    char status;
+    switch (stats[i].state) {
+      case PBL_THREAD_READY:
         status = 'R';
         break;
-      case eBlocked:
+      case PBL_THREAD_RUNNING:
+        status = 'X';
+        break;
+      case PBL_THREAD_BLOCKED:
         status = 'B';
         break;
-      case eSuspended:
+      case PBL_THREAD_SUSPENDED:
         status = 'S';
         break;
-      case eDeleted:
+      case PBL_THREAD_DEAD:
         status = 'D';
         break;
       default:
@@ -43,19 +38,12 @@ void command_print_task_list(void) {
         break;
     }
 
-    prompt_send_response_fmt(str_buffer, sizeof(str_buffer), "%-16s %6c %8u %8u %8u     %p  %p",
-                             task_info[i].pcTaskName,
+    prompt_send_response_fmt(str_buffer, sizeof(str_buffer), "%-16s %6c %8u %8u %8u",
+                             stats[i].name,
                              status,
-                             (unsigned int) task_info[i].uxCurrentPriority,
-                             (unsigned int)(sizeof(StackType_t) * task_info[i].usStackHighWaterMark),
-                             (unsigned int)task_info[i].xTaskNumber,
-                             (void *)task_info[i].pxStack,
-                             (void *)task_info[i].pxTopOfStack);
+                             stats[i].thread ? (unsigned int)stats[i].thread->prio : 0U,
+                             (unsigned int)stats[i].stack_high_water,
+                             (unsigned int)stats[i].number);
   }
-  kernel_free(task_info);
-
-#else
-  prompt_send_response("Not available");
-#endif
 }
 #endif

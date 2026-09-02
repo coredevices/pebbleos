@@ -5,7 +5,6 @@
 
 #include <stdbool.h>
 
-#include "freertos_types.h"
 #include "kernel/pebble_tasks.h"
 
 #define TASK_WATCHDOG_PRIORITY 0x1
