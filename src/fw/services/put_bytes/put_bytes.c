@@ -439,13 +439,16 @@ static void prv_send_response(ResponseCode code, uint32_t token) {
   }
 }
 
-static void prv_cleanup_and_send_response(ResponseCode code) {
-  // Save this value, as it'll be cleaned up by prv_cleanup but we'll need them to send the
-  // response. We want to cleanup first before sending the response so that we tell the phone
-  // that we're ready for the next message after we've done all of our housekeeping.
-  uint32_t token = s_pb_state.token;
+static void prv_cleanup_and_send_response_with_token(ResponseCode code, uint32_t token) {
+  // We want to cleanup first before sending the response so that we tell the phone that we're
+  // ready for the next message after we've done all of our housekeeping. The caller saves the
+  // token it wants echoed, as prv_cleanup clears the transfer state.
   prv_cleanup();
   prv_send_response(code, token);
+}
+
+static void prv_cleanup_and_send_response(ResponseCode code) {
+  prv_cleanup_and_send_response_with_token(code, s_pb_state.token);
 }
 
 static void prv_commit_object(uint32_t crc) {
@@ -498,7 +501,9 @@ static void prv_do_install(uint32_t token) {
 
   if (token == 0 || o == NULL) {
     PBL_LOG_ERR("Token does not exist; got 0x%" PRIx32, token);
-    prv_cleanup_and_send_response(ResponseNack);
+    // The install's own token, not s_pb_state.token: the commit that precedes an install has
+    // already cleaned the transfer state up, so that one is zero by now.
+    prv_cleanup_and_send_response_with_token(ResponseNack, token);
     return;
   }
 
@@ -522,7 +527,7 @@ static void prv_do_install(uint32_t token) {
 
   prv_mark_pb_jobs_complete(1);
   // Clean up the current command state before sending an ACK
-  prv_cleanup_and_send_response(ResponseAck);
+  prv_cleanup_and_send_response_with_token(ResponseAck, token);
 }
 
 static void prv_do_abort(void) {
