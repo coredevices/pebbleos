@@ -4,18 +4,19 @@ The firmware is built with [CMake](https://cmake.org), following a model
 borrowed from Zephyr. Ninja is the generator the project uses:
 
 ```shell
-./pbl configure --board asterix
-./pbl build
+pbl configure --board asterix
+pbl build
 ```
 
-`./pbl configure` runs CMake with `-GNinja` into `build/`, and passes
+`pbl configure` runs CMake with `-GNinja` into `build/`, and passes
 anything else through, so Kconfig symbols are overridden the usual way:
 
 ```shell
-./pbl configure --board obelix@pvt --variant prf -DCONFIG_RELEASE=y
+pbl configure --board obelix@pvt --variant prf -DCONFIG_RELEASE=y
 ```
 
-Plain CMake works just as well; `pbl` only saves the typing:
+`pbl` itself is documented in {doc}`pbl`. Plain CMake works just as well;
+it only saves the typing:
 
 ```shell
 cmake -B build -GNinja -DBOARD=asterix

@@ -55,8 +55,8 @@ The rest of the distribution is packaged by the firmware build's `sdk`
 target, which fills in the same `build/sdk/` tree:
 
 ```shell
-./pbl configure --board $BOARD
-./pbl build sdk
+pbl configure --board $BOARD
+pbl build sdk
 ```
 
 `tools/cmake/sdk.py` copies the common files from `sdk/` into

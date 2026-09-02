@@ -15,6 +15,7 @@ PebbleOS is the operating system running on Pebble smartwatches.
   system, tests, etc.
 - `tools/libs`: Python packages used in multiple areas, e.g. log dehashing,
   console, etc.
+- `tools/libs/pbl-cli`: the `pbl` developer CLI
 - `tools/cmake`: generators the CMake builds shell out to
 - `sdk/waftools`: waf plugins bundled into the SDK app developers build with
 
@@ -23,8 +24,9 @@ PebbleOS is the operating system running on Pebble smartwatches.
 Contributor documentation lives in `docs/` (published at
 https://pebbleos-core.readthedocs.io). Prefer pointing to or extending those
 pages over duplicating knowledge here: `docs/development/contributing.md`
-(DCO, commit and AI-usage rules), `docs/development/sdk_export.md` (SDK
-export machinery), `docs/development/qemu.md` (emulator workflow).
+(DCO, commit and AI-usage rules), `docs/development/pbl.md` (the `pbl`
+CLI, and how to extend it), `docs/development/sdk_export.md` (SDK export
+machinery), `docs/development/qemu.md` (emulator workflow).
 
 ## Code style
 
@@ -46,15 +48,15 @@ export machinery), `docs/development/qemu.md` (emulator workflow).
 
 ## Firmware development
 
-- Configure: `./pbl configure --board BOARD_NAME`
+- Configure: `pbl configure --board BOARD_NAME`
 
-  - Board names can be obtained from `./pbl --help`
+  - Board names can be obtained from `pbl configure --help`
   - `-DCONFIG_RELEASE=y` enables release mode
   - `-DCONFIG_MFG=y` enables manufacturing mode
   - `--variant=normal|prf` selects build variant (default: normal)
 
-- Build firmware: `./pbl build`
-- Run tests: `./pbl test`
+- Build firmware: `pbl build`
+- Run tests: `pbl test`
 
 ## Adding a new SDK function
 

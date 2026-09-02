@@ -1,6 +1,6 @@
 # Configuration Options
 
-When configuring the build (`./pbl configure ...`) there are several options you can enable or tune.
+When configuring the build (`pbl configure ...`) there are several options you can enable or tune.
 Below you will find a list of the most relevant ones.
 
 ## Choosing your target
@@ -25,13 +25,13 @@ Build variant, `normal` (main firmware) or `prf` (recovery firmware).
 :`-DCONFIG_RELEASE=y`:
 Build a release-mode firmware. Strips debug aids, enables shipping
 defaults, and reduces battery usage compared to a debug build. Pass
-this to `./pbl configure`.
+this to `pbl configure`.
 
 ## Main features
 
 :`-DCONFIG_MODDABLE_XS=y` / `-DCONFIG_MODDABLE_XS=n`:
 Force the Moddable SDK's XS JavaScript engine on or off, overriding
-the board defconfig. Pass to `./pbl configure`. See {doc}`moddable`.
+the board defconfig. Pass to `pbl configure`. See {doc}`moddable`.
 PRF (recovery) builds always disable the engine regardless of this
 value.
 
@@ -83,4 +83,4 @@ Disable log messages hashing.
 This will increase ROM usage, but will not require a dictionary file to decode logs.
 
 These and many more options can also be browsed and changed interactively with
-`./pbl menuconfig` after configuring.
+`pbl menuconfig` after configuring.

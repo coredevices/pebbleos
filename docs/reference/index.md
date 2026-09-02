@@ -35,7 +35,7 @@ external.md
 ## PULSEv2 protocol suite
 
 PULSE is the serial protocol spoken between the firmware and the host
-tooling (`./pbl console`, flash imaging, `tools/pulse/`). These pages
+tooling (`pbl console`, flash imaging, `tools/pulse/`). These pages
 specify the wire format and its transports.
 
 ```{toctree}

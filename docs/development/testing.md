@@ -8,18 +8,18 @@ with fakes and stubs that replace hardware and OS dependencies.
 ## Running tests
 
 The tests are a CMake project of their own, separate from the firmware
-build because they build for the host rather than for the watch. `./pbl
+build because they build for the host rather than for the watch. `pbl
 test` configures `build-test/`, builds every test and runs them under
 ctest:
 
 ```shell
-./pbl test
+pbl test
 ```
 
-Anything `./pbl test` does not recognise is passed straight to ctest, so
+Anything `pbl test` does not recognise is passed straight to ctest, so
 its selection and reporting options are all available:
 
-- `-R REGEX`: run the tests whose name matches, e.g. `./pbl test -R animation`
+- `-R REGEX`: run the tests whose name matches, e.g. `pbl test -R animation`
 - `-L LABEL`: run by label; every test is labelled with its directory
   (`tests/fw/ui`) and its platform (`obelix`, `gabbro`, `asterix`)
 - `-N`: list the tests that would run instead of running them
@@ -27,7 +27,7 @@ its selection and reporting options are all available:
 - `-j N`: run N tests at once (the default is one per core)
 - `--stop-on-failure`: stop at the first failure instead of running on
 
-and `./pbl test`'s own options:
+and `pbl test`'s own options:
 
 - `-C` / `--coverage`: collect coverage and generate an lcov HTML report at
   `build-test/lcov-html/index.html`
@@ -145,5 +145,5 @@ the test needs is still on record when someone picks it back up.
 ## JavaScript tests
 
 The JavaScript sources in `sdk/include/` have their own mocha-based tests in
-`sdk/tests/include/`; they are not run by `./pbl test`. See
+`sdk/tests/include/`; they are not run by `pbl test`. See
 `sdk/tests/include/README.md` for how to run them with `npm test`.

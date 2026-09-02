@@ -14,8 +14,8 @@ The QEMU binary ships with the [PebbleOS SDK](https://github.com/coredevices/Peb
 The steps here are similar that of real hardware:
 
 ```shell
-./pbl configure --board=$BOARD
-./pbl build
+pbl configure --board=$BOARD
+pbl build
 ```
 
 where `$BOARD` is one of the dedicated QEMU boards (`qemu_emery`,
@@ -27,13 +27,13 @@ where `$BOARD` is one of the dedicated QEMU boards (`qemu_emery`,
 You can launch QEMU with the built image using:
 
 ```shell
-./pbl qemu
+pbl qemu
 ```
 
 The flash image is rebuilt by default on every launch. To keep the existing flash image (e.g. to preserve stored apps), pass `--keep-flash-image`:
 
 ```shell
-./pbl qemu --keep-flash-image
+pbl qemu --keep-flash-image
 ```
 
 The launched QEMU exposes:
@@ -50,7 +50,7 @@ UART1 output is also captured to `uart1.log` in the repository root.
 You can launch a console using:
 
 ```shell
-./pbl console
+pbl console
 ```
 
 It connects to the running QEMU over the TCP serial port and provides a
@@ -61,8 +61,8 @@ prompt for sending commands and receiving responses.
 With QEMU running, you can capture the display via the socket monitor:
 
 ```shell
-./pbl screenshot                                  # defaults to build/screenshot.png
-./pbl screenshot --screenshot-output /tmp/foo.png
+pbl screenshot                                  # defaults to build/screenshot.png
+pbl screenshot --output /tmp/foo.png
 ```
 
 Useful to validate or iterate on UI changes.
@@ -87,12 +87,12 @@ Coordinates are given in screen pixels; the display size is read from the
 emulated `pebble-touch` device and scaled automatically.
 
 ```shell
-./pbl touch 130 130                          # tap at (130, 130)
-./pbl swipe 130 220 130 40                   # swipe up (finger bottom -> top)
-./pbl swipe 130 220 130 40 --steps 20 --duration 0.4
+pbl touch 130 130                          # tap at (130, 130)
+pbl swipe 130 220 130 40                   # swipe up (finger bottom -> top)
+pbl swipe 130 220 130 40 --steps 20 --duration 0.4
 ```
 
-Requires QEMU to be running; `./pbl qemu` exposes the QMP socket used for
+Requires QEMU to be running; `pbl qemu` exposes the QMP socket used for
 injection. A tap is a finger down then up; a swipe streams intermediate moves
 so that drag gestures are seen as continuous. Injection uses the
 absolute-pointer input path; multi-touch is not wired up in the device.
@@ -102,7 +102,7 @@ absolute-pointer input path; multi-touch is not wired up in the device.
 You can debug with GDB using:
 
 ```shell
-./pbl debug
+pbl debug
 ```
 
 ## Install .pbw applications
@@ -112,7 +112,7 @@ You can install applications coming from .pbw files onto QEMU. This requires [pe
 Start by launching QEMU as you normally would:
 
 ```shell
-./pbl qemu
+pbl qemu
 ```
 
 Inside another shell locate a .pbw file to install:

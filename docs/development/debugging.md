@@ -5,13 +5,13 @@
 Start a debug session with:
 
 ```shell
-./pbl debug
+pbl debug
 ```
 
 On QEMU boards this attaches GDB to the {doc}`emulator <./qemu>` through a
 proxy (`tools/qemu/qemu_gdb_proxy.py`) that adds FreeRTOS thread awareness,
 so `info threads` and per-thread backtraces work. On real hardware,
-`./pbl debug` is available on boards whose runner is OpenOCD (e.g. asterix,
+`pbl debug` is available on boards whose runner is OpenOCD (e.g. asterix,
 configured by `boards/asterix/support/openocd.cfg`); boards flashed via
 sftool do not support it.
 
@@ -40,7 +40,7 @@ Highlights (run `pbl` for the full list):
 
 ## Console and logs
 
-Attach to the firmware console with `./pbl console` (add `--tty` for real
+Attach to the firmware console with `pbl console` (add `--tty` for real
 hardware; see {doc}`./qemu` for the emulator ports). Firmware log messages
 are hashed at compile time — the binary only contains a hash and the
 arguments — and the console dehashes them on the fly using the dictionary
