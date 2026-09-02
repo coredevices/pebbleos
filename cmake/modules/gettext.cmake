@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Translatable string extraction. Every firmware area contributes a .pot
-# file; they are merged into build/pebbleos.pot, which `./pbl make_lang`
+# file; they are merged into the firmware's catalog, which `pbl make_lang`
 # turns into per-language catalogs.
 
 find_program(XGETTEXT xgettext REQUIRED)
@@ -30,6 +30,20 @@ set(PBL_GETTEXT_KEYWORDS
 define_property(GLOBAL PROPERTY PBL_SERVICES_POT
   BRIEF_DOCS "Per-service .pot files merged into services.pot")
 
+define_property(GLOBAL PROPERTY PBL_POT_TARGET
+  BRIEF_DOCS "The target that builds the firmware's merged .pot")
+
+# A .pot is produced in one directory and merged in another, and a custom
+# command's rule is only reachable from the directory that added it. Every
+# .pot therefore also gets a target, named after its path so that any
+# directory can derive it; consumers depend on the target as well as on the
+# file, the target to reach the rule and the file to keep rebuild tracking.
+function(pbl_pot_target output var)
+  file(RELATIVE_PATH relative ${PROJECT_BINARY_DIR} ${output})
+  string(REGEX REPLACE "[^A-Za-z0-9]" "_" relative ${relative})
+  set(${var} pbl_pot_${relative} PARENT_SCOPE)
+endfunction()
+
 function(pbl_gettext output)
   set(sources ${ARGN})
   list(SORT sources)
@@ -52,16 +66,37 @@ function(pbl_gettext output)
     COMMENT "Extracting strings into ${output}"
     VERBATIM
   )
+
+  pbl_pot_target(${output} target)
+  add_custom_target(${target} DEPENDS ${output})
 endfunction()
 
 function(pbl_msgcat output)
+  set(depends ${ARGN})
+  foreach(input ${ARGN})
+    pbl_pot_target(${input} dependency)
+    if(TARGET ${dependency})
+      list(APPEND depends ${dependency})
+    endif()
+  endforeach()
+
   add_custom_command(
     OUTPUT ${output}
     COMMAND ${MSGCAT} ${ARGN} -o ${output}
-    DEPENDS ${ARGN}
+    DEPENDS ${depends}
     COMMENT "Merging catalogs into ${output}"
     VERBATIM
   )
+
+  pbl_pot_target(${output} target)
+  add_custom_target(${target} DEPENDS ${output})
+endfunction()
+
+# The firmware's merged catalog, built along with the firmware itself.
+function(pbl_firmware_pot output)
+  pbl_msgcat(${output} ${ARGN})
+  pbl_pot_target(${output} target)
+  set_property(GLOBAL PROPERTY PBL_POT_TARGET ${target})
 endfunction()
 
 # A service's translatable strings, merged into services.pot.

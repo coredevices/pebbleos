@@ -124,9 +124,13 @@ function(pbl_link_firmware)
   if(PBL_PBPACK)
     list(APPEND artifacts ${PBL_PBPACK} ${PBL_LAYOUTS})
   endif()
-  list(APPEND artifacts ${PBL_POT})
-
   add_custom_target(pbl_firmware ALL DEPENDS ${artifacts})
+
+  # The merged catalog is a target of its own, declared where its recipe is.
+  get_property(pot GLOBAL PROPERTY PBL_POT_TARGET)
+  if(pot)
+    add_dependencies(pbl_firmware ${pot})
+  endif()
 
   # --- Bundling -----------------------------------------------------------
 

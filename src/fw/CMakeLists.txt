@@ -67,6 +67,5 @@ if(NOT CONFIG_RECOVERY_FW)
     ${CMAKE_CURRENT_BINARY_DIR}/applib/applib.pot
     ${CMAKE_CURRENT_BINARY_DIR}/apps/apps.pot
   )
-  pbl_msgcat(${PROJECT_BINARY_DIR}/pebbleos.pot ${catalogs})
-  set(PBL_POT ${PROJECT_BINARY_DIR}/pebbleos.pot PARENT_SCOPE)
+  pbl_firmware_pot(${PROJECT_BINARY_DIR}/pebbleos.pot ${catalogs})
 endif()
