@@ -20,8 +20,7 @@
 #include "system/passert.h"
 #include "kernel/util/sleep.h"
 
-#include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 PBL_LOG_MODULE_DEFINE(driver_flash, CONFIG_DRIVER_FLASH_LOG_LEVEL);
 
@@ -29,7 +28,7 @@ PBL_LOG_MODULE_DEFINE(driver_flash, CONFIG_DRIVER_FLASH_LOG_LEVEL);
 
 static PBL_MUTEX_DEFINE(s_flash_lock);
 static bool s_flash_initialized;
-static SemaphoreHandle_t s_erase_semphr;
+static PBL_SEM_DEFINE(s_erase_semphr, 0, 1);
 
 static struct FlashEraseContext {
   bool in_progress;
@@ -46,13 +45,11 @@ static struct FlashEraseContext {
 static TimerID s_erase_poll_timer;
 static TimerID s_erase_suspend_timer;
 
-
 void flash_init(void) {
   flash_impl_init(false /* coredump_mode */);
   s_flash_initialized = true;
 
-  s_erase_semphr = xSemaphoreCreateBinary();
-  xSemaphoreGive(s_erase_semphr);
+  pbl_sem_give(&s_erase_semphr);
   s_erase_poll_timer = new_timer_create();
   s_erase_suspend_timer = new_timer_create();
 
@@ -181,7 +178,7 @@ static uint32_t prv_flash_erase_start(uint32_t addr,
                                       void *context,
                                       bool is_subsector,
                                       uint8_t retries) {
-  xSemaphoreTake(s_erase_semphr, portMAX_DELAY);
+  pbl_sem_take(&s_erase_semphr, PBL_FOREVER);
   pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   PBL_ASSERTN(s_erase.in_progress == false);
   s_erase = (struct FlashEraseContext) {
@@ -207,7 +204,7 @@ static uint32_t prv_flash_erase_start(uint32_t addr,
   if (status != S_FALSE) {
     s_erase.in_progress = false;
     pbl_mutex_unlock(&s_flash_lock);
-    xSemaphoreGive(s_erase_semphr);
+    pbl_sem_give(&s_erase_semphr);
     // Only run the callback with no locks held so that the callback won't
     // deadlock if it kicks off another sector erase.
     on_complete_cb(context, S_NO_ACTION_REQUIRED);
@@ -223,7 +220,7 @@ static uint32_t prv_flash_erase_start(uint32_t addr,
   } else {
     s_erase.in_progress = false;
     pbl_mutex_unlock(&s_flash_lock);
-    xSemaphoreGive(s_erase_semphr);
+    pbl_sem_give(&s_erase_semphr);
     // Only run the callback with no locks held so that the callback won't
     // deadlock if it kicks off another sector erase.
     on_complete_cb(context, status);
@@ -260,7 +257,7 @@ static uint32_t prv_flash_erase_poll(void) {
     return s_erase.expected_duration / 8;
   }
 
-  xSemaphoreGive(s_erase_semphr);
+  pbl_sem_give(&s_erase_semphr);
   if (status == E_ERROR && saved_ctx.retries < MAX_ERASE_RETRIES) {
     // Try issuing the erase again. It might succeed this time around.
     PBL_LOG_DBG("Erase of 0x%"PRIx32" failed (attempt %d)."
@@ -323,7 +320,6 @@ static void prv_flash_erase_blocking(uint32_t sector_addr, bool is_subsector) {
         (erase_suspend_time_remaining == 0)) {
       prv_erase_suspend_timer_cb(NULL);
     }
-
 
     // An erase can take a long time, especially if the erase needs to be
     // retried. Appease the watchdog so that it doesn't get angry when an

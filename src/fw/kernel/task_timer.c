@@ -11,7 +11,7 @@
 #include "system/passert.h"
 #include "pbl/util/list.h"
 
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 
 // Structure of a timer
@@ -192,7 +192,7 @@ bool task_timer_start(TaskTimerManager *manager, TaskTimerID timer_id,
 
   // Wake up our service task if this is the new head so that it can recompute its wait timeout
   if (manager->running_timers == &timer->list_node) {
-    xSemaphoreGive(manager->semaphore);
+    pbl_sem_give(manager->semaphore);
   }
   pbl_mutex_unlock(&manager->mutex);
   return true;
@@ -289,7 +289,7 @@ void task_timer_delete(TaskTimerManager *manager, TaskTimerID timer_id) {
 }
 
 
-void task_timer_manager_init(TaskTimerManager *manager, SemaphoreHandle_t semaphore) {
+void task_timer_manager_init(TaskTimerManager *manager, struct pbl_sem *semaphore) {
   prv_pool_init();
   *manager = (TaskTimerManager) {
     // Initialize next id to be a number that's theoretically unique per-task

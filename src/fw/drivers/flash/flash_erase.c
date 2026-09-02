@@ -11,13 +11,11 @@
 #include "pbl/util/attributes.h"
 #include "pbl/util/math.h"
 
-#include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 PBL_LOG_MODULE_DECLARE(driver_flash, CONFIG_DRIVER_FLASH_LOG_LEVEL);
 
-
-static SemaphoreHandle_t s_erase_mutex = NULL;
+static PBL_SEM_DEFINE(s_erase_mutex, 0, 1);
 static struct FlashRegionEraseState {
   uint32_t next_erase_addr;
   uint32_t end_addr;
@@ -31,16 +29,15 @@ T_STATIC void prv_lock_erase_mutex(void);
 T_STATIC void prv_unlock_erase_mutex(void);
 #if !UNITTEST
 void flash_erase_init(void) {
-  s_erase_mutex = xSemaphoreCreateBinary();
-  xSemaphoreGive(s_erase_mutex);
+  pbl_sem_give(&s_erase_mutex);
 }
 
 static void prv_lock_erase_mutex(void) {
-  xSemaphoreTake(s_erase_mutex, portMAX_DELAY);
+  pbl_sem_take(&s_erase_mutex, PBL_FOREVER);
 }
 
 static void prv_unlock_erase_mutex(void) {
-  xSemaphoreGive(s_erase_mutex);
+  pbl_sem_give(&s_erase_mutex);
 }
 #endif
 

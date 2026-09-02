@@ -17,8 +17,7 @@
 #include <hal/nrf_qspi.h>
 #include <nrfx.h>
 
-#include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 // NOTE: This driver does not cover anomaly 244, which may cause data corruption
 // if HF clock source is switching between HFXO and HFINT (e.g. by BLE). This
@@ -40,12 +39,9 @@
 static uint8_t __attribute__((aligned(4))) s_bounce_buf[32];
 
 void QSPI_IRQHandler(void) {
-  BaseType_t woken = pdFALSE;
-
   nrf_qspi_event_clear(NRF_QSPI, NRF_QSPI_EVENT_READY);
 
-  xSemaphoreGiveFromISR(QSPI_FLASH->qspi->state->sem, &woken);
-  portYIELD_FROM_ISR(woken);
+  pbl_sem_give(&QSPI_FLASH->qspi->state->sem);
 }
 
 // -----------------------------------------------------------------------------
@@ -148,7 +144,7 @@ static void prv_read(QSPIFlash *dev, void *buf, size_t len, uint32_t addr) {
     }
     nrf_qspi_event_clear(NRF_QSPI, NRF_QSPI_EVENT_READY);
   } else {
-    xSemaphoreTake(dev->qspi->state->sem, portMAX_DELAY);
+    pbl_sem_take(&dev->qspi->state->sem, PBL_FOREVER);
     soc_nrf_sleep_full_release();
   }
 }
@@ -170,7 +166,7 @@ static void prv_write(QSPIFlash *dev, const void *buf, size_t len, uint32_t addr
     }
     nrf_qspi_event_clear(NRF_QSPI, NRF_QSPI_EVENT_READY);
   } else {
-    xSemaphoreTake(dev->qspi->state->sem, portMAX_DELAY);
+    pbl_sem_take(&dev->qspi->state->sem, PBL_FOREVER);
     soc_nrf_sleep_full_release();
   }
 }
@@ -388,7 +384,7 @@ void qspi_flash_init(QSPIFlash *dev, QSPIFlashPart *part, bool coredump_mode) {
   NVIC_SetPriority(QSPI_IRQn, 5);
   NVIC_EnableIRQ(QSPI_IRQn);
 
-  dev->qspi->state->sem = xSemaphoreCreateBinary();
+  pbl_sem_init(&dev->qspi->state->sem, 0, 1);
   dev->qspi->state->initialized = true;
 }
 

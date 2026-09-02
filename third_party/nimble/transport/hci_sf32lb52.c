@@ -8,6 +8,7 @@
 
 #include <bf0_hal.h>
 #include <kernel/pebble_tasks.h>
+#include <pbl/kernel/sem.h>
 #include <system/hexdump.h>
 #include <pbl/logging/logging.h>
 #include <system/passert.h>
@@ -41,12 +42,12 @@
 #define BLE_HCI_EXT_SF32LB52_BLE_READY 0xFC11U
 
 static TaskHandle_t s_hci_task_handle;
-static SemaphoreHandle_t s_ipc_data_ready;
+static PBL_SEM_DEFINE(s_ipc_data_ready, 0, 1);
 /* Given by prv_acl_put_signal() whenever an LL-direction ACL mbuf is returned
  * to the transport pool; taken by the HCI RX task when an alloc fails so we
  * unblock as soon as the host has freed something instead of polling.
  */
-static SemaphoreHandle_t s_acl_pool_avail;
+static PBL_SEM_DEFINE(s_acl_pool_avail, 0, 1);
 static struct hci_h4_sm s_hci_h4sm;
 static ipc_queue_handle_t s_ipc_port;
 
@@ -66,7 +67,7 @@ static struct os_mbuf *prv_alloc_acl_from_ll(void) {
    */
   PBL_LOG_D_DBG(LOG_DOMAIN_BT_STACK, "ACL pool empty, waiting for buffer");
   do {
-    (void)xSemaphoreTake(s_acl_pool_avail, pdMS_TO_TICKS(100));
+    (void)pbl_sem_take(&s_acl_pool_avail, PBL_MSEC(100));
     om = ble_transport_alloc_acl_from_ll();
   } while (om == NULL);
 
@@ -75,9 +76,7 @@ static struct os_mbuf *prv_alloc_acl_from_ll(void) {
 
 static os_error_t prv_acl_put_signal(struct os_mempool_ext *mpe, void *data, void *arg) {
   os_error_t err = os_memblock_put_from_cb(&mpe->mpe_mp, data);
-  if (s_acl_pool_avail != NULL) {
-    (void)xSemaphoreGive(s_acl_pool_avail);
-  }
+  pbl_sem_give(&s_acl_pool_avail);
   return err;
 }
 
@@ -182,10 +181,7 @@ void prv_hci_trace_mbuf(uint8_t type, struct os_mbuf *om, uint8_t h4tl_packet)  
 
 
 static int32_t prv_ipc_rx_ind(ipc_queue_handle_t handle, size_t size) {
-  BaseType_t woken;
-
-  xSemaphoreGiveFromISR(s_ipc_data_ready, &woken);
-  portEND_SWITCHING_ISR(woken);
+  pbl_sem_give(&s_ipc_data_ready);
 
   return 0;
 }
@@ -268,7 +264,7 @@ static void prv_hci_task_main(void *unused) {
   uint8_t buf[64];
 
   while (true) {
-    xSemaphoreTake(s_ipc_data_ready, portMAX_DELAY);
+    pbl_sem_take(&s_ipc_data_ready, PBL_FOREVER);
 
     while (true) {
       size_t len;
@@ -317,10 +313,6 @@ void ble_transport_ll_init(void) {
 #endif
 
   ble_transport_ll_reinit();
-
-  s_ipc_data_ready = xSemaphoreCreateBinary();
-  s_acl_pool_avail = xSemaphoreCreateBinary();
-  PBL_ASSERTN(s_ipc_data_ready != NULL && s_acl_pool_avail != NULL);
 
   ble_transport_register_put_acl_from_ll_cb(prv_acl_put_signal);
 

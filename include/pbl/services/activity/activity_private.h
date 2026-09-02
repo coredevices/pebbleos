@@ -4,6 +4,8 @@
 #pragma once
 
 #include "activity.h"
+
+#include "pbl/kernel/sem.h"
 #include "hr_util.h"
 
 #include "applib/event_service_client.h"
@@ -331,7 +333,7 @@ typedef struct {
   struct pbl_mutex mutex;
 
   // Semaphore used for waiting for KernelBG to finish a callback
-  SemaphoreHandle_t bg_wait_semaphore;
+  struct pbl_sem bg_wait_semaphore;
 
   // Accel session ref
   AccelServiceState *accel_session;

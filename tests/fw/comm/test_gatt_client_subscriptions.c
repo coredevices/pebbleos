@@ -13,8 +13,7 @@
 #include <pbl/btutil/bt_device.h>
 #include <pbl/btutil/bt_uuid.h>
 
-#include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 // Fakes
 ///////////////////////////////////////////////////////////
@@ -24,6 +23,7 @@
 #include "fake_bt_driver_gatt.h"
 #include "fake_new_timer.h"
 #include "fake_queue.h"
+#include "fake_sem.h"
 #include "fake_system_task.h"
 
 #include "fake_event_gatt_service_buffer.h"
@@ -81,7 +81,7 @@ extern uint16_t gatt_client_characteristic_get_handle_and_connection(
                                                                BLECharacteristic characteristic_ref,
                                                                GAPLEConnection **connection);
 
-extern SemaphoreHandle_t gatt_client_subscription_get_semaphore(void);
+extern struct pbl_sem * gatt_client_subscription_get_semaphore(void);
 extern void gatt_client_subscription_cleanup(void);
 
 #define TEST_GATT_CONNECTION_ID (1234)
@@ -529,7 +529,6 @@ void test_gatt_client_subscriptions__unsubscribe_not_last_subscriber(void) {
   cl_assert_equal_i(s_last_cccd_value, (uint16_t) ~0);
 }
 
-
 void test_gatt_client_subscriptions__subscribe_failed_cccd_write(void) {
   BLECharacteristic characteristic = prv_get_indicatable_characteristic();
 
@@ -661,11 +660,11 @@ void test_gatt_client_subscriptions__notification_app_and_kernel_subscribers(voi
                                 true /* kernel */, true /* app */);
 }
 
-static TickType_t prv_taking_too_long_to_consume_yield_cb(QueueHandle_t queue) {
+static pbl_tick_t prv_taking_too_long_to_consume_yield_cb(struct pbl_sem *queue) {
   return milliseconds_to_ticks(1000);
 }
 
-static TickType_t prv_consume_in_time_yield_cb(QueueHandle_t queue) {
+static pbl_tick_t prv_consume_in_time_yield_cb(struct pbl_sem *queue) {
   // Consume while BT task is waiting for buffer to be freed up:
   BLECharacteristic characteristic_out;
   uint8_t *value_out = (uint8_t *) malloc(GATT_CLIENT_SUBSCRIPTIONS_BUFFER_SIZE);
@@ -706,7 +705,7 @@ void test_gatt_client_subscriptions__notification_buffer_full(void) {
                                     false /* kernel */, true /* app */, false /* should_consume */);
 
   // Receive another GATT notification. Won't fit until consumed. Consuming is taking to long:
-  fake_queue_set_yield_callback(gatt_client_subscription_get_semaphore(),
+  fake_sem_set_yield_callback(gatt_client_subscription_get_semaphore(),
                                 prv_taking_too_long_to_consume_yield_cb);
   fake_event_clear_last();
   gatt_client_subscriptions_handle_server_notification(s_connection, s_handle,
@@ -716,7 +715,7 @@ void test_gatt_client_subscriptions__notification_buffer_full(void) {
 
   // Receive another GATT notification. Won't fit until consumed.
   // Consuming is happening before the timeout hits (in the yield callback):
-  fake_queue_set_yield_callback(gatt_client_subscription_get_semaphore(),
+  fake_sem_set_yield_callback(gatt_client_subscription_get_semaphore(),
                                 prv_consume_in_time_yield_cb);
   gatt_client_subscriptions_handle_server_notification(s_connection, s_handle,
                                                        value, 1 /* one byte */);

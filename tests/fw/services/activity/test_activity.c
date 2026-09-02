@@ -176,28 +176,24 @@ AppInstallId app_get_app_id(void) {
 
 // ======================================================================================
 // Queue stubs, to support the semaphore that activity.c uses to block on a kernel BG callback
-#define QUEUE_HANDLE  ((QueueHandle_t)0x11)
 int s_queue_value = 0;
 
-signed portBASE_TYPE xQueueGenericReceive(QueueHandle_t xQueue, void * const pvBuffer,
-                                          TickType_t xTicksToWait, portBASE_TYPE xJustPeeking) {
+void pbl_sem_init(struct pbl_sem *s, uint32_t initial, uint32_t limit) {
+}
+
+void pbl_sem_kobj_init(void *s) {
+}
+
+int pbl_sem_take(struct pbl_sem *s, pbl_timeout_t timeout) {
   while (s_queue_value <= 0) {
     fake_system_task_callbacks_invoke_pending();
   }
   s_queue_value--;
-  return true;
+  return 0;
 }
 
-signed portBASE_TYPE xQueueGenericSend(QueueHandle_t xQueue, const void * const pvItemToQueue,
-                                       TickType_t xTicksToWait, portBASE_TYPE xCopyPosition) {
-  PBL_ASSERTN(xQueue == QUEUE_HANDLE);
+void pbl_sem_give(struct pbl_sem *s) {
   s_queue_value++;
-  return true;
-}
-
-QueueHandle_t xQueueGenericCreate(unsigned portBASE_TYPE uxQueueLength,
-                                 unsigned portBASE_TYPE uxItemSize, unsigned char ucQueueType) {
-  return QUEUE_HANDLE;
 }
 
 

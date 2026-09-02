@@ -11,6 +11,7 @@
 // Stubs
 ///////////////////////////////////////////////////////////
 
+#include "stubs_sem.h"
 #include "stubs_logging.h"
 #include "stubs_passert.h"
 

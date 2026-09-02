@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "pbl/kernel/sem.h"
 #include <pbl/drivers/rtc.h>
 #include "pbl/kernel/mutex.h"
 
@@ -60,7 +61,7 @@ typedef struct I2CBusState {
   int transfer_nack_count;
   RtcTicks transfer_start_ticks;
   int user_count;
-  SemaphoreHandle_t event_semaphore;
+  struct pbl_sem event_semaphore;
   struct pbl_mutex bus_mutex;
 } I2CBusState;
 

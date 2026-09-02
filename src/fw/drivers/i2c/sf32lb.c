@@ -9,7 +9,7 @@
 #include "system/passert.h"
 
 #include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 // Block deep sleep while a transfer is in flight. The flag keeps the release
 // exactly-once across the IRQ, kickoff-failure and abort paths.
@@ -98,7 +98,7 @@ void i2c_hal_start_transfer(I2CBus *bus) {
     HAL_I2C_Reset(hdl);
     prv_deepsleep_allow(bus);
     bus->state->transfer_event = I2CTransferEvent_Error;
-    xSemaphoreGive(bus->state->event_semaphore);
+    pbl_sem_give(&bus->state->event_semaphore);
   }
 }
 

@@ -155,51 +155,28 @@ ble_npl_error_t npl_pebble_sem_init(struct ble_npl_sem *sem, uint16_t tokens) {
     return BLE_NPL_INVALID_PARAM;
   }
 
-  sem->handle = xSemaphoreCreateCounting(128, tokens);
-  assert(sem->handle);
-
+  pbl_sem_init(&sem->handle, tokens, 128);
   return BLE_NPL_OK;
 }
 
 ble_npl_error_t npl_pebble_sem_pend(struct ble_npl_sem *sem, ble_npl_time_t timeout) {
-  BaseType_t woken;
-  BaseType_t ret;
-
   if (!sem) {
     return BLE_NPL_INVALID_PARAM;
   }
-
-  assert(sem->handle);
 
   if (mcu_state_is_isr()) {
     assert(timeout == 0);
-    ret = xSemaphoreTakeFromISR(sem->handle, &woken);
-    portYIELD_FROM_ISR(woken);
-  } else {
-    ret = xSemaphoreTake(sem->handle, timeout);
   }
 
-  return ret == pdPASS ? BLE_NPL_OK : BLE_NPL_TIMEOUT;
+  return pbl_sem_take(&sem->handle, PBL_TICKS(timeout)) == 0 ? BLE_NPL_OK : BLE_NPL_TIMEOUT;
 }
 
 ble_npl_error_t npl_pebble_sem_release(struct ble_npl_sem *sem) {
-  BaseType_t ret;
-  BaseType_t woken;
-
   if (!sem) {
     return BLE_NPL_INVALID_PARAM;
   }
 
-  assert(sem->handle);
-
-  if (mcu_state_is_isr()) {
-    ret = xSemaphoreGiveFromISR(sem->handle, &woken);
-    portYIELD_FROM_ISR(woken);
-  } else {
-    ret = xSemaphoreGive(sem->handle);
-  }
-
-  assert(ret == pdPASS);
+  pbl_sem_give(&sem->handle);
   return BLE_NPL_OK;
 }
 

@@ -11,14 +11,13 @@
 #include "util/net.h"
 #include "pbl/util/size.h"
 
-#include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 #include "clar.h"
 
 extern SendBuffer * comm_session_send_buffer_create(bool is_system);
 extern void comm_session_send_buffer_destroy(SendBuffer *sb);
-extern SemaphoreHandle_t comm_session_send_buffer_write_semaphore(void);
+extern struct pbl_sem * comm_session_send_buffer_write_semaphore(void);
 extern T_STATIC const SessionSendJobImpl s_default_kernel_send_job_impl;
 extern void comm_default_kernel_sender_deinit(void);
 extern void comm_session_send_queue_cleanup(CommSession *session);
@@ -36,6 +35,7 @@ extern void comm_session_send_queue_cleanup(CommSession *session);
 
 #include "fake_kernel_malloc.h"
 #include "fake_queue.h"
+#include "fake_sem.h"
 #include "fake_rtc.h"
 
 static CommSession s_session;
@@ -107,7 +107,7 @@ void test_session_send_buffer__begin_write_with_more_than_max_payload(void) {
   cl_assert_equal_p(write_sb, NULL);
 }
 
-TickType_t prv_session_closed_yield_cb(QueueHandle_t handle) {
+pbl_tick_t prv_session_closed_yield_cb(struct pbl_sem *handle) {
   if (s_valid_session) {
     comm_session_send_queue_cleanup(s_valid_session);
     s_valid_session = NULL;
@@ -115,9 +115,9 @@ TickType_t prv_session_closed_yield_cb(QueueHandle_t handle) {
   return 10;
 }
 
-TickType_t prv_receive_but_no_bytes_freed_yield_cb(QueueHandle_t handle) {
+pbl_tick_t prv_receive_but_no_bytes_freed_yield_cb(struct pbl_sem *handle) {
   fake_rtc_increment_ticks(100);
-  xSemaphoreGive(handle);
+  pbl_sem_give(handle);
   return 100;
 }
 
@@ -136,8 +136,8 @@ void test_session_send_buffer__not_enough_space_in_time(void) {
   comm_session_send_buffer_end_write(write_sb);
 
   // Set a yield callback that gives the semph in time but does not clear out the send buffer:
-  SemaphoreHandle_t write_semph = comm_session_send_buffer_write_semaphore();
-  fake_queue_set_yield_callback(write_semph, prv_receive_but_no_bytes_freed_yield_cb);
+  struct pbl_sem * write_semph = comm_session_send_buffer_write_semaphore();
+  fake_sem_set_yield_callback(write_semph, prv_receive_but_no_bytes_freed_yield_cb);
 
   // Try to begin writing again, requesting only one byte:
   SendBuffer *write_sb2 = comm_session_send_buffer_begin_write(&s_session, ENDPOINT_ID,
@@ -209,8 +209,8 @@ void test_session_send_buffer__not_enough_space_kernel_bg(void) {
   s_is_current_task_send_next_task = true;
 
   // Set a yield callback that gives the semph in time but does not clear out the send buffer:
-  SemaphoreHandle_t write_semph = comm_session_send_buffer_write_semaphore();
-  fake_queue_set_yield_callback(write_semph, prv_receive_but_no_bytes_freed_yield_cb);
+  struct pbl_sem * write_semph = comm_session_send_buffer_write_semaphore();
+  fake_sem_set_yield_callback(write_semph, prv_receive_but_no_bytes_freed_yield_cb);
 
   // Try to begin writing again, requesting only one byte:
   SendBuffer *write_sb2 = comm_session_send_buffer_begin_write(&s_session, ENDPOINT_ID,
@@ -240,8 +240,8 @@ void test_session_send_buffer__writing_but_then_session_closed(void) {
   comm_session_send_buffer_end_write(write_sb);
 
   // Set a yield callback that gives the semph in time but closes the session:
-  SemaphoreHandle_t write_semph = comm_session_send_buffer_write_semaphore();
-  fake_queue_set_yield_callback(write_semph, prv_session_closed_yield_cb);
+  struct pbl_sem * write_semph = comm_session_send_buffer_write_semaphore();
+  fake_sem_set_yield_callback(write_semph, prv_session_closed_yield_cb);
 
   // Try to begin writing again, requesting only one byte:
   write_sb = comm_session_send_buffer_begin_write(&s_session, ENDPOINT_ID,
@@ -263,7 +263,6 @@ void test_session_send_buffer__write_beyond_available_space(void) {
   uint8_t fake_data[max_length];
   memset(fake_data, 0, max_length);
   cl_assert_equal_b(comm_session_send_buffer_write(write_sb, fake_data, max_length), true);
-
 
   // Try writing another byte (expect false returned):
   cl_assert_equal_b(comm_session_send_buffer_write(write_sb, fake_data, max_length), false);
@@ -330,7 +329,6 @@ void test_session_send_buffer__send_queue_interface(void) {
   cl_assert_equal_i(header->endpoint_id, htons(ENDPOINT_ID));
   cl_assert_equal_i(memcmp(pp_data_out + sizeof(PebbleProtocolHeader) - offset,
                            fake_data_payload, max_payload_length - offset), 0);
-
 
   // ..._get_read_pointer():
   uint16_t bytes_read = 0;

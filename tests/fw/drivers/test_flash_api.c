@@ -3,6 +3,7 @@
 
 #include "clar.h"
 #include "fake_new_timer.h"
+#include "stubs_sem.h"
 #include "stubs_analytics.h"
 #include "stubs_freertos.h"
 #include "stubs_logging.h"

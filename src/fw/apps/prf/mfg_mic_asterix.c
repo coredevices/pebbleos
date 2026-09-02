@@ -16,8 +16,7 @@
 #include "process_management/pebble_process_md.h"
 #include "process_state/app_state/app_state.h"
 
-#include <FreeRTOS.h>
-#include <semphr.h>
+#include "pbl/kernel/sem.h"
 
 #include "nrfx_i2s.h"
 #include "nrfx_pdm.h"
@@ -71,8 +70,8 @@ static int16_t s_buf[2][N_SAMPLES];
 static int16_t *s_buf_rd;
 static int16_t *s_buf_wr;
 static uint8_t s_buf_idx;
-static SemaphoreHandle_t s_data_ready;
-static SemaphoreHandle_t s_need_data;
+static PBL_SEM_DEFINE(s_data_ready, 0, 1);
+static PBL_SEM_DEFINE(s_need_data, 0, 1);
 #endif
 static nrfx_i2s_buffers_t s_i2s_bufs;
 
@@ -202,10 +201,8 @@ static void prv_data_handler(nrfx_i2s_buffers_t const *p_released, uint32_t stat
   }
 
   if (p_released != NULL && p_released->p_tx_buffer != NULL) {
-    BaseType_t woken;
     s_buf_wr = (int16_t *)p_released->p_tx_buffer;
-    xSemaphoreGiveFromISR(s_need_data, &woken);
-    portYIELD_FROM_ISR(woken);
+    pbl_sem_give(&s_need_data);
   }
 #endif
 }
@@ -220,18 +217,14 @@ static void prv_pdm_evt_handler(nrfx_pdm_evt_t const * p_evt) {
   }
 
   if (p_evt->buffer_released) {
-    BaseType_t woken;
     s_buf_rd = p_evt->buffer_released;
-    xSemaphoreGiveFromISR(s_data_ready, &woken);
-    portYIELD_FROM_ISR(woken);
+    pbl_sem_give(&s_data_ready);
   }
 }
 
 static void prv_mic_capture(void) {
   uint32_t flash_addr;
   nrfx_err_t err;
-
-  s_data_ready = xSemaphoreCreateBinary();
 
   clocksource_hfxo_request();
 
@@ -252,7 +245,7 @@ static void prv_mic_capture(void) {
 
   flash_addr = FLASH_START;
   for (unsigned int i = 0U; i < RECORDING_MS / CAPTURE_MS; i++) {
-    xSemaphoreTake(s_data_ready, portMAX_DELAY);
+    pbl_sem_take(&s_data_ready, PBL_FOREVER);
 
     flash_write_bytes((uint8_t *)s_buf_rd, flash_addr, BLOCK_SIZE);
     flash_addr += BLOCK_SIZE;
@@ -263,7 +256,7 @@ static void prv_mic_capture(void) {
 
   clocksource_hfxo_release();
 
-  vSemaphoreDelete(s_data_ready);
+  pbl_sem_deinit(&s_data_ready);
 
 #if DUMP_RECORDING_DBGSERIAL
   flash_addr = FLASH_START;
@@ -286,8 +279,6 @@ static void prv_mic_capture(void) {
 static void prv_playback(void) {
   uint32_t flash_addr;
   nrfx_err_t err;
-
-  s_need_data = xSemaphoreCreateBinary();
 
   clocksource_hfxo_request();
 
@@ -317,7 +308,7 @@ static void prv_playback(void) {
     flash_read_bytes((uint8_t *)s_buf_wr, flash_addr, BLOCK_SIZE);
     flash_addr += BLOCK_SIZE;
 
-    xSemaphoreTake(s_need_data, portMAX_DELAY);
+    pbl_sem_take(&s_need_data, PBL_FOREVER);
   }
 
   prv_codec_standby();
@@ -327,7 +318,7 @@ static void prv_playback(void) {
 
   clocksource_hfxo_release();
 
-  vSemaphoreDelete(s_need_data);
+  pbl_sem_deinit(&s_need_data);
 
   flash_region_erase_optimal_range(FLASH_START, FLASH_START, FLASH_END, FLASH_END);
 }

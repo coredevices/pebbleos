@@ -6,8 +6,6 @@
 
 typedef void * QueueHandle_t;
 
-typedef QueueHandle_t SemaphoreHandle_t;
-
 typedef void * TaskHandle_t;
 
 typedef void (*TaskFunction_t)( void * );

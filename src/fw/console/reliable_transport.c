@@ -19,7 +19,7 @@
 #include <util/net.h>
 
 #include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -83,7 +83,7 @@ _Static_assert(sizeof((ReliablePacket){0}.i) == sizeof(ReliablePacket),
 
 static bool s_layer_up = false;
 static ReliableInfoBuffer *s_tx_buffer;
-static SemaphoreHandle_t s_tx_lock;
+static PBL_SEM_DEFINE(s_tx_lock, 0, 1);
 
 //! The sequence number of the next in-sequence I-packet to be transmitted.
 //! V(S) in the LAPB spec.
@@ -137,7 +137,7 @@ static void prv_process_ack(uint8_t ack_number) {
     pulse2_reliable_retransmit_timer_cancel();
     s_retransmit_count = 0;
     s_send_variable = (s_send_variable + 1) % MODULUS;
-    xSemaphoreGive(s_tx_lock);
+    pbl_sem_give(&s_tx_lock);
   }
 }
 
@@ -293,11 +293,11 @@ void *pulse_reliable_send_begin(const uint16_t app_protocol) {
   if (!s_layer_up) {
     return NULL;
   }
-  xSemaphoreTake(s_tx_lock, portMAX_DELAY);
+  pbl_sem_take(&s_tx_lock, PBL_FOREVER);
   if (!s_layer_up) {
     // Transport went down while waiting for the lock
     PBL_LOG_DBG("Transport went down while waiting for lock");
-    xSemaphoreGive(s_tx_lock);
+    pbl_sem_give(&s_tx_lock);
     return NULL;
   }
   s_tx_buffer->app_protocol = app_protocol;
@@ -306,7 +306,7 @@ void *pulse_reliable_send_begin(const uint16_t app_protocol) {
 
 void pulse_reliable_send_cancel(void *buf) {
   prv_assert_reliable_buffer(buf);
-  xSemaphoreGive(s_tx_lock);
+  pbl_sem_give(&s_tx_lock);
 }
 
 void pulse_reliable_send(void *buf, const size_t length) {
@@ -339,7 +339,7 @@ static void prv_on_this_layer_up(PPPControlProtocol *this) {
   s_receive_variable = 0;
   s_retransmit_count = 0;
   s_last_ack_number = 0;
-  xSemaphoreGive(s_tx_lock);
+  pbl_sem_give(&s_tx_lock);
 
 #define ON_PACKET(...)
 #define ON_TRANSPORT_STATE_CHANGE(UP_HANDLER, DOWN_HANDLER) \
@@ -352,7 +352,7 @@ static void prv_on_this_layer_up(PPPControlProtocol *this) {
 static void prv_on_this_layer_down(PPPControlProtocol *this) {
   pulse2_reliable_retransmit_timer_cancel();
   s_layer_up = false;
-  xSemaphoreGive(s_tx_lock);
+  pbl_sem_give(&s_tx_lock);
 
 #define ON_PACKET(...)
 #define ON_TRANSPORT_STATE_CHANGE(UP_HANDLER, DOWN_HANDLER) \
@@ -398,8 +398,7 @@ void pulse2_reliable_init(void) {
   ppp_control_protocol_open(PULSE2_TRAINCP);
   s_tx_buffer = kernel_zalloc_check(sizeof(ReliableInfoBuffer) +
                                     pulse_reliable_max_send_size());
-  s_tx_lock = xSemaphoreCreateBinary();
-  xSemaphoreGive(s_tx_lock);
+  pbl_sem_give(&s_tx_lock);
 }
 
 static void prv_bounce_ncp_state(void) {

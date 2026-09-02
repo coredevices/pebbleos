@@ -25,7 +25,7 @@
 #include <pbl/os/tick.h>
 
 #include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 // TODO:
 // - Intercept "manual" CCCD writes from the app, error for now? or translate to
@@ -36,7 +36,7 @@
 // Static variables
 
 static PBL_MUTEX_DEFINE(s_gatt_client_subscriptions_mutex);
-static SemaphoreHandle_t s_gatt_client_subscriptions_semphr;
+static PBL_SEM_DEFINE(s_gatt_client_subscriptions_semphr, 0, 1);
 
 //! s_gatt_client_subscriptions_mutex must be taken when accessing these static variables below!
 
@@ -166,7 +166,7 @@ static bool prv_wait_until_write_space_available(const CircularBuffer *buffer,
     }
     // Wait until space is freed up:
     const uint32_t timeout_ticks = (timeout_end_ticks - now_ticks);
-    if (pdFALSE == xSemaphoreTake(s_gatt_client_subscriptions_semphr, timeout_ticks)) {
+    if (pdFALSE == (pbl_sem_take(&s_gatt_client_subscriptions_semphr, PBL_TICKS(timeout_ticks)) == 0)) {
       // Timeout expired while waiting for the semaphore.
       return false;
     }
@@ -426,7 +426,7 @@ unlock:
   // prv_wait_until_write_space_available() "poll" once whether there's enough space. We could be
   // smarter about this and add additional book-keeping so the semaphore is only given if enough
   // bytes have been freed up in the buffer of interest.
-  xSemaphoreGive(s_gatt_client_subscriptions_semphr);
+  pbl_sem_give(&s_gatt_client_subscriptions_semphr);
   return next_header.value_length;
 }
 
@@ -791,8 +791,6 @@ void gatt_client_subscription_cleanup_by_att_handle_range(
 }
 
 void gatt_client_subscription_boot(void) {
-  s_gatt_client_subscriptions_semphr = xSemaphoreCreateBinary();
-  PBL_ASSERTN(s_gatt_client_subscriptions_semphr);
 }
 
 #if UNITTEST
@@ -803,12 +801,11 @@ T_STATIC bool gatt_client_get_event_pending_state(GAPLEClient client) {
 #endif
 
 //! Only for unit tests
-SemaphoreHandle_t gatt_client_subscription_get_semaphore(void) {
-  return s_gatt_client_subscriptions_semphr;
+struct pbl_sem * gatt_client_subscription_get_semaphore(void) {
+  return &s_gatt_client_subscriptions_semphr;
 }
 
 //! Only for unit tests
 void gatt_client_subscription_cleanup(void) {
-  vSemaphoreDelete(s_gatt_client_subscriptions_semphr);
-  s_gatt_client_subscriptions_semphr = NULL;
+  pbl_sem_reset(&s_gatt_client_subscriptions_semphr);
 }

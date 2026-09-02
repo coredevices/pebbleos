@@ -26,7 +26,7 @@
 #include <bluetooth/analytics.h>
 
 #include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 #include "task.h"
 
 #include <string.h>
@@ -174,7 +174,7 @@ static struct InstallableObject {
   uint32_t index;
 } s_ready_to_install[NumObjects];
 
-static SemaphoreHandle_t s_pb_semaphore;
+static PBL_SEM_DEFINE(s_pb_semaphore, 1, 1);
 
 //! Marks that the receiver state is now free to use
 static void prv_receiver_reset(void);
@@ -373,9 +373,9 @@ static void prv_cleanup(void) {
 }
 
 static void prv_cleanup_from_system_task(void* data) {
-  xSemaphoreTake(s_pb_semaphore, portMAX_DELAY);
+  pbl_sem_take(&s_pb_semaphore, PBL_FOREVER);
   prv_cleanup();
-  xSemaphoreGive(s_pb_semaphore);
+  pbl_sem_give(&s_pb_semaphore);
 }
 
 static void prv_cleanup_async(void) {
@@ -771,9 +771,9 @@ static bool prv_check_putrequest_for_errors(const PutRequest *request_hdr,
 static bool prv_do_put(const PutRequest *request, uint32_t request_size, uint32_t token) {
   uint32_t data_length = ntohl(request->length);
 
-  xSemaphoreTake(s_pb_semaphore, portMAX_DELAY);
+  pbl_sem_take(&s_pb_semaphore, PBL_FOREVER);
   uint32_t remaining_bytes = s_pb_state.remaining_bytes;
-  xSemaphoreGive(s_pb_semaphore);
+  pbl_sem_give(&s_pb_semaphore);
 
   if (prv_check_putrequest_for_errors(request, request_size) ||
       (data_length > remaining_bytes)) {
@@ -786,9 +786,9 @@ static bool prv_do_put(const PutRequest *request, uint32_t request_size, uint32_
 
   pb_storage_append(&s_pb_state.storage, request->data, data_length);
 
-  xSemaphoreTake(s_pb_semaphore, portMAX_DELAY);
+  pbl_sem_take(&s_pb_semaphore, PBL_FOREVER);
   s_pb_state.remaining_bytes -= data_length;
-  xSemaphoreGive(s_pb_semaphore);
+  pbl_sem_give(&s_pb_semaphore);
 
   return true;
 }
@@ -920,7 +920,7 @@ static void prv_process_put_requests_system_task_cb(void *unused) {
     }
   }
 
-  xSemaphoreTake(s_pb_semaphore, portMAX_DELAY);
+  pbl_sem_take(&s_pb_semaphore, PBL_FOREVER);
   {
     s_pb_state.current_command = PutBytesPut;
     uint32_t bytes_transferred = initial_remaining_bytes - s_pb_state.remaining_bytes;
@@ -938,7 +938,7 @@ static void prv_process_put_requests_system_task_cb(void *unused) {
     };
     event_put(&event);
   }
-  xSemaphoreGive(s_pb_semaphore);
+  pbl_sem_give(&s_pb_semaphore);
 
   // (re)start timer for next event
   PBL_ASSERTN(new_timer_start(s_pb_state.timer_id, PUT_TIMEOUT_MS, prv_timer_callback,
@@ -962,7 +962,7 @@ static void prv_process_put_requests_system_task_cb(void *unused) {
 }
 
 static void prv_process_msg_system_task_callback(void *unused) {
-  xSemaphoreTake(s_pb_semaphore, portMAX_DELAY);
+  pbl_sem_take(&s_pb_semaphore, PBL_FOREVER);
 
   if (!s_pb_state.receiver.buffer ||
       s_pb_state.receiver.length == 0) {
@@ -1008,18 +1008,16 @@ static void prv_process_msg_system_task_callback(void *unused) {
 
 finally:
   prv_receiver_reset();
-  xSemaphoreGive(s_pb_semaphore);
+  pbl_sem_give(&s_pb_semaphore);
 }
 
 void put_bytes_init(void) {
-  vSemaphoreCreateBinary(s_pb_semaphore)
-  PBL_ASSERTN(s_pb_semaphore != NULL);
 }
 
 void put_bytes_cancel(void) {
   PBL_ASSERT_TASK(PebbleTask_KernelBackground);
 
-  if (xSemaphoreTake(s_pb_semaphore, portMAX_DELAY) != pdTRUE) {
+  if ((pbl_sem_take(&s_pb_semaphore, PBL_FOREVER) != 0)) {
     PBL_LOG_ERR("Failed to acquire the put-bytes semaphore");
     return;
   }
@@ -1037,12 +1035,12 @@ void put_bytes_cancel(void) {
             s_pb_state.type);
   }
 
-  xSemaphoreGive(s_pb_semaphore);
+  pbl_sem_give(&s_pb_semaphore);
 }
 
 // Only used by unit test
 void put_bytes_deinit(void) {
-  vSemaphoreDelete(s_pb_semaphore);
+  pbl_sem_deinit(&s_pb_semaphore);
 
   if (s_pb_state.timer_id != TIMER_INVALID_ID) {
     new_timer_delete(s_pb_state.timer_id);
@@ -1055,7 +1053,7 @@ void put_bytes_deinit(void) {
 }
 
 static void prv_expect_init_timeout_cb(void *data) {
-  xSemaphoreTake(s_pb_semaphore, portMAX_DELAY);
+  pbl_sem_take(&s_pb_semaphore, PBL_FOREVER);
 
   if (s_pb_state.timer_id) {
     new_timer_delete(s_pb_state.timer_id);
@@ -1075,15 +1073,15 @@ static void prv_expect_init_timeout_cb(void *data) {
   };
   event_put(&event);
 
-  xSemaphoreGive(s_pb_semaphore);
+  pbl_sem_give(&s_pb_semaphore);
 }
 
 void put_bytes_expect_init(uint32_t timeout_ms) {
-  xSemaphoreTake(s_pb_semaphore, portMAX_DELAY);
+  pbl_sem_take(&s_pb_semaphore, PBL_FOREVER);
 
   if (s_pb_state.current_command != PutBytesIdle) {
     PBL_LOG_ERR("Called put_bytes_expect while put_bytes is not idle");
-    xSemaphoreGive(s_pb_semaphore);
+    pbl_sem_give(&s_pb_semaphore);
     return;
   }
 
@@ -1092,7 +1090,7 @@ void put_bytes_expect_init(uint32_t timeout_ms) {
   bool success = new_timer_start(s_pb_state.timer_id, timeout_ms, prv_expect_init_timeout_cb, NULL,
                                  0 /*flags*/);
   PBL_ASSERTN(success);
-  xSemaphoreGive(s_pb_semaphore);
+  pbl_sem_give(&s_pb_semaphore);
 }
 
 void put_bytes_handle_comm_session_event(const PebbleCommSessionEvent *
@@ -1123,7 +1121,7 @@ static bool prv_take_lock_with_short_timeout(void) {
   // This code executes on BT02, so don't stall for too long. If the lock is taken, there is
   // probably a Put Bytes session going on already anyway.
   const TickType_t SEMAPHORE_TIMEOUT_TICKS = milliseconds_to_ticks(25);
-  if (xSemaphoreTake(s_pb_semaphore, SEMAPHORE_TIMEOUT_TICKS) != pdTRUE) {
+  if ((pbl_sem_take(&s_pb_semaphore, PBL_TICKS(SEMAPHORE_TIMEOUT_TICKS)) != 0)) {
     PBL_LOG_ERR("Failed to acquire the put-bytes semaphore, retry");
     return false;
   }
@@ -1166,7 +1164,7 @@ Receiver *prv_receiver_prepare(CommSession *session, const PebbleProtocolEndpoin
   bool success = false;
   if (prv_take_lock_with_short_timeout()) {
     success = prv_prepare(total_payload_length);
-    xSemaphoreGive(s_pb_semaphore);
+    pbl_sem_give(&s_pb_semaphore);
   }
 
   if (!success) {
@@ -1220,7 +1218,7 @@ void prv_receiver_write(Receiver *receiver, const uint8_t *data, size_t length) 
   s_pb_state.receiver.pos += length;
 
 finally:
-  xSemaphoreGive(s_pb_semaphore);
+  pbl_sem_give(&s_pb_semaphore);
 }
 
 void prv_receiver_cleanup(Receiver *receiver) {
@@ -1264,8 +1262,8 @@ const ReceiverImplementation g_put_bytes_receiver_impl = {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // For Unit Testing
 
-SemaphoreHandle_t put_bytes_get_semaphore(void) {
-  return s_pb_semaphore;
+struct pbl_sem * put_bytes_get_semaphore(void) {
+  return &s_pb_semaphore;
 }
 
 TimerID put_bytes_get_timer_id(void) {

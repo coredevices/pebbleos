@@ -27,7 +27,7 @@
 #include <pebbleos/cron.h>
 
 #include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/activity/activity_algorithm.h"
@@ -986,7 +986,7 @@ static bool prv_wait_system_task(SystemTaskEventCallback cb, void *context, bool
       return false;     // Timed out
     }
     const TickType_t k_timeout = configTICK_RATE_HZ;
-    xSemaphoreTake(s_activity_state.bg_wait_semaphore, k_timeout);
+    pbl_sem_take(&s_activity_state.bg_wait_semaphore, PBL_TICKS(k_timeout));
   }
 
   return *cb_success;
@@ -1002,7 +1002,7 @@ bool activity_init(void) {
 
   // This semaphore used to wake up the calling task when it is waiting for KernelBG to
   // handle a request
-  s_activity_state.bg_wait_semaphore = xSemaphoreCreateBinary();
+  pbl_sem_init(&s_activity_state.bg_wait_semaphore, 0, 1);
 
     // Open up our settings file so that we can init our state
   SettingsFile *file = activity_private_settings_open();
@@ -1224,7 +1224,7 @@ static void prv_get_minute_history_system_cb(void *context_param) {
 
   // Unblock the caller
   context->completed = true;
-  xSemaphoreGive(s_activity_state.bg_wait_semaphore);
+  pbl_sem_give(&s_activity_state.bg_wait_semaphore);
 }
 
 bool activity_get_minute_history(HealthMinuteData *minute_data, uint32_t *num_records,
@@ -1381,7 +1381,7 @@ static void prv_dump_sleep_log_system_cb(void *context_param) {
 
   // Unblock the caller
   context->completed = true;
-  xSemaphoreGive(s_activity_state.bg_wait_semaphore);
+  pbl_sem_give(&s_activity_state.bg_wait_semaphore);
 }
 
 bool activity_dump_sleep_log(void) {
@@ -1524,7 +1524,7 @@ static void prv_sleep_file_info_system_cb(void *context_param) {
 
   // Unblock the caller
   context->completed = true;
-  xSemaphoreGive(s_activity_state.bg_wait_semaphore);
+  pbl_sem_give(&s_activity_state.bg_wait_semaphore);
 }
 
 bool activity_test_minute_file_info(bool compact_first, uint32_t *num_records, uint32_t *data_bytes,
@@ -1572,7 +1572,7 @@ static void prv_fill_minute_file_system_cb(void *context_param) {
 
   // Unblock the caller
   context->completed = true;
-  xSemaphoreGive(s_activity_state.bg_wait_semaphore);
+  pbl_sem_give(&s_activity_state.bg_wait_semaphore);
 }
 
 bool activity_test_fill_minute_file(void) {

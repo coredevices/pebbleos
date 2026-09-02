@@ -13,7 +13,7 @@
 #include "pbl/os/tick.h"
 #include "kernel/util/sleep.h"
 #include "pbl/kernel/mutex.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 
@@ -39,23 +39,22 @@ PBL_LOG_MODULE_DEFINE(driver_i2c, CONFIG_DRIVER_I2C_LOG_LEVEL);
 /*----------------SEMAPHORE/LOCKING FUNCTIONS--------------------------*/
 
 static bool prv_semaphore_take(I2CBusState *bus) {
-  return (xSemaphoreTake(bus->event_semaphore, 0) == pdPASS);
+  return ((pbl_sem_take(&bus->event_semaphore, PBL_NO_WAIT) == 0));
 }
 
 static bool prv_semaphore_wait(I2CBusState *bus) {
   TickType_t timeout_ticks = milliseconds_to_ticks(I2C_ERROR_TIMEOUT_MS);
-  return (xSemaphoreTake(bus->event_semaphore, timeout_ticks) == pdPASS);
+  return ((pbl_sem_take(&bus->event_semaphore, PBL_TICKS(timeout_ticks)) == 0));
 }
 
 static void prv_semaphore_give(I2CBusState *bus) {
   // If this fails, something is very wrong
-  (void)xSemaphoreGive(bus->event_semaphore);
+  pbl_sem_give(&bus->event_semaphore);
 }
 
 static portBASE_TYPE prv_semaphore_give_from_isr(I2CBusState *bus) {
-  portBASE_TYPE should_context_switch = pdFALSE;
-  (void)xSemaphoreGiveFromISR(bus->event_semaphore,  &should_context_switch);
-  return should_context_switch;
+  pbl_sem_give(&bus->event_semaphore);
+  return pdFALSE;
 }
 
 /*-------------------BUS/PIN CONFIG FUNCTIONS--------------------------*/
@@ -93,13 +92,12 @@ static void prv_bus_reset(I2CBus *bus) {
 void i2c_init(I2CBus *bus) {
   PBL_ASSERTN(bus);
 
-  *bus->state = (I2CBusState) {
-    .event_semaphore = xSemaphoreCreateBinary(),
-  };
+  *bus->state = (I2CBusState) { 0 };
+  pbl_sem_init(&bus->state->event_semaphore, 0, 1);
   pbl_mutex_init(&bus->state->bus_mutex);
 
   // Must give token before one can be taken without blocking
-  xSemaphoreGive(bus->state->event_semaphore);
+  pbl_sem_give(&bus->state->event_semaphore);
 
   i2c_hal_init(bus);
 }

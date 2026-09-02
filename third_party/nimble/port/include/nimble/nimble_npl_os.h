@@ -16,7 +16,7 @@
 #include "kernel/pbl_malloc.h"
 #include "pbl/kernel/mutex.h"
 #include "queue.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "task.h"
 #include "timers.h"
@@ -71,7 +71,7 @@ struct ble_npl_mutex {
 };
 
 struct ble_npl_sem {
-  SemaphoreHandle_t handle;
+  struct pbl_sem handle;
 };
 
 #include "npl_pebble.h"
@@ -142,7 +142,7 @@ static inline ble_npl_error_t ble_npl_sem_release(struct ble_npl_sem *sem) {
 }
 
 static inline uint16_t ble_npl_sem_get_count(struct ble_npl_sem *sem) {
-  return uxSemaphoreGetCount(sem->handle);
+  return pbl_sem_count(&sem->handle);
 }
 
 static inline void ble_npl_callout_init(struct ble_npl_callout *co, struct ble_npl_eventq *evq,

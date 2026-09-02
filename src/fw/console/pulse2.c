@@ -29,7 +29,7 @@
 #include "pbl/util/size.h"
 
 #include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 #include "queue.h"
 #include "task.h"
 
@@ -149,7 +149,7 @@ static void prv_lcp_on_packet(void *packet, size_t length) {
 static TaskHandle_t s_pulse_task_handle;
 static QueueHandle_t s_pulse_task_queue;
 // Wake up the PULSE task to process the receive queue or start the timer.
-static SemaphoreHandle_t s_pulse_task_service_semaphore;
+static PBL_SEM_DEFINE(s_pulse_task_service_semaphore, 0, 1);
 static volatile bool s_pulse_task_idle = true;
 
 static uint8_t s_current_rx_frame[RX_MAX_FRAME_SIZE];
@@ -204,7 +204,7 @@ void pulse2_reliable_retransmit_timer_start(unsigned int timeout_ms,
   s_reliable_timer_expiry_time_tick = rtc_get_ticks() + timeout_ticks;
   s_reliable_timer_sequence_number = sequence_number;
   // Wake up the PULSE task to get it to notice the newly-started timer.
-  xSemaphoreGive(s_pulse_task_service_semaphore);
+  pbl_sem_give(&s_pulse_task_service_semaphore);
   pbl_mutex_unlock(&s_reliable_timer_state_lock);
 }
 
@@ -275,7 +275,7 @@ static void prv_pulse_task_main(void *unused) {
 
     if (timeout && uxQueueMessagesWaiting(s_pulse_task_queue) == 0) {
       s_pulse_task_idle = true;
-      xSemaphoreTake(s_pulse_task_service_semaphore, timeout);
+      pbl_sem_take(&s_pulse_task_service_semaphore, PBL_TICKS(timeout));
       s_pulse_task_idle = false;
 
       // Read the timer state again in case it changed while we were waiting.
@@ -336,7 +336,6 @@ void pulse_init(void) {
 
 void pulse_start(void) {
   s_pulse_task_queue = xQueueCreate(RX_QUEUE_SIZE, sizeof(uint8_t));
-  s_pulse_task_service_semaphore = xSemaphoreCreateBinary();
 
   TaskParameters_t task_params = {
     .pvTaskCode = prv_pulse_task_main,
@@ -384,7 +383,7 @@ void pulse_handle_character(char c, bool *should_context_switch) {
   // write pdFALSE, so tmp must start as pdFALSE to avoid a spurious context switch.
   portBASE_TYPE tmp = pdFALSE;
   xQueueSendToBackFromISR(s_pulse_task_queue, &c, &tmp);
-  xSemaphoreGiveFromISR(s_pulse_task_service_semaphore, &tmp);
+  pbl_sem_give(&s_pulse_task_service_semaphore);
   *should_context_switch = (tmp == pdTRUE);
 }
 

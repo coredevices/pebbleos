@@ -11,7 +11,7 @@
 
 #include "FreeRTOS.h"
 #include "queue.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 #include "task.h"
 
 PBL_LOG_MODULE_DEFINE(service_new_timer, CONFIG_SERVICE_NEW_TIMER_LOG_LEVEL);
@@ -24,7 +24,7 @@ typedef struct {
 
 // The timer service loop blocks on this binary semaphore with a timeout waiting for the next timer
 // to be ready to fire.
-static SemaphoreHandle_t s_wake_srv_loop;
+static PBL_SEM_DEFINE(s_wake_srv_loop, 1, 1);
 
 //! Queue of pointers to that should be called on the new_timer thread. This allows very high
 //! priority pieces of work to be done on the new_timer thread in between timers.
@@ -82,7 +82,7 @@ static void new_timer_service_loop(void *data) {
   while (1) {
     TickType_t ticks_to_wait = task_timer_manager_execute_expired_timers(&s_task_timer_manager);
 
-    xSemaphoreTake(s_wake_srv_loop, ticks_to_wait);
+    pbl_sem_take(&s_wake_srv_loop, PBL_TICKS(ticks_to_wait));
 
     // See if we have any work to do
     NewTimerWorkItem work;
@@ -110,9 +110,8 @@ void* new_timer_debug_get_current_callback(void) {
 void new_timer_service_init(void) {
   PBL_LOG_DBG("NT: Initializing");
 
-  vSemaphoreCreateBinary(s_wake_srv_loop);
 
-  task_timer_manager_init(&s_task_timer_manager, s_wake_srv_loop);
+  task_timer_manager_init(&s_task_timer_manager, &s_wake_srv_loop);
 
   const int WORK_QUEUE_SIZE = 5;
   s_work_queue = xQueueCreate(WORK_QUEUE_SIZE, sizeof(NewTimerWorkItem));
@@ -141,7 +140,7 @@ bool new_timer_add_work_callback_from_isr(NewTimerWorkCallback cb, void *data) {
   // Wake up the thread to process the work item we just added.
   // Reuse the previous bool since we don't actually care about the above result. No one blocks
   // on the above queue, only this semaphore.
-  xSemaphoreGiveFromISR(s_wake_srv_loop, &should_context_switch);
+  pbl_sem_give(&s_wake_srv_loop);
 
   return (should_context_switch == pdTRUE);
 }
@@ -152,7 +151,7 @@ bool new_timer_add_work_callback(NewTimerWorkCallback cb, void *data) {
   NewTimerWorkItem work = { cb, data };
   if (xQueueSend(s_work_queue, &work, TICKS_TO_WAIT)) {
     // Wake up the thread to process the work item we just added.
-    xSemaphoreGive(s_wake_srv_loop);
+    pbl_sem_give(&s_wake_srv_loop);
     return true;
   }
 

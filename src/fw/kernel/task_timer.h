@@ -9,7 +9,6 @@
 #include <stdint.h>
 
 #include "FreeRTOS.h"
-#include "semphr.h"
 
 //! task_timer.h
 //!

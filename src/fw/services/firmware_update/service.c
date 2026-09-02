@@ -14,8 +14,7 @@
 #include "system/passert.h"
 #include "pbl/util/math.h"
 
-#include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 #include <stdbool.h>
 
@@ -29,7 +28,7 @@ PBL_LOG_MODULE_DEFINE(service_firmware_update, CONFIG_SERVICE_FIRMWARE_UPDATE_LO
 // transmitted and also cleanly drive a re-start of the UI to a non-0 percentage if the FW update
 // is being resumed. Newer implementations should this! (See PBL-42130)
 
-static SemaphoreHandle_t s_firmware_update_semaphore;
+static PBL_SEM_DEFINE(s_firmware_update_semaphore, 1, 1);
 static bool s_is_recovery_fw = false;
 static FirmwareUpdateStatus s_update_status = FirmwareUpdateStopped;
 
@@ -131,8 +130,6 @@ FirmwareUpdateStatus firmware_update_current_status(void) {
 }
 
 void firmware_update_init(void) {
-  vSemaphoreCreateBinary(s_firmware_update_semaphore);
-  PBL_ASSERTN(s_firmware_update_semaphore != NULL);
 }
 
 static void prv_initialize_completion_status(PebbleSystemMessageEvent *event) {
@@ -158,7 +155,7 @@ static FirmwareUpdateStatus prv_firmware_update_start(PebbleSystemMessageEvent *
     return FirmwareUpdateCancelled;  // Disable firmware updates on low power
   }
 
-  if (xSemaphoreTake(s_firmware_update_semaphore, 0) == pdFALSE) {
+  if ((pbl_sem_take(&s_firmware_update_semaphore, PBL_NO_WAIT) != 0)) {
     return FirmwareUpdateStopped;
   }
 
@@ -181,7 +178,7 @@ static FirmwareUpdateStatus prv_firmware_update_start(PebbleSystemMessageEvent *
     result = FirmwareUpdateRunning;
   }
 
-  xSemaphoreGive(s_firmware_update_semaphore);
+  pbl_sem_give(&s_firmware_update_semaphore);
   return result;
 }
 
@@ -195,7 +192,7 @@ static void prv_handle_firmware_update_start_msg(PebbleSystemMessageEvent *event
 }
 
 static void prv_firmware_update_finish(bool failed) {
-  if (xSemaphoreTake(s_firmware_update_semaphore, 0) == pdFALSE) {
+  if ((pbl_sem_take(&s_firmware_update_semaphore, PBL_NO_WAIT) != 0)) {
     return;
   }
 
@@ -207,7 +204,7 @@ static void prv_firmware_update_finish(bool failed) {
 
   s_update_status = failed ? FirmwareUpdateFailed : FirmwareUpdateStopped;
 
-  xSemaphoreGive(s_firmware_update_semaphore);
+  pbl_sem_give(&s_firmware_update_semaphore);
 }
 
 unsigned int firmware_update_get_percent_progress(void) {

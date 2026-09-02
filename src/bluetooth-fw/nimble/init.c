@@ -12,7 +12,7 @@
 #include <kernel/pebble_tasks.h>
 #include <nimble/nimble_port.h>
 #include <pbl/os/tick.h>
-#include <semphr.h>
+#include "pbl/kernel/sem.h"
 #include <services/dis/ble_svc_dis.h>
 #include <services/bas/ble_svc_bas.h>
 #include <services/gap/ble_svc_gap.h>
@@ -35,8 +35,8 @@ extern void nimble_gattc_op_queue_init(void);
 static TaskHandle_t s_ll_task_handle;
 #endif
 static TaskHandle_t s_host_task_handle;
-static SemaphoreHandle_t s_host_started;
-static SemaphoreHandle_t s_host_stopped;
+static PBL_SEM_DEFINE(s_host_started, 0, 1);
+static PBL_SEM_DEFINE(s_host_stopped, 0, 1);
 static DisInfo s_dis_info;
 static struct ble_hs_stop_listener s_listener;
 
@@ -53,7 +53,7 @@ static DriverState s_driver_state = DriverStateStopped;
 
 static void prv_sync_cb(void) {
   PBL_LOG_DBG("NimBLE host synchronized");
-  xSemaphoreGive(s_host_started);
+  pbl_sem_give(&s_host_started);
   bt_driver_handle_host_resynced();
 }
 
@@ -75,14 +75,12 @@ static void prv_host_task_main(void *unused) {
   nimble_port_run();
 }
 
-static void prv_ble_hs_stop_cb(int status, void *arg) { xSemaphoreGive(s_host_stopped); }
+static void prv_ble_hs_stop_cb(int status, void *arg) { pbl_sem_give(&s_host_stopped); }
 
 // ----------------------------------------------------------------------------------------
 void bt_driver_init(void) {
   bt_lock_init();
 
-  s_host_started = xSemaphoreCreateBinary();
-  s_host_stopped = xSemaphoreCreateBinary();
 
   nimble_discover_init();
   nimble_gattc_op_queue_init();
@@ -133,7 +131,7 @@ bool bt_driver_start(BTDriverConfig *config) {
   s_driver_state = DriverStateStarting;
   // Drain a stale host_started signal (e.g. from an autonomous host re-sync)
   // so we wait for *this* start to sync.
-  (void)xSemaphoreTake(s_host_started, 0);
+  (void)(pbl_sem_take(&s_host_started, PBL_NO_WAIT) == 0);
 
   s_dis_info = config->dis_info;
   ble_svc_dis_model_number_set(s_dis_info.model_number);
@@ -154,7 +152,7 @@ bool bt_driver_start(BTDriverConfig *config) {
 #endif
 
   ble_hs_sched_start();
-  f_rc = xSemaphoreTake(s_host_started, milliseconds_to_ticks(s_bt_stack_start_stop_timeout_ms));
+  f_rc = (pbl_sem_take(&s_host_started, PBL_MSEC(s_bt_stack_start_stop_timeout_ms)) == 0);
   if (f_rc != pdTRUE) {
     // core_dump wakes the LCPU itself, so its RAM is captured here too.
     PBL_CROAK("NimBLE host start timed out");
@@ -171,7 +169,7 @@ bool bt_driver_start(BTDriverConfig *config) {
 
 err:
   s_driver_state = DriverStateStopping;
-  (void)xSemaphoreTake(s_host_stopped, 0);
+  (void)(pbl_sem_take(&s_host_stopped, PBL_NO_WAIT) == 0);
   rc = ble_hs_stop(&s_listener, prv_ble_hs_stop_cb, NULL);
   if (rc == BLE_HS_EALREADY) {
     s_driver_state = DriverStateStopped;
@@ -181,7 +179,7 @@ err:
     return false;
   }
 
-  f_rc = xSemaphoreTake(s_host_stopped, milliseconds_to_ticks(s_bt_stack_start_stop_timeout_ms));
+  f_rc = (pbl_sem_take(&s_host_stopped, PBL_MSEC(s_bt_stack_start_stop_timeout_ms)) == 0);
   PBL_ASSERT(f_rc == pdTRUE, "NimBLE host stop timed out after start failure");
 
   s_driver_state = DriverStateStopped;
@@ -194,9 +192,9 @@ void bt_driver_stop(void) {
   BaseType_t f_rc;
 
   s_driver_state = DriverStateStopping;
-  (void)xSemaphoreTake(s_host_stopped, 0);
+  (void)(pbl_sem_take(&s_host_stopped, PBL_NO_WAIT) == 0);
   ble_hs_stop(&s_listener, prv_ble_hs_stop_cb, NULL);
-  f_rc = xSemaphoreTake(s_host_stopped, milliseconds_to_ticks(s_bt_stack_start_stop_timeout_ms));
+  f_rc = (pbl_sem_take(&s_host_stopped, PBL_MSEC(s_bt_stack_start_stop_timeout_ms)) == 0);
   PBL_ASSERT(f_rc == pdTRUE, "NimBLE host stop timed out");
   s_driver_state = DriverStateStopped;
 

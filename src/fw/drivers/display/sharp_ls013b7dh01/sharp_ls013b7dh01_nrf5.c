@@ -19,7 +19,7 @@
 #include <nrfx_spim.h>
 
 #include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 #define DISP_MODE_WRITE 0x01U
 #define DISP_MODE_CLEAR 0x04U
@@ -27,7 +27,7 @@
 static uint8_t s_buf[2 + ((DISP_LINE_BYTES + 2) * PBL_DISPLAY_HEIGHT)];
 static bool s_updating;
 static UpdateCompleteCallback s_uccb;
-static SemaphoreHandle_t s_sem;
+static PBL_SEM_DEFINE(s_sem, 0, 1);
 
 // watch rotation
 static bool s_rotated_180 = false;
@@ -127,7 +127,7 @@ static void prv_spim_evt_handler(nrfx_spim_evt_t const *evt, void *ctx) {
 
     woken = event_put_isr(&e) ? pdTRUE : pdFALSE;
   } else {
-    xSemaphoreGiveFromISR(s_sem, &woken);
+    pbl_sem_give(&s_sem);
   }
 
   portEND_SWITCHING_ISR(woken);
@@ -151,7 +151,6 @@ void display_init(void) {
 
   prv_extcomin_init();
 
-  s_sem = xSemaphoreCreateBinary();
 }
 
 void display_clear(void) {
@@ -165,7 +164,7 @@ void display_clear(void) {
 
   nrfx_err_t err = nrfx_spim_xfer(&BOARD_CONFIG_DISPLAY.spi, &desc, 0);
   PBL_ASSERTN(err == NRFX_SUCCESS);
-  xSemaphoreTake(s_sem, portMAX_DELAY);
+  pbl_sem_take(&s_sem, PBL_FOREVER);
 
   prv_disable_chip_select();
   prv_disable_spim();

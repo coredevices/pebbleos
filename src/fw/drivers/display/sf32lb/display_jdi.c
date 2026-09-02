@@ -16,7 +16,7 @@
 #include "system/passert.h"
 
 #include "FreeRTOS.h"
-#include "semphr.h"
+#include "pbl/kernel/sem.h"
 
 #include "bf0_hal_lcdc.h"
 #include "bf0_hal_lptim.h"
@@ -48,7 +48,7 @@ static uint16_t s_update_y1;
 static bool s_initialized;
 static bool s_updating;
 static UpdateCompleteCallback s_uccb;
-static SemaphoreHandle_t s_sem;
+static PBL_SEM_DEFINE(s_sem, 0, 1);
 static TimerID s_silent_loss_timer = TIMER_INVALID_ID;
 // Set from HAL_LCDC_SendLayerDataCpltCbk (ISR). The silent-loss handler checks
 // this to distinguish "EOF truly never fired" (real bug → crash) from "EOF
@@ -323,7 +323,7 @@ void HAL_LCDC_SendLayerDataCpltCbk(LCDC_HandleTypeDef *lcdc) {
 
     woken = event_put_isr(&e) ? pdTRUE : pdFALSE;
   } else {
-    xSemaphoreGiveFromISR(s_sem, &woken);
+    pbl_sem_give(&s_sem);
   }
 
   portEND_SWITCHING_ISR(woken);
@@ -365,7 +365,6 @@ void display_init(void) {
   HAL_NVIC_SetPriority(DISPLAY->irqn, DISPLAY->irq_priority, 0);
   HAL_NVIC_EnableIRQ(DISPLAY->irqn);
 
-  s_sem = xSemaphoreCreateBinary();
 
   prv_display_on();
 
@@ -491,7 +490,7 @@ void display_update_boot_frame(uint8_t *framebuffer) {
   soc_sf32lb_sleep_block(SOC_SF32LB_DEEPWFI);
   HAL_StatusTypeDef status = prv_display_update_start();
   if (status == HAL_OK) {
-    xSemaphoreTake(s_sem, portMAX_DELAY);
+    pbl_sem_take(&s_sem, PBL_FOREVER);
   } else {
     // Without this guard a failed kickoff would block boot forever on s_sem,
     // since the EOF IRQ that gives the semaphore never fires.

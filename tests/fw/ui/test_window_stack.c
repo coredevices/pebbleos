@@ -17,6 +17,7 @@
 // Stubs
 ////////////////////////////////////
 
+#include "stubs_sem.h"
 #include "stubs_accel_service.h"
 #include "stubs_app_state.h"
 #include "stubs_app_timer.h"
