@@ -3,7 +3,7 @@
 
 #include "applib/app_message/app_message_internal.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "process_management/process_manager.h"
 #include "pbl/services/app_message/app_message_sender.h"
 #include "pbl/services/app_outbox_service.h"
@@ -15,7 +15,7 @@
 
 PBL_LOG_MODULE_DEFINE(service_app_outbox_service, CONFIG_SERVICE_APP_OUTBOX_SERVICE_LOG_LEVEL);
 
-static PebbleRecursiveMutex *s_app_outbox_mutex;
+static PBL_MUTEX_DEFINE(s_app_outbox_mutex);
 
 typedef struct {
   AppOutboxMessage *head;
@@ -108,11 +108,11 @@ DEFINE_SYSCALL(void, sys_app_outbox_send, const uint8_t *data, size_t length,
 static void prv_lock(void) {
   // Using one "global" lock for all app outboxes.
   // If needed, we could easily give each app outbox its own mutex, but it seems overkill right now.
-  mutex_lock_recursive(s_app_outbox_mutex);
+  pbl_mutex_lock(&s_app_outbox_mutex, PBL_FOREVER);
 }
 
 static void prv_unlock(void) {
-  mutex_unlock_recursive(s_app_outbox_mutex);
+  pbl_mutex_unlock(&s_app_outbox_mutex);
 }
 
 static AppOutboxConsumer *prv_consumer_for_tag(AppOutboxServiceTag tag) {
@@ -305,7 +305,6 @@ void app_outbox_service_cleanup_event(PebbleEvent *event) {
 }
 
 void app_outbox_service_init(void) {
-  s_app_outbox_mutex = mutex_create_recursive();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -314,8 +313,6 @@ void app_outbox_service_init(void) {
 void app_outbox_service_deinit(void) {
   app_outbox_service_cleanup_all_pending_messages();
   memset(&s_app_outbox_consumer, 0, sizeof(s_app_outbox_consumer));
-  mutex_destroy((PebbleMutex *)s_app_outbox_mutex);
-  s_app_outbox_mutex = NULL;
 }
 
 uint32_t app_outbox_service_max_pending_messages(AppOutboxServiceTag tag) {

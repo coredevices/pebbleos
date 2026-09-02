@@ -9,7 +9,7 @@
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/app_fetch_endpoint.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "system/status_codes.h"
@@ -28,7 +28,7 @@ static AppInstallId s_next_unique_flash_app_id;
 
 static struct {
   SettingsFile settings_file;
-  PebbleMutex *mutex;
+  struct pbl_mutex mutex;
 } s_app_db;
 
 //////////////////////
@@ -41,20 +41,20 @@ struct AppDBInitData {
 };
 
 static status_t prv_lock_mutex_and_open_file(void) {
-  mutex_lock(s_app_db.mutex);
+  pbl_mutex_lock(&s_app_db.mutex, PBL_FOREVER);
   status_t rv = settings_file_open_growable(&s_app_db.settings_file,
                                             SETTINGS_FILE_NAME,
                                             SETTINGS_FILE_SIZE,
                                             KiBYTES(4));
   if (rv != S_SUCCESS) {
-    mutex_unlock(s_app_db.mutex);
+    pbl_mutex_unlock(&s_app_db.mutex);
   }
   return rv;
 }
 
 static void prv_close_file_and_unlock_mutex(void) {
   settings_file_close(&s_app_db.settings_file);
-  mutex_unlock(s_app_db.mutex);
+  pbl_mutex_unlock(&s_app_db.mutex);
 }
 
 static status_t prv_cancel_app_fetch(AppInstallId app_id) {
@@ -231,7 +231,7 @@ void app_db_enumerate_entries(AppDBEnumerateCb cb, void *data) {
 
 void app_db_init(void) {
   memset(&s_app_db, 0, sizeof(s_app_db));
-  s_app_db.mutex = mutex_create();
+  pbl_mutex_init(&s_app_db.mutex);
 
   // set to zero to reset unit test static variable.
   s_next_unique_flash_app_id = INSTALL_ID_INVALID;
@@ -396,10 +396,10 @@ status_t app_db_flush(void) {
   app_install_clear_app_db();
 
   // remove the settings file
-  mutex_lock(s_app_db.mutex);
+  pbl_mutex_lock(&s_app_db.mutex, PBL_FOREVER);
   pfs_remove(SETTINGS_FILE_NAME);
 
-  mutex_unlock(s_app_db.mutex);
+  pbl_mutex_unlock(&s_app_db.mutex);
   PBL_LOG_WRN("AppDB Flush finished");
   return S_SUCCESS;
 }

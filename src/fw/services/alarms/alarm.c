@@ -8,7 +8,7 @@
 #include <pbl/drivers/rtc.h>
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "process_management/app_install_manager.h"
 #include "pbl/services/clock.h"
 #include "pbl/services/i18n/i18n.h"
@@ -150,16 +150,16 @@ static AlarmId s_missed_alarm_id = ALARM_INVALID_ID;
 static time_t s_missed_alarm_time;
 
 //! Mutex used to guard our list of alarms
-static PebbleMutex *s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
 
 // ----------------------------------------------------------------------------------------------
 static bool prv_file_open_and_lock(SettingsFile *file) {
-  mutex_lock_with_timeout(s_mutex, portMAX_DELAY);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   status_t rv = settings_file_open(file, ALARM_FILE_NAME, ALARM_MAX_FILE_SIZE);
   bool success = rv == S_SUCCESS;
   if (!success) {
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
   }
 
   return success;
@@ -168,7 +168,7 @@ static bool prv_file_open_and_lock(SettingsFile *file) {
 // ----------------------------------------------------------------------------------------------
 static void prv_file_close_and_unlock(SettingsFile *file) {
   settings_file_close(file);
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 // ----------------------------------------------------------------------------------------------
@@ -956,7 +956,7 @@ cleanup:
 
 // ----------------------------------------------------------------------------------------------
 bool alarm_get_next_enabled_alarm(time_t *next_alarm_time_out) {
-  mutex_lock_with_timeout(s_mutex, portMAX_DELAY);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   const bool alarm_is_scheduled = s_next_alarm_time != 0;
 
@@ -964,14 +964,14 @@ bool alarm_get_next_enabled_alarm(time_t *next_alarm_time_out) {
     *next_alarm_time_out = prv_get_alarm_time(&s_next_alarm, s_next_alarm_time);
   }
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 
   return alarm_is_scheduled;
 }
 
 // ----------------------------------------------------------------------------------------------
 bool alarm_is_next_enabled_alarm_smart(void) {
-  mutex_lock_with_timeout(s_mutex, portMAX_DELAY);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   const bool alarm_is_scheduled = (s_next_alarm_time != 0);
 
@@ -980,7 +980,7 @@ bool alarm_is_next_enabled_alarm_smart(void) {
     is_next_alarm_smart = s_next_alarm.config.is_smart;
   }
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 
   return is_next_alarm_smart;
 }
@@ -1272,9 +1272,6 @@ void alarm_handle_clock_change(void) {
 
 // ----------------------------------------------------------------------------------------------
 void alarm_init(void) {
-  s_mutex = mutex_create();
-  PBL_ASSERTN(s_mutex != NULL);
-
   s_next_alarm_time = 0;
   s_snooze_timer_id = new_timer_create();
 

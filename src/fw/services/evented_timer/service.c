@@ -4,7 +4,7 @@
 #include "pbl/services/evented_timer.h"
 
 #include "kernel/events.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "system/passert.h"
@@ -34,7 +34,7 @@ typedef struct EventedTimer {
 //! The list of all the timers that have been created.
 static ListNode* s_timer_list_head;
 
-static PebbleMutex * s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
 
 // ------------------------------------------------------------------------------------
 // Find timer by id
@@ -69,7 +69,7 @@ DEFINE_SYSCALL(void, sys_evented_timer_consume, TimerID timer_id, EventedTimerCa
     syscall_assert_userspace_buffer(out_cb_data, sizeof(*out_cb_data));
   }
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   EventedTimer *timer = prv_find_timer(timer_id);
 
@@ -78,7 +78,7 @@ DEFINE_SYSCALL(void, sys_evented_timer_consume, TimerID timer_id, EventedTimerCa
   // to the client's event queue. In this case, the timer will no
   // longer be in our timers list by the time the event arrives and gets processed here.
   if (!timer) {
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
     *out_cb = 0;
     return;
   }
@@ -88,7 +88,7 @@ DEFINE_SYSCALL(void, sys_evented_timer_consume, TimerID timer_id, EventedTimerCa
   // read back its kernel callback pointer + data (KASLR-defeating info leak),
   // and additionally cancel that timer (DoS).
   if (PRIVILEGE_WAS_ELEVATED && timer->target_task != pebble_task_get_current()) {
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
     *out_cb = 0;
     return;
   }
@@ -97,10 +97,10 @@ DEFINE_SYSCALL(void, sys_evented_timer_consume, TimerID timer_id, EventedTimerCa
   *out_cb_data = timer->callback_data;
 
   if (timer->repeating) {
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
   } else {
     list_remove(&timer->list_node, &s_timer_list_head, NULL);
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
     new_timer_delete(timer->sys_timer_id);
     kernel_free(timer);
   }
@@ -134,7 +134,7 @@ static void prv_sys_timer_callback(void* cb_data) {
   PBL_ASSERT_TASK(PebbleTask_NewTimers);
   TimerID id = (TimerID)cb_data;
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   EventedTimer *timer = prv_find_timer(id);
   if (!timer) {
@@ -146,13 +146,13 @@ static void prv_sys_timer_callback(void* cb_data) {
     // of this method trying to grab the mutex while the timer was deleted.
     // To handle this, we check here to see if the EventedTimer got deleted on us and
     // return immediately if so.
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
     return;
   }
 
   timer->expired = !timer->repeating;
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 
   PebbleEvent e = {
     .type = PEBBLE_CALLBACK_EVENT,
@@ -180,13 +180,12 @@ static void prv_sys_timer_callback(void* cb_data) {
 // External API
 
 void evented_timer_init(void) {
-  s_mutex = mutex_create();
 }
 
 void evented_timer_clear_process_timers(PebbleTask task) {
   PBL_ASSERT_TASK(PebbleTask_KernelMain);
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   ListNode* iter = s_timer_list_head;
   while (iter) {
@@ -203,7 +202,7 @@ void evented_timer_clear_process_timers(PebbleTask task) {
     iter = next;
   }
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 EventedTimerID evented_timer_register_or_reschedule(EventedTimerID timer_id, uint32_t timeout_ms,
@@ -228,7 +227,7 @@ EventedTimerID evented_timer_register(uint32_t timeout_ms,
     timeout_ms = 1;
   }
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   EventedTimer* new_timer = kernel_malloc_check(sizeof(EventedTimer));
 
@@ -252,7 +251,7 @@ EventedTimerID evented_timer_register(uint32_t timeout_ms,
                                  (void*)(intptr_t)new_timer->sys_timer_id, flags);
   PBL_ASSERTN(success);
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
   return new_timer->sys_timer_id;
 }
 
@@ -261,7 +260,7 @@ bool evented_timer_reschedule(EventedTimerID timer_id, uint32_t timeout_ms) {
   if (timeout_ms == 0) {
     timeout_ms = 1;
   }
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   // This will detect an invalid timer ID, or one that already ran on the client's task and got deleted
   //  already
@@ -269,7 +268,7 @@ bool evented_timer_reschedule(EventedTimerID timer_id, uint32_t timeout_ms) {
   if (!timer) {
     PBL_LOG_DBG("Attempting to reschedule an invalid timer (id=%u)",
             (unsigned)timer_id);
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
     return false;
   }
 
@@ -281,7 +280,7 @@ bool evented_timer_reschedule(EventedTimerID timer_id, uint32_t timeout_ms) {
   // it means the event posted by the timer task has not yet arrived at the
   // client's task.
   if (timer->expired) {
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
     return false;
   }
 
@@ -295,7 +294,7 @@ bool evented_timer_reschedule(EventedTimerID timer_id, uint32_t timeout_ms) {
   bool success = new_timer_start(timer->sys_timer_id, timeout_ms, prv_sys_timer_callback,
                                  (void*)(intptr_t)timer->sys_timer_id, flags);
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
   return success;
 }
 
@@ -305,13 +304,13 @@ void evented_timer_cancel(EventedTimerID timer_id) {
     return;
   }
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   // Find this timer and validate it
   EventedTimer* timer = prv_find_timer(timer_id);
   if (!timer) {
     PBL_LOG_DBG("Attempting to cancel an invalid timer (id=%u)", (unsigned)timer_id);
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
     return;
   }
 
@@ -319,7 +318,7 @@ void evented_timer_cancel(EventedTimerID timer_id) {
   list_remove(&timer->list_node, &s_timer_list_head, NULL);
   kernel_free(timer);
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 bool evented_timer_exists(EventedTimerID timer_id){

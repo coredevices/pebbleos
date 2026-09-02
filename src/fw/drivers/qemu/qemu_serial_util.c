@@ -17,7 +17,7 @@ void qemu_serial_private_init_state(QemuSerialGlobals *state)
 {
 
   // Create our mutex
-  state->qemu_comm_lock = mutex_create();
+  pbl_mutex_init(&state->qemu_comm_lock);
   state->initialized = true;
 
   // Allocate buffer for received characters from the ISR

@@ -45,7 +45,7 @@
 
 #include <pbl/drivers/qemu/qemu_serial.h>
 #include <pbl/drivers/rtc.h>
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/math.h"
@@ -54,7 +54,7 @@
 PBL_LOG_MODULE_DECLARE(imu, CONFIG_DRIVER_IMU_LOG_LEVEL);
 
 static bool s_initialized;
-static PebbleMutex * s_accel_mutex;
+static PBL_MUTEX_DEFINE(s_accel_mutex);
 
 static uint32_t s_sampling_interval_ms = 0;
 static const AccelRawData s_default_sample = {
@@ -106,7 +106,7 @@ static void prv_stop_timer(void) {
 // frequency. It feeds samples at the right rate into the s_latest_reading
 // global (for peek mode) and into the accel driver.
 static void prv_timer_cb(void *data) {
-  mutex_lock(s_accel_mutex);
+  pbl_mutex_lock(&s_accel_mutex, PBL_FOREVER);
 
   if (s_current_rcv_sample < s_num_rcv_samples) {
     s_latest_reading = s_rcv_buffer[s_current_rcv_sample++];
@@ -124,7 +124,7 @@ static void prv_timer_cb(void *data) {
     prv_stop_timer();
   }
 
-  mutex_unlock(s_accel_mutex);
+  pbl_mutex_unlock(&s_accel_mutex);
 }
 
 
@@ -161,7 +161,7 @@ void qemu_accel_msg_callack(const uint8_t *data, uint32_t len) {
   s_num_rcv_samples = hdr->num_samples;
 #endif
   s_current_rcv_sample = 0;
-  mutex_lock(s_accel_mutex);
+  pbl_mutex_lock(&s_accel_mutex, PBL_FOREVER);
   {
     for (uint32_t i=0; i < s_num_rcv_samples; ++i) {
       s_rcv_buffer[i].x = ntohs(hdr->samples[i].x);
@@ -177,7 +177,7 @@ void qemu_accel_msg_callack(const uint8_t *data, uint32_t len) {
       prv_reschedule_timer();
     }
   }
-  mutex_unlock(s_accel_mutex);
+  pbl_mutex_unlock(&s_accel_mutex);
 
   // Send a response, even though none of the clients care about it.
   QemuProtocolAccelResponseHeader resp = {
@@ -191,12 +191,11 @@ void accel_init(void) {
   PBL_ASSERTN(!s_initialized);
   s_initialized = true;
   s_latest_reading = s_default_sample;
-  s_accel_mutex = mutex_create();
   s_timer_id = new_timer_create();
 }
 
 uint32_t accel_set_sampling_interval(uint32_t interval_us) {
-  mutex_lock(s_accel_mutex);
+  pbl_mutex_lock(&s_accel_mutex, PBL_FOREVER);
   {
     s_sampling_interval_ms = interval_us / 1000;
 
@@ -205,7 +204,7 @@ uint32_t accel_set_sampling_interval(uint32_t interval_us) {
       prv_reschedule_timer();
     }
   }
-  mutex_unlock(s_accel_mutex);
+  pbl_mutex_unlock(&s_accel_mutex);
   return accel_get_sampling_interval();
 }
 
@@ -220,7 +219,7 @@ uint32_t accel_get_max_num_samples(void) {
 
 
 void accel_set_num_samples(uint32_t num_samples) {
-  mutex_lock(s_accel_mutex);
+  pbl_mutex_lock(&s_accel_mutex, PBL_FOREVER);
   {
     s_num_fifo_samples = num_samples;
 
@@ -233,7 +232,7 @@ void accel_set_num_samples(uint32_t num_samples) {
       prv_stop_timer();
     }
   }
-  mutex_unlock(s_accel_mutex);
+  pbl_mutex_unlock(&s_accel_mutex);
 }
 
 

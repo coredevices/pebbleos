@@ -7,7 +7,7 @@
 #include "applib/event_service_client.h"
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/bluetooth/bluetooth_persistent_storage.h"
 #include "pbl/services/comm_session/session_remote_version.h"
 #include "pbl/services/blob_db/watch_app_prefs_db.h"
@@ -26,7 +26,7 @@ typedef struct WeatherDBIteratorContext {
   SerializedWeatherAppPrefs *serialized_prefs;
 } WeatherDBIteratorContext;
 
-static PebbleMutex *s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
 static WeatherLocationForecast *s_default_forecast;
 
 static bool prv_entry_update_time_too_old_to_be_valid(const time_t update_time_utc) {
@@ -162,7 +162,7 @@ static bool prv_get_default_location_key(WeatherDBKey *key_out) {
 }
 
 static void prv_update_default_location_cache(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   weather_service_destroy_default_forecast(s_default_forecast);
   s_default_forecast = NULL;
 
@@ -192,11 +192,11 @@ static void prv_update_default_location_cache(void) {
 free_entry:
   task_free(entry);
 cleanup:
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 WeatherLocationForecast *weather_service_create_default_forecast(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   WeatherLocationForecast *forecast = NULL;
   if (s_default_forecast) {
     forecast = task_zalloc_check(sizeof(WeatherLocationForecast));
@@ -210,7 +210,7 @@ WeatherLocationForecast *weather_service_create_default_forecast(void) {
     strncpy(forecast->current_weather_phrase, s_default_forecast->current_weather_phrase,
             phrase_length);
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
   return forecast;
 }
 
@@ -258,7 +258,6 @@ static void prv_blobdb_event_handler(PebbleEvent *event, void *context) {
 }
 
 void weather_service_init(void) {
-  s_mutex = mutex_create();
 
   static EventServiceInfo s_blobdb_event_info = {
     .type = PEBBLE_BLOBDB_EVENT,

@@ -9,7 +9,7 @@
 #include <pbl/drivers/i2c.h>
 #include "kernel/pbl_malloc.h"
 #include "kernel/util/sleep.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "pbl/services/system_task.h"
 #include <pbl/logging/logging.h>
@@ -37,7 +37,7 @@ static AudioPwrState s_pwr_state = AudioPwrCold;
 static TimerID s_idle_timer = TIMER_INVALID_ID;
 // Serializes cold/warm/active transitions and their I/O so audio_start,
 // audio_stop, and prv_idle_shutdown can't race across threads.
-static PebbleMutex *s_audio_mutex;
+static PBL_MUTEX_DEFINE(s_audio_mutex);
 
 static void prv_idle_shutdown(void *data);
 
@@ -350,11 +350,6 @@ void audio_init(AudioDevice *audio_device) {
   PBL_ASSERTN(audio_device);
   AudioDeviceState *state = audio_device->state;
 
-  if (s_audio_mutex == NULL) {
-    s_audio_mutex = mutex_create();
-    PBL_ASSERTN(s_audio_mutex != INVALID_MUTEX_HANDLE);
-  }
-
   // Skip the memset on a warm restart — the buffers and live ISR state are
   // still in use and would be leaked / clobbered.
   if (s_pwr_state == AudioPwrCold) {
@@ -367,10 +362,10 @@ void audio_start(AudioDevice *audio_device, AudioTransCB cb) {
   PBL_ASSERTN(audio_device);
   AudioDeviceState *state = audio_device->state;
 
-  mutex_lock(s_audio_mutex);
+  pbl_mutex_lock(&s_audio_mutex, PBL_FOREVER);
 
   if (state->is_running) {
-    mutex_unlock(s_audio_mutex);
+    pbl_mutex_unlock(&s_audio_mutex);
     PBL_LOG_WRN("Audio already running");
     return;
   }
@@ -388,13 +383,13 @@ void audio_start(AudioDevice *audio_device, AudioTransCB cb) {
     state->callback_pending = false;
     state->is_running = true;
     s_pwr_state = AudioPwrActive;
-    mutex_unlock(s_audio_mutex);
+    pbl_mutex_unlock(&s_audio_mutex);
     PBL_LOG_DBG("Audio started (warm)");
     return;
   }
 
   if (!prv_allocate_buffers(state)) {
-    mutex_unlock(s_audio_mutex);
+    pbl_mutex_unlock(&s_audio_mutex);
     return;
   }
 
@@ -461,7 +456,7 @@ void audio_start(AudioDevice *audio_device, AudioTransCB cb) {
   prv_codec_start_dai(audio_device);
 
   s_pwr_state = AudioPwrActive;
-  mutex_unlock(s_audio_mutex);
+  pbl_mutex_unlock(&s_audio_mutex);
 
   PBL_LOG_DBG("Audio started");
 }
@@ -494,21 +489,21 @@ void audio_set_volume(AudioDevice *audio_device, int volume) {
     return;
   }
 
-  mutex_lock(s_audio_mutex);
+  pbl_mutex_lock(&s_audio_mutex, PBL_FOREVER);
   if (s_pwr_state != AudioPwrCold) {
     prv_apply_volume(audio_device);
   }
-  mutex_unlock(s_audio_mutex);
+  pbl_mutex_unlock(&s_audio_mutex);
 }
 
 void audio_stop(AudioDevice *audio_device) {
   PBL_ASSERTN(audio_device);
   AudioDeviceState *state = audio_device->state;
 
-  mutex_lock(s_audio_mutex);
+  pbl_mutex_lock(&s_audio_mutex, PBL_FOREVER);
 
   if (!state->is_running) {
-    mutex_unlock(s_audio_mutex);
+    pbl_mutex_unlock(&s_audio_mutex);
     return;
   }
 
@@ -527,7 +522,7 @@ void audio_stop(AudioDevice *audio_device) {
   if (s_idle_timer != TIMER_INVALID_ID) {
     new_timer_start(s_idle_timer, AUDIO_IDLE_SHUTDOWN_MS, prv_idle_shutdown,
                     (void *)(uintptr_t)audio_device, 0);
-    mutex_unlock(s_audio_mutex);
+    pbl_mutex_unlock(&s_audio_mutex);
     PBL_LOG_DBG("Audio paused (warm)");
     return;
   }
@@ -550,7 +545,7 @@ void audio_stop(AudioDevice *audio_device) {
   prv_free_buffers(state);
 
   s_pwr_state = AudioPwrCold;
-  mutex_unlock(s_audio_mutex);
+  pbl_mutex_unlock(&s_audio_mutex);
 
   PBL_LOG_DBG("Audio stopped");
 }
@@ -558,11 +553,11 @@ void audio_stop(AudioDevice *audio_device) {
 static void prv_idle_shutdown(void *data) {
   AudioDevice *audio_device = (AudioDevice *)data;
 
-  mutex_lock(s_audio_mutex);
+  pbl_mutex_lock(&s_audio_mutex, PBL_FOREVER);
 
   if (s_pwr_state != AudioPwrWarm) {
     // audio_start beat us to the mutex, or we're already cold.
-    mutex_unlock(s_audio_mutex);
+    pbl_mutex_unlock(&s_audio_mutex);
     return;
   }
 
@@ -585,7 +580,7 @@ static void prv_idle_shutdown(void *data) {
   prv_free_buffers(state);
 
   s_pwr_state = AudioPwrCold;
-  mutex_unlock(s_audio_mutex);
+  pbl_mutex_unlock(&s_audio_mutex);
 
   PBL_LOG_DBG("Audio fully stopped");
 }

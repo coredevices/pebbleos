@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/util/attributes.h"
 #include "util/shared_circular_buffer.h"
 
@@ -52,7 +52,7 @@ typedef enum {
 // Structure of our globals
 typedef struct {
   bool initialized;
-  PebbleMutex *qemu_comm_lock;
+  struct pbl_mutex qemu_comm_lock;
   SharedCircularBuffer isr_buffer;
   SharedCircularBufferClient  isr_buffer_client;
 

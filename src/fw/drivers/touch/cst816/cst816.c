@@ -71,7 +71,7 @@ static bool s_enabled = false;
 static bool s_reset_scheduled = false;
 static bool s_activity_since_check = false;
 static RtcTicks s_last_irq_ticks = 0;
-static PebbleMutex *s_i2c_lock;
+static PBL_MUTEX_DEFINE(s_i2c_lock);
 
 static void prv_exti_cb(bool *should_context_switch);
 static void cst816_hw_reset(void);
@@ -82,7 +82,7 @@ static RegularTimerInfo s_watchdog_timer = {
 };
 
 static bool prv_read_data(uint16_t register_address, uint8_t *result, uint16_t size, bool is_work_mode) {
-  mutex_lock(s_i2c_lock);
+  pbl_mutex_lock(&s_i2c_lock, PBL_FOREVER);
   I2CSlavePort* port = CST816->i2c;
   uint8_t addr_size = 1;
   if(!is_work_mode) {
@@ -96,12 +96,12 @@ static bool prv_read_data(uint16_t register_address, uint8_t *result, uint16_t s
     rv = i2c_read_block(port, size, result);
   }
   i2c_release(port);
-  mutex_unlock(s_i2c_lock);
+  pbl_mutex_unlock(&s_i2c_lock);
   return rv;
 }
 
 static bool prv_write_data(uint16_t register_address, const uint8_t *datum, uint16_t size, bool is_work_mode) {
-  mutex_lock(s_i2c_lock);
+  pbl_mutex_lock(&s_i2c_lock, PBL_FOREVER);
   I2CSlavePort* port = CST816->i2c;
   uint8_t addr_size = 1;
   if(!is_work_mode) {
@@ -115,7 +115,7 @@ static bool prv_write_data(uint16_t register_address, const uint8_t *datum, uint
   memcpy(data+sizeof(register_address), datum, size);
   bool rv = i2c_write_block(port, size+addr_size, is_work_mode?data+1:data);
   i2c_release(port);
-  mutex_unlock(s_i2c_lock);
+  pbl_mutex_unlock(&s_i2c_lock);
   return rv;
 }
 
@@ -240,7 +240,6 @@ void touch_sensor_init(void) {
   uint8_t fw_version;
   bool rv;
 
-  s_i2c_lock = mutex_create();
 
 #ifndef RESET_PIN_CTRLBY_NPM1300
   gpio_output_init(&CST816->reset, GPIO_OType_PP);

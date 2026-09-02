@@ -11,7 +11,7 @@
 #include <pbl/drivers/flash/flash_impl.h>
 #include <pbl/drivers/task_watchdog.h>
 #include "flash_region/flash_region.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/os/tick.h"
 #include "process_management/worker_manager.h"
 #include "pbl/services/new_timer/new_timer.h"
@@ -27,7 +27,8 @@ PBL_LOG_MODULE_DEFINE(driver_flash, CONFIG_DRIVER_FLASH_LOG_LEVEL);
 
 #define MAX_ERASE_RETRIES (3)
 
-static PebbleMutex *s_flash_lock;
+static PBL_MUTEX_DEFINE(s_flash_lock);
+static bool s_flash_initialized;
 static SemaphoreHandle_t s_erase_semphr;
 
 static struct FlashEraseContext {
@@ -48,8 +49,8 @@ static TimerID s_erase_suspend_timer;
 
 void flash_init(void) {
   flash_impl_init(false /* coredump_mode */);
+  s_flash_initialized = true;
 
-  s_flash_lock = mutex_create();
   s_erase_semphr = xSemaphoreCreateBinary();
   xSemaphoreGive(s_erase_semphr);
   s_erase_poll_timer = new_timer_create();
@@ -61,7 +62,7 @@ void flash_init(void) {
 #if UNITTEST
 void flash_api_reset_for_test(void) {
   s_erase = (struct FlashEraseContext) {0};
-  s_flash_lock = NULL;
+  s_flash_initialized = false;
 }
 
 TimerID flash_api_get_erase_poll_timer_for_test(void) {
@@ -97,14 +98,14 @@ static void prv_erase_resume(void) {
 }
 
 static void prv_erase_suspend_timer_cb(void *unused) {
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   prv_erase_resume();
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 }
 
 void flash_read_bytes(uint8_t* buffer, uint32_t start_addr,
                       uint32_t buffer_size) {
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   // TODO: use DMA when possible
   // TODO: be smarter about pausing erases. Some flash chips allow concurrent
   // reads while an erase is in progress, as long as the read is to another bank
@@ -114,7 +115,7 @@ void flash_read_bytes(uint8_t* buffer, uint32_t start_addr,
     new_timer_start(s_erase_suspend_timer, 5, prv_erase_suspend_timer_cb, NULL, 0);
   }
   flash_impl_read_sync(buffer, start_addr, buffer_size);
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 }
 
 #ifdef TEST_FLASH_LOCK_PROTECTION
@@ -126,7 +127,7 @@ void flash_expect_program_failure(bool expect_failure) {
 
 void flash_write_bytes(const uint8_t *buffer, uint32_t start_addr,
                        uint32_t buffer_size) {
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   prv_erase_pause();
   if (s_erase.suspended) {
     new_timer_start(s_erase_suspend_timer, 50, prv_erase_suspend_timer_cb, NULL, 0);
@@ -164,11 +165,11 @@ void flash_write_bytes(const uint8_t *buffer, uint32_t start_addr,
     // each page write.
     // TODO: uncomment the lines below to resolve PBL-17503
     // if (buffer_size) {
-    //   mutex_unlock(s_flash_lock);
-    //   mutex_lock(s_flash_lock);
+    //   pbl_mutex_unlock(&s_flash_lock);
+    //   pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
     // }
   }
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 }
 
 // Returns 0 if the erase has completed, or a non-zero expected duration (in
@@ -181,7 +182,7 @@ static uint32_t prv_flash_erase_start(uint32_t addr,
                                       bool is_subsector,
                                       uint8_t retries) {
   xSemaphoreTake(s_erase_semphr, portMAX_DELAY);
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   PBL_ASSERTN(s_erase.in_progress == false);
   s_erase = (struct FlashEraseContext) {
     .in_progress = true,
@@ -205,7 +206,7 @@ static uint32_t prv_flash_erase_start(uint32_t addr,
   PBL_ASSERT(PASSED(status), "Blank check error: %" PRId32, status);
   if (status != S_FALSE) {
     s_erase.in_progress = false;
-    mutex_unlock(s_flash_lock);
+    pbl_mutex_unlock(&s_flash_lock);
     xSemaphoreGive(s_erase_semphr);
     // Only run the callback with no locks held so that the callback won't
     // deadlock if it kicks off another sector erase.
@@ -217,11 +218,11 @@ static uint32_t prv_flash_erase_start(uint32_t addr,
                        : flash_impl_erase_sector_begin(addr);
 
   if (PASSED(status)) {
-    mutex_unlock(s_flash_lock);
+    pbl_mutex_unlock(&s_flash_lock);
     return (s_erase.expected_duration * 7 / 8);
   } else {
     s_erase.in_progress = false;
-    mutex_unlock(s_flash_lock);
+    pbl_mutex_unlock(&s_flash_lock);
     xSemaphoreGive(s_erase_semphr);
     // Only run the callback with no locks held so that the callback won't
     // deadlock if it kicks off another sector erase.
@@ -234,7 +235,7 @@ static uint32_t prv_flash_erase_start(uint32_t addr,
 // has finished it will re-enable stop-mode, clear the in_progress flag and call the
 // completed callback before returning 0.
 static uint32_t prv_flash_erase_poll(void) {
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   status_t status = flash_impl_get_erase_status();
   bool erase_finished;
   struct FlashEraseContext saved_ctx = s_erase;
@@ -253,7 +254,7 @@ static uint32_t prv_flash_erase_poll(void) {
   if (erase_finished) {
     s_erase.in_progress = false;
   }
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 
   if (!erase_finished) {
     return s_erase.expected_duration / 8;
@@ -378,7 +379,7 @@ void flash_enable_write_protection(void) {
 
 void flash_prf_set_protection(bool do_protect) {
   status_t status;
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   if (do_protect) {
     status = flash_impl_write_protect(
         FLASH_REGION_SAFE_FIRMWARE_BEGIN,
@@ -387,17 +388,17 @@ void flash_prf_set_protection(bool do_protect) {
     status = flash_impl_unprotect();
   }
   PBL_ASSERT(PASSED(status), "flash_prf_set_protection failed: %" PRId32, status);
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 }
 
 #if 0
 void flash_erase_bulk(void) {
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   flash_impl_erase_bulk_begin();
   while (flash_impl_erase_is_in_progress()) {
     psleep(10);
   }
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 }
 #endif
 
@@ -410,7 +411,7 @@ bool flash_get_sleep_when_idle(void) {
 }
 
 bool flash_is_initialized(void) {
-  return (s_flash_lock != NULL);
+  return s_flash_initialized;
 }
 
 void flash_stop(void) {
@@ -419,11 +420,11 @@ void flash_stop(void) {
     return;
   }
 
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   if (s_erase.in_progress) {
     new_timer_stop(s_erase_suspend_timer);
     prv_erase_resume();
-    mutex_unlock(s_flash_lock);
+    pbl_mutex_unlock(&s_flash_lock);
     while (__atomic_load_n(&s_erase.in_progress, __ATOMIC_SEQ_CST)) {
       psleep(10);
     }
@@ -431,9 +432,9 @@ void flash_stop(void) {
 }
 
 void flash_switch_mode(FlashModeType mode) {
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   flash_impl_set_burst_mode(mode == FLASH_MODE_SYNC_BURST);
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 }
 
 uint32_t flash_get_sector_base_address(uint32_t flash_addr) {
@@ -461,23 +462,23 @@ bool flash_subsector_is_erased(uint32_t sector_addr) {
 }
 
 void flash_use(void) {
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   flash_impl_use();
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 }
 
 void flash_release_many(uint32_t num_locks) {
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   flash_impl_release_many(num_locks);
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 }
 
 status_t flash_read_security_register(uint32_t addr, uint8_t *val) {
   status_t status;
 
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   status = flash_impl_read_security_register(addr, val);
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 
   return status;
 }
@@ -485,9 +486,9 @@ status_t flash_read_security_register(uint32_t addr, uint8_t *val) {
 status_t flash_security_register_is_locked(uint32_t address, bool *locked) {
   status_t status;
 
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   status = flash_impl_security_register_is_locked(address, locked);
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 
   return status;
 }
@@ -495,9 +496,9 @@ status_t flash_security_register_is_locked(uint32_t address, bool *locked) {
 status_t flash_erase_security_register(uint32_t addr) {
   status_t status;
 
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   status = flash_impl_erase_security_register(addr);
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 
   return status;
 }
@@ -505,9 +506,9 @@ status_t flash_erase_security_register(uint32_t addr) {
 status_t flash_write_security_register(uint32_t addr, uint8_t val) {
   status_t status;
 
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   status = flash_impl_write_security_register(addr, val);
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 
   return status;
 }
@@ -520,9 +521,9 @@ const FlashSecurityRegisters *flash_security_registers_info(void) {
 status_t flash_lock_security_register(uint32_t addr) {
   status_t status;
 
-  mutex_lock(s_flash_lock);
+  pbl_mutex_lock(&s_flash_lock, PBL_FOREVER);
   status = flash_impl_lock_security_register(addr);
-  mutex_unlock(s_flash_lock);
+  pbl_mutex_unlock(&s_flash_lock);
 
   return status;
 }

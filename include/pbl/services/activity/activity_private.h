@@ -8,7 +8,7 @@
 
 #include "applib/event_service_client.h"
 #include "kernel/events.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/data_logging/data_logging_service.h"
 #include "pbl/services/settings/settings_file.h"
 #include "system/hexdump.h"
@@ -328,7 +328,7 @@ typedef struct {
 
 typedef struct {
   // Mutex for serializing access to these globals
-  PebbleRecursiveMutex *mutex;
+  struct pbl_mutex mutex;
 
   // Semaphore used for waiting for KernelBG to finish a callback
   SemaphoreHandle_t bg_wait_semaphore;

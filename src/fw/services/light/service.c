@@ -18,7 +18,7 @@
 #include "services/light/als_screen_compensation.h"
 #include "syscall/syscall_internal.h"
 #include <pbl/logging/logging.h>
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 
 #include "FreeRTOS.h"
 
@@ -106,7 +106,7 @@ static uint32_t s_fade_step_ms = 0;
 
 //! Mutex to guard all the above state. We have a pattern of taking the lock in the public functions and assuming
 //! it's already taken in the prv_ functions.
-static PebbleMutex *s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
 
 //! Analytics: Track time-weighted average intensity
 static uint64_t s_intensity_time_product_sum; // Sum of (intensity_pct × time_ms)
@@ -176,12 +176,12 @@ static void prv_change_state(BacklightState new_state);
 //! Timer callback: holdoff expired, drop the prime so the W1160 stops
 //! integrating in the background. Runs on the new_timer task.
 static void prv_als_prime_release_callback(void *data) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   if (s_als_primed) {
     s_als_primed = false;
     ambient_light_release();
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 //! Open or extend an "interaction window" during which the W1160 is held in
@@ -229,9 +229,9 @@ static bool prv_als_is_light(void) {
 }
 
 static void light_timer_callback(void *data) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   prv_change_state(LIGHT_STATE_ON_FADING);
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 static uint8_t prv_backlight_get_intensity(void) {
@@ -473,7 +473,6 @@ void light_init(void) {
   s_touch_holding = false;
   s_fade_level_count = 0;
   s_fade_level_idx = 0;
-  s_mutex = mutex_create();
 
   // Initialize intensity analytics tracking
   s_intensity_time_product_sum = 0;
@@ -493,7 +492,7 @@ void light_init(void) {
 }
 
 void light_button_pressed(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   s_num_buttons_down++;
   if (s_num_buttons_down > 4) {
@@ -508,11 +507,11 @@ void light_button_pressed(void) {
     prv_change_state(LIGHT_STATE_ON);
   }
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void light_button_released(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   s_num_buttons_down--;
   if (s_num_buttons_down < 0) {
@@ -527,7 +526,7 @@ void light_button_released(void) {
     prv_change_state(LIGHT_STATE_ON_TIMED);
   }
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void light_touch_down(void) {
@@ -548,11 +547,11 @@ void light_touch_up(void) {
 }
 
 void light_enable_interaction(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   //if some buttons are held or light_enable is asserted, do nothing
   if (s_num_buttons_down > 0 || s_light_state == LIGHT_STATE_ON) {
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
     return;
   }
 
@@ -562,11 +561,11 @@ void light_enable_interaction(void) {
     prv_change_state(LIGHT_STATE_ON_TIMED);
   }
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void light_enable(bool enable) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   // This function is a bit of a black sheep - it dives in and messes with the normal
   // flow of the state machine.
@@ -583,11 +582,11 @@ void light_enable(bool enable) {
     prv_change_state(LIGHT_STATE_OFF);
   }
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void light_enable_respect_settings(bool enable) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   s_user_controlled_state = enable;
 
@@ -600,7 +599,7 @@ void light_enable_respect_settings(bool enable) {
     prv_change_state(LIGHT_STATE_OFF);
   }
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void light_reset_user_controlled(void) {
@@ -608,7 +607,7 @@ void light_reset_user_controlled(void) {
   // button refcount can't leak. Call before locking; light_touch_up locks.
   light_touch_up();
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   // http://www.youtube.com/watch?v=6t_KgE6Yuqg
   if (s_user_controlled_state) {
@@ -619,18 +618,18 @@ void light_reset_user_controlled(void) {
     }
   }
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void light_set_color_rgb888(uint32_t rgb) {
 #ifdef CONFIG_BACKLIGHT_HAS_COLOR
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   s_app_rgb_override = rgb & 0x00FFFFFF;
   s_app_rgb_override_valid = true;
   if (s_light_state != LIGHT_STATE_OFF) {
     prv_apply_rgb_color();
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 #else
   (void)rgb;
 #endif
@@ -638,45 +637,45 @@ void light_set_color_rgb888(uint32_t rgb) {
 
 void light_set_system_color(void) {
 #ifdef CONFIG_BACKLIGHT_HAS_COLOR
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   if (s_app_rgb_override_valid) {
     s_app_rgb_override_valid = false;
     if (s_light_state != LIGHT_STATE_OFF) {
       prv_apply_rgb_color();
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 #endif
 }
 
 void light_system_color_request(void) {
 #ifdef CONFIG_BACKLIGHT_HAS_COLOR
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   if (s_color_preempt_refcount < UINT8_MAX) {
     s_color_preempt_refcount++;
   }
   if (s_color_preempt_refcount == 1 && s_light_state != LIGHT_STATE_OFF) {
     prv_apply_rgb_color();
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 #endif
 }
 
 void light_system_color_release(void) {
 #ifdef CONFIG_BACKLIGHT_HAS_COLOR
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   if (s_color_preempt_refcount > 0) {
     s_color_preempt_refcount--;
     if (s_color_preempt_refcount == 0 && s_light_state != LIGHT_STATE_OFF) {
       prv_apply_rgb_color();
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 #endif
 }
 
 static void prv_light_reset_to_timed_mode(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   if (s_user_controlled_state) {
     s_user_controlled_state = false;
@@ -686,11 +685,11 @@ static void prv_light_reset_to_timed_mode(void) {
     }
   }
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void light_toggle_enabled(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   // Toggling the setting is the user's only escape hatch if some path left
   // s_user_controlled_state stuck on. Clear it here so a subsequent button
@@ -703,11 +702,11 @@ void light_toggle_enabled(void) {
   } else {
     prv_change_state(LIGHT_STATE_OFF);
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void light_toggle_ambient_sensor_enabled(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   s_user_controlled_state = false;
   backlight_set_ambient_sensor_enabled(!backlight_is_ambient_sensor_enabled());
   if (prv_light_allowed() && !prv_als_is_light()) {
@@ -718,18 +717,18 @@ void light_toggle_ambient_sensor_enabled(void) {
     // or you're toggling it from no ambient (always light on buttons) to ambient,
     // you will see it turn on and immediately off if its bright out
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 #ifdef CONFIG_DYNAMIC_BACKLIGHT
 void light_set_dynamic_mode(BacklightDynamicMode mode) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   backlight_set_dynamic_mode(mode);
   // Briefly turn the light on so the user sees the new mode's brightness.
   if (prv_light_allowed()) {
     prv_change_state(LIGHT_STATE_ON_TIMED);
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 #endif
 
@@ -779,7 +778,7 @@ bool light_is_on(void) {
 }
 
 void pbl_analytics_external_collect_backlight_stats(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   // Capture one final sample to account for time since last brightness change
   prv_update_intensity_analytics(s_current_brightness);
@@ -798,5 +797,5 @@ void pbl_analytics_external_collect_backlight_stats(void) {
   s_total_on_time_ms = 0;
   s_last_intensity_sample_ticks = rtc_get_ticks();
 
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }

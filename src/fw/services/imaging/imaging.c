@@ -5,7 +5,7 @@
 
 #include "applib/graphics/gtypes.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
@@ -25,7 +25,7 @@ static ImagingReceivedHandler s_handlers[ImagingImageTypeCount];
 //! Guards the latch state below: requests come in on the requesting task (e.g. the Music app)
 //! while responses are handled on KernelMain. The reassembly state (s_rx) is deliberately not
 //! covered — it is only ever touched on KernelMain (endpoint receiver and comm-session events).
-static PebbleMutex *s_lock;
+static PBL_MUTEX_DEFINE(s_lock);
 
 // Image types the phone told us it can't serve (ImagingResponseFlagUnsupported), so we stop asking.
 // Latched per session: the connected phone doesn't change what it supports mid-connection, and a
@@ -53,11 +53,6 @@ static void prv_rx_reset(void) {
 }
 
 void imaging_register_handler(ImagingImageType image_type, ImagingReceivedHandler handler) {
-  if (!s_lock) {
-    // Handlers are registered from service init at boot, before any requester can run, so lazily
-    // creating the lock here is race-free.
-    s_lock = mutex_create();
-  }
   if (image_type < ARRAY_LENGTH(s_handlers)) {
     s_handlers[image_type] = handler;
   }
@@ -94,13 +89,13 @@ static bool prv_type_latched_unsupported(CommSession *session, ImagingImageType 
 
 bool imaging_is_type_supported(ImagingImageType image_type) {
   CommSession *session = comm_session_get_system_session();
-  if (!s_lock || !session ||
+  if (!session ||
       !comm_session_has_capability(session, CommSessionImagingSupport)) {
     return false;
   }
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   const bool latched = prv_type_latched_unsupported(session, image_type);
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
   return !latched;
 }
 
@@ -186,9 +181,9 @@ void imaging_protocol_msg_callback(CommSession *session, const uint8_t *msg, siz
     // Phone can't serve this type: latch it off so we don't ask again this connection, and deliver
     // NULL so the current request resolves (the app treats it like "no image").
     if (type < ImagingImageTypeCount) {
-      mutex_lock(s_lock);
+      pbl_mutex_lock(&s_lock, PBL_FOREVER);
       s_unsupported_types |= (1u << type);
-      mutex_unlock(s_lock);
+      pbl_mutex_unlock(&s_lock);
     }
     prv_rx_reset();
     prv_deliver(hdr->token, type, NULL);
@@ -303,10 +298,8 @@ void imaging_handle_comm_session_event(const PebbleCommSessionEvent *event) {
   // rather than relying solely on the pointer comparison in prv_type_latched_unsupported: a
   // future session could be allocated at the address of the freed one.
   prv_rx_reset();
-  if (s_lock) {
-    mutex_lock(s_lock);
-    s_latched_session = NULL;
-    s_unsupported_types = 0;
-    mutex_unlock(s_lock);
-  }
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  s_latched_session = NULL;
+  s_unsupported_types = 0;
+  pbl_mutex_unlock(&s_lock);
 }

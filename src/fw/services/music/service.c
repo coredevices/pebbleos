@@ -9,7 +9,7 @@
 #include <pbl/drivers/rtc.h>
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/os/tick.h"
 #include <pbl/logging/logging.h>
 #include "pbl/util/math.h"
@@ -29,7 +29,7 @@ PBL_LOG_MODULE_DEFINE(service_music, CONFIG_SERVICE_MUSIC_LOG_LEVEL);
 //! Cache of the most recently received now playing data. Note that this is read and written from
 //! multiple threads, so access is protected by the mutex member.
 struct MusicServiceContext {
-  PebbleRecursiveMutex *mutex;
+  struct pbl_mutex mutex;
 
   //! The connected server that provides media metadata and accepts control commands
   const MusicServerImplementation *implementation;
@@ -90,7 +90,7 @@ static void prv_imaging_album_art_received(uint8_t token, GBitmap *bitmap) {
 }
 
 void music_init(void) {
-  s_music_ctx.mutex = mutex_create_recursive();
+  pbl_mutex_init(&s_music_ctx.mutex);
   imaging_register_handler(ImagingImageTypeAlbumArt, prv_imaging_album_art_received);
 }
 
@@ -147,7 +147,7 @@ bool music_set_connected_server(const MusicServerImplementation *implementation,
     Connected = 1,
   } change_type = None;
 
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
 
   if (connected) {
     if (s_music_ctx.implementation == NULL) {
@@ -199,25 +199,25 @@ bool music_set_connected_server(const MusicServerImplementation *implementation,
     event_put(&event);
   }
 
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
 
   return (change_type != None);
 }
 
 const char * music_get_connected_server_debug_name(void) {
   const char *debug_name = NULL;
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   if (s_music_ctx.implementation) {
     debug_name = s_music_ctx.implementation->debug_name;
   }
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   return debug_name;
 }
 
 void music_update_now_playing(const char *title, size_t title_length,
                               const char *artist, size_t artist_length,
                               const char *album, size_t album_length) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
 
   // A change to the title, artist or album means we're on a different track, so any album art we're
   // holding (or receiving) is now stale. Bump the generation so in-flight chunks for the old track
@@ -239,16 +239,16 @@ void music_update_now_playing(const char *title, size_t title_length,
   copy_and_truncate(s_music_ctx.artist, artist, artist_length);
   copy_and_truncate(s_music_ctx.album, album, album_length);
 
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
 
   prv_put_now_playing_changed_event();
 }
 
 static void prv_update_string_and_put_event(const char *value, size_t value_length, off_t offset) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   char *buffer = ((char *) &s_music_ctx) + offset;
   copy_and_truncate(buffer, value, value_length);
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   prv_put_now_playing_changed_event();
 }
 
@@ -282,28 +282,28 @@ static void prv_put_pos_changed_event(void) {
 }
 
 void music_update_track_position(uint32_t track_pos_ms) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
 
   s_music_ctx.track_pos_ms = track_pos_ms;
   s_music_ctx.track_pos_updated_at = rtc_get_ticks();
 
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
 
   prv_put_pos_changed_event();
 }
 
 void music_update_track_duration(uint32_t track_duration_ms) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
 
   s_music_ctx.track_length_ms = track_duration_ms;
 
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
 
   prv_put_pos_changed_event();
 }
 
 void music_get_now_playing(char *title, char *artist, char *album) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
 
   if (title) {
     strcpy(title, s_music_ctx.title);
@@ -315,11 +315,11 @@ void music_get_now_playing(char *title, char *artist, char *album) {
     strcpy(album, s_music_ctx.album);
   }
 
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
 }
 
 bool music_get_player_name(char *player_name_out) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
 
   const bool has_player_name = (s_music_ctx.player_name[0] != 0);
 
@@ -327,32 +327,32 @@ bool music_get_player_name(char *player_name_out) {
     strcpy(player_name_out, s_music_ctx.player_name);
   }
 
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
 
   return has_player_name;
 }
 
 bool music_has_now_playing(void) {
   bool has_now_playing = false;
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   if (s_music_ctx.title[0] != 0 ||
       s_music_ctx.artist[0] != 0) {
     has_now_playing = true;
   }
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   return has_now_playing;
 }
 
 uint32_t music_get_ms_since_pos_last_updated(void) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   const RtcTicks time_elapsed_ticks = rtc_get_ticks() - s_music_ctx.track_pos_updated_at;
   const uint32_t time_elapsed_ms = ticks_to_milliseconds(time_elapsed_ticks);
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   return time_elapsed_ms;
 }
 
 void music_get_pos(uint32_t *track_pos_ms, uint32_t *track_length_ms) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
 
   const int32_t time_elapsed_ms = music_get_ms_since_pos_last_updated();
   const int32_t track_time_elapsed =
@@ -363,20 +363,20 @@ void music_get_pos(uint32_t *track_pos_ms, uint32_t *track_length_ms) {
   *track_pos_ms = CLIP(pos_ms, 0, length_ms);
   *track_length_ms = length_ms;
 
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
 }
 
 int32_t music_get_playback_rate_percent(void) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   int32_t playback_rate_percent = s_music_ctx.playback_rate_percent;
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   return playback_rate_percent;
 }
 
 uint8_t music_get_volume_percent(void) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   int32_t player_volume_percent = s_music_ctx.player_volume_percent;
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   return player_volume_percent;
 }
 
@@ -392,22 +392,22 @@ static void prv_put_state_changed_event(MusicPlayState playback_state) {
 }
 
 void music_update_player_playback_state(const MusicPlayerStateUpdate *state) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   s_music_ctx.playback_state = state->playback_state;
   s_music_ctx.playback_rate_percent = state->playback_rate_percent;
   s_music_ctx.track_pos_ms = state->elapsed_time_ms;
   s_music_ctx.track_pos_updated_at = rtc_get_ticks();
   s_music_ctx.skip_seeks_within_track = state->skip_seeks_within_track;
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
 
   prv_put_state_changed_event(state->playback_state);
   prv_put_pos_changed_event();
 }
 
 void music_update_player_volume_percent(uint8_t volume_percent) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   s_music_ctx.player_volume_percent = volume_percent;
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
 
   PebbleEvent event = {
     .type = PEBBLE_MEDIA_EVENT,
@@ -424,20 +424,20 @@ MusicPlayState music_get_playback_state(void) {
     return MusicPlayStateUnknown;
   }
   MusicPlayState result;
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   result = s_music_ctx.playback_state;
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   return result;
 }
 
 static void * prv_implementation_function_for_offset(off_t offset) {
   typedef void (*FuncPtr)(void);
   FuncPtr func_ptr = NULL;
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   if (s_music_ctx.implementation) {
     func_ptr = *(FuncPtr *) (((const uint8_t *)s_music_ctx.implementation) + offset);
   }
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   return func_ptr;
 }
 
@@ -466,9 +466,9 @@ void music_request_low_latency_for_period(uint32_t period_ms) {
 }
 
 bool music_skip_seeks_within_track(void) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   const bool seeks = s_music_ctx.skip_seeks_within_track;
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   return seeks;
 }
 
@@ -512,9 +512,9 @@ bool music_is_playback_state_reporting_supported(void) {
 bool music_is_progress_reporting_supported(void) {
   // Check capability and that track length is greater than 0
   uint32_t track_length_ms;
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   track_length_ms = s_music_ctx.track_length_ms;
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   return (prv_is_capability_supported(MusicServerCapabilityProgressReporting) && track_length_ms);
 }
 
@@ -523,9 +523,9 @@ bool music_is_volume_reporting_supported(void) {
 }
 
 uint8_t music_get_now_playing_generation(void) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   uint8_t generation = s_music_ctx.now_playing_generation;
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   return generation;
 }
 
@@ -538,7 +538,7 @@ static void prv_put_album_art_updated_event(void) {
 }
 
 void music_set_album_art(GBitmap *bitmap, uint8_t token) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
 
   if (token != s_music_ctx.now_playing_generation) {
     // The track changed while the art was in flight; it's for the wrong song. Drop it.
@@ -547,7 +547,7 @@ void music_set_album_art(GBitmap *bitmap, uint8_t token) {
       kernel_free(bitmap->palette);
       kernel_free(bitmap);
     }
-    mutex_unlock_recursive(s_music_ctx.mutex);
+    pbl_mutex_unlock(&s_music_ctx.mutex);
     return;
   }
 
@@ -557,27 +557,27 @@ void music_set_album_art(GBitmap *bitmap, uint8_t token) {
   // stops re-requesting until the track changes again.
   s_music_ctx.album_art_generation = token;
 
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
 
   prv_put_album_art_updated_event();
 }
 
 bool music_album_art_is_current(void) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   const bool is_current = (s_music_ctx.album_art_generation == s_music_ctx.now_playing_generation);
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
   return is_current;
 }
 
 const GBitmap *music_album_art_lock(void) {
-  mutex_lock_recursive(s_music_ctx.mutex);
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
   // Held until music_album_art_unlock so the bitmap can't be freed mid-draw. The recursive mutex is
   // released by the matching unlock call.
   return s_music_ctx.album_art;
 }
 
 void music_album_art_unlock(void) {
-  mutex_unlock_recursive(s_music_ctx.mutex);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
 }
 
 void command_print_now_playing(void) {

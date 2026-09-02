@@ -4,7 +4,7 @@
 #pragma once
 
 #include <pbl/drivers/rtc.h>
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 
 #include "freertos_types.h"
 #include "portmacro.h"
@@ -61,7 +61,7 @@ typedef struct I2CBusState {
   RtcTicks transfer_start_ticks;
   int user_count;
   SemaphoreHandle_t event_semaphore;
-  PebbleMutex *bus_mutex;
+  struct pbl_mutex bus_mutex;
 } I2CBusState;
 
 struct I2CBus {

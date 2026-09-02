@@ -4,7 +4,7 @@
 #include "flash_logging.h"
 
 #include <pbl/drivers/flash.h>
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "system/passert.h"
 #include "util/shared_circular_buffer.h"
 
@@ -16,8 +16,9 @@ static SharedCircularBufferClient s_buffer_client;
 // bytes long with the longest being about 80 bytes, so this is enough for 15-40
 // or so messages.
 static uint8_t s_buffer_storage[1200];
-static PebbleMutex *s_buffer_mutex = INVALID_MUTEX_HANDLE; //!< Protects s_buffer
-static PebbleMutex *s_flash_write_mutex = INVALID_MUTEX_HANDLE; //!< Protects log line consistency
+static PBL_MUTEX_DEFINE(s_buffer_mutex); //!< Protects s_buffer
+static PBL_MUTEX_DEFINE(s_flash_write_mutex); //!< Protects log line consistency
+static bool s_initialized;
 static bool s_is_flash_write_scheduled; //!< true if handle_buffer_sync KernelBG callback is scheduled
 
 static void write_message(void) {
@@ -38,9 +39,9 @@ static void write_message(void) {
 
   // Flash_logging_log_start can trigger a flash erase. Release the buffer mutex
   // to allow logging while the (slow) erase completes.
-  mutex_unlock(s_buffer_mutex);
+  pbl_mutex_unlock(&s_buffer_mutex);
   uint32_t flash_addr = flash_logging_log_start(msg_length);
-  mutex_lock(s_buffer_mutex);
+  pbl_mutex_lock(&s_buffer_mutex, PBL_FOREVER);
   if (flash_addr == FLASH_LOG_INVALID_ADDR) {
     return;
   }
@@ -48,7 +49,7 @@ static void write_message(void) {
   shared_circular_buffer_consume(&s_buffer, &s_buffer_client, read_length);
 
   while (msg_length > 0) {
-    mutex_unlock(s_buffer_mutex);
+    pbl_mutex_unlock(&s_buffer_mutex);
 
     // Note that this buffer read really should be done with the buffer mutex held.
     // This works only because writes to the buffer do not advance slackers.
@@ -59,7 +60,7 @@ static void write_message(void) {
     flash_logging_write(data_read, flash_addr, read_length);
     flash_addr += read_length;
 
-    mutex_lock(s_buffer_mutex);
+    pbl_mutex_lock(&s_buffer_mutex, PBL_FOREVER);
     shared_circular_buffer_consume(&s_buffer, &s_buffer_client, read_length);
   }
 
@@ -69,8 +70,8 @@ static void write_message(void) {
 static void handle_buffer_sync(void *data) {
   const bool is_async = (uintptr_t) data;
 
-  mutex_lock(s_flash_write_mutex);
-  mutex_lock(s_buffer_mutex);
+  pbl_mutex_lock(&s_flash_write_mutex, PBL_FOREVER);
+  pbl_mutex_lock(&s_buffer_mutex, PBL_FOREVER);
 
   // Bound the drain to what was already pending when this callback ran.  Each
   // write_message() releases the buffer mutex around the flash write so other
@@ -87,7 +88,7 @@ static void handle_buffer_sync(void *data) {
     size_t before = shared_circular_buffer_get_read_space_remaining(&s_buffer, &s_buffer_client);
     write_message();
     // The above function mucks with the mutex
-    mutex_assert_held_by_curr_task(s_buffer_mutex, true /* is_held */);
+    pbl_mutex_assert_held(&s_buffer_mutex, true /* is_held */);
     size_t after = shared_circular_buffer_get_read_space_remaining(&s_buffer, &s_buffer_client);
     if (after >= before) {
       // write_message() didn't make progress (e.g. partial message not ready);
@@ -102,8 +103,8 @@ static void handle_buffer_sync(void *data) {
     s_is_flash_write_scheduled = false;
   }
 
-  mutex_unlock(s_buffer_mutex);
-  mutex_unlock(s_flash_write_mutex);
+  pbl_mutex_unlock(&s_buffer_mutex);
+  pbl_mutex_unlock(&s_flash_write_mutex);
 }
 
 
@@ -113,8 +114,7 @@ void advanced_logging_init(void) {
   shared_circular_buffer_init(&s_buffer, s_buffer_storage, sizeof(s_buffer_storage));
   shared_circular_buffer_add_client(&s_buffer, &s_buffer_client);
 
-  s_buffer_mutex = mutex_create();
-  s_flash_write_mutex = mutex_create();
+  s_initialized = true;
 }
 
 // Return true on success
@@ -122,7 +122,7 @@ static bool write_buffer_locking(char* buffer, int length, bool async) {
   bool success = false;
 
   do {
-    mutex_lock(s_buffer_mutex);
+    pbl_mutex_lock(&s_buffer_mutex, PBL_FOREVER);
     if (shared_circular_buffer_get_write_space_remaining(&s_buffer) >= length + 1) {
       // Ideally we could figure out a way to skip out on this copy but then you'd potentially need to sniprintf
       // into a non-contiguous buffer... whatever, we have CPU to burn.
@@ -134,7 +134,7 @@ static bool write_buffer_locking(char* buffer, int length, bool async) {
 
       success = true;
     }
-    mutex_unlock(s_buffer_mutex);
+    pbl_mutex_unlock(&s_buffer_mutex);
 
     // If we failed to buffer this message, flush the buffer to cache to make room.
     // Otherwise, if this is a sync message, flush this message to flash.
@@ -148,19 +148,19 @@ static bool write_buffer_locking(char* buffer, int length, bool async) {
                       // If so, there are bigger issues.
 
   if (async) {
-    mutex_lock(s_buffer_mutex);
+    pbl_mutex_lock(&s_buffer_mutex, PBL_FOREVER);
     if (!s_is_flash_write_scheduled) {
       s_is_flash_write_scheduled = true;
       system_task_add_callback(handle_buffer_sync, (void *)(uintptr_t) true /* is_async */);
     }
-    mutex_unlock(s_buffer_mutex);
+    pbl_mutex_unlock(&s_buffer_mutex);
   }
 
   return success;
 }
 
 void pbl_log_advanced(char* buffer, int length, bool async) {
-  if (s_buffer_mutex == INVALID_MUTEX_HANDLE) {
+  if (!s_initialized) {
     return;
   }
   write_buffer_locking(buffer, length, async);

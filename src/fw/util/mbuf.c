@@ -5,7 +5,7 @@
 
 #include "kernel/pbl_malloc.h"
 #include <pbl/logging/logging.h>
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "system/passert.h"
 #include "pbl/util/size.h"
 
@@ -14,7 +14,7 @@
 #define MBUF_FLAG_IS_FREE ((uint32_t)(1 << 25))
 
 T_STATIC MBuf *s_free_list;
-static PebbleMutex *s_free_list_lock;
+static PBL_MUTEX_DEFINE(s_free_list_lock);
 
 //! This array should be initialized with the maximum number of MBufs which may be allocated for
 //! each pool.
@@ -31,7 +31,6 @@ _Static_assert(ARRAY_LENGTH(s_mbuf_pool_space) == NumMBufPools,
 ////////////////////////////////////////////////////////////////////////////////
 
 void mbuf_init(void) {
-  s_free_list_lock = mutex_create();
 }
 
 
@@ -41,7 +40,7 @@ void mbuf_init(void) {
 //! Bug-catcher checks that nobody has corrupted the free list or modified MBufs within it
 //! NOTE: the caller must hold s_free_list_lock
 static void prv_check_free_list(void) {
-  mutex_assert_held_by_curr_task(s_free_list_lock, true);
+  pbl_mutex_assert_held(&s_free_list_lock, true);
   MBuf *m = s_free_list;
   while (m) {
     PBL_ASSERTN(mbuf_is_flag_set(m, MBUF_FLAG_IS_MANAGED));
@@ -56,7 +55,7 @@ static void prv_check_free_list(void) {
 MBuf *mbuf_get(void *data, uint32_t length, MBufPool pool) {
   PBL_ASSERTN(pool < NumMBufPools);
   MBuf *m;
-  mutex_lock(s_free_list_lock);
+  pbl_mutex_lock(&s_free_list_lock, PBL_FOREVER);
   // get an MBuf out of the free list if possible, or else allocate a new one
   if (s_free_list) {
     prv_check_free_list();
@@ -72,7 +71,7 @@ MBuf *mbuf_get(void *data, uint32_t length, MBufPool pool) {
     m = kernel_zalloc_check(sizeof(MBuf));
     mbuf_set_flag(m, MBUF_FLAG_IS_MANAGED, true);
   }
-  mutex_unlock(s_free_list_lock);
+  pbl_mutex_unlock(&s_free_list_lock);
 
   mbuf_set_flag(m, MBUF_FLAG_IS_FREE, false);
   mbuf_set_data(m, data, length);
@@ -93,14 +92,14 @@ void mbuf_free(MBuf *m) {
   mbuf_set_flag(m, MBUF_FLAG_IS_FREE, true);
 
   // add it to the free list
-  mutex_lock(s_free_list_lock);
+  pbl_mutex_lock(&s_free_list_lock, PBL_FOREVER);
   if (s_free_list) {
     mbuf_append(s_free_list, m);
   } else {
     s_free_list = m;
   }
   prv_check_free_list();
-  mutex_unlock(s_free_list_lock);
+  pbl_mutex_unlock(&s_free_list_lock);
 }
 
 

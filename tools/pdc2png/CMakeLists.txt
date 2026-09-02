@@ -44,6 +44,7 @@ target_include_directories(pdc2png PRIVATE
   ${PBL_BASE}/src/fw/applib/vendor/tinflate
   ${PBL_BASE}/tests/overrides/default
   ${PBL_BASE}/include
+  ${PBL_BASE}/kernel/freertos/include
   ${PBL_BASE}/subsys
   ${PBL_BASE}/src/fw
   ${PBL_BASE}/third_party/freertos

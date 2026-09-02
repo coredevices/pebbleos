@@ -6,7 +6,7 @@
 
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/activity/insights_settings.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/settings/settings_file.h"
 #include <pbl/logging/logging.h>
@@ -23,7 +23,7 @@ PBL_LOG_MODULE_DECLARE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 
 #define ACTIVITY_INSIGHTS_SETTINGS_CURRENT_STRUCT_VERSION 4
 
-static PebbleMutex *s_insight_settings_mutex;
+static PBL_MUTEX_DEFINE(s_insight_settings_mutex);
 
 #define ACTIVITY_INSIGHTS_SETTINGS_SLEEP_REWARD_DEFAULT { \
   .version = ACTIVITY_INSIGHTS_SETTINGS_CURRENT_STRUCT_VERSION, \
@@ -129,12 +129,12 @@ static const AISDefault AIS_DEFAULTS[] = {
 
 // Return true if we successfully opened the file
 static bool prv_open_settings_and_lock(SettingsFile *file) {
-  mutex_lock(s_insight_settings_mutex);
+  pbl_mutex_lock(&s_insight_settings_mutex, PBL_FOREVER);
   if (settings_file_open(file, ACTIVITY_INSIGHTS_SETTINGS_FILENAME,
                          ACTIVITY_INSIGHTS_SETTINGS_DEFAULT_FILE_SIZE) == S_SUCCESS) {
     return true;
   } else {
-    mutex_unlock(s_insight_settings_mutex);
+    pbl_mutex_unlock(&s_insight_settings_mutex);
     return false;
   }
 }
@@ -142,7 +142,7 @@ static bool prv_open_settings_and_lock(SettingsFile *file) {
 // Close the settings file and release the lock
 static void prv_close_settings_and_unlock(SettingsFile *file) {
   settings_file_close(file);
-  mutex_unlock(s_insight_settings_mutex);
+  pbl_mutex_unlock(&s_insight_settings_mutex);
 }
 
 void activity_insights_settings_init(void) {
@@ -150,7 +150,6 @@ void activity_insights_settings_init(void) {
     return;
   }
   // Create our mutex
-  s_insight_settings_mutex = mutex_create();
 
   SettingsFile file;
   if (settings_file_open(&file,

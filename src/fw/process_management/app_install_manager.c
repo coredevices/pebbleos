@@ -29,7 +29,7 @@
 #include "pbl/util/circular_cache.h"
 #include "pbl/util/size.h"
 
-#include <pbl/os/mutex.h>
+#include "pbl/kernel/mutex.h"
 #include <pbl/util/attributes.h>
 
 typedef struct PACKED RecentApp {
@@ -46,7 +46,7 @@ typedef struct PACKED RecentApp {
 #define RECENT_APP_LAST_ACTIVITY_INVALID (0)
 
 typedef struct RecentAppCache {
-  PebbleRecursiveMutex *mutex;
+  struct pbl_mutex mutex;
   CircularCache cache;
   uint8_t cache_buffer[CACHE_BUFFER_SIZE];
 } RecentAppCache;
@@ -113,7 +113,7 @@ bool app_install_is_prioritized(AppInstallId install_id) {
   }
 
   bool rv = false;
-  mutex_lock_recursive(s_recent_apps.mutex);
+  pbl_mutex_lock(&s_recent_apps.mutex, PBL_FOREVER);
   {
     RecentApp *app = circular_cache_get(&s_recent_apps.cache, &install_id);
     if (app) {
@@ -127,7 +127,7 @@ bool app_install_is_prioritized(AppInstallId install_id) {
       }
     }
   }
-  mutex_unlock_recursive(s_recent_apps.mutex);
+  pbl_mutex_unlock(&s_recent_apps.mutex);
   return rv;
 }
 
@@ -136,14 +136,14 @@ void app_install_unmark_prioritized(AppInstallId install_id) {
     return;
   }
 
-  mutex_lock_recursive(s_recent_apps.mutex);
+  pbl_mutex_lock(&s_recent_apps.mutex, PBL_FOREVER);
   {
     RecentApp *app = circular_cache_get(&s_recent_apps.cache, &install_id);
     if (app) {
       app->last_activity = RECENT_APP_LAST_ACTIVITY_INVALID;
     }
   }
-  mutex_unlock_recursive(s_recent_apps.mutex);
+  pbl_mutex_unlock(&s_recent_apps.mutex);
 }
 
 void app_install_mark_prioritized(AppInstallId install_id, bool can_expire) {
@@ -151,7 +151,7 @@ void app_install_mark_prioritized(AppInstallId install_id, bool can_expire) {
     return;
   }
 
-  mutex_lock_recursive(s_recent_apps.mutex);
+  pbl_mutex_lock(&s_recent_apps.mutex, PBL_FOREVER);
   {
     const time_t cur_time = time_get_uptime_seconds();
     RecentApp *app = circular_cache_get(&s_recent_apps.cache, &install_id);
@@ -167,7 +167,7 @@ void app_install_mark_prioritized(AppInstallId install_id, bool can_expire) {
       circular_cache_push(&s_recent_apps.cache, &app);
     }
   }
-  mutex_unlock_recursive(s_recent_apps.mutex);
+  pbl_mutex_unlock(&s_recent_apps.mutex);
 }
 
 #if UNITTEST
@@ -564,7 +564,7 @@ static void prv_capabilities_changed_event_handler(PebbleEvent *event, void *con
 void app_install_manager_init(void) {
   circular_cache_init(&s_recent_apps.cache, s_recent_apps.cache_buffer, sizeof(RecentApp),
                       NUM_RECENT_APPS, prv_cmp_recent_apps);
-  s_recent_apps.mutex = mutex_create_recursive();
+  pbl_mutex_init(&s_recent_apps.mutex);
 
   // PBL-31769: This should be moved to send_text.c
 #if defined(APP_ID_SEND_TEXT)

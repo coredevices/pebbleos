@@ -6,7 +6,7 @@
 #include "kernel/pebble_tasks.h"
 #include "process_management/app_manager.h"
 #include "process_management/worker_manager.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/event_service.h"
 #include "syscall/syscall_internal.h"
 #include "syscall/syscall.h"
@@ -49,7 +49,7 @@ typedef struct {
 static uint16_t s_next_service_index = 0;
 static ListNode s_plugin_list;
 // This mutex guards the s_plugin_list linked list
-static PebbleMutex *s_plugin_list_mutex = NULL;
+static PBL_MUTEX_DEFINE(s_plugin_list_mutex);
 
 // There's an event service for each event so that
 // System apps can also use the service
@@ -145,7 +145,6 @@ void event_service_clear_process_subscriptions(PebbleTask task) {
 }
 
 void event_service_system_init(void) {
-  s_plugin_list_mutex = mutex_create();
 }
 
 void event_service_init(PebbleEventType type, EventServiceAddSubscriberCallback add_subscriber_callback,
@@ -328,7 +327,7 @@ static bool prv_service_filter(ListNode *node, void *tp) {
 static int16_t prv_get_plugin_index(const Uuid *uuid) {
   int16_t result = -1;
 
-  mutex_lock(s_plugin_list_mutex);
+  pbl_mutex_lock(&s_plugin_list_mutex, PBL_FOREVER);
 
   // Look for this service UUID
   ListNode *found;
@@ -350,7 +349,7 @@ static int16_t prv_get_plugin_index(const Uuid *uuid) {
   PBL_LOG_DBG("Registered plug-in service %s as index %d", uuid_buffer, result);
 
 unlock:
-  mutex_unlock(s_plugin_list_mutex);
+  pbl_mutex_unlock(&s_plugin_list_mutex);
   return result;
 }
 

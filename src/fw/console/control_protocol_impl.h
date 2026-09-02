@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include <pbl/util/attributes.h>
 #include <util/net.h>
@@ -47,7 +47,7 @@ typedef enum LinkState {
 } LinkState;
 
 typedef struct PPPControlProtocolState {
-  PebbleMutex *lock;
+  struct pbl_mutex lock;
   LinkState link_state;
   int restart_count;
   TimerID restart_timer;

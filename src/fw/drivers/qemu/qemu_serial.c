@@ -360,7 +360,7 @@ void qemu_serial_send(QemuProtocol protocol, const uint8_t *data, uint32_t len) 
     return;
   }
 
-  mutex_lock(s_qemu_state.qemu_comm_lock);
+  pbl_mutex_lock(&s_qemu_state.qemu_comm_lock, PBL_FOREVER);
 
   // Send the header
   QemuCommChannelHdr hdr = (QemuCommChannelHdr) {
@@ -379,5 +379,5 @@ void qemu_serial_send(QemuProtocol protocol, const uint8_t *data, uint32_t len) 
   };
   prv_send((uint8_t *)&footer, sizeof(footer));
 
-  mutex_unlock(s_qemu_state.qemu_comm_lock);
+  pbl_mutex_unlock(&s_qemu_state.qemu_comm_lock);
 }

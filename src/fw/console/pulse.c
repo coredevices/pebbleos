@@ -16,7 +16,7 @@
 #include "console/pulse_llc.h"
 #include "console/pulse_protocol_impl.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "pbl/services/system_task.h"
 #include "system/passert.h"
@@ -44,7 +44,7 @@ static IncomingPulseFrame *s_current_receive_buffer;
 static CobsDecodeContext s_frame_decode_ctx;
 static bool s_drop_rest_of_frame;
 
-static PebbleMutex *s_tx_buffer_mutex;
+static PBL_MUTEX_DEFINE(s_tx_buffer_mutex);
 static char s_tx_buffer[MAX_SIZE_AFTER_COBS_ENCODING(
         PULSE_MAX_SEND_SIZE + PULSE_MIN_FRAME_LENGTH) + COBS_OVERHEAD(PULSE_MAX_SEND_SIZE)];
 
@@ -117,8 +117,6 @@ void pulse_early_init(void) {
 }
 
 void pulse_init(void) {
-  s_tx_buffer_mutex = mutex_create();
-  PBL_ASSERTN(s_tx_buffer_mutex != INVALID_MUTEX_HANDLE);
 }
 
 void pulse_start(void) {
@@ -150,8 +148,6 @@ void pulse_end(void) {
 
   new_timer_delete(s_keepalive_timer);
   s_keepalive_timer = TIMER_INVALID_ID;
-
-  mutex_destroy(s_tx_buffer_mutex);
 
   dbgserial_restore_baud_rate();
   serial_console_set_state(SERIAL_CONSOLE_STATE_LOGGING);
@@ -240,7 +236,7 @@ void pulse_handle_character(char c, bool *should_context_switch) {
 }
 
 void *pulse_best_effort_send_begin(const uint8_t protocol) {
-  mutex_lock(s_tx_buffer_mutex);
+  pbl_mutex_lock(&s_tx_buffer_mutex, PBL_FOREVER);
   s_tx_buffer[COBS_OVERHEAD(PULSE_MAX_SEND_SIZE)] = protocol;
 
   // Expose only the payload of the message
@@ -268,12 +264,12 @@ void pulse_best_effort_send(void *buf, const size_t payload_length) {
   }
   dbgserial_putchar_lazy(FRAME_DELIMITER);
 
-  mutex_unlock(s_tx_buffer_mutex);
+  pbl_mutex_unlock(&s_tx_buffer_mutex);
 }
 
 void pulse_best_effort_send_cancel(void *buf) {
   prv_assert_tx_buffer(buf);
-  mutex_unlock(s_tx_buffer_mutex);
+  pbl_mutex_unlock(&s_tx_buffer_mutex);
 }
 
 void pulse_change_baud_rate(uint32_t new_baud) {

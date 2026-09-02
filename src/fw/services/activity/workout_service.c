@@ -21,7 +21,7 @@
 #include "util/time/time.h"
 #include "util/units.h"
 
-#include <pbl/os/mutex.h>
+#include "pbl/kernel/mutex.h"
 
 PBL_LOG_MODULE_DECLARE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 
@@ -63,7 +63,7 @@ typedef struct CurrentWorkoutData {
 
 //! Persisted statically in RAM
 typedef struct WorkoutServiceData {
-  PebbleRecursiveMutex *s_workout_mutex;
+  struct pbl_mutex s_workout_mutex;
   RegularTimerInfo second_timer;
   time_t last_workout_end_ts;
   time_t frontend_last_opened_ts;
@@ -75,11 +75,11 @@ typedef struct WorkoutServiceData {
 static WorkoutServiceData s_workout_data;
 
 static void prv_lock(void) {
-  mutex_lock_recursive(s_workout_data.s_workout_mutex);
+  pbl_mutex_lock(&s_workout_data.s_workout_mutex, PBL_FOREVER);
 }
 
 static void prv_unlock(void) {
-  mutex_unlock_recursive(s_workout_data.s_workout_mutex);
+  pbl_mutex_unlock(&s_workout_data.s_workout_mutex);
 }
 
 static void prv_put_event(PebbleWorkoutEventType e_type) {
@@ -218,7 +218,7 @@ T_STATIC void prv_workout_timer_cb(void *unused) {
   // session notification), so a blocking lock here can trip the watchdog and
   // reboot the watch. The cb is purely advisory (duration tick / HR aging),
   // so if the lock is contended just skip this tick — the next one catches up.
-  if (!mutex_lock_recursive_with_timeout(s_workout_data.s_workout_mutex, 0)) {
+  if (pbl_mutex_lock(&s_workout_data.s_workout_mutex, PBL_NO_WAIT) != 0) {
     return;
   }
 
@@ -283,7 +283,7 @@ unlock:
 
 // ---------------------------------------------------------------------------------------
 void workout_service_init(void) {
-  s_workout_data.s_workout_mutex = mutex_create_recursive();
+  pbl_mutex_init(&s_workout_data.s_workout_mutex);
 }
 
 // ---------------------------------------------------------------------------------------

@@ -9,7 +9,7 @@
 #include <pbl/drivers/rtc.h>
 #include "freertos_types.h"
 #include "kernel/events.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "process_management/app_install_types.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "pbl/util/list.h"
@@ -65,7 +65,7 @@ typedef struct HRMSubscriberState {
 #define HRM_MAX_UNSERVED_TIME_SEC 120
 
 struct HRMManagerState {
-  PebbleRecursiveMutex *lock;
+  struct pbl_mutex lock;
   ListNode *subscribers;
 
   CircularBuffer system_task_event_buffer;
@@ -75,7 +75,7 @@ struct HRMManagerState {
 
   AccelManagerState *accel_state;
   AccelRawData accel_manager_buffer[HRM_MANAGER_ACCEL_MANAGER_SAMPLES_PER_UPDATE];
-  PebbleMutex *accel_data_lock;
+  struct pbl_mutex accel_data_lock;
   HRMAccelData accel_data;
 
   // Event Service to keep track of whether the charger is connected

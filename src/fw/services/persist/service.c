@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "process_management/app_install_manager.h"
 #include "pbl/services/filesystem/app_file.h"
 #include "pbl/services/filesystem/pfs.h"
@@ -37,7 +37,7 @@ typedef struct PersistStore {
 // a worker and foreground app of the same UUID are running, then they share the
 // same store.
 static ListNode *s_client_stores;
-static PebbleMutex *s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
 
 
 static bool prv_uuid_list_filter(ListNode* node, void* data) {
@@ -52,11 +52,11 @@ static PersistStore * prv_find_open_store(const Uuid *uuid) {
 }
 
 static ALWAYS_INLINE void prv_lock(void) {
-  mutex_lock_with_lr(s_mutex, (uint32_t)__builtin_return_address(0));
+  pbl_mutex_lock_lr(&s_mutex, PBL_FOREVER, (uintptr_t)__builtin_return_address(0));
 }
 
 static inline void prv_unlock(void) {
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 // "ps" prefix + 32 hex chars (16-byte UUID) + NUL.
@@ -186,7 +186,6 @@ static void prv_migrate_legacy_persist_files(void) {
 
 // Designed to be called once during reset
 void persist_service_init(void) {
-  s_mutex = mutex_create();
 
   prv_migrate_legacy_persist_files();
 

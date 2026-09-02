@@ -14,7 +14,7 @@
 #include "board/board.h"
 #include "applib/graphics/gtypes.h"
 #include <pbl/drivers/ambient_light.h>
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "popups/timeline/peek.h"
 #include "process_management/app_install_manager.h"
 #include "pbl/services/accel_manager.h"
@@ -43,7 +43,7 @@
 
 #include <stdbool.h>
 
-static PebbleMutex *s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
 
 #define PREF_KEY_CLOCK_24H "clock24h"
 static bool s_clock_24h = false;
@@ -974,7 +974,6 @@ void shell_prefs_init(void) {
   if (BOARD_CONFIG_ACCEL.default_motion_sensitivity != 0) {
     s_motion_sensitivity = BOARD_CONFIG_ACCEL.default_motion_sensitivity;
   }
-  s_mutex = mutex_create();
 
   SettingsFile file = {{0}};
   if (settings_file_open(&file, SHELL_PREFS_FILE_NAME, SHELL_PREFS_FILE_LEN) != S_SUCCESS) {
@@ -1108,7 +1107,7 @@ static bool prv_set_pref_backing(const PrefsTableEntry *entry, const void *value
   }
 
   status_t rv = E_ERROR;
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   {
     SettingsFile file = {{0}};
     if (settings_file_open(&file, SHELL_PREFS_FILE_NAME, SHELL_PREFS_FILE_LEN) == S_SUCCESS) {
@@ -1120,7 +1119,7 @@ static bool prv_set_pref_backing(const PrefsTableEntry *entry, const void *value
       settings_file_close(&file);
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
   return (rv == S_SUCCESS);
 }
 
@@ -1188,7 +1187,7 @@ bool prefs_private_read_backing(const uint8_t *key, size_t key_len, void *value,
   }
 
   bool success = false;
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   {
     SettingsFile file = {{0}};
     if (settings_file_open(&file, SHELL_PREFS_FILE_NAME, SHELL_PREFS_FILE_LEN) == S_SUCCESS) {
@@ -1200,17 +1199,17 @@ bool prefs_private_read_backing(const uint8_t *key, size_t key_len, void *value,
       settings_file_close(&file);
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
   return success;
 }
 
 
 void prefs_private_lock(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 }
 
 void prefs_private_unlock(void) {
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 

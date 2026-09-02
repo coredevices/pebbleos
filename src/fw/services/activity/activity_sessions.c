@@ -4,7 +4,7 @@
 #include "applib/data_logging.h"
 #include "applib/health_service.h"
 #include "kernel/events.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/alarms/alarm.h"
 #include "syscall/syscall.h"
 #include "syscall/syscall_internal.h"
@@ -160,7 +160,7 @@ static bool prv_activity_sessions_equal(ActivitySession *session_a, ActivitySess
 // If we already have this activity registered, it is updated.
 void activity_sessions_prv_add_activity_session(ActivitySession *session) {
   ActivityState *state = activity_private_state();
-  mutex_lock_recursive(state->mutex);
+  pbl_mutex_lock(&state->mutex, PBL_FOREVER);
   {
     if (!session->ongoing) {
       state->need_activities_saved = true;
@@ -192,7 +192,7 @@ void activity_sessions_prv_add_activity_session(ActivitySession *session) {
     state->activity_sessions[state->activity_sessions_count++] = *session;
   }
 unlock:
-  mutex_unlock_recursive(state->mutex);
+  pbl_mutex_unlock(&state->mutex);
 }
 
 
@@ -201,7 +201,7 @@ unlock:
 // that was previously ongoing should not be registered after all.
 void activity_sessions_prv_delete_activity_session(ActivitySession *session) {
   ActivityState *state = activity_private_state();
-  mutex_lock_recursive(state->mutex);
+  pbl_mutex_lock(&state->mutex, PBL_FOREVER);
   {
     // Look for this activity
     int found_session_idx = -1;
@@ -235,7 +235,7 @@ void activity_sessions_prv_delete_activity_session(ActivitySession *session) {
     state->activity_sessions_count--;
   }
 unlock:
-  mutex_unlock_recursive(state->mutex);
+  pbl_mutex_unlock(&state->mutex);
 }
 
 // --------------------------------------------------------------------------------------------
@@ -368,7 +368,7 @@ static bool prv_compute_sleep_stats(time_t now_utc, time_t min_end_utc, time_t m
 static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
                                      time_t last_processed_utc) {
   ActivityState *state = activity_private_state();
-  mutex_lock_recursive(state->mutex);
+  pbl_mutex_lock(&state->mutex, PBL_FOREVER);
   {
     // We will be filling in this structure based on the sleep sessions
     ActivitySleepData *sleep_data = &state->sleep_data;
@@ -447,7 +447,7 @@ static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
     }
   }
 unlock:
-  mutex_unlock_recursive(state->mutex);
+  pbl_mutex_unlock(&state->mutex);
 }
 
 
@@ -570,7 +570,7 @@ static void prv_log_activities(time_t now_utc) {
 
   // Update settings file if any events were logged
   if (logged_event) {
-    mutex_lock_recursive(state->mutex);
+    pbl_mutex_lock(&state->mutex, PBL_FOREVER);
     SettingsFile *file = activity_private_settings_open();
     if (file) {
       for (int i = 0; i < ActivityClassCount; i++) {
@@ -583,7 +583,7 @@ static void prv_log_activities(time_t now_utc) {
       }
       activity_private_settings_close(file);
     }
-    mutex_unlock_recursive(state->mutex);
+    pbl_mutex_unlock(&state->mutex);
   }
 }
 
@@ -682,7 +682,7 @@ bool activity_sessions_is_session_type_ongoing(ActivitySessionType type) {
   ActivityState *state = activity_private_state();
   bool rv = false;
 
-  mutex_lock_recursive(state->mutex);
+  pbl_mutex_lock(&state->mutex, PBL_FOREVER);
   {
     for (int i = 0; i < state->activity_sessions_count; i++) {
       const ActivitySession *session = &state->activity_sessions[i];
@@ -692,7 +692,7 @@ bool activity_sessions_is_session_type_ongoing(ActivitySessionType type) {
       }
     }
   }
-  mutex_unlock_recursive(state->mutex);
+  pbl_mutex_unlock(&state->mutex);
   return rv;
 }
 

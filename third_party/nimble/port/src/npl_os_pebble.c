@@ -12,7 +12,7 @@
 #include "pbl/mcu/interrupts.h"
 #include "nimble/nimble_npl.h"
 #include "nimble/nimble_port.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/os/tick.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include <pbl/logging/logging.h>
@@ -123,8 +123,7 @@ ble_npl_error_t npl_pebble_mutex_init(struct ble_npl_mutex *mu) {
     return BLE_NPL_INVALID_PARAM;
   }
 
-  mu->handle = mutex_create_recursive();
-  assert(mu->handle);
+  pbl_mutex_init(&mu->handle);
 
   return BLE_NPL_OK;
 }
@@ -134,15 +133,11 @@ ble_npl_error_t npl_pebble_mutex_pend(struct ble_npl_mutex *mu, ble_npl_time_t t
     return BLE_NPL_INVALID_PARAM;
   }
 
-  assert(mu->handle);
-
   if (mcu_state_is_isr()) {
     WTF;
   }
 
-  uint32_t ms;
-  ble_npl_time_ticks_to_ms(timeout, &ms);
-  return mutex_lock_recursive_with_timeout(mu->handle, ms) ? BLE_NPL_OK : BLE_NPL_TIMEOUT;
+  return (pbl_mutex_lock(&mu->handle, PBL_TICKS(timeout)) == 0) ? BLE_NPL_OK : BLE_NPL_TIMEOUT;
 }
 
 ble_npl_error_t npl_pebble_mutex_release(struct ble_npl_mutex *mu) {
@@ -150,9 +145,7 @@ ble_npl_error_t npl_pebble_mutex_release(struct ble_npl_mutex *mu) {
     return BLE_NPL_INVALID_PARAM;
   }
 
-  assert(mu->handle);
-
-  mutex_unlock_recursive(mu->handle);
+  pbl_mutex_unlock(&mu->handle);
 
   return BLE_NPL_OK;
 }

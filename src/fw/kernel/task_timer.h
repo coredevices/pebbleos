@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 
 #include <stdbool.h>
 #include <stdint.h>

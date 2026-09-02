@@ -6,7 +6,7 @@
 #include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
 #include "process_management/process_manager.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "syscall/syscall_internal.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
@@ -63,7 +63,7 @@ _Static_assert(sizeof(AppInboxServiceTag) <= sizeof(void *),
 
 static AppInboxNode *s_app_inbox_head;
 
-static PebbleRecursiveMutex *s_app_inbox_mutex;
+static PBL_MUTEX_DEFINE(s_app_inbox_mutex);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Declarations of permitted handlers:
@@ -163,11 +163,11 @@ DEFINE_SYSCALL(void, sys_app_inbox_service_consume, AppInboxConsumerInfo *consum
 static void prv_lock(void) {
   // Using one "global" lock for all app inboxes.
   // If needed, we could easily give each app inbox its own mutex, but it seems overkill right now.
-  mutex_lock_recursive(s_app_inbox_mutex);
+  pbl_mutex_lock(&s_app_inbox_mutex, PBL_FOREVER);
 }
 
 static void prv_unlock(void) {
-  mutex_unlock_recursive(s_app_inbox_mutex);
+  pbl_mutex_unlock(&s_app_inbox_mutex);
 }
 
 static bool prv_list_filter_by_storage(ListNode *found_node, void *data) {
@@ -505,7 +505,6 @@ static void prv_finish(AppInboxNode *inbox) {
 }
 
 void app_inbox_service_init(void) {
-  s_app_inbox_mutex = mutex_create_recursive();
 }
 
 bool app_inbox_service_end(AppInboxServiceTag tag) {

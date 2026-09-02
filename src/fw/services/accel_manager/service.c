@@ -9,7 +9,7 @@
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/mcu/interrupts.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/event_service.h"
 #include "pbl/services/system_task.h"
@@ -71,7 +71,7 @@ _Static_assert(offsetof(AccelManagerBufferData, rawdata) == 0,
 //! List of all registered consumers of accel data. Points to AccelManagerState objects.
 static ListNode *s_data_subscribers = NULL;
 //! Mutex locking all accel_manager state
-static PebbleRecursiveMutex *s_accel_manager_mutex;
+static PBL_MUTEX_DEFINE(s_accel_manager_mutex);
 
 //! Reference count of how many shake subscribers we have. Used to turn off the feature when not
 //! in use.
@@ -104,7 +104,7 @@ static AccelData s_last_accel_data;
 static void prv_setup_subsampling(uint32_t sampling_interval);
 
 static void prv_shake_add_subscriber_cb(PebbleTask task) {
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   {
     if (++s_shake_subscribers_count == 1) {
       PBL_LOG_DBG("Starting accel shake service");
@@ -112,11 +112,11 @@ static void prv_shake_add_subscriber_cb(PebbleTask task) {
       prv_setup_subsampling(accel_get_sampling_interval());
     }
   }
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 }
 
 static void prv_shake_remove_subscriber_cb(PebbleTask task) {
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   {
     PBL_ASSERTN(s_shake_subscribers_count > 0);
     if (--s_shake_subscribers_count == 0) {
@@ -125,11 +125,11 @@ static void prv_shake_remove_subscriber_cb(PebbleTask task) {
       prv_setup_subsampling(accel_get_sampling_interval());
     }
   }
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 }
 
 static void prv_double_tap_add_subscriber_cb(PebbleTask task) {
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
 
   if (++s_double_tap_subscribers_count == 1) {
     PBL_LOG_DBG("Starting accel double tap service");
@@ -137,11 +137,11 @@ static void prv_double_tap_add_subscriber_cb(PebbleTask task) {
     prv_setup_subsampling(accel_get_sampling_interval());
   }
 
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 }
 
 static void prv_double_tap_remove_subscriber_cb(PebbleTask task) {
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
 
   PBL_ASSERTN(s_double_tap_subscribers_count > 0);
   if (--s_double_tap_subscribers_count == 0) {
@@ -150,7 +150,7 @@ static void prv_double_tap_remove_subscriber_cb(PebbleTask task) {
     prv_setup_subsampling(accel_get_sampling_interval());
   }
 
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 }
 
 
@@ -282,7 +282,7 @@ static bool prv_call_data_callback(AccelManagerState *state) {
 //! frequency) and generating a callback event on the subscriber's queue when
 //! the requested number of samples have been batched
 static void prv_dispatch_data(bool post_event) {
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
 
   AccelManagerState * state = (AccelManagerState *)s_data_subscribers;
   while (state) {
@@ -344,7 +344,7 @@ static void prv_dispatch_data(bool post_event) {
     state = (AccelManagerState *)state->list_node.next;
   }
 
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 }
 
 // Compute and return the device's delta position to help determine movement as idle.
@@ -358,7 +358,7 @@ static uint32_t prv_compute_delta_pos(AccelData *cur_pos, AccelData *last_pos) {
  */
 
 void accel_manager_set_motion_backlight_enabled(bool enabled) {
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   if (enabled && !s_motion_backlight_subscribed) {
     prv_shake_add_subscriber_cb(PebbleTask_KernelMain);
     s_motion_backlight_subscribed = true;
@@ -366,7 +366,7 @@ void accel_manager_set_motion_backlight_enabled(bool enabled) {
     prv_shake_remove_subscriber_cb(PebbleTask_KernelMain);
     s_motion_backlight_subscribed = false;
   }
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 }
 
 // Update the motion sensitivity based on user preference (0-100%)
@@ -383,13 +383,12 @@ void accel_manager_update_sensitivity(uint8_t sensitivity_percent) {
   // - 50% (medium) = use mid-range
   // - 0% (least sensitive) = use High threshold
   
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   accel_set_shake_sensitivity_percent(sensitivity_percent);
-  mutex_unlock_recursive(s_accel_manager_mutex);  
+  pbl_mutex_unlock(&s_accel_manager_mutex);  
 }
 
 void accel_manager_init(void) {
-  s_accel_manager_mutex = mutex_create_recursive();
 
   shared_circular_buffer_init(&s_buffer, s_buffer_storage,
       sizeof(s_buffer_storage));
@@ -432,7 +431,7 @@ DEFINE_SYSCALL(int, sys_accel_manager_peek, AccelData *accel_data) {
 
   PBL_ANALYTICS_ADD(accel_peek_count, 1);
 
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
 
   AccelDriverSample data;
   int result = accel_peek(&data);
@@ -441,7 +440,7 @@ DEFINE_SYSCALL(int, sys_accel_manager_peek, AccelData *accel_data) {
     prv_update_last_accel_data(&data);
   }
 
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 
   return result;
 }
@@ -465,7 +464,7 @@ DEFINE_SYSCALL(AccelManagerState*, sys_accel_manager_data_subscribe,
     }
   }
 
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   {
     state = kernel_malloc_check(sizeof(AccelManagerState));
     *state = (AccelManagerState) {
@@ -490,7 +489,7 @@ DEFINE_SYSCALL(AccelManagerState*, sys_accel_manager_data_subscribe,
     // subscriber's request
     prv_update_driver_config();
   }
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 
   return state;
 }
@@ -517,9 +516,9 @@ static void prv_assert_state_from_user(const AccelManagerState *state) {
   if (!PRIVILEGE_WAS_ELEVATED) {
     return;
   }
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   bool valid = prv_state_is_valid_subscriber(state);
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
   if (!valid) {
     PBL_LOG_ERR("Rejecting unknown AccelManagerState %p from unprivileged caller", state);
     syscall_failed();
@@ -529,7 +528,7 @@ static void prv_assert_state_from_user(const AccelManagerState *state) {
 DEFINE_SYSCALL(bool, sys_accel_manager_data_unsubscribe, AccelManagerState *state) {
   prv_assert_state_from_user(state);
   bool event_outstanding;
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   {
     event_outstanding = state->event_posted;
     // Remove this subscriber and free up its state variables
@@ -546,7 +545,7 @@ DEFINE_SYSCALL(bool, sys_accel_manager_data_unsubscribe, AccelManagerState *stat
     // reconfig for the common subset of requirements among remaining subscribers
     prv_update_driver_config();
   }
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
   return event_outstanding;
 }
 
@@ -565,12 +564,12 @@ DEFINE_SYSCALL(int, sys_accel_manager_set_sampling_rate,
       return -1;
   }
 
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
 
   state->sampling_interval_us = (US_PER_SECOND / rate);
   prv_update_driver_config();
 
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 
   // TODO: doesn't look like our API specifies what this routine should return.
   return 0;
@@ -586,12 +585,12 @@ uint32_t accel_manager_set_jitterfree_sampling_rate(AccelManagerState *state,
   const uint32_t ONLY_SUPPORTED_JITTERFREE_RATE_MILLIHZ = 12500;
   PBL_ASSERTN(min_rate_mHz <= ONLY_SUPPORTED_JITTERFREE_RATE_MILLIHZ);
 
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
 
   state->sampling_interval_us = (US_PER_SECOND * 1000) / ONLY_SUPPORTED_JITTERFREE_RATE_MILLIHZ;
   prv_update_driver_config();
 
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 
   return ONLY_SUPPORTED_JITTERFREE_RATE_MILLIHZ;
 }
@@ -607,14 +606,14 @@ DEFINE_SYSCALL(int, sys_accel_manager_set_sample_buffer,
     syscall_assert_userspace_buffer(buffer, samples_per_update * sizeof(AccelRawData));
   }
 
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   {
     state->raw_buffer = buffer;
     state->samples_per_update = samples_per_update;
     state->num_samples = 0;
     prv_update_driver_config();
   }
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 
   return 0;
 }
@@ -630,12 +629,12 @@ DEFINE_SYSCALL(uint32_t, sys_accel_manager_get_num_samples,
     syscall_assert_userspace_buffer(timestamp_ms, sizeof(*timestamp_ms));
   }
 
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
 
   uint32_t result = state->num_samples;
   *timestamp_ms = state->timestamp_ms;
 
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
   return result;
 }
 
@@ -643,7 +642,7 @@ DEFINE_SYSCALL(bool, sys_accel_manager_consume_samples,
                AccelManagerState *state, uint32_t samples) {
   prv_assert_state_from_user(state);
   bool success = true;
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
 
   if (samples > state->num_samples) {
     PBL_LOG_ERR("Consuming more samples than exist %d vs %d!",
@@ -659,7 +658,7 @@ DEFINE_SYSCALL(bool, sys_accel_manager_consume_samples,
   // Fill it again from circular buffer
   prv_dispatch_data(state->task != pebble_task_get_current() /* post_event */);
 
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
   return success;
 }
 
@@ -669,7 +668,7 @@ DEFINE_SYSCALL(bool, sys_accel_manager_consume_samples,
  */
 
 void accel_manager_enable(bool on) {
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   bool prev = s_enabled;
   s_enabled = on;
   if (on && !prev) {
@@ -686,7 +685,7 @@ void accel_manager_enable(bool on) {
     accel_enable_shake_detection(false);
     accel_enable_double_tap_detection(false);
   }
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 }
 
 void accel_manager_exit_low_power_mode(void) { }
@@ -704,9 +703,9 @@ bool accel_is_idle(void) {
 // This will allow the watch to immediately return to normal mode, and attempt to reconnect to
 // the phone.
 void accel_enable_high_sensitivity(bool high_sensitivity) {
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   accel_set_shake_sensitivity_high(high_sensitivity);
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 }
 
 /*
@@ -715,7 +714,7 @@ void accel_enable_high_sensitivity(bool high_sensitivity) {
 
 static bool prv_shared_buffer_empty(void) {
   bool empty = true;
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   {
     AccelManagerState *state = (AccelManagerState *)s_data_subscribers;
     while (state) {
@@ -728,7 +727,7 @@ static bool prv_shared_buffer_empty(void) {
       state = (AccelManagerState *)state->list_node.next;
     }
   }
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
   return empty;
 }
 
@@ -920,10 +919,10 @@ void accel_cb_double_tap_detected(IMUCoordinateAxis axis, int32_t direction) {
 
 static void prv_handle_accel_driver_work_cb(void *data) {
   // The accel manager is responsible for handling locking
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   AccelOffloadCallback cb = data;
   cb();
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 }
 
 void accel_offload_work_from_isr(AccelOffloadCallback cb, bool *should_context_switch) {
@@ -951,9 +950,9 @@ void command_accel_peek(void) {
 
 void command_accel_num_samples(char *num_samples) {
   int num = atoi(num_samples);
-  mutex_lock_recursive(s_accel_manager_mutex);
+  pbl_mutex_lock(&s_accel_manager_mutex, PBL_FOREVER);
   accel_set_num_samples(num);
-  mutex_unlock_recursive(s_accel_manager_mutex);
+  pbl_mutex_unlock(&s_accel_manager_mutex);
 }
 
 #if UNITTEST

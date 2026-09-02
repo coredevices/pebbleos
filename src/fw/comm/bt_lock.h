@@ -3,13 +3,13 @@
 
 #pragma once
 
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 
 void bt_lock_init(void);
 
 //! Function to get the shared mutex. This is used in BTPSKRNL.c to hand
 //! Bluetopia this mutex to use as its BSC_LockBluetoothStack mutex.
-PebbleRecursiveMutex *bt_lock_get(void);
+struct pbl_mutex *bt_lock_get(void);
 
 //! Lock the shared Bluetooth recursive lock to protect Bluetooth related state.
 void bt_lock(void);

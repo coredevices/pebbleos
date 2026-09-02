@@ -4,7 +4,7 @@
 #include <pbl/drivers/ambient_light.h>
 
 #include "board/board.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "system/passert.h"
 
 #include <stdbool.h>
@@ -13,7 +13,8 @@
 // Refcount framework for prime/release/suspend/resume. Drivers receive only
 // the resulting (active, sampling) booleans via ambient_light_driver_set_state.
 
-static PebbleMutex *s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
+static bool s_initialized;
 static uint16_t s_prime_refcount;
 static uint16_t s_suspend_refcount;
 
@@ -24,49 +25,49 @@ static void prv_apply_locked(void) {
 }
 
 void ambient_light_common_init(void) {
-  s_mutex = mutex_create();
+  s_initialized = true;
 }
 
 void ambient_light_prime(void) {
-  if (s_mutex == NULL) {
+  if (!s_initialized) {
     return;
   }
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   s_prime_refcount++;
   prv_apply_locked();
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void ambient_light_release(void) {
-  if (s_mutex == NULL) {
+  if (!s_initialized) {
     return;
   }
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   PBL_ASSERTN(s_prime_refcount > 0U);
   s_prime_refcount--;
   prv_apply_locked();
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void ambient_light_suspend(void) {
-  if (s_mutex == NULL) {
+  if (!s_initialized) {
     return;
   }
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   s_suspend_refcount++;
   prv_apply_locked();
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void ambient_light_resume(void) {
-  if (s_mutex == NULL) {
+  if (!s_initialized) {
     return;
   }
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   PBL_ASSERTN(s_suspend_refcount > 0U);
   s_suspend_refcount--;
   prv_apply_locked();
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 bool ambient_light_lux_available(void) {

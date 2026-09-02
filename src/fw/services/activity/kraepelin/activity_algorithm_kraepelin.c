@@ -42,7 +42,7 @@ PBL_LOG_MODULE_DECLARE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 // ---------------------------------------------------------------------------------------------
 // Globals
 typedef struct {
-  PebbleRecursiveMutex *mutex;
+  struct pbl_mutex mutex;
 
   KAlgState *k_state;  // Pointer to Kraepelin state variables
 
@@ -94,12 +94,12 @@ static bool prv_lock(void) {
     WTF;
 #endif
   }
-  mutex_lock_recursive(s_alg_state->mutex);
+  pbl_mutex_lock(&s_alg_state->mutex, PBL_FOREVER);
   return true;
 }
 
 static void prv_unlock(void) {
-  mutex_unlock_recursive(s_alg_state->mutex);
+  pbl_mutex_unlock(&s_alg_state->mutex);
 }
 
 // ----------------------------------------------------------------------------------------------
@@ -816,9 +816,9 @@ bool activity_algorithm_init(AccelSamplingRate *sampling_rate) {
 
   // Init globals
   *s_alg_state = (AlgState) {
-    .mutex = mutex_create_recursive(),
     .k_state = k_state,
   };
+  pbl_mutex_init(&s_alg_state->mutex);
   shared_circular_buffer_init(&s_alg_state->minute_data_cbuf,
                               (uint8_t *)s_alg_state->minute_data_storage,
                               sizeof(s_alg_state->minute_data_storage));
@@ -872,7 +872,7 @@ bool activity_algorithm_deinit(void) {
   PBL_ASSERTN(s_alg_state);
   PBL_ASSERTN(s_alg_state->k_state);
 
-  mutex_destroy((PebbleMutex *)s_alg_state->mutex);
+  pbl_mutex_deinit(&s_alg_state->mutex);
   kalg_deinit(s_alg_state->k_state);
   kernel_free(s_alg_state->k_state);
 

@@ -8,34 +8,32 @@
 #include "applib/ui/window.h"
 
 #include <pbl/logging/logging.h>
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "system/profiler.h"
 
 #include "kernel/util/sleep.h"
 #include "pbl/services/new_timer/new_timer.h"
 
 static Window *window;
-static PebbleMutex *s_mutex;
-static PebbleMutex *s_mutex2;
+static PBL_MUTEX_DEFINE(s_mutex);
+static PBL_MUTEX_DEFINE(s_mutex2);
 
 static void callback(void *data) {
   PBL_LOG_DBG("Locking mutex 2 (new timer)");
-  mutex_lock(s_mutex2);
+  pbl_mutex_lock(&s_mutex2, PBL_FOREVER);
   PBL_LOG_DBG("Locking mutex 1 (new timer)");
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 }
 
 static void deadlock(void) {
-  s_mutex = mutex_create();
-  s_mutex2 = mutex_create();
   TimerID timer = new_timer_create();
   new_timer_start(timer, 10, callback, NULL, 0);
 
   PBL_LOG_DBG("Locking mutex 1");
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   psleep(20);
   PBL_LOG_DBG("Locking mutex 2");
-  mutex_lock(s_mutex2);
+  pbl_mutex_lock(&s_mutex2, PBL_FOREVER);
 }
 
 static void s_main(void) {

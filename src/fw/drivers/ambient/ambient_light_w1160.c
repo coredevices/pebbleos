@@ -6,7 +6,7 @@
 #include <pbl/drivers/ambient_light.h>
 #include <pbl/drivers/i2c.h>
 #include "kernel/util/sleep.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 
@@ -81,7 +81,7 @@ static uint32_t s_sensor_light_dark_threshold;
 // active window drops (so the next unprimed read does a fresh one-shot
 // instead of returning a stale value from an earlier primed window).
 #define W1160_SETTLE_AFTER_ENABLE_MS (W1160_ALS_POLL_TIMEOUT_MS)
-static PebbleMutex *s_state_mutex;
+static PBL_MUTEX_DEFINE(s_state_mutex);
 static bool s_active;
 static bool s_sampling_active;
 static RtcTicks s_sampling_started_ticks;
@@ -118,7 +118,6 @@ void ambient_light_init(void) {
   uint8_t chip_id;
   bool rv;
 
-  s_state_mutex = mutex_create();
   s_sensor_light_dark_threshold = BOARD_CONFIG.ambient_light_dark_threshold;
 
   psleep(W1160_POR_WAIT_TIME);
@@ -186,7 +185,7 @@ uint32_t ambient_light_get_light_level(void) {
     return 0UL;
   }
 
-  mutex_lock(s_state_mutex);
+  pbl_mutex_lock(&s_state_mutex, PBL_FOREVER);
 
   if (s_active) {
     if (s_sampling_active && prv_sampling_has_settled_locked()) {
@@ -196,18 +195,18 @@ uint32_t ambient_light_get_light_level(void) {
         s_cached_value = als;
         s_cache_valid = true;
       }
-      mutex_unlock(s_state_mutex);
+      pbl_mutex_unlock(&s_state_mutex);
       return ok ? als : 0UL;
     }
 
     if (s_cache_valid) {
       uint16_t cached = s_cached_value;
-      mutex_unlock(s_state_mutex);
+      pbl_mutex_unlock(&s_state_mutex);
       return cached;
     }
 
     if (!s_sampling_active) {
-      mutex_unlock(s_state_mutex);
+      pbl_mutex_unlock(&s_state_mutex);
       return 0UL;
     }
     uint16_t als = 0;
@@ -216,14 +215,14 @@ uint32_t ambient_light_get_light_level(void) {
       s_cached_value = als;
       s_cache_valid = true;
     }
-    mutex_unlock(s_state_mutex);
+    pbl_mutex_unlock(&s_state_mutex);
     return ok ? als : 0UL;
   }
 
   // Unprimed one-shot: enable, poll, read, disable.
   if (!prv_write_register(W1160_STATE_REG, W1160_SAMPLING_EN)) {
     PBL_LOG_ERR("Could not enable W1160 sampling");
-    mutex_unlock(s_state_mutex);
+    pbl_mutex_unlock(&s_state_mutex);
     return 0UL;
   }
 
@@ -236,11 +235,11 @@ uint32_t ambient_light_get_light_level(void) {
 
   if (!prv_write_register(W1160_STATE_REG, W1160_SAMPLING_DIS)) {
     PBL_LOG_ERR("Could not disable W1160 sampling");
-    mutex_unlock(s_state_mutex);
+    pbl_mutex_unlock(&s_state_mutex);
     return 0UL;
   }
 
-  mutex_unlock(s_state_mutex);
+  pbl_mutex_unlock(&s_state_mutex);
   return ok ? als : 0UL;
 }
 
@@ -248,7 +247,7 @@ void ambient_light_driver_set_state(bool active, bool sampling) {
   if (!s_initialized) {
     return;
   }
-  mutex_lock(s_state_mutex);
+  pbl_mutex_lock(&s_state_mutex, PBL_FOREVER);
   if (sampling != s_sampling_active) {
     const uint8_t reg = sampling ? W1160_SAMPLING_EN : W1160_SAMPLING_DIS;
     if (prv_write_register(W1160_STATE_REG, reg)) {
@@ -265,7 +264,7 @@ void ambient_light_driver_set_state(bool active, bool sampling) {
     s_cache_valid = false;
   }
   s_active = active;
-  mutex_unlock(s_state_mutex);
+  pbl_mutex_unlock(&s_state_mutex);
 }
 
 void command_als_read(void) {

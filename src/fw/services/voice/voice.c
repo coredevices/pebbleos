@@ -8,7 +8,7 @@
 #include <pbl/drivers/mic.h>
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "process_management/app_manager.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/new_timer/new_timer.h"
@@ -45,7 +45,7 @@ typedef enum {
 
 static SessionState s_state = SessionState_Idle;
 
-static PebbleMutex* s_lock = NULL;
+static PBL_MUTEX_DEFINE(s_lock);
 
 // Handle requests from apps
 static bool s_from_app;
@@ -154,21 +154,21 @@ static void prv_start_result_timeout(void) {
 }
 
 static void prv_audio_transfer_stopped_handler(AudioEndpointSessionId session_id) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   PBL_LOG_DBG("prv_audio_transfer_stopped_handler called with session_id=%d (current=%d)", 
               session_id, s_session_id);
   
   if (s_session_id != session_id) {
     PBL_LOG_WRN("Received audio transfer message when no session was in progress ("
             "%d)", session_id);
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return;
   }
 
   if (s_state != SessionState_Recording) {
     PBL_LOG_WRN("Received stop message from phone after audio session "
         "stopped/cancelled");
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return;
   }
 
@@ -178,7 +178,7 @@ static void prv_audio_transfer_stopped_handler(AudioEndpointSessionId session_id
   prv_stop_recording();
   s_timeout_generation = s_session_generation;
   prv_start_result_timeout();
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 static bool prv_start_recording(void) {
@@ -258,12 +258,12 @@ static void prv_handle_subsystem_started(SessionState transition_to_state) {
 }
 
 static void prv_session_result_timeout(void * data) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (s_teardown_in_progress || (s_timeout_generation != s_session_generation)) {
     PBL_LOG_DBG("Ignoring stale session result timeout (t_gen=%"PRIu32" cur=%"PRIu32" teardown=%d)",
                 s_timeout_generation, s_session_generation, s_teardown_in_progress);
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return;
   }
 
@@ -274,15 +274,15 @@ static void prv_session_result_timeout(void * data) {
 
   prv_send_event(VoiceEventTypeSessionResult, VoiceStatusTimeout, NULL);
 
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 static void prv_session_setup_timeout(void * data) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   if (s_teardown_in_progress || (s_timeout_generation != s_session_generation)) {
     PBL_LOG_DBG("Ignoring stale session setup timeout (t_gen=%"PRIu32" cur=%"PRIu32" teardown=%d)",
                 s_timeout_generation, s_session_generation, s_teardown_in_progress);
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return;
   }
 
@@ -295,7 +295,7 @@ static void prv_session_setup_timeout(void * data) {
 
   prv_send_event(VoiceEventTypeSessionSetup, VoiceStatusTimeout, NULL);
 
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 static VoiceStatus prv_get_status_from_result(VoiceEndpointResult result) {
@@ -321,7 +321,6 @@ static VoiceStatus prv_get_status_from_result(VoiceEndpointResult result) {
 }
 
 void voice_init(void) {
-  s_lock = mutex_create();
   // Speex encoder is now initialized lazily when a dictation session starts
 }
 
@@ -331,20 +330,20 @@ void voice_init(void) {
 // prv_session_setup_timeout)
 VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type) {
   PBL_LOG_DBG("voice_start_dictation called with session_type: %d", session_type);
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   // Lazily initialize Speex encoder to avoid baseline memory usage when voice not used
   if (!voice_speex_is_initialized()) {
     if (!voice_speex_init()) {
       PBL_LOG_ERR("Failed to initialize Speex encoder");
-      mutex_unlock(s_lock);
+      pbl_mutex_unlock(&s_lock);
       return VOICE_SESSION_ID_INVALID;
     }
   }
 
   if (s_state != SessionState_Idle) {
     PBL_LOG_DBG("Voice service not idle (state: %d), returning invalid session", s_state);
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return VOICE_SESSION_ID_INVALID;
   }
 
@@ -402,14 +401,14 @@ VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type) {
   PBL_LOG_DBG("Audio transfer setup complete, handling subsystem started");
   prv_handle_subsystem_started(SessionState_AudioEndpointSetupReceived);
 
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
   return s_session_id;
 }
 
 // Calling this will end the recording, disable the mic and and stop the audio transfer session. We
 // expect voice_handle_dictation_result to be called next with a dictation response
 void voice_stop_dictation(VoiceSessionId session_id) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   if ((s_state == SessionState_Idle) ||
       (session_id != s_session_id) ||
       (session_id == VOICE_SESSION_ID_INVALID)) {
@@ -417,7 +416,7 @@ void voice_stop_dictation(VoiceSessionId session_id) {
   }
 
   if (s_state != SessionState_Recording) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     voice_cancel_dictation(session_id);
     return;
   }
@@ -427,11 +426,11 @@ void voice_stop_dictation(VoiceSessionId session_id) {
   prv_start_result_timeout();
 
 unlock:
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 void voice_cancel_dictation(VoiceSessionId session_id) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   if ((session_id != s_session_id) ||
       (session_id == VOICE_SESSION_ID_INVALID)) {
     goto unlock;
@@ -456,7 +455,7 @@ void voice_cancel_dictation(VoiceSessionId session_id) {
   }
 
 unlock:
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 // This will trigger an event to be sent to the main task indicating success or failure to set up
@@ -469,7 +468,7 @@ void voice_handle_session_setup_result(VoiceEndpointResult result,
               result, session_type, app_initiated);
   PBL_LOG_DBG("Current state: %d", s_state);
 
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (s_state == SessionState_Idle) {
     PBL_LOG_DBG("State is Idle, ignoring session setup result");
@@ -537,7 +536,7 @@ done:
     prv_handle_subsystem_started(SessionState_VoiceEndpointSetupReceived);
   }
 unlock:
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 static bool prv_get_string_size_cb(const TranscriptionWord *word, void *data) {
@@ -626,7 +625,7 @@ static bool prv_handle_dictation_nlp_result_common(VoiceEndpointResult result,
 void voice_handle_dictation_result(VoiceEndpointResult result, AudioEndpointSessionId session_id,
                                    Transcription *transcription, bool app_initiated,
                                    Uuid *app_uuid) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (!prv_handle_dictation_nlp_result_common(result, session_id, app_initiated, app_uuid)) {
     goto unlock;
@@ -659,13 +658,13 @@ void voice_handle_dictation_result(VoiceEndpointResult result, AudioEndpointSess
 
 unlock:
   prv_reset();
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 // receiving this ends the session, sending an event to the main task with the result
 void voice_handle_nlp_result(VoiceEndpointResult result, AudioEndpointSessionId session_id,
                              char *reminder, time_t timestamp) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   const bool app_initiated = false;
   Uuid *app_uuid = NULL;
@@ -685,7 +684,7 @@ void voice_handle_nlp_result(VoiceEndpointResult result, AudioEndpointSessionId 
 
 unlock:
   prv_reset();
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 DEFINE_SYSCALL(VoiceSessionId, sys_voice_start_dictation, VoiceEndpointSessionType session_type) {
@@ -707,9 +706,9 @@ void voice_kill_app_session(PebbleTask task) {
   if (task != PebbleTask_App) {
     return;
   }
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   if (s_from_app && (s_session_id != AUDIO_ENDPOINT_SESSION_INVALID_ID)) {
     prv_cancel_session();
   }
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }

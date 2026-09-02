@@ -10,7 +10,7 @@
 #include "kernel/kernel_heap.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/util/sleep.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/system_task.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
@@ -231,9 +231,7 @@ void mic_init(const MicDevice *this) {
   state->pdm_config.gain_l = BOARD_CONFIG.mic_config.gain;
   state->pdm_config.gain_r = BOARD_CONFIG.mic_config.gain;
   
-  // Create mutex for thread safety
-  state->mutex = mutex_create_recursive();
-  PBL_ASSERTN(state->mutex);
+  pbl_mutex_init(&state->mutex);
   
   // Initialize PDM driver once during init
   nrfx_err_t err = nrfx_pdm_init(&this->pdm_instance, &state->pdm_config, prv_pdm_event_handler);
@@ -259,7 +257,7 @@ static void prv_dispatch_samples_system_task(void *data) {
     return;
   }
 
-  mutex_lock_recursive(state->mutex);
+  pbl_mutex_lock(&state->mutex, PBL_FOREVER);
 
   // Process a limited number of frames to provide backpressure
   // This prevents overwhelming the Bluetooth send buffer
@@ -314,7 +312,7 @@ static void prv_dispatch_samples_system_task(void *data) {
     state->main_pending = false;
   }
 
-  mutex_unlock_recursive(state->mutex);
+  pbl_mutex_unlock(&state->mutex);
 }
 
 void mic_set_volume(const MicDevice *this, uint16_t volume) {
@@ -382,17 +380,17 @@ bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *conte
   
   MicDeviceState *state = this->state;
   
-  mutex_lock_recursive(state->mutex);
+  pbl_mutex_lock(&state->mutex, PBL_FOREVER);
   
   if (state->is_running) {
     PBL_LOG_WRN("Microphone is already running");
-    mutex_unlock_recursive(state->mutex);
+    pbl_mutex_unlock(&state->mutex);
     return false;
   }
   
   if (!state->is_initialized) {
     PBL_LOG_ERR("Microphone not initialized");
-    mutex_unlock_recursive(state->mutex);
+    pbl_mutex_unlock(&state->mutex);
     return false;
   }
   
@@ -400,7 +398,7 @@ bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *conte
   // circular buffer with the actual (possibly shrunk) size.
   if (!prv_allocate_buffers(state)) {
     PBL_LOG_ERR("Failed to allocate microphone buffers");
-    mutex_unlock_recursive(state->mutex);
+    pbl_mutex_unlock(&state->mutex);
     return false;
   }
   
@@ -421,11 +419,11 @@ bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *conte
     state->is_running = false;  // Reset on failure    
     clocksource_hfxo_release();
     prv_free_buffers(state);
-    mutex_unlock_recursive(state->mutex);
+    pbl_mutex_unlock(&state->mutex);
     return false;
   }
 
-  mutex_unlock_recursive(state->mutex);
+  pbl_mutex_unlock(&state->mutex);
   return true;
 }
 
@@ -435,10 +433,10 @@ void mic_stop(const MicDevice *this) {
   
   MicDeviceState *state = this->state;
   
-  mutex_lock_recursive(state->mutex);
+  pbl_mutex_lock(&state->mutex, PBL_FOREVER);
   
   if (!state->is_running) {
-    mutex_unlock_recursive(state->mutex);
+    pbl_mutex_unlock(&state->mutex);
     return;
   }
   
@@ -465,7 +463,7 @@ void mic_stop(const MicDevice *this) {
   state->audio_buffer_len = 0;
   state->main_pending = false;
 
-  mutex_unlock_recursive(state->mutex);
+  pbl_mutex_unlock(&state->mutex);
 }
 
 #include "console/prompt.h"

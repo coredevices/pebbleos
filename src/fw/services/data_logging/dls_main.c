@@ -21,7 +21,7 @@
 #include "pbl/services/system_task.h"
 #include "syscall/syscall.h"
 #include <pbl/logging/logging.h>
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "system/passert.h"
 #include "kernel/util/sleep.h"
 #include "pbl/util/string.h"
@@ -349,7 +349,7 @@ static bool prv_inactivate_sessions_each_cb(DataLoggingSession *session, void *d
 
       session->status = DataLoggingStatusInactive;
       // Free up the data and mutex for this session
-      mutex_destroy(session->data->mutex);
+      pbl_mutex_deinit(&session->data->mutex);
       kernel_free(session->data);
       session->data = NULL;
     }

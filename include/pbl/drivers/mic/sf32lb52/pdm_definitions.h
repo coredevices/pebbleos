@@ -5,7 +5,7 @@
 
 #include "board/board.h"
 #include <pbl/drivers/mic.h>
-#include <pbl/os/mutex.h>
+#include "pbl/kernel/mutex.h"
 #include <pbl/util/circular_buffer.h>
 
 #include <stdbool.h>
@@ -36,7 +36,7 @@ typedef struct MicState {
   // mic_stop and the dispatch routine potentially resulting in the
   // deallocation of the subscriber module's receive buffer while the
   // dispatch routine is still running.
-  PebbleRecursiveMutex *mutex;
+  struct pbl_mutex mutex;
   PDM_HandleTypeDef *hpdm;
 } MicDeviceState;
 

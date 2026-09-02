@@ -9,14 +9,14 @@
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/vibes/vibe_intensity.h"
 #include "system/passert.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 
 #include <string.h>
 
 #define FILE_NAME "notifpref"
 #define FILE_LEN (1024)
 
-static PebbleMutex *s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
 
 ///////////////////////////////////
 //! Preference keys
@@ -286,7 +286,6 @@ static void prv_migrate_vibe_intensity_to_vibe_scores(SettingsFile *file) {
 }
 
 void alerts_preferences_init(void) {
-  s_mutex = mutex_create();
 
   SettingsFile file = {{0}};
   if (settings_file_open(&file, FILE_NAME, FILE_LEN) != S_SUCCESS) {
@@ -375,7 +374,7 @@ void alerts_preferences_init(void) {
   prv_set_pref(key, strlen(key), &value, sizeof(value))
 static void prv_set_pref(const void *key, size_t key_len, const void *value,
                          size_t value_len) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   SettingsFile file = {{0}};
   if (settings_file_open(&file, FILE_NAME, FILE_LEN) != S_SUCCESS) {
     goto cleanup;
@@ -383,7 +382,7 @@ static void prv_set_pref(const void *key, size_t key_len, const void *value,
   settings_file_set(&file, key, key_len, value, value_len);
   settings_file_close(&file);
 cleanup:
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 AlertMask alerts_preferences_get_alert_mask(void) {
@@ -645,11 +644,11 @@ void alerts_preferences_dnd_set_smart_enabled(bool enable) {
 }
 
 void alerts_preferences_lock(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 }
 
 void alerts_preferences_unlock(void) {
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 //! Keys that feed do_not_disturb_is_active() or the DND schedule timer
@@ -676,11 +675,11 @@ void alerts_preferences_handle_blob_db_event(PebbleBlobDBEvent *event) {
   int key_len = event->key_len;
   const char *matched_key = NULL;
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   SettingsFile file = {{0}};
   if (settings_file_open(&file, FILE_NAME, FILE_LEN) != S_SUCCESS) {
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
     return;
   }
 
@@ -735,7 +734,7 @@ void alerts_preferences_handle_blob_db_event(PebbleBlobDBEvent *event) {
 
 done:
   settings_file_close(&file);
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 
   if (matched_key) {
     // DND state keys are reloaded behind the DND service's back; kick it so the

@@ -14,7 +14,7 @@
 #include "board/board.h"
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/notifications/alerts_preferences.h"
 #include "pbl/services/notifications/do_not_disturb.h"
@@ -96,7 +96,7 @@ typedef struct {
 static SpeakerServiceState s_state;
 
 // Serializes public APIs against prv_refill_bg (system task).
-static PebbleMutex *s_lock;
+static PBL_MUTEX_DEFINE(s_lock);
 
 //! Why playback is currently silent, cached so a muted watch logs once per change
 //! rather than on every sound.
@@ -154,7 +154,6 @@ static void prv_update_volume_analytics(uint8_t new_volume_pct) {
 }
 
 void speaker_service_init(void) {
-  s_lock = mutex_create();
 
   memset(&s_state, 0, sizeof(s_state));
   s_state.state = SpeakerStateIdle;
@@ -504,22 +503,22 @@ static void prv_refill_locked(void) {
 }
 
 static void prv_refill_bg(void *data) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   prv_refill_locked();
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 bool speaker_service_play_note_seq(const SpeakerNote *notes, uint32_t num_notes,
                                    SpeakerPriority pri, uint8_t vol) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (!s_state.initialized || !notes || num_notes == 0) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return false;
   }
 
   if (!prv_can_preempt(pri)) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return false;
   }
 
@@ -533,7 +532,7 @@ bool speaker_service_play_note_seq(const SpeakerNote *notes, uint32_t num_notes,
   s_state.note_buf = kernel_malloc(notes_size);
   if (!s_state.note_buf) {
     PBL_LOG_ERR("Failed to allocate note buffer");
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return false;
   }
   memcpy(s_state.note_buf, notes, notes_size);
@@ -550,7 +549,7 @@ bool speaker_service_play_note_seq(const SpeakerNote *notes, uint32_t num_notes,
   // Prime the audio buffer with initial data
   prv_refill_locked();
 
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
   return true;
 }
 
@@ -558,15 +557,15 @@ static bool prv_play_tone_internal(uint16_t freq_hz, uint16_t duration_ms,
                                    uint8_t waveform, uint8_t velocity,
                                    SpeakerPriority pri, uint8_t vol,
                                    bool volume_absolute) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (!s_state.initialized || duration_ms == 0) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return false;
   }
 
   if (!prv_can_preempt(pri)) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return false;
   }
 
@@ -592,7 +591,7 @@ static bool prv_play_tone_internal(uint16_t freq_hz, uint16_t duration_ms,
   prv_start_audio(vol);
   prv_refill_locked();
 
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
   return true;
 }
 
@@ -614,11 +613,11 @@ bool speaker_service_play_volume_preview(uint8_t vol) {
 
 bool speaker_service_play_tracks(const SpeakerTrack *tracks, uint32_t num_tracks,
                                  SpeakerPriority pri, uint8_t vol) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (!s_state.initialized || !tracks || num_tracks == 0 ||
       num_tracks > SPEAKER_MAX_TRACKS) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return false;
   }
 
@@ -626,24 +625,24 @@ bool speaker_service_play_tracks(const SpeakerTrack *tracks, uint32_t num_tracks
   for (uint32_t i = 0; i < num_tracks; i++) {
     const SpeakerTrack *t = &tracks[i];
     if (!t->notes || t->num_notes == 0) {
-      mutex_unlock(s_lock);
+      pbl_mutex_unlock(&s_lock);
       return false;
     }
     if (t->sample) {
       if (!t->sample->data || t->sample->num_bytes == 0) {
-        mutex_unlock(s_lock);
+        pbl_mutex_unlock(&s_lock);
         return false;
       }
       total_sample_bytes += t->sample->num_bytes;
       if (total_sample_bytes > SPEAKER_MAX_SAMPLE_BYTES_TOTAL) {
-        mutex_unlock(s_lock);
+        pbl_mutex_unlock(&s_lock);
         return false;
       }
     }
   }
 
   if (!prv_can_preempt(pri)) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return false;
   }
 
@@ -696,7 +695,7 @@ bool speaker_service_play_tracks(const SpeakerTrack *tracks, uint32_t num_tracks
   prv_start_audio(vol);
   prv_refill_locked();
 
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
   return true;
 
 alloc_fail:
@@ -710,20 +709,20 @@ alloc_fail:
       s_state.track_sample_data[i] = NULL;
     }
   }
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
   return false;
 }
 
 bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (!s_state.initialized) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return false;
   }
 
   if (!prv_can_preempt(pri)) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return false;
   }
 
@@ -734,7 +733,7 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
 
   if (!pcm_stream_init(&s_state.pcm_stream, PCM_STREAM_DEFAULT_SIZE_BYTES)) {
     PBL_LOG_ERR("Failed to allocate PCM stream buffer");
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return false;
   }
 
@@ -748,29 +747,29 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
 
   prv_start_audio(vol);
 
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
   return true;
 }
 
 uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (s_state.state == SpeakerStateIdle ||
       s_state.source_type != SpeakerSourceStream) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return 0;
   }
 
   uint32_t written = pcm_stream_write(&s_state.pcm_stream, data, num_bytes);
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
   return written;
 }
 
 void speaker_service_stream_close(void) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (s_state.source_type != SpeakerSourceStream) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return;
   }
 
@@ -782,24 +781,24 @@ void speaker_service_stream_close(void) {
     prv_stop_internal(SpeakerFinishReasonDone);
   }
 
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 void speaker_service_stop(void) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   prv_stop_internal(SpeakerFinishReasonStopped);
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 void speaker_service_set_volume(uint8_t vol) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   s_state.volume = vol;
   if (s_state.state != SpeakerStateIdle) {
     const uint8_t effective_vol = prv_effective_volume(vol);
     prv_update_volume_analytics(effective_vol);
     audio_set_volume((AudioDevice *)AUDIO, effective_vol);
   }
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 bool speaker_service_is_muted(void) {
@@ -807,15 +806,15 @@ bool speaker_service_is_muted(void) {
 }
 
 void speaker_service_handle_audio_prefs_changed(void) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   if (s_state.state == SpeakerStateIdle) {
-    mutex_unlock(s_lock);
+    pbl_mutex_unlock(&s_lock);
     return;
   }
   const uint8_t effective_vol = prv_effective_volume(s_state.volume);
   prv_update_volume_analytics(effective_vol);
   audio_set_volume((AudioDevice *)AUDIO, effective_vol);
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 SpeakerState speaker_service_get_state(void) {
@@ -823,7 +822,7 @@ SpeakerState speaker_service_get_state(void) {
 }
 
 void speaker_service_stop_for_task(PebbleTask task) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   if (s_state.state != SpeakerStateIdle && s_state.owner_task == task) {
     // App is going away — no one to receive the finish event.
     s_state.finish_enabled = false;
@@ -833,7 +832,7 @@ void speaker_service_stop_for_task(PebbleTask task) {
     s_state.finish_enabled = false;
     s_state.finish_task = PebbleTask_Unknown;
   }
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 void speaker_service_set_owner_task(PebbleTask task) {
@@ -841,14 +840,14 @@ void speaker_service_set_owner_task(PebbleTask task) {
 }
 
 void speaker_service_register_finish(PebbleTask task) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
   s_state.finish_enabled = true;
   s_state.finish_task = task;
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 void pbl_analytics_external_collect_speaker_stats(void) {
-  mutex_lock(s_lock);
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   // Capture one final sample to account for time since last volume change.
   prv_update_volume_analytics(s_last_sampled_volume_pct);
@@ -864,7 +863,7 @@ void pbl_analytics_external_collect_speaker_stats(void) {
   s_total_speaker_on_time_ms = 0;
   s_last_volume_sample_ticks = rtc_get_ticks();
 
-  mutex_unlock(s_lock);
+  pbl_mutex_unlock(&s_lock);
 }
 
 #else // !CONFIG_SPEAKER

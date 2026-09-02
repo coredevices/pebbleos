@@ -6,7 +6,7 @@
 #include <pbl/drivers/mag.h>
 #include "kernel/events.h"
 #include "kernel/util/sleep.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/services/new_timer/new_timer.h"
@@ -40,7 +40,7 @@ static int16_t prv_get_axis_projection(axis_t axis, int16_t *raw_vector);
 // Runtime state
 static bool s_initialized = false;
 static int s_use_refcount = 0;
-static PebbleMutex *s_mag_mutex;
+static PBL_MUTEX_DEFINE(s_mag_mutex);
 static uint8_t s_sample_rate_hz = 0;
 #ifndef CONFIG_RECOVERY_FW
 static TimerID s_polling_timer = TIMER_INVALID_ID;
@@ -54,7 +54,6 @@ static bool s_rotated_180 = false;
 // MMC5603NJ entrypoints
 
 void mag_init(void) {
-  s_mag_mutex = mutex_create();
   if (prv_mmc5603nj_init()) {
     PBL_LOG_DBG("MMC5603NJ: Initialization complete");
   } else {
@@ -66,9 +65,9 @@ void mag_init(void) {
 
 void mag_use(void) {
   PBL_ASSERTN(s_initialized);
-  mutex_lock(s_mag_mutex);
+  pbl_mutex_lock(&s_mag_mutex, PBL_FOREVER);
   ++s_use_refcount;
-  mutex_unlock(s_mag_mutex);
+  pbl_mutex_unlock(&s_mag_mutex);
 }
 
 void mag_start_sampling(void) {
@@ -78,7 +77,7 @@ void mag_start_sampling(void) {
 
 void mag_release(void) {
   PBL_ASSERTN(s_initialized);
-  mutex_lock(s_mag_mutex);
+  pbl_mutex_lock(&s_mag_mutex, PBL_FOREVER);
   PBL_ASSERTN(s_use_refcount != 0);
   --s_use_refcount;
   if (s_use_refcount == 0) {
@@ -86,22 +85,22 @@ void mag_release(void) {
       PBL_LOG_ERR("MMC5603NJ: Failed to disable sensor on release");
     }
   }
-  mutex_unlock(s_mag_mutex);
+  pbl_mutex_unlock(&s_mag_mutex);
 }
 
 // callers responsibility to know if there is valid data to be read
 MagReadStatus mag_read_data(MagData *data) {
-  mutex_lock(s_mag_mutex);
+  pbl_mutex_lock(&s_mag_mutex, PBL_FOREVER);
   MagReadStatus rv = prv_mmc5603nj_get_sample(data);
-  mutex_unlock(s_mag_mutex);
+  pbl_mutex_unlock(&s_mag_mutex);
   return rv;
 }
 
 bool mag_change_sample_rate(MagSampleRate rate) {
-  mutex_lock(s_mag_mutex);
+  pbl_mutex_lock(&s_mag_mutex, PBL_FOREVER);
 
   if (s_use_refcount == 0) {
-    mutex_unlock(s_mag_mutex);
+    pbl_mutex_unlock(&s_mag_mutex);
     return true;
   }
 
@@ -114,12 +113,12 @@ bool mag_change_sample_rate(MagSampleRate rate) {
       rate_hz = 5;
       break;
     default:
-      mutex_unlock(s_mag_mutex);
+      pbl_mutex_unlock(&s_mag_mutex);
       return false;
   }
 
   bool rv = prv_mmc5603nj_set_sample_rate_hz(rate_hz);
-  mutex_unlock(s_mag_mutex);
+  pbl_mutex_unlock(&s_mag_mutex);
   return rv;
 }
 

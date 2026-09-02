@@ -9,7 +9,7 @@
 
 #include <bluetooth/sm_types.h>
 #include <pbl/btutil/sm_util.h>
-#include <pbl/os/mutex.h>
+#include "pbl/kernel/mutex.h"
 
 #include <string.h>
 
@@ -39,16 +39,19 @@ extern void shared_prf_storage_set_valid_page_number(uint32_t page_num);
 // Stubs
 //////////////////////////////////////////////////////////
 static bool s_mutex_locked;
-PebbleMutex * mutex_create(void) {
-  return NULL;
+void pbl_mutex_init(struct pbl_mutex *m) {
 }
 
-void mutex_lock(PebbleMutex * handle) {
+void pbl_mutex_kobj_init(void *m) {
+}
+
+int pbl_mutex_lock_lr(struct pbl_mutex *m, pbl_timeout_t timeout, uintptr_t lr) {
   cl_assert_equal_b(s_mutex_locked, false);
   s_mutex_locked = true;
+  return 0;
 }
 
-void mutex_unlock(PebbleMutex * handle) {
+void pbl_mutex_unlock(struct pbl_mutex *m) {
   cl_assert_equal_b(s_mutex_locked, true);
   s_mutex_locked = false;
 }

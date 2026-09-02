@@ -9,7 +9,7 @@
 #include <pbl/drivers/rtc.h>
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "resource/resource_ids.auto.h"
 #include "process_management/app_install_manager.h"
 #include "pbl/services/app_cache.h"
@@ -39,7 +39,7 @@ _Static_assert(APP_GLANCE_DB_MAX_USED_SIZE <= SETTINGS_FILE_SIZE, "AppGlanceDB i
 
 static struct {
   SettingsFile settings_file;
-  PebbleMutex *mutex;
+  struct pbl_mutex mutex;
 } s_app_glance_db;
 
 //////////////////////////////////////////
@@ -603,19 +603,19 @@ status_t app_glance_db_delete_glance(const Uuid *uuid) {
 // TODO PBL-38080: Extract out settings file opening/closing and mutex locking/unlocking for BlobDB
 
 static status_t prv_lock_mutex_and_open_file(void) {
-  mutex_lock(s_app_glance_db.mutex);
+  pbl_mutex_lock(&s_app_glance_db.mutex, PBL_FOREVER);
   const status_t rv = settings_file_open_growable(&s_app_glance_db.settings_file,
                                                   SETTINGS_FILE_NAME, SETTINGS_FILE_SIZE,
                                                   KiBYTES(4));
   if (rv != S_SUCCESS) {
-    mutex_unlock(s_app_glance_db.mutex);
+    pbl_mutex_unlock(&s_app_glance_db.mutex);
   }
   return rv;
 }
 
 static void prv_close_file_and_unlock_mutex(void) {
   settings_file_close(&s_app_glance_db.settings_file);
-  mutex_unlock(s_app_glance_db.mutex);
+  pbl_mutex_unlock(&s_app_glance_db.mutex);
 }
 
 /////////////////////////
@@ -623,13 +623,13 @@ static void prv_close_file_and_unlock_mutex(void) {
 /////////////////////////
 
 void app_glance_db_init(void) {
-  s_app_glance_db.mutex = mutex_create();
+  pbl_mutex_init(&s_app_glance_db.mutex);
 }
 
 status_t app_glance_db_flush(void) {
-  mutex_lock(s_app_glance_db.mutex);
+  pbl_mutex_lock(&s_app_glance_db.mutex, PBL_FOREVER);
   pfs_remove(SETTINGS_FILE_NAME);
-  mutex_unlock(s_app_glance_db.mutex);
+  pbl_mutex_unlock(&s_app_glance_db.mutex);
 
   return S_SUCCESS;
 }
@@ -829,7 +829,7 @@ status_t app_glance_db_delete(const uint8_t *key, int key_len) {
 #if UNITTEST
 void app_glance_db_deinit(void) {
   app_glance_db_flush();
-  mutex_destroy(s_app_glance_db.mutex);
+  pbl_mutex_deinit(&s_app_glance_db.mutex);
 }
 
 status_t app_glance_db_insert_stale(const uint8_t *key, int key_len, const uint8_t *val,

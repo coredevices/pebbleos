@@ -8,7 +8,7 @@
 #include "kernel/pbl_malloc.h"
 #include "pbl/mcu/cache.h"
 #include <pbl/logging/logging.h>
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "system/passert.h"
 #include "pbl/util/circular_buffer.h"
 #include "pbl/util/heap.h"
@@ -62,9 +62,7 @@ void mic_init(const MicDevice *this) {
   (void)NPM1300_OPS.ldo2_set_enabled(false);
 #endif
 
-  // Create mutex for thread safety
-  state->mutex = mutex_create_recursive();
-  PBL_ASSERTN(state->mutex);
+  pbl_mutex_init(&state->mutex);
   state->volume = PDM_AUDIO_RECORD_GAIN_DEFAULT;
   
   //Pinmux configuration
@@ -158,7 +156,7 @@ static void prv_dispatch_samples_system_task(void *data) {
     return;
   }
   
-  mutex_lock_recursive(s_state->mutex);
+  pbl_mutex_lock(&s_state->mutex, PBL_FOREVER);
 
   // Process a limited number of frames to provide backpressure
   if (s_state->is_running && s_state->data_handler && s_state->audio_buffer && s_state->circ_buffer_storage) {
@@ -211,7 +209,7 @@ static void prv_dispatch_samples_system_task(void *data) {
     s_state->main_pending = false;
   }
   
-  mutex_unlock_recursive(s_state->mutex);
+  pbl_mutex_unlock(&s_state->mutex);
 }
 
 static void prv_dma_data_processing(uint8_t* data, uint16_t size)
@@ -328,20 +326,20 @@ bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *conte
   MicDeviceState *state = this->state;
   PDM_HandleTypeDef* hpdm = this->state->hpdm;
   
-  mutex_lock_recursive(state->mutex);
+  pbl_mutex_lock(&state->mutex, PBL_FOREVER);
   
   if (state->is_running) {
-    mutex_unlock_recursive(state->mutex);
+    pbl_mutex_unlock(&state->mutex);
     return false;
   }
   if (!state->is_initialized) {
     PBL_LOG_ERR("Microphone not initialized");
-    mutex_unlock_recursive(state->mutex);
+    pbl_mutex_unlock(&state->mutex);
     return false;
   }
   // Allocate buffers dynamically
   if (!prv_allocate_buffers(this)) {
-    mutex_unlock_recursive(state->mutex);
+    pbl_mutex_unlock(&state->mutex);
     return false;
   }
 
@@ -388,11 +386,11 @@ bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *conte
   (void)NPM1300_OPS.ldo2_set_enabled(false);
 #endif
     prv_free_buffers(state);
-    mutex_unlock_recursive(state->mutex);
+    pbl_mutex_unlock(&state->mutex);
     return false;
   }
 
-  mutex_unlock_recursive(state->mutex);
+  pbl_mutex_unlock(&state->mutex);
   return true;
 }
 
@@ -403,10 +401,10 @@ void mic_stop(const MicDevice *this) {
   MicDeviceState *state = this->state;
   PDM_HandleTypeDef* hpdm = this->state->hpdm;
   
-  mutex_lock_recursive(state->mutex);
+  pbl_mutex_lock(&state->mutex, PBL_FOREVER);
   
   if (!state->is_running) {
-    mutex_unlock_recursive(state->mutex);
+    pbl_mutex_unlock(&state->mutex);
     return;
   }
   
@@ -438,7 +436,7 @@ void mic_stop(const MicDevice *this) {
   // Allow CPU to enter deep sleep again
   soc_sf32lb_sleep_release(SOC_SF32LB_DEEPWFI);
 
-  mutex_unlock_recursive(state->mutex);
+  pbl_mutex_unlock(&state->mutex);
 }
 
 #include "console/prompt.h"

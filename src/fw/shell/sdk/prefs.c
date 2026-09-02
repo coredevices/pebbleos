@@ -4,7 +4,7 @@
 #include "applib/preferred_content_size.h"
 #include "apps/system_app_ids.h"
 #include "board/board.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/process_manager.h"
 #include "pbl/services/activity/activity.h"
@@ -14,7 +14,7 @@
 #include "shell/prefs.h"
 #include "shell/prefs_private.h"
 
-static PebbleMutex *s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
 
 #define PREF_KEY_CLOCK_24H "clock24h"
 static bool s_is_24h_style;
@@ -35,8 +35,7 @@ static uint8_t s_legacy_app_render_mode = 1; // Default to scaled mode
 #endif
 
 void shell_prefs_init(void) {
-  s_mutex = mutex_create();
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   SettingsFile file = {};
   if (settings_file_open(&file, SHELL_PREFS_FILE_NAME, SHELL_PREFS_FILE_LEN) != S_SUCCESS) {
     goto cleanup;
@@ -56,7 +55,7 @@ void shell_prefs_init(void) {
   }
   settings_file_close(&file);
 cleanup:
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 static bool prv_pref_set(const char *key, const void *val, size_t val_len) {
@@ -76,11 +75,11 @@ bool shell_prefs_get_clock_24h_style(void) {
 }
 
 void shell_prefs_set_clock_24h_style(bool is_24h_style) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   if (prv_pref_set(PREF_KEY_CLOCK_24H, &s_is_24h_style, sizeof(s_is_24h_style))) {
     s_is_24h_style = is_24h_style;
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 bool shell_prefs_is_timezone_source_manual(void) {
@@ -109,11 +108,11 @@ void shell_prefs_set_automatic_timezone_id(int16_t timezone_id) {
 
 
 void prefs_private_lock(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 }
 
 void prefs_private_unlock(void) {
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 // Exported function used by blob_db API to set the backing store for a specific key.
@@ -138,13 +137,13 @@ bool prefs_private_read_backing(const uint8_t *key, size_t key_len, void *value,
 }
 
 void watchface_set_default_install_id(AppInstallId app_id) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   Uuid uuid;
   app_install_get_uuid_for_install_id(app_id, &uuid);
   if (prv_pref_set(PREF_KEY_DEFAULT_WATCHFACE, &uuid, sizeof(uuid))) {
     s_default_watchface = uuid;
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 static bool prv_set_default_any_watchface_enumerate_callback(AppInstallEntry *entry, void *data) {
@@ -170,7 +169,7 @@ AppInstallId watchface_get_default_install_id(void) {
 }
 
 void system_theme_set_content_size(PreferredContentSize content_size) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   const uint8_t content_size_uint = content_size;
   if (content_size >= NumPreferredContentSizes) {
     PBL_LOG_WRN("Ignoring attempt to set content size to invalid size %d",
@@ -178,7 +177,7 @@ void system_theme_set_content_size(PreferredContentSize content_size) {
   } else if (prv_pref_set(PREF_KEY_CONTENT_SIZE, &content_size_uint, sizeof(content_size_uint))) {
     s_content_size = content_size;
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 PreferredContentSize system_theme_get_content_size(void) {

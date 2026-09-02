@@ -18,7 +18,7 @@
 #include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
 #include "pbl/mcu/interrupts.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/regular_timer.h"
 #include "system/passert.h"
 #include "pbl/util/attributes.h"
@@ -154,12 +154,12 @@ static volatile bool s_pulse_task_idle = true;
 
 static uint8_t s_current_rx_frame[RX_MAX_FRAME_SIZE];
 
-static PebbleMutex *s_tx_buffer_mutex;
+static PBL_MUTEX_DEFINE(s_tx_buffer_mutex);
 static char s_tx_buffer[MAX_SIZE_AFTER_COBS_ENCODING(
         FRAME_MAX_SEND_SIZE + PULSE_MIN_FRAME_LENGTH) + COBS_OVERHEAD(FRAME_MAX_SEND_SIZE)];
 
 // Lock for exclusive access to the reliable timer state.
-static PebbleMutex *s_reliable_timer_state_lock;
+static PBL_MUTEX_DEFINE(s_reliable_timer_state_lock);
 // Ticks since boot for timer expiry if timer is pending, or 0 if not pending.
 static volatile RtcTicks s_reliable_timer_expiry_time_tick;
 static volatile uint8_t s_reliable_timer_sequence_number;
@@ -199,21 +199,21 @@ static void prv_process_received_frame(size_t frame_length) {
 
 void pulse2_reliable_retransmit_timer_start(unsigned int timeout_ms,
                                             uint8_t sequence_number) {
-  mutex_lock(s_reliable_timer_state_lock);
+  pbl_mutex_lock(&s_reliable_timer_state_lock, PBL_FOREVER);
   RtcTicks timeout_ticks = timeout_ms * RTC_TICKS_HZ / 1000;
   s_reliable_timer_expiry_time_tick = rtc_get_ticks() + timeout_ticks;
   s_reliable_timer_sequence_number = sequence_number;
   // Wake up the PULSE task to get it to notice the newly-started timer.
   xSemaphoreGive(s_pulse_task_service_semaphore);
-  mutex_unlock(s_reliable_timer_state_lock);
+  pbl_mutex_unlock(&s_reliable_timer_state_lock);
 }
 
 void pulse2_reliable_retransmit_timer_cancel(void) {
-  mutex_lock(s_reliable_timer_state_lock);
+  pbl_mutex_lock(&s_reliable_timer_state_lock, PBL_FOREVER);
   s_reliable_timer_expiry_time_tick = 0;
   // No need to wake up the PULSE task. It will notice that the timer was
   // cancelled when it wakes up to service the timer.
-  mutex_unlock(s_reliable_timer_state_lock);
+  pbl_mutex_unlock(&s_reliable_timer_state_lock);
 }
 
 // Check the state of the timer.
@@ -227,7 +227,7 @@ void pulse2_reliable_retransmit_timer_cancel(void) {
 // that subsequent calls do not expire the same timer twice, sequence_number is
 // filled with the sequence number of the expired timer, and 0 is returned.
 static TickType_t prv_poll_timer(uint8_t *const sequence_number) {
-  mutex_lock(s_reliable_timer_state_lock);
+  pbl_mutex_lock(&s_reliable_timer_state_lock, PBL_FOREVER);
   RtcTicks timer_expiry_tick = s_reliable_timer_expiry_time_tick;
   TickType_t timeout = portMAX_DELAY;
   if (timer_expiry_tick) {  // A timer is pending
@@ -243,7 +243,7 @@ static TickType_t prv_poll_timer(uint8_t *const sequence_number) {
       timeout = timer_expiry_tick - now;
     }
   }
-  mutex_unlock(s_reliable_timer_state_lock);
+  pbl_mutex_unlock(&s_reliable_timer_state_lock);
   return timeout;
 }
 
@@ -332,14 +332,11 @@ void pulse_early_init(void) {
 }
 
 void pulse_init(void) {
-  s_tx_buffer_mutex = mutex_create();
-  PBL_ASSERTN(s_tx_buffer_mutex != INVALID_MUTEX_HANDLE);
 }
 
 void pulse_start(void) {
   s_pulse_task_queue = xQueueCreate(RX_QUEUE_SIZE, sizeof(uint8_t));
   s_pulse_task_service_semaphore = xSemaphoreCreateBinary();
-  s_reliable_timer_state_lock = mutex_create();
 
   TaskParameters_t task_params = {
     .pvTaskCode = prv_pulse_task_main,
@@ -398,7 +395,7 @@ static bool prv_safe_to_touch_mutex(void) {
 
 void *pulse_link_send_begin(const uint16_t protocol) {
   if (prv_safe_to_touch_mutex()) {
-    mutex_lock(s_tx_buffer_mutex);
+    pbl_mutex_lock(&s_tx_buffer_mutex, PBL_FOREVER);
   }
 
   net16 header = hton16(protocol);
@@ -433,13 +430,13 @@ void pulse_link_send(void *buf, const size_t payload_length) {
   dbgserial_putchar_lazy(FRAME_DELIMITER);
 
   if (prv_safe_to_touch_mutex()) {
-    mutex_unlock(s_tx_buffer_mutex);
+    pbl_mutex_unlock(&s_tx_buffer_mutex);
   }
 }
 
 void pulse_link_send_cancel(void *buf) {
   prv_assert_tx_buffer(buf);
-  mutex_unlock(s_tx_buffer_mutex);
+  pbl_mutex_unlock(&s_tx_buffer_mutex);
 }
 
 size_t pulse_link_max_send_size(void) {

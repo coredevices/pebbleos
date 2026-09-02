@@ -146,7 +146,7 @@ static void prv_send_code_reject(PPPControlProtocol *this,
 
 static void prv_on_timeout(void *context) {
   PPPControlProtocol *this = context;
-  mutex_lock(this->state->lock);
+  pbl_mutex_lock(&this->state->lock, PBL_FOREVER);
   if (this->state->restart_count > 0) {  // TO+
     switch (this->state->link_state) {
       case LinkState_Closing:
@@ -179,7 +179,7 @@ static void prv_on_timeout(void *context) {
         break;
     }
   }
-  mutex_unlock(this->state->lock);
+  pbl_mutex_unlock(&this->state->lock);
 }
 
 static bool prv_handle_configure_request(PPPControlProtocol *this,
@@ -345,7 +345,6 @@ static void prv_on_terminate_ack(PPPControlProtocol *this,
 
 void ppp_control_protocol_init(PPPControlProtocol *this) {
   *this->state = (PPPControlProtocolState) {
-    .lock = mutex_create(),
     .link_state = LinkState_Initial,
     .restart_count = 0,
     .restart_timer = new_timer_create(),
@@ -353,13 +352,14 @@ void ppp_control_protocol_init(PPPControlProtocol *this) {
     .next_code_reject_id = 0,
     .next_terminate_id = 0,
   };
+  pbl_mutex_init(&this->state->lock);
 }
 
 // Public interface (control_protocol.h)
 // =====================================
 
 void ppp_control_protocol_lower_layer_is_up(PPPControlProtocol *this) {
-  mutex_lock(this->state->lock);
+  pbl_mutex_lock(&this->state->lock, PBL_FOREVER);
   if (this->state->link_state == LinkState_Initial) {
     prv_transition_to(this, LinkState_Closed);
   } else if (this->state->link_state == LinkState_Starting) {
@@ -367,11 +367,11 @@ void ppp_control_protocol_lower_layer_is_up(PPPControlProtocol *this) {
     prv_send_configure_request(this);
     prv_transition_to(this, LinkState_RequestSent);
   }
-  mutex_unlock(this->state->lock);
+  pbl_mutex_unlock(&this->state->lock);
 }
 
 void ppp_control_protocol_lower_layer_is_down(PPPControlProtocol *this) {
-  mutex_lock(this->state->lock);
+  pbl_mutex_lock(&this->state->lock, PBL_FOREVER);
   switch (this->state->link_state) {
     case LinkState_Closed:
     case LinkState_Closing:
@@ -388,11 +388,11 @@ void ppp_control_protocol_lower_layer_is_down(PPPControlProtocol *this) {
     default:
       break;
   }
-  mutex_unlock(this->state->lock);
+  pbl_mutex_unlock(&this->state->lock);
 }
 
 void ppp_control_protocol_open(PPPControlProtocol *this) {
-  mutex_lock(this->state->lock);
+  pbl_mutex_lock(&this->state->lock, PBL_FOREVER);
   if (this->state->link_state == LinkState_Initial) {
     prv_transition_to(this, LinkState_Starting);
   } else if (this->state->link_state == LinkState_Closed) {
@@ -402,12 +402,12 @@ void ppp_control_protocol_open(PPPControlProtocol *this) {
   } else if (this->state->link_state == LinkState_Stopping) {
     prv_transition_to(this, LinkState_Closing);
   }
-  mutex_unlock(this->state->lock);
+  pbl_mutex_unlock(&this->state->lock);
 }
 
 void ppp_control_protocol_close(PPPControlProtocol *this,
                                 PPPCPCloseWait wait) {
-  mutex_lock(this->state->lock);
+  pbl_mutex_lock(&this->state->lock, PBL_FOREVER);
   switch (this->state->link_state) {
     case LinkState_Starting:
       prv_transition_to(this, LinkState_Initial);
@@ -428,14 +428,14 @@ void ppp_control_protocol_close(PPPControlProtocol *this,
     default:
       break;
   }
-  mutex_unlock(this->state->lock);
+  pbl_mutex_unlock(&this->state->lock);
 
   if (wait == PPPCPCloseWait_WaitForClosed) {
     // Poll for the state machine to finish closing.
     while (1) {
-      mutex_lock(this->state->lock);
+      pbl_mutex_lock(&this->state->lock, PBL_FOREVER);
       LinkState state = this->state->link_state;
-      mutex_unlock(this->state->lock);
+      pbl_mutex_unlock(&this->state->lock);
       if (state == LinkState_Initial || state == LinkState_Closed) {
         return;
       }
@@ -446,7 +446,7 @@ void ppp_control_protocol_close(PPPControlProtocol *this,
 
 void ppp_control_protocol_handle_incoming_packet(
     PPPControlProtocol *this, void *raw_packet, size_t length) {
-  mutex_lock(this->state->lock);
+  pbl_mutex_lock(&this->state->lock, PBL_FOREVER);
   if (this->state->link_state == LinkState_Initial ||
       this->state->link_state == LinkState_Starting) {
     // No packets should be received while the lower layer is down;
@@ -491,5 +491,5 @@ void ppp_control_protocol_handle_incoming_packet(
   }
 
 done:
-  mutex_unlock(this->state->lock);
+  pbl_mutex_unlock(&this->state->lock);
 }

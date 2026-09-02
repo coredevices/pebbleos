@@ -12,7 +12,7 @@
 #include "pbl/util/crc32.h"
 
 #include <pbl/btutil/sm_util.h>
-#include <pbl/os/mutex.h>
+#include "pbl/kernel/mutex.h"
 
 PBL_LOG_MODULE_DEFINE(service_shared_prf_storage, CONFIG_SERVICE_SHARED_PRF_STORAGE_LOG_LEVEL);
 
@@ -46,18 +46,18 @@ PBL_LOG_MODULE_DEFINE(service_shared_prf_storage, CONFIG_SERVICE_SHARED_PRF_STOR
 
 // Keeps track of the current page within the region that the valid (or empty) page is
 static uint32_t s_valid_page_idx;
-static PebbleMutex *s_sprf_mutex;
+static PBL_MUTEX_DEFINE(s_sprf_mutex);
 
 //
 // Helper functions
 //
 
 static void prv_lock(void) {
-  mutex_lock(s_sprf_mutex);
+  pbl_mutex_lock(&s_sprf_mutex, PBL_FOREVER);
 }
 
 static void prv_unlock(void) {
-  mutex_unlock(s_sprf_mutex);
+  pbl_mutex_unlock(&s_sprf_mutex);
 }
 
 static bool prv_buffer_empty(const uint8_t *buf, size_t num_bytes) {
@@ -283,7 +283,6 @@ static bool prv_fetch_field(uint8_t *field_out, size_t offset, size_t field_size
 //! erase the sector and re-write the info at offset 0. We want to make the chance
 //! of blocking on an erase ~0, by doing this prep on init.
 void shared_prf_storage_init(void) {
-  s_sprf_mutex = mutex_create();
 
   prv_lock();
   {

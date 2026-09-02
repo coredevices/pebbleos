@@ -5,12 +5,13 @@
 
 #include "applib/ui/layer.h"
 #include "pbl/mcu/interrupts.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
 
-static PebbleRecursiveMutex *s_log_state_mutex = INVALID_MUTEX_HANDLE;
+static PBL_MUTEX_DEFINE(s_log_state_mutex);
+static bool s_log_state_mutex_ready;
 static bool s_log_state_task_entered[NumPebbleTask];   // which tasks have entered
 
 
@@ -65,7 +66,7 @@ LogState *kernel_applib_get_log_state(void) {
         || portIN_CRITICAL() || (xTaskGetSchedulerState() != taskSCHEDULER_RUNNING)) {
     // phase 1 || in an ISR || in a critical section
     use_mutex = false;
-  } else if (s_log_state_mutex == INVALID_MUTEX_HANDLE) {
+  } else if (!s_log_state_mutex_ready) {
     // phase 2
     dbgserial_putstr("LOGGING DISABLED");
     goto exit_fail;
@@ -78,7 +79,7 @@ LogState *kernel_applib_get_log_state(void) {
     // Logging operations shouldn't take long to complete. Use a timeout in case we run into
     // an unlikely deadlock situation (one task doing a synchronous log to flash and another task
     // trying to log from flash code)
-    bool success = mutex_lock_recursive_with_timeout(s_log_state_mutex, 1000);
+    bool success = (pbl_mutex_lock(&s_log_state_mutex, PBL_MSEC(1000)) == 0);
     if (!success) {
       dbgserial_putstr("kernel_applib_get_log_state timeout error");
       goto exit_fail;
@@ -89,7 +90,7 @@ LogState *kernel_applib_get_log_state(void) {
   // grabbed the context from an ISR or critical section and another grabbed it using the mutex
   if (sys_log_state.in_progress) {
     if (use_mutex) {
-      mutex_unlock_recursive(s_log_state_mutex);
+      pbl_mutex_unlock(&s_log_state_mutex);
     }
     goto exit_fail;
   }
@@ -111,8 +112,8 @@ void kernel_applib_release_log_state(LogState *state) {
   // For phase 1 & when in an ISR, there is no mutex available
   if (!portIN_CRITICAL() && !mcu_state_is_isr()  &&
       (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) &&
-      (s_log_state_mutex != INVALID_MUTEX_HANDLE)) {
-    mutex_unlock_recursive(s_log_state_mutex);
+      s_log_state_mutex_ready) {
+    pbl_mutex_unlock(&s_log_state_mutex);
   }
 
   // Clear the re-entrancy flag for this task
@@ -158,7 +159,7 @@ Layer** kernel_applib_get_layer_tree_stack(void) {
 
 // -------------------------------------------------------------------------------------------------------------
 void kernel_applib_init(void) {
-  s_log_state_mutex = mutex_create_recursive();
+  s_log_state_mutex_ready = true;
   connection_service_state_init(kernel_applib_get_connection_service_state());
   battery_state_service_state_init(kernel_applib_get_battery_state_service_state());
 }

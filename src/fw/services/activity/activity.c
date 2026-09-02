@@ -7,7 +7,7 @@
 #include <pbl/drivers/vibe.h>
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/hrm/hrm_manager_private.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/vibe_pattern.h"
@@ -189,7 +189,7 @@ T_STATIC void prv_hrm_subscription_cb(PebbleHRMEvent *hrm_event, void *context) 
     }
 
     if (valid_hr_reading || hrm_event->bpm.quality == HRMQuality_OffWrist) {
-      mutex_lock_recursive(s_activity_state.mutex);
+      pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
       {
         // Post a health service heart rate changed event
         PebbleEvent event = {
@@ -207,7 +207,7 @@ T_STATIC void prv_hrm_subscription_cb(PebbleHRMEvent *hrm_event, void *context) 
         };
         event_put(&event);
       }
-      mutex_unlock_recursive(s_activity_state.mutex);
+      pbl_mutex_unlock(&s_activity_state.mutex);
     }
 
     // Modify our sampling period now if necessary
@@ -423,7 +423,7 @@ static void NOINLINE prv_update_storage(time_t utc_sec) {
 
   // The following sections of code can access the settings file and/or update globals,
   // so we need to surround it with mutex ownership
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   {
     SettingsFile *file = activity_private_settings_open();
 
@@ -467,7 +467,7 @@ static void NOINLINE prv_update_storage(time_t utc_sec) {
       activity_private_settings_close(file);
     }
   }
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
 }
 
 
@@ -479,7 +479,7 @@ static void NOINLINE prv_update_storage(time_t utc_sec) {
 static void NOINLINE prv_process_minute_data_tail(time_t utc_sec) {
   bool need_history_update_event;
   uint16_t cur_day_index;
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   {
     cur_day_index = time_util_get_day(utc_sec);
     need_history_update_event = (cur_day_index != s_activity_state.cur_day_index);
@@ -512,7 +512,7 @@ static void NOINLINE prv_process_minute_data_tail(time_t utc_sec) {
     // Update the heart rate sampling period if necessary
     prv_heart_rate_subscription_update(time_get_uptime_seconds());
   }
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
 
   // Send the history update event now if history has changed
   if (need_history_update_event) {
@@ -575,12 +575,12 @@ T_STATIC void prv_minute_system_task_cb(void *data) {
   prv_process_minute_data(utc_sec);
 
   // Process insights
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   {
     activity_insights_process_sleep_data(utc_sec);
     activity_insights_process_minute_data(utc_sec);
   }
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
 }
 
 
@@ -737,7 +737,7 @@ static void prv_accel_cb(AccelRawData *data, uint32_t num_samples, uint64_t time
   // The current sleep data is only recomputed every few minutes in order to reduce overhead and
   // is done so from prv_minute_system_task_cb()
   ActivityScalarStore prev_steps = s_activity_state.step_data.steps;
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   {
     activity_algorithm_get_steps(&s_activity_state.step_data.steps);
 
@@ -760,7 +760,7 @@ static void prv_accel_cb(AccelRawData *data, uint32_t num_samples, uint64_t time
           activity_private_compute_active_calories(distance_mm, rate_elapsed_ms);
     }
   }
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
 
   if (s_activity_state.step_data.steps != prev_steps) {
     // Post a steps changed event
@@ -907,7 +907,7 @@ static void prv_stop_tracking_cb(void *context) {
 // Enable/disable activity service KernelBG callback. Used by activity_set_enabled().
 static void prv_set_enable_cb(void *context) {
   PBL_ASSERT_TASK(PebbleTask_KernelBackground);
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   {
     const bool enable = prv_activity_allowed_to_be_enabled();
 
@@ -934,18 +934,18 @@ static void prv_set_enable_cb(void *context) {
     }
   }
 cleanup:
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
 }
 
 static void prv_handle_activity_enabled_change(void) {
   // Hold the activity mutex across the started/allowed check and prv_stop_tracking_early so we
   // can't race with prv_set_enable_cb on KernelBG, which can call activity_algorithm_deinit() and
   // free s_alg_state out from under an in-flight activity_algorithm_early_deinit().
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   if (s_activity_state.started && !prv_activity_allowed_to_be_enabled()) {
     prv_stop_tracking_early();
   }
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
 
   system_task_add_callback(prv_set_enable_cb, NULL);
 }
@@ -954,11 +954,11 @@ static void prv_charger_event_cb(PebbleEvent *e, void *context) {
 #ifndef CONFIG_IS_BIGBOARD
   // Since bigboards are usually plugged in, don't react to a battery connection event
   const PebbleBatteryStateChangeEvent *evt = &e->battery_state;
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   {
     s_activity_state.enabled_charging_state = !evt->new_state.is_plugged;
   }
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
   prv_handle_activity_enabled_change();
 #endif
 }
@@ -997,7 +997,7 @@ static bool prv_wait_system_task(SystemTaskEventCallback cb, void *context, bool
 bool activity_init(void) {
   ACTIVITY_LOG_DEBUG("init");
   s_activity_state = (ActivityState) {};
-  s_activity_state.mutex = mutex_create_recursive();
+  pbl_mutex_init(&s_activity_state.mutex);
   s_activity_initialized = true;
 
   // This semaphore used to wake up the calling task when it is waiting for KernelBG to
@@ -1098,11 +1098,11 @@ bool activity_stop_tracking(void) {
   if (!s_activity_initialized) {
     return false;
   }
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   {
     prv_stop_tracking_early();
   }
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
   return system_task_add_callback(prv_stop_tracking_cb, NULL);
 }
 
@@ -1113,9 +1113,9 @@ bool activity_tracking_on(void) {
     return false;
   }
   bool result;
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   result = s_activity_state.started;
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
   return result;
 }
 
@@ -1128,11 +1128,11 @@ void activity_set_enabled(bool enable) {
   if (!s_activity_initialized) {
     return;
   }
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   {
     s_activity_state.enabled_run_level = enable;
   }
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
   prv_handle_activity_enabled_change();
 }
 
@@ -1145,7 +1145,7 @@ bool activity_get_sessions(uint32_t *session_entries, ActivitySession *sessions)
   if (sessions == NULL) {
     return false;
   }
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   {
     uint32_t num_sessions_to_return = MIN(*session_entries,
                                           s_activity_state.activity_sessions_count);
@@ -1154,7 +1154,7 @@ bool activity_get_sessions(uint32_t *session_entries, ActivitySession *sessions)
            num_sessions_to_return * sizeof(ActivitySession));
     *session_entries = num_sessions_to_return;
   }
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
   return true;
 }
 
@@ -1323,7 +1323,7 @@ bool activity_raw_sample_collection(bool enable, bool disable, bool *enabled,
     return false;
   }
   bool success = true;
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   {
     if (enable && !s_activity_state.sample_collection_enabled) {
       ActivitySampleCollectionData *data = kernel_zalloc_check(
@@ -1357,7 +1357,7 @@ bool activity_raw_sample_collection(bool enable, bool disable, bool *enabled,
       *seconds = s_activity_state.sample_collection_seconds;
     }
   }
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
   return success;
 }
 
@@ -1475,7 +1475,7 @@ bool activity_test_reset(bool reset_settings, bool tracking_on,
     sys_psleep(1);
   }
   cron_job_unschedule(&s_activity_job);
-  mutex_destroy((PebbleMutex *)s_activity_state.mutex);
+  pbl_mutex_deinit(&s_activity_state.mutex);
   if (reset_settings) {
     pfs_remove(ACTIVITY_SETTINGS_FILE_NAME);
   }
@@ -1626,7 +1626,7 @@ void activity_test_set_steps_and_avg(int32_t new_steps, int32_t current_avg, int
   if (!s_activity_initialized) {
     return;
   }
-  mutex_lock_recursive(s_activity_state.mutex);
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
   {
     // set the current steps to new_steps
     s_activity_state.step_data.steps = new_steps;
@@ -1653,7 +1653,7 @@ void activity_test_set_steps_and_avg(int32_t new_steps, int32_t current_avg, int
                                  step_avg_array,
                                  ACTIVITY_STEP_AVERAGES_PER_KEY);
   }
-  mutex_unlock_recursive(s_activity_state.mutex);
+  pbl_mutex_unlock(&s_activity_state.mutex);
 }
 
 

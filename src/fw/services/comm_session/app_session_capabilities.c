@@ -5,7 +5,7 @@
 #include "process_management/app_manager.h"
 #include "pbl/services/comm_session/app_session_capabilities.h"
 #include "pbl/services/settings/settings_file.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "system/passert.h"
 #include "util/units.h"
 
@@ -13,7 +13,7 @@
 
 #define APP_SESSION_CAPABILITIES_CACHE_FILE_MAX_USED_SPACE (KiBYTES(2))
 
-static PebbleMutex *s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
 
 static status_t prv_open(SettingsFile *settings_file) {
   return settings_file_open(settings_file, APP_SESSION_CAPABILITIES_CACHE_FILENAME,
@@ -21,17 +21,17 @@ static status_t prv_open(SettingsFile *settings_file) {
 }
 
 static status_t prv_open_locked(SettingsFile *settings_file) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   status_t status = prv_open(settings_file);
   if (FAILED(status)) {
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
   }
   return status;
 }
 
 static void prv_close_and_unlock(SettingsFile *settings_file) {
   settings_file_close(settings_file);
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 bool comm_session_current_app_session_cache_has_capability(CommSessionCapability capability) {
@@ -92,10 +92,6 @@ void comm_session_app_session_capabilities_evict(const Uuid *app_uuid) {
 }
 
 void comm_session_app_session_capabilities_init(void) {
-  s_mutex = mutex_create();
-  
-  PBL_ASSERTN(s_mutex != NULL);
-
   SettingsFile settings_file;
   if (PASSED(prv_open_locked(&settings_file))) {
     settings_file_rewrite(&settings_file, prv_rewrite_cb, NULL);

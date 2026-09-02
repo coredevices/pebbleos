@@ -17,7 +17,7 @@
 #include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
 #include "kernel/util/sleep.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/filesystem/flash_translation.h"
 #include "system/hexdump.h"
@@ -30,7 +30,7 @@
 
 PBL_LOG_MODULE_DEFINE(service_filesystem, CONFIG_SERVICE_FILESYSTEM_LOG_LEVEL);
 
-static PebbleRecursiveMutex *s_pfs_mutex = NULL;
+static PBL_MUTEX_DEFINE(s_pfs_mutex);
 
 #define IS_FILE_TYPE(file_type, type)   ((file_type) == (type))
 
@@ -774,9 +774,9 @@ static void pfs_prepare_for_file_creation(uint32_t file_size,
 
   uint16_t last_written_page = s_last_page_written;
   while ((pages_to_find > 0) && (free_page != INVALID_PAGE)) {
-    mutex_lock_recursive(s_pfs_mutex);
+    pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
     find_free_page(&free_page, false, false);
-    mutex_unlock_recursive(s_pfs_mutex);
+    pbl_mutex_unlock(&s_pfs_mutex);
     // TODO: might be nice to only sleep here if we had to perform GC as part
     // of finding a free page
     if ((pages_to_find % 4) == 0) {
@@ -790,9 +790,9 @@ static void pfs_prepare_for_file_creation(uint32_t file_size,
     }
   }
 
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
   s_last_page_written = last_written_page; // reset our tracker
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
 }
 
 // In the future, the next_page field may be updated dynamically (i.e to resize
@@ -1048,20 +1048,20 @@ static AvailFdStatus get_avail_fd(const char *name, int *fdp, bool is_tmp) {
  */
 
 size_t pfs_get_file_size(int fd) {
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
 
   size_t res = 0;
   if (FD_VALID(fd)) {
     res = PFS_FD(fd).file.file_size;
   }
 
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
   return (res);
 }
 
 int pfs_read(int fd, void *buf_ptr, size_t size) {
   uint8_t *buf = buf_ptr;
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
 
   int res = E_UNKNOWN;
   if (!FD_VALID(fd) || (buf == NULL) || (size == 0)) {
@@ -1116,12 +1116,12 @@ int pfs_read(int fd, void *buf_ptr, size_t size) {
 
   res = bytes_read;
 cleanup:
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
   return (res);
 }
 
 int pfs_seek(int fd, int offset, FSeekType seek_type) {
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
   int res = E_UNKNOWN;
   if (!FD_VALID(fd)) {
     res = E_INVALID_ARGUMENT;
@@ -1149,13 +1149,13 @@ int pfs_seek(int fd, int offset, FSeekType seek_type) {
   }
 
 cleanup:
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
   return (res);
 }
 
 int pfs_write(int fd, const void *buf_ptr, size_t size) {
   const uint8_t *buf = buf_ptr;
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
   int res = E_UNKNOWN;
   if (!FD_VALID(fd) || (buf == NULL) || (size == 0)) {
     res = E_INVALID_ARGUMENT;
@@ -1206,7 +1206,7 @@ int pfs_write(int fd, const void *buf_ptr, size_t size) {
 
   res = bytes_written;
 cleanup:
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
   return (res);
 }
 
@@ -1362,7 +1362,7 @@ static bool watch_list_find_str(ListNode *node, void *data) {
 
 PFSCallbackHandle pfs_watch_file(const char* filename, PFSFileChangedCallback callback,
                                  uint8_t event_flags, void* data) {
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
 
   PFSFileChangedCallbackNode *node = kernel_malloc_check(sizeof(PFSFileChangedCallbackNode));
   *node = (PFSFileChangedCallbackNode) {
@@ -1380,13 +1380,13 @@ PFSCallbackHandle pfs_watch_file(const char* filename, PFSFileChangedCallback ca
   }
 
   s_head_callback_node_list = list_prepend(s_head_callback_node_list, &node->list_node);
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
 
   return node;
 }
 
 void pfs_unwatch_file(PFSCallbackHandle cb_handle) {
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
 
   PFSFileChangedCallbackNode *callback_node = (PFSFileChangedCallbackNode *)cb_handle;
 
@@ -1404,7 +1404,7 @@ void pfs_unwatch_file(PFSCallbackHandle cb_handle) {
 
   kernel_free(callback_node);
 
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
 }
 
 // IMPORTANT: This call assumes that the caller has already grabbed s_pfs_mutex
@@ -1420,7 +1420,7 @@ static void prv_invoke_watch_file_callbacks(const char* file_name, uint8_t event
 }
 
 status_t pfs_close(int fd) {
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
 
   int res = E_UNKNOWN;
   if (!FD_VALID(fd)) {
@@ -1465,12 +1465,12 @@ status_t pfs_close(int fd) {
 
   res = S_SUCCESS;
 cleanup:
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
   return (res);
 }
 
 status_t pfs_close_and_remove(int fd) {
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
 
   status_t res = E_UNKNOWN;
   if (!FD_VALID(fd)) {
@@ -1486,7 +1486,7 @@ status_t pfs_close_and_remove(int fd) {
     }
   }
 
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
   return (res);
 }
 
@@ -1499,7 +1499,7 @@ status_t pfs_remove(const char *name) {
     return (E_INVALID_ARGUMENT);
   }
 
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
   uint16_t page = 0;
   int fd;
   status_t rv = get_avail_fd(name, &fd, false);
@@ -1518,14 +1518,14 @@ status_t pfs_remove(const char *name) {
   // IMPORTANT: prv_invoke_watch_file_callbacks assumes that we already have s_pfs_mutex
   prv_invoke_watch_file_callbacks(name, FILE_CHANGED_EVENT_REMOVED);
 cleanup:
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
   return (rv);
 }
 
 PFSFileListEntry *pfs_create_file_list(PFSFilenameTestCallback callback) {
   ListNode *head = NULL;
 
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
 
   const int file_namelen_offset = FILEHEADER_OFFSET + offsetof(FileHeader, file_namelen);
 
@@ -1566,7 +1566,7 @@ PFSFileListEntry *pfs_create_file_list(PFSFilenameTestCallback callback) {
     strcpy(entry->name, file_name);
     head = list_insert_before(head, &entry->list_node);
   }
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
   return (PFSFileListEntry *)head;
 }
 
@@ -1582,7 +1582,7 @@ void pfs_delete_file_list(PFSFileListEntry *head) {
 
 // PBL-19098 Refactor this to share code with pfs_create_file_list
 void pfs_remove_files(PFSFilenameTestCallback callback) {
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
 
   const int file_namelen_offset = FILEHEADER_OFFSET + offsetof(FileHeader, file_namelen);
 
@@ -1630,7 +1630,7 @@ void pfs_remove_files(PFSFilenameTestCallback callback) {
     // IMPORTANT: prv_invoke_watch_file_callbacks assumes that we already have s_pfs_mutex
     prv_invoke_watch_file_callbacks(file_name, FILE_CHANGED_EVENT_REMOVED);
   }
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
 }
 
 #define MAX_PAGE_CACHE_ENTRIES    10 // 6 bytes per entry
@@ -1796,9 +1796,9 @@ static NOINLINE status_t pfs_open_handle_create_request(int fd, uint8_t file_typ
     FileDesc *file_desc = &PFS_FD(fd);
     uint8_t curr_status = file_desc->fd_status;
     file_desc->fd_status = FD_STATUS_IN_USE;
-    mutex_unlock_recursive(s_pfs_mutex);
+    pbl_mutex_unlock(&s_pfs_mutex);
     pfs_prepare_for_file_creation(start_size, 0 /* no timeout */);
-    mutex_lock_recursive(s_pfs_mutex);
+    pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
     file_desc->fd_status = curr_status;
   }
 
@@ -1880,7 +1880,7 @@ int pfs_open(const char *name, uint8_t op_flags, uint8_t file_type,
     return (E_INVALID_ARGUMENT);
   }
 
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
   int res;
   // if the file is in the cache or we encountered a failure we are done
   if (file_found_in_cache(name, op_flags, &res) || (res < S_SUCCESS)) {
@@ -1905,7 +1905,7 @@ cleanup:
     prv_update_gc_reserved_region();
   }
 
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
   return (res);
 }
 
@@ -2084,10 +2084,6 @@ done:
 }
 
 status_t pfs_init(bool run_filesystem_check) {
-  if (s_pfs_mutex == NULL) {
-    s_pfs_mutex = mutex_create_recursive();
-  }
-
   for (int fd = FD_INDEX_OFFSET; fd < FD_INDEX_OFFSET+MAX_FD_HANDLES; fd++) {
     PFS_FD(fd) = (FileDesc) { .fd_status = FD_STATUS_FREE };
   }
@@ -2136,7 +2132,7 @@ status_t pfs_init(bool run_filesystem_check) {
 
 void pfs_format(bool write_erase_headers) {
   PBL_LOG_INFO("FS-Format Start");
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
 
   for (int i = FD_INDEX_OFFSET; i < FD_INDEX_OFFSET+PFS_FD_SET_SIZE; i++) {
     mark_fd_free(i);
@@ -2150,7 +2146,7 @@ void pfs_format(bool write_erase_headers) {
     prv_write_erased_header_on_page_range(0, s_pfs_page_count, 1);
   }
 
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
   PBL_LOG_INFO("FS-Format Done");
 }
 
@@ -2200,7 +2196,7 @@ uint32_t pfs_crc_calculate_file(int fd, uint32_t offset, uint32_t num_bytes) {
   legacy_defective_checksum_init(&checksum);
 
   // grab the pfs lock to prevent lock inversion with crc lock
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
 
   // go to offset
   pfs_seek(fd, offset, FSeekSet);
@@ -2217,7 +2213,7 @@ uint32_t pfs_crc_calculate_file(int fd, uint32_t offset, uint32_t num_bytes) {
   legacy_defective_checksum_update(&checksum, buffer, num_bytes);
   uint32_t crc = legacy_defective_checksum_finish(&checksum);
 
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
 
   return (crc);
 }
@@ -2233,9 +2229,9 @@ void pbl_analytics_external_collect_pfs_stats(void) {
 
 // TODO: Remove once we figure out PBL-20973
 void pfs_collect_diagnostic_data(int fd, void *diagnostic_buf, size_t diagnostic_buf_len)  {
-  mutex_lock_recursive(s_pfs_mutex);
+  pbl_mutex_lock(&s_pfs_mutex, PBL_FOREVER);
   memcpy(diagnostic_buf, &PFS_FD(fd), MIN(diagnostic_buf_len, sizeof(FileDesc)));
-  mutex_unlock_recursive(s_pfs_mutex);
+  pbl_mutex_unlock(&s_pfs_mutex);
 }
 
 // pass in either 0 or 1 to as argument

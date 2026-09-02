@@ -58,6 +58,7 @@ set(PBL_TEST_INCLUDES_TAIL
   tests/test_includes
   tests
   include
+  kernel/freertos/include
   subsys
   src/core
   src/fw

@@ -62,7 +62,7 @@ PBL_LOG_MODULE_DEFINE(service_app_cache, CONFIG_SERVICE_APP_CACHE_LOG_LEVEL);
 // 8 quick launch apps, 1 default watchface, 1 default worker
 #define DO_NOT_EVICT_LIST_SIZE (10)
 
-static PebbleRecursiveMutex *s_app_cache_mutex = NULL;
+static PBL_MUTEX_DEFINE(s_app_cache_mutex);
 
 //! Actual data structure stored in flash about an app cache entry
 typedef struct PACKED {
@@ -219,7 +219,7 @@ static bool prv_each_free_up_space(SettingsFile *file, SettingsRecordInfo *info,
 //! launch count, last launch, and priority
 status_t app_cache_app_launched(AppInstallId app_id) {
   status_t rv;
-  mutex_lock_recursive(s_app_cache_mutex);
+  pbl_mutex_lock(&s_app_cache_mutex, PBL_FOREVER);
   {
     SettingsFile file;
     rv = settings_file_open(&file, APP_CACHE_FILE_NAME, APP_CACHE_MAX_SIZE);
@@ -245,7 +245,7 @@ status_t app_cache_app_launched(AppInstallId app_id) {
     settings_file_close(&file);
   }
 unlock:
-  mutex_unlock_recursive(s_app_cache_mutex);
+  pbl_mutex_unlock(&s_app_cache_mutex);
   return rv;
 }
 
@@ -257,7 +257,7 @@ status_t app_cache_free_up_space(uint32_t bytes_needed) {
   }
 
   status_t rv;
-  mutex_lock_recursive(s_app_cache_mutex);
+  pbl_mutex_lock(&s_app_cache_mutex, PBL_FOREVER);
   {
     SettingsFile file;
     rv = settings_file_open(&file, APP_CACHE_FILE_NAME, APP_CACHE_MAX_SIZE);
@@ -299,7 +299,7 @@ status_t app_cache_free_up_space(uint32_t bytes_needed) {
     }
   }
 unlock:
-  mutex_unlock_recursive(s_app_cache_mutex);
+  pbl_mutex_unlock(&s_app_cache_mutex);
   return rv;
 }
 
@@ -336,12 +336,12 @@ static bool prv_remove_matching_resource_file_callback(SettingsFile *file,
 
 // Delete files from resource_list that don't correspond to entries in the app cache
 static void prv_app_cache_find_and_delete_orphans(PFSFileListEntry **resource_list) {
-  mutex_lock_recursive(s_app_cache_mutex);
+  pbl_mutex_lock(&s_app_cache_mutex, PBL_FOREVER);
 
   SettingsFile file;
   status_t rv = settings_file_open(&file, APP_CACHE_FILE_NAME, APP_CACHE_MAX_SIZE);
   if (rv != S_SUCCESS) {
-    mutex_unlock_recursive(s_app_cache_mutex);
+    pbl_mutex_unlock(&s_app_cache_mutex);
     return;
   }
   // resource_list contains all of the resource files we found.  We only
@@ -352,7 +352,7 @@ static void prv_app_cache_find_and_delete_orphans(PFSFileListEntry **resource_li
   settings_file_each(&file, prv_remove_matching_resource_file_callback, resource_list);
   settings_file_close(&file);
 
-  mutex_unlock_recursive(s_app_cache_mutex);
+  pbl_mutex_unlock(&s_app_cache_mutex);
 
   // resource_list now only contains filenames of resource files that don't have corresponding
   // entries in the app cache. We can safely delete these files.
@@ -382,9 +382,8 @@ static void prv_purge_orphaned_resource_files(void) {
 
 //! Set up the app cache
 void app_cache_init(void) {
-  s_app_cache_mutex = mutex_create_recursive();
 
-  mutex_lock_recursive(s_app_cache_mutex);
+  pbl_mutex_lock(&s_app_cache_mutex, PBL_FOREVER);
   {
     // if no cache file exists, then we should go ahead and clean up any files that are left over
     int fd = pfs_open(APP_CACHE_FILE_NAME, OP_FLAG_READ, FILE_TYPE_STATIC, 0);
@@ -396,7 +395,7 @@ void app_cache_init(void) {
   }
 
 unlock:
-  mutex_unlock_recursive(s_app_cache_mutex);
+  pbl_mutex_unlock(&s_app_cache_mutex);
 
   prv_purge_orphaned_resource_files();
 }
@@ -404,7 +403,7 @@ unlock:
 //! Adds an entry with the given AppInstallId to the cache
 status_t app_cache_add_entry(AppInstallId app_id, uint32_t total_size) {
   status_t rv;
-  mutex_lock_recursive(s_app_cache_mutex);
+  pbl_mutex_lock(&s_app_cache_mutex, PBL_FOREVER);
   {
     SettingsFile file;
     rv = settings_file_open(&file, APP_CACHE_FILE_NAME, APP_CACHE_MAX_SIZE);
@@ -428,14 +427,14 @@ status_t app_cache_add_entry(AppInstallId app_id, uint32_t total_size) {
     system_task_add_callback(prv_cleanup_app_cache_if_needed, NULL);
   }
 unlock:
-  mutex_unlock_recursive(s_app_cache_mutex);
+  pbl_mutex_unlock(&s_app_cache_mutex);
   return rv;
 }
 
 //! Tests if an entry with the given AppInstallId is in the cache
 bool app_cache_entry_exists(AppInstallId app_id) {
   bool exists = false;
-  mutex_lock_recursive(s_app_cache_mutex);
+  pbl_mutex_lock(&s_app_cache_mutex, PBL_FOREVER);
   {
     SettingsFile file;
     status_t rv = settings_file_open(&file, APP_CACHE_FILE_NAME, APP_CACHE_MAX_SIZE);
@@ -453,14 +452,14 @@ bool app_cache_entry_exists(AppInstallId app_id) {
     settings_file_close(&file);
   }
 unlock:
-  mutex_unlock_recursive(s_app_cache_mutex);
+  pbl_mutex_unlock(&s_app_cache_mutex);
   return exists;
 }
 
 //! Removes an entry with the given AppInstallId from the cache
 status_t app_cache_remove_entry(AppInstallId app_id) {
   status_t rv;
-  mutex_lock_recursive(s_app_cache_mutex);
+  pbl_mutex_lock(&s_app_cache_mutex, PBL_FOREVER);
   {
     SettingsFile file;
     rv = settings_file_open(&file, APP_CACHE_FILE_NAME, APP_CACHE_MAX_SIZE);
@@ -488,19 +487,19 @@ status_t app_cache_remove_entry(AppInstallId app_id) {
     event_put(&e);
   }
 unlock:
-  mutex_unlock_recursive(s_app_cache_mutex);
+  pbl_mutex_unlock(&s_app_cache_mutex);
   return rv;
 }
 
 void app_cache_flush(void) {
   PBL_ASSERT_TASK(PebbleTask_KernelBackground);
 
-  mutex_lock_recursive(s_app_cache_mutex);
+  pbl_mutex_lock(&s_app_cache_mutex, PBL_FOREVER);
   {
     pfs_remove(APP_CACHE_FILE_NAME);
     prv_delete_cached_files();
   }
-  mutex_unlock_recursive(s_app_cache_mutex);
+  pbl_mutex_unlock(&s_app_cache_mutex);
 }
 
 ////////////////////////////////
@@ -522,7 +521,7 @@ static bool prv_each_get_size(SettingsFile *file, SettingsRecordInfo *info, void
 
 uint32_t app_cache_get_size(void) {
   uint32_t cache_size = 0;
-  mutex_lock_recursive(s_app_cache_mutex);
+  pbl_mutex_lock(&s_app_cache_mutex, PBL_FOREVER);
   {
     SettingsFile file;
     status_t rv = settings_file_open(&file, APP_CACHE_FILE_NAME, APP_CACHE_MAX_SIZE);
@@ -534,7 +533,7 @@ uint32_t app_cache_get_size(void) {
     settings_file_close(&file);
   }
 unlock:
-  mutex_unlock_recursive(s_app_cache_mutex);
+  pbl_mutex_unlock(&s_app_cache_mutex);
   return cache_size;
 }
 
@@ -570,7 +569,7 @@ static bool prv_each_min_priority(SettingsFile *file, SettingsRecordInfo *info, 
 //! Find the entry in the app cache with the lowest calculated priority
 AppInstallId app_cache_get_next_eviction(void) {
   AppInstallId ret_value = INSTALL_ID_INVALID;
-  mutex_lock_recursive(s_app_cache_mutex);
+  pbl_mutex_lock(&s_app_cache_mutex, PBL_FOREVER);
   {
     SettingsFile file;
     status_t rv = settings_file_open(&file, APP_CACHE_FILE_NAME, APP_CACHE_MAX_SIZE);
@@ -589,6 +588,6 @@ AppInstallId app_cache_get_next_eviction(void) {
     ret_value = to_evict.id;
   }
 unlock:
-  mutex_unlock_recursive(s_app_cache_mutex);
+  pbl_mutex_unlock(&s_app_cache_mutex);
   return ret_value;
 }

@@ -117,6 +117,7 @@ def generate_shim_files(
             for p in ["include", f"portable/GCC/{freertos_port_name}"]
         ]
     )
+    compiler_flags.append(f"-I{pbl_src_dir}/../kernel/freertos/include")
 
     extract_symbol_info(
         files,

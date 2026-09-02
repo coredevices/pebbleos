@@ -21,7 +21,7 @@
 #include "pbl/util/circular_buffer.h"
 #include "pbl/util/likely.h"
 
-#include <pbl/os/mutex.h>
+#include "pbl/kernel/mutex.h"
 #include <pbl/os/tick.h>
 
 #include "FreeRTOS.h"
@@ -35,7 +35,7 @@
 // -------------------------------------------------------------------------------------------------
 // Static variables
 
-static PebbleRecursiveMutex *s_gatt_client_subscriptions_mutex;
+static PBL_MUTEX_DEFINE(s_gatt_client_subscriptions_mutex);
 static SemaphoreHandle_t s_gatt_client_subscriptions_semphr;
 
 //! s_gatt_client_subscriptions_mutex must be taken when accessing these static variables below!
@@ -89,11 +89,11 @@ static void prv_remove_subscription(GAPLEConnection *connection,
 
 //! bt_lock() may only (optionally) be taken *before* prv_lock(), otherwise we'll deadlock.
 static void prv_lock(void) {
-  mutex_lock_recursive(s_gatt_client_subscriptions_mutex);
+  pbl_mutex_lock(&s_gatt_client_subscriptions_mutex, PBL_FOREVER);
 }
 
 static void prv_unlock(void) {
-  mutex_unlock_recursive(s_gatt_client_subscriptions_mutex);
+  pbl_mutex_unlock(&s_gatt_client_subscriptions_mutex);
 }
 
 static void prv_send_notification_event(PebbleTaskBitset task_mask) {
@@ -791,7 +791,6 @@ void gatt_client_subscription_cleanup_by_att_handle_range(
 }
 
 void gatt_client_subscription_boot(void) {
-  s_gatt_client_subscriptions_mutex = mutex_create_recursive();
   s_gatt_client_subscriptions_semphr = xSemaphoreCreateBinary();
   PBL_ASSERTN(s_gatt_client_subscriptions_semphr);
 }
@@ -810,8 +809,6 @@ SemaphoreHandle_t gatt_client_subscription_get_semaphore(void) {
 
 //! Only for unit tests
 void gatt_client_subscription_cleanup(void) {
-  mutex_destroy((PebbleMutex *)s_gatt_client_subscriptions_mutex);
-  s_gatt_client_subscriptions_mutex = NULL;
   vSemaphoreDelete(s_gatt_client_subscriptions_semphr);
   s_gatt_client_subscriptions_semphr = NULL;
 }

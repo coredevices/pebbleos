@@ -9,35 +9,29 @@
 #include "applib/ui/window_stack.h"
 
 #include <pbl/logging/logging.h>
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "system/profiler.h"
 
 static Window *window;
-static PebbleMutex *s_mutex;
-static PebbleRecursiveMutex *s_rmutex;
+static PBL_MUTEX_DEFINE(s_mutex);
+static PBL_MUTEX_DEFINE(s_rmutex);
 
 static void profile_mutexes(void) {
   PBL_LOG_DBG("INITIALIZING PROFILER FOR MUTEXES!");
   PROFILER_INIT;
   PROFILER_START;
 
-  s_mutex = mutex_create();
   for (int i=0; i < 10000; i++) {
-    mutex_lock(s_mutex);
-    mutex_unlock(s_mutex);
+    pbl_mutex_lock(&s_mutex, PBL_FOREVER);
+    pbl_mutex_unlock(&s_mutex);
   }
-  mutex_destroy(s_mutex);
-  s_mutex = NULL;
 
-  s_rmutex = mutex_create_recursive();
   for (int i=0; i < 10000; i++) {
-    mutex_lock_recursive(s_rmutex);
+    pbl_mutex_lock(&s_rmutex, PBL_FOREVER);
   }
   for (int i=0; i < 10000; i++) {
-    mutex_unlock_recursive(s_rmutex);
+    pbl_mutex_unlock(&s_rmutex);
   }
-  mutex_destroy((PebbleMutex *)s_rmutex);
-  s_rmutex = NULL;
 
   PROFILER_STOP;
   PROFILER_PRINT_STATS;

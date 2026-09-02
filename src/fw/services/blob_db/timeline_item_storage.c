@@ -21,7 +21,7 @@ PBL_LOG_MODULE_DECLARE(service_blob_db, CONFIG_SERVICE_BLOB_DB_LOG_LEVEL);
 
 static RtcTicks prv_storage_lock(TimelineItemStorage *storage, const char *op) {
   RtcTicks before = rtc_get_ticks();
-  mutex_lock(storage->mutex);
+  pbl_mutex_lock(&storage->mutex, PBL_FOREVER);
   RtcTicks after = rtc_get_ticks();
   uint32_t wait_ms = (uint32_t)(((after - before) * 1000) / RTC_TICKS_HZ);
   if (wait_ms >= FIRM_1649_MUTEX_WARN_MS) {
@@ -35,7 +35,7 @@ static void prv_storage_unlock(TimelineItemStorage *storage, RtcTicks lock_ticks
                                const char *op) {
   uint32_t hold_ms =
       (uint32_t)(((rtc_get_ticks() - lock_ticks) * 1000) / RTC_TICKS_HZ);
-  mutex_unlock(storage->mutex);
+  pbl_mutex_unlock(&storage->mutex);
   if (hold_ms >= FIRM_1649_MUTEX_WARN_MS) {
     PBL_LOG_WRN("FIRM-1649: %s held %s mutex for %"PRIu32"ms",
                 op, storage->name, hold_ms);
@@ -264,8 +264,8 @@ void timeline_item_storage_init(TimelineItemStorage *storage,
     .name = filename,
     .max_size = max_size,
     .max_item_age = max_age,
-    .mutex = mutex_create(),
   };
+  pbl_mutex_init(&storage->mutex);
   status_t rv = settings_file_open_growable(&storage->file, storage->name,
                                             storage->max_size, KiBYTES(8));
   if (FAILED(rv)) {

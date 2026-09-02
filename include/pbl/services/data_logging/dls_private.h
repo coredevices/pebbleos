@@ -7,7 +7,7 @@
 #include <pbl/drivers/rtc.h>
 #include "flash_region/flash_region.h"
 #include "kernel/pebble_tasks.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/comm_session/protocol.h"
 #include "system/hexdump.h"
 #include "pbl/util/attributes.h"
@@ -130,7 +130,7 @@ typedef struct {
 
 //! Information needed while a session is active (watch app still adding more data).
 typedef struct {
-  PebbleMutex *mutex;
+  struct pbl_mutex mutex;
   SharedCircularBuffer buffer;    //! A data buffer
   SharedCircularBufferClient buffer_client;
   uint8_t *buffer_storage;        //! Storage for the buffer

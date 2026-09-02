@@ -21,7 +21,7 @@
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/ui/modals/modal_manager.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "process_management/process_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
@@ -73,7 +73,7 @@ static const unsigned int QUICK_DND_HOLD_MS = 800;
 T_STATIC NotificationWindowData s_notification_window_data;
 
 T_STATIC bool s_in_use = false;
-PebbleMutex *s_notification_window_mutex;
+struct pbl_mutex s_notification_window_mutex;
 
 static bool prv_should_provide_action_menu_for_item(NotificationWindowData *data,
                                                     const TimelineItem *item);
@@ -1305,7 +1305,7 @@ static void prv_init_notification_window(bool is_modal) {
   // init_notification_window() can be called from KernelMain when displaying an incoming
   // notification and also from the notifications.c application task. Grab a mutex here so
   // that we don't ever get two instances of it at a time.
-  mutex_lock(s_notification_window_mutex);
+  pbl_mutex_lock(&s_notification_window_mutex, PBL_FOREVER);
   if (s_in_use) {
     goto fail;
   }
@@ -1404,7 +1404,7 @@ static void prv_init_notification_window(bool is_modal) {
   notifications_presented_list_init();
 
 fail:
-  mutex_unlock(s_notification_window_mutex);
+  pbl_mutex_unlock(&s_notification_window_mutex);
 }
 
 void notification_window_init(bool is_modal) {
@@ -1468,7 +1468,7 @@ void notification_window_focus_notification(Uuid *id, bool animated) {
 }
 
 void notification_window_service_init(void) {
-  s_notification_window_mutex = mutex_create();
+  pbl_mutex_init(&s_notification_window_mutex);
   s_notification_window_data.pop_timer_id = EVENTED_TIMER_INVALID_ID;
   // Unconditional: prv_window_unload clears the slot on every platform, so the lock has to exist
   // even where images are never fetched.

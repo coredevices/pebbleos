@@ -5,7 +5,7 @@
 
 #include "board/board.h"
 #include <pbl/drivers/mic.h>
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/util/circular_buffer.h"
 
 #include <stdbool.h>
@@ -49,7 +49,7 @@ typedef struct {
   uint16_t circ_buffer_size;
   
   // State management
-  PebbleRecursiveMutex *mutex;
+  struct pbl_mutex mutex;
   bool is_running;
   bool is_initialized;
   bool main_pending;

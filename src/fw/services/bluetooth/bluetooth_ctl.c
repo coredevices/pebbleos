@@ -11,7 +11,7 @@
 #include "console/dbgserial.h"
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/bluetooth/ble_bas.h"
 #include "pbl/services/bluetooth/bluetooth_persistent_storage.h"
@@ -31,7 +31,7 @@ static bool s_comm_enabled = false;
 static bool s_comm_is_running = false;
 static bool s_comm_state_change_eval_is_scheduled;
 static BtCtlModeOverride s_comm_override = BtCtlModeOverrideNone;
-static PebbleMutex *s_comm_state_change_mutex;
+static PBL_MUTEX_DEFINE(s_comm_state_change_mutex);
 
 bool bt_ctl_is_airplane_mode_on(void) { return s_comm_airplane_mode_on; }
 
@@ -136,7 +136,7 @@ static void prv_send_state_change_event(void) {
 
 static void prv_comm_state_change(void *context) {
   static bool s_first_run = true;
-  mutex_lock(s_comm_state_change_mutex);
+  pbl_mutex_lock(&s_comm_state_change_mutex, PBL_FOREVER);
   s_comm_state_change_eval_is_scheduled = false;
   bool is_active_mode = bt_ctl_is_bluetooth_active();
   if (is_active_mode != s_comm_is_running) {
@@ -155,7 +155,7 @@ static void prv_comm_state_change(void *context) {
   }
 
   s_first_run = false;
-  mutex_unlock(s_comm_state_change_mutex);
+  pbl_mutex_unlock(&s_comm_state_change_mutex);
 }
 
 void bt_ctl_set_enabled(bool enabled) {
@@ -163,9 +163,9 @@ void bt_ctl_set_enabled(bool enabled) {
     PBL_LOG_ERR("Error: Bluetooth isn't initialized yet");
     return;
   }
-  mutex_lock(s_comm_state_change_mutex);
+  pbl_mutex_lock(&s_comm_state_change_mutex, PBL_FOREVER);
   s_comm_enabled = enabled;
-  mutex_unlock(s_comm_state_change_mutex);
+  pbl_mutex_unlock(&s_comm_state_change_mutex);
   prv_comm_state_change(NULL);
 }
 
@@ -174,9 +174,9 @@ void bt_ctl_set_override_mode(BtCtlModeOverride override) {
     PBL_LOG_ERR("Error: Bluetooth isn't initialized yet");
     return;
   }
-  mutex_lock(s_comm_state_change_mutex);
+  pbl_mutex_lock(&s_comm_state_change_mutex, PBL_FOREVER);
   s_comm_override = override;
-  mutex_unlock(s_comm_state_change_mutex);
+  pbl_mutex_unlock(&s_comm_state_change_mutex);
   prv_comm_state_change(NULL);
 }
 
@@ -197,7 +197,7 @@ void bt_ctl_set_airplane_mode_async(bool enabled) {
     PBL_LOG_ERR("Error: Bluetooth isn't initialized yet");
     return;
   }
-  mutex_lock(s_comm_state_change_mutex);
+  pbl_mutex_lock(&s_comm_state_change_mutex, PBL_FOREVER);
   prv_track_quick_airplane_mode_toggles(!enabled);
   bt_persistent_storage_set_airplane_mode_enabled(enabled);
   s_comm_airplane_mode_on = enabled;
@@ -206,14 +206,13 @@ void bt_ctl_set_airplane_mode_async(bool enabled) {
     should_schedule_eval = true;
     s_comm_state_change_eval_is_scheduled = true;
   }
-  mutex_unlock(s_comm_state_change_mutex);
+  pbl_mutex_unlock(&s_comm_state_change_mutex);
   if (should_schedule_eval) {
     system_task_add_callback(prv_comm_state_change, NULL);
   }
 }
 
 void bt_ctl_init(void) {
-  s_comm_state_change_mutex = mutex_create();
 
   s_comm_airplane_mode_on = bt_persistent_storage_get_airplane_mode_enabled();
   s_comm_initialized = true;
@@ -223,7 +222,7 @@ void bt_ctl_init(void) {
 
 static void prv_bt_ctl_reset_bluetooth_callback(void *context) {
   PBL_LOG_DBG("Resetting Bluetooth");
-  mutex_lock(s_comm_state_change_mutex);
+  pbl_mutex_lock(&s_comm_state_change_mutex, PBL_FOREVER);
 
   bool was_already_running = s_comm_is_running;
 
@@ -237,7 +236,7 @@ static void prv_bt_ctl_reset_bluetooth_callback(void *context) {
   if (!was_already_running && s_comm_is_running) {
     prv_send_state_change_event();
   }
-  mutex_unlock(s_comm_state_change_mutex);
+  pbl_mutex_unlock(&s_comm_state_change_mutex);
 }
 
 void bt_ctl_reset_bluetooth(void) {

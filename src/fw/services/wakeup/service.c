@@ -5,7 +5,7 @@
 
 #include "popups/wakeup_ui.h"
 
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
 #include "pbl/services/clock.h"
@@ -34,7 +34,7 @@ PBL_LOG_MODULE_DEFINE(service_wakeup, CONFIG_SERVICE_WAKEUP_LOG_LEVEL);
 // route. 16 apps should be more than enough.
 #define NUM_APPS_ALERT_ON_BOOT 16
 
-static PebbleMutex *s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
 
 //! Settings entries == WakeupId are stored by timestamp,
 //! duplicate timestamps not allowed (can't have 2 wakeup events at same time)
@@ -172,7 +172,7 @@ static void prv_wakeup_timer_next_pending(void) {
     new_timer_stop(s_current_timer_id);
   }
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   {
     // Find the next event to occur
     SettingsFile wakeup_settings;
@@ -186,7 +186,7 @@ static void prv_wakeup_timer_next_pending(void) {
       PBL_LOG_ERR("Error: could not open APP_WAKEUP settings");
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 
   // Create a timer for the found wakeup id, given it's valid
   if (s_wakeup_state.current_wakeup_id >= 0) {
@@ -311,7 +311,6 @@ static void prv_update_events_callback(SettingsFile *old_file, SettingsFile *new
 void wakeup_init(void) {
   struct prv_missed_events_s missed_events = { 0, NULL };
 
-  s_mutex = mutex_create();
 
   event_service_init(PEBBLE_WAKEUP_EVENT, NULL, NULL);
 
@@ -407,7 +406,7 @@ DEFINE_SYSCALL(WakeupId, sys_wakeup_schedule, time_t timestamp, int32_t reason,
 
 
 static void prv_wakeup_settings_delete_entry(WakeupId wakeup_id) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   {
     SettingsFile wakeup_settings;
     if (settings_file_open(&wakeup_settings, SETTINGS_FILE_NAME, SETTINGS_FILE_SIZE) == S_SUCCESS) {
@@ -415,13 +414,13 @@ static void prv_wakeup_settings_delete_entry(WakeupId wakeup_id) {
       settings_file_close(&wakeup_settings);
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 static WakeupEntry prv_wakeup_settings_get_entry(WakeupId wakeup_id) {
   WakeupEntry entry = {{0}};
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   {
     SettingsFile wakeup_settings;
     if (settings_file_open(&wakeup_settings, SETTINGS_FILE_NAME, SETTINGS_FILE_SIZE) == S_SUCCESS) {
@@ -430,7 +429,7 @@ static WakeupEntry prv_wakeup_settings_get_entry(WakeupId wakeup_id) {
       settings_file_close(&wakeup_settings);
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
   return entry;
 }
 
@@ -485,7 +484,7 @@ static bool prv_check_count_and_availability_callback(SettingsFile *file,
 static StatusCode prv_wakeup_settings_add_entry(WakeupId wakeup_id, WakeupEntry entry) {
   status_t status = S_SUCCESS;
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   {
     SettingsFile wakeup_settings;
     if (settings_file_open(&wakeup_settings, SETTINGS_FILE_NAME, SETTINGS_FILE_SIZE) == S_SUCCESS) {
@@ -510,7 +509,7 @@ static StatusCode prv_wakeup_settings_add_entry(WakeupId wakeup_id, WakeupEntry 
       status = E_INTERNAL;
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 
   return status;
 }
@@ -545,7 +544,7 @@ static void prv_delete_events_by_uuid_callback(SettingsFile *old_file, SettingsF
 
 
 DEFINE_SYSCALL(void, sys_wakeup_cancel_all_for_app, void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   {
     SettingsFile wakeup_settings;
     if (settings_file_open(&wakeup_settings, SETTINGS_FILE_NAME, SETTINGS_FILE_SIZE) == S_SUCCESS) {
@@ -554,7 +553,7 @@ DEFINE_SYSCALL(void, sys_wakeup_cancel_all_for_app, void) {
       settings_file_close(&wakeup_settings);
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 
   // We may have cancelled the timer, next_pending will check
   prv_wakeup_timer_next_pending();
@@ -568,7 +567,7 @@ DEFINE_SYSCALL(time_t, sys_wakeup_query, WakeupId wakeup_id) {
     return status;
   }
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   {
     SettingsFile wakeup_settings;
     if (settings_file_open(&wakeup_settings, SETTINGS_FILE_NAME, SETTINGS_FILE_SIZE) == S_SUCCESS) {
@@ -580,7 +579,7 @@ DEFINE_SYSCALL(time_t, sys_wakeup_query, WakeupId wakeup_id) {
       status = E_INTERNAL;
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 
   if (status != S_SUCCESS) {
     return status;
@@ -619,7 +618,7 @@ WakeupId wakeup_get_next_scheduled(void) {
 }
 
 void wakeup_migrate_timezone(int utc_diff) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   {
     SettingsFile wakeup_settings;
     if (settings_file_open(&wakeup_settings, SETTINGS_FILE_NAME, SETTINGS_FILE_SIZE) == S_SUCCESS) {
@@ -629,14 +628,14 @@ void wakeup_migrate_timezone(int utc_diff) {
       PBL_LOG_ERR("Error: could not open wakeup settings");
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 static void prv_wakeup_rewrite_kernel_bg_cb(void *data) {
   // Update each wakeup entry via prv_update_events_callback and record any missed events
   struct prv_missed_events_s missed_events = { 0, NULL };
 
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   {
     SettingsFile wakeup_settings;
     if (settings_file_open(&wakeup_settings, SETTINGS_FILE_NAME, SETTINGS_FILE_SIZE) == S_SUCCESS) {
@@ -647,7 +646,7 @@ static void prv_wakeup_rewrite_kernel_bg_cb(void *data) {
       PBL_LOG_ERR("Error: could not open wakeup settings");
     }
   }
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 
   // If any events were missed due to time change display the wakeup popup
   if (missed_events.missed_apps_count) {

@@ -14,7 +14,7 @@
 
 #include "FreeRTOS.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "queue.h"
 #include "semphr.h"
 #include "pbl/services/new_timer/new_timer.h"
@@ -67,7 +67,7 @@ struct ble_npl_callout {
 };
 
 struct ble_npl_mutex {
-  PebbleRecursiveMutex *handle;
+  struct pbl_mutex handle;
 };
 
 struct ble_npl_sem {

@@ -3,7 +3,7 @@
 
 #include "pbl/services/blob_db/health_db.h"
 
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/activity/activity_private.h"
 #include "pbl/services/activity/hr_util.h"
 #include "pbl/services/blob_db/api.h"
@@ -25,7 +25,7 @@ PBL_LOG_MODULE_DECLARE(service_blob_db, CONFIG_SERVICE_BLOB_DB_LOG_LEVEL);
 
 static const char *HEALTH_DB_FILE_NAME = "healthdb";
 static const int HEALTH_DB_MAX_SIZE = KiBYTES(12);
-static PebbleMutex *s_mutex;
+static PBL_MUTEX_DEFINE(s_mutex);
 
 #define MOVEMENT_DATA_KEY_SUFFIX "_movementData"
 #define SLEEP_DATA_KEY_SUFFIX "_sleepData"
@@ -89,13 +89,13 @@ _Static_assert(sizeof(HeartRateZoneData) % sizeof(uint32_t) == 0,
 
 
 static status_t prv_file_open_and_lock(SettingsFile *file) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
   status_t rv = settings_file_open_growable(file, HEALTH_DB_FILE_NAME, HEALTH_DB_MAX_SIZE,
                                             KiBYTES(8));
   if (rv != S_SUCCESS) {
     PBL_LOG_ERR("Failed to open settings file");
-    mutex_unlock(s_mutex);
+    pbl_mutex_unlock(&s_mutex);
   }
 
   return rv;
@@ -103,7 +103,7 @@ static status_t prv_file_open_and_lock(SettingsFile *file) {
 
 static void prv_file_close_and_unlock(SettingsFile *file) {
   settings_file_close(file);
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
 }
 
 static bool prv_key_is_valid(const uint8_t *key, int key_len) {
@@ -320,8 +320,6 @@ bool health_db_set_typical_values(ActivityMetric metric,
 /////////////////////////
 
 void health_db_init(void) {
-  s_mutex = mutex_create();
-  PBL_ASSERTN(s_mutex != NULL);
 }
 
 status_t health_db_insert(const uint8_t *key, int key_len, const uint8_t *val, int val_len) {
@@ -417,9 +415,9 @@ status_t health_db_delete(const uint8_t *key, int key_len) {
 }
 
 status_t health_db_flush(void) {
-  mutex_lock(s_mutex);
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   status_t rv = pfs_remove(HEALTH_DB_FILE_NAME);
-  mutex_unlock(s_mutex);
+  pbl_mutex_unlock(&s_mutex);
   return rv;
 }
 

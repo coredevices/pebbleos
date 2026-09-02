@@ -4,7 +4,7 @@
 #include "pbl/services/blob_db/weather_db.h"
 
 #include "kernel/pbl_malloc.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/weather/weather_service.h"
@@ -20,7 +20,7 @@ PBL_LOG_MODULE_DECLARE(service_blob_db, CONFIG_SERVICE_BLOB_DB_LOG_LEVEL);
 
 static struct {
   SettingsFile settings_file;
-  PebbleMutex *mutex;
+  struct pbl_mutex mutex;
 } s_weather_db;
 
 typedef struct WeatherDBIteratorData {
@@ -33,20 +33,20 @@ typedef struct WeatherDBIteratorData {
 ///////////////////////////
 
 static status_t prv_lock_mutex_and_open_file(void) {
-  mutex_lock(s_weather_db.mutex);
+  pbl_mutex_lock(&s_weather_db.mutex, PBL_FOREVER);
   status_t rv = settings_file_open_growable(&s_weather_db.settings_file,
                                             SETTINGS_FILE_NAME,
                                             SETTINGS_FILE_SIZE,
                                             KiBYTES(4));
   if (rv != S_SUCCESS) {
-    mutex_unlock(s_weather_db.mutex);
+    pbl_mutex_unlock(&s_weather_db.mutex);
   }
   return rv;
 }
 
 static void prv_close_file_and_unlock_mutex(void) {
   settings_file_close(&s_weather_db.settings_file);
-  mutex_unlock(s_weather_db.mutex);
+  pbl_mutex_unlock(&s_weather_db.mutex);
 }
 
 // Every byte past the fixed fields is phone-controlled, so the trailing string
@@ -129,7 +129,7 @@ status_t weather_db_for_each(WeatherDBIteratorCallback callback, void *context) 
 void weather_db_init(void) {
   memset(&s_weather_db, 0, sizeof(s_weather_db));
 
-  s_weather_db.mutex = mutex_create();
+  pbl_mutex_init(&s_weather_db.mutex);
 }
 
 status_t weather_db_flush(void) {
@@ -138,9 +138,9 @@ status_t weather_db_flush(void) {
     // unwelcome weather records
     return E_RANGE;
   }
-  mutex_lock(s_weather_db.mutex);
+  pbl_mutex_lock(&s_weather_db.mutex, PBL_FOREVER);
   pfs_remove(SETTINGS_FILE_NAME);
-  mutex_unlock(s_weather_db.mutex);
+  pbl_mutex_unlock(&s_weather_db.mutex);
 
   return S_SUCCESS;
 }

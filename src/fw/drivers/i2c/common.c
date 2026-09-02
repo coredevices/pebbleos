@@ -12,7 +12,7 @@
 #include "FreeRTOS.h"
 #include "pbl/os/tick.h"
 #include "kernel/util/sleep.h"
-#include "pbl/os/mutex.h"
+#include "pbl/kernel/mutex.h"
 #include "semphr.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
@@ -95,8 +95,8 @@ void i2c_init(I2CBus *bus) {
 
   *bus->state = (I2CBusState) {
     .event_semaphore = xSemaphoreCreateBinary(),
-    .bus_mutex = mutex_create(),
   };
+  pbl_mutex_init(&bus->state->bus_mutex);
 
   // Must give token before one can be taken without blocking
   xSemaphoreGive(bus->state->event_semaphore);
@@ -106,23 +106,23 @@ void i2c_init(I2CBus *bus) {
 
 void i2c_use(I2CSlavePort *slave) {
   PBL_ASSERTN(slave);
-  mutex_lock(slave->bus->state->bus_mutex);
+  pbl_mutex_lock(&slave->bus->state->bus_mutex, PBL_FOREVER);
 
   if (slave->bus->state->user_count == 0) {
     prv_bus_enable(slave->bus);
   }
   slave->bus->state->user_count++;
 
-  mutex_unlock(slave->bus->state->bus_mutex);
+  pbl_mutex_unlock(&slave->bus->state->bus_mutex);
 }
 
 void i2c_release(I2CSlavePort *slave) {
   PBL_ASSERTN(slave);
-  mutex_lock(slave->bus->state->bus_mutex);
+  pbl_mutex_lock(&slave->bus->state->bus_mutex, PBL_FOREVER);
 
   if (slave->bus->state->user_count == 0) {
     PBL_LOG_ERR("Attempted release of disabled bus %s", slave->bus->name);
-    mutex_unlock(slave->bus->state->bus_mutex);
+    pbl_mutex_unlock(&slave->bus->state->bus_mutex);
     return;
   }
 
@@ -131,19 +131,19 @@ void i2c_release(I2CSlavePort *slave) {
     prv_bus_disable(slave->bus);
   }
 
-  mutex_unlock(slave->bus->state->bus_mutex);
+  pbl_mutex_unlock(&slave->bus->state->bus_mutex);
 }
 
 void i2c_reset(I2CSlavePort *slave) {
   PBL_ASSERTN(slave);
 
   // Take control of bus; only one task may use bus at a time
-  mutex_lock(slave->bus->state->bus_mutex);
+  pbl_mutex_lock(&slave->bus->state->bus_mutex, PBL_FOREVER);
 
   if (slave->bus->state->user_count == 0) {
     PBL_LOG_ERR("Attempted reset of disabled bus %s when still in use by "
         "another bus", slave->bus->name);
-    mutex_unlock(slave->bus->state->bus_mutex);
+    pbl_mutex_unlock(&slave->bus->state->bus_mutex);
     return;
   }
 
@@ -159,7 +159,7 @@ void i2c_reset(I2CSlavePort *slave) {
   // Restore user count
   slave->bus->state->user_count++;
 
-  mutex_unlock(slave->bus->state->bus_mutex);
+  pbl_mutex_unlock(&slave->bus->state->bus_mutex);
 }
 
 bool i2c_bitbang_recovery(I2CSlavePort *slave) {
@@ -290,12 +290,12 @@ static bool prv_do_transfer_locked(I2CBus *bus, I2CTransferDirection direction, 
 static bool prv_do_transfer(I2CBus *bus, I2CTransferDirection direction, uint16_t device_address,
                             uint8_t register_address, uint32_t size, uint8_t *data,
                             I2CTransferType type) {
-  mutex_lock(bus->state->bus_mutex);
+  pbl_mutex_lock(&bus->state->bus_mutex, PBL_FOREVER);
 
   bool result = prv_do_transfer_locked(bus, direction, device_address, register_address, size,
                                        data, type);
 
-  mutex_unlock(bus->state->bus_mutex);
+  pbl_mutex_unlock(&bus->state->bus_mutex);
 
   return result;
 }
@@ -376,7 +376,7 @@ bool i2c_write_read_block(I2CSlavePort *slave, uint32_t write_size, const uint8_
   I2CBus *bus = slave->bus;
 
   // Take control of bus; only one task may use bus at a time
-  mutex_lock(bus->state->bus_mutex);
+  pbl_mutex_lock(&bus->state->bus_mutex, PBL_FOREVER);
 
   // Perform write transfer
   bool result = prv_do_transfer_locked(bus, Write, slave->address, 0, write_size,
@@ -388,7 +388,7 @@ bool i2c_write_read_block(I2CSlavePort *slave, uint32_t write_size, const uint8_
                                     read_buffer, NoRegisterAddress);
   }
 
-  mutex_unlock(bus->state->bus_mutex);
+  pbl_mutex_unlock(&bus->state->bus_mutex);
 
   if (!result) {
     PBL_LOG_ERR("Write-read block failed on bus %s", bus->name);
