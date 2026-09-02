@@ -1,5 +1,5 @@
 [project]
-name = "pbl-tool"
+name = "pbl-watch"
 version = "1.0.1"
 description = "Internal tool for interacting with pebbles."
 readme = "README.md"
@@ -10,4 +10,4 @@ dependencies = [
 ]
 
 [project.scripts]
-pbl = "pbl:run_tool"
+pbl-watch = "pblwatch:run_tool"
