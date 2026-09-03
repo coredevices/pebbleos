@@ -12,6 +12,7 @@
 extern T_STATIC void prv_handle_phone_event(PebbleEvent *e, void *context);
 extern T_STATIC void prv_handle_mobile_app_event(PebbleEvent *e, void *context);
 extern T_STATIC void prv_handle_ancs_disconnected_event(PebbleEvent *e, void *context);
+extern T_STATIC void prv_handle_remote_app_info_event(PebbleEvent *e, void *context);
 
 
 ///////////////////////////////////////////////////////////
@@ -44,9 +45,11 @@ void pp_get_phone_state_set_enabled(bool enabled) {}
 
 // Phone UI stubs that allow us to track what phone_call.c is doing
 static PhoneEventType s_last_phone_ui_event;
+static bool s_last_show_ongoing_call_ui;
 void phone_ui_handle_incoming_call(PebblePhoneCaller *caller, bool show_ongoing_call_ui,
                                    PhoneCallSource source) {
   s_last_phone_ui_event = PhoneEventType_Incoming;
+  s_last_show_ongoing_call_ui = show_ongoing_call_ui;
 }
 
 void phone_ui_handle_outgoing_call(PebblePhoneCaller *caller) {
@@ -110,6 +113,18 @@ static void prv_put_phone_event(PhoneEventType type, PhoneCallSource source,
     }
   };
   prv_handle_phone_event(&phone_event, NULL);
+}
+
+static void prv_put_remote_app_info_event(RemoteOS os) {
+  PebbleEvent app_info_event = {
+    .type = PEBBLE_REMOTE_APP_INFO_EVENT,
+    .bluetooth = {
+      .app_info_event = {
+        .os = os,
+      }
+    }
+  };
+  prv_handle_remote_app_info_event(&app_info_event, NULL);
 }
 
 static void prv_put_incoming_call_event(PhoneCallSource source, bool app_connected) {
@@ -269,4 +284,37 @@ void test_phone_call__ancs_hide(void) {
 
   prv_call_hide(ANCS_CALL_UID);
   ASSERT_LAST_EVENT(PhoneEventType_Hide);
+}
+
+void test_phone_call__pp_incoming_from_android_shows_the_ongoing_call_ui(void) {
+  prv_put_remote_app_info_event(RemoteOSAndroid);
+
+  prv_put_incoming_call_event(PhoneCallSource_PP, true);
+
+  cl_assert_equal_i(s_last_phone_ui_event, PhoneEventType_Incoming);
+  cl_assert_equal_b(s_last_show_ongoing_call_ui, true);
+}
+
+void test_phone_call__pp_incoming_from_ios_does_not(void) {
+  // An iOS companion sends calls over PP as well, and can neither answer nor
+  // end one, so counting the call would be counting a phone still ringing.
+  prv_put_remote_app_info_event(RemoteOSiOS);
+
+  prv_put_incoming_call_event(PhoneCallSource_PP, true);
+
+  cl_assert_equal_i(s_last_phone_ui_event, PhoneEventType_Incoming);
+  cl_assert_equal_b(s_last_show_ongoing_call_ui, false);
+}
+
+void test_phone_call__pp_incoming_after_the_ios_app_went_away(void) {
+  prv_put_remote_app_info_event(RemoteOSiOS);
+  prv_put_comm_session_event(false /* app_connected */);
+  prv_call_end();
+  s_last_phone_ui_event = PhoneEventType_Invalid;
+
+  // A call from whoever connected next, arriving before its version response.
+  prv_put_incoming_call_event(PhoneCallSource_PP, true);
+
+  cl_assert_equal_i(s_last_phone_ui_event, PhoneEventType_Incoming);
+  cl_assert_equal_b(s_last_show_ongoing_call_ui, true);
 }

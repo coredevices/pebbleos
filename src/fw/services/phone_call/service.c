@@ -9,6 +9,7 @@
 #include "popups/phone_ui.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/comm_session/session.h"
+#include "pbl/services/comm_session/session_remote_os.h"
 #include "pbl/services/phone_pp.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/notifications/alerts.h"
@@ -44,6 +45,10 @@ static bool s_mobile_app_is_connected;
 // We can't expect iOS to reliably send us phone call events, so we must poll for the current
 // status of the phone call
 static TimerID s_call_watchdog = TIMER_INVALID_ID;
+
+// What the mobile app said it runs on. A call over PP does not mean Android: an
+// iOS companion sends calls that way too, and cannot act on what we send back.
+static RemoteOS s_phone_os = RemoteOSUnknown;
 
 
 static void prv_handle_call_end(bool disconnected);
@@ -88,15 +93,23 @@ static void prv_cancel_call_watchdog(void) {
   pp_get_phone_state_set_enabled(false);
 }
 
+// iOS gives no third-party app a way to answer or end a carrier call, so the
+// answer and hangup we send over PP reach an app that can do nothing with them.
+// Acting as though they worked is what leaves the watch counting the seconds of
+// a call that is still ringing.
+static bool prv_phone_cannot_act_on_calls(void) {
+  return (s_phone_os == RemoteOSiOS);
+}
+
 static bool prv_should_show_ongoing_call_ui(void) {
-  // We only want to show the ongoing call UI on Android
-  return (s_call_source == PhoneCallSource_PP);
+  // Not on iOS, whichever way the call reached us: see prv_phone_cannot_act_on_calls
+  return (s_call_source == PhoneCallSource_PP) && !prv_phone_cannot_act_on_calls();
 }
 
 // hangup != decline. Decline == reject incomming call, Hangup == stop in progress call
 static bool prv_can_hangup(void) {
   // We can't hangup with iOS
-  return !prv_call_is_ancs();
+  return !prv_call_is_ancs() && !prv_phone_cannot_act_on_calls();
 }
 
 // Handles the common things when we hide an incoming call
@@ -257,12 +270,21 @@ T_STATIC void prv_handle_phone_event(PebbleEvent *e, void *context) {
   phone_call_util_destroy_caller(event.caller);
 }
 
+T_STATIC void prv_handle_remote_app_info_event(PebbleEvent *e, void *context) {
+  s_phone_os = e->bluetooth.app_info_event.os;
+}
+
 T_STATIC void prv_handle_mobile_app_event(PebbleEvent *e, void *context) {
   if (!e->bluetooth.comm_session_event.is_system) {
     return;
   }
 
   s_mobile_app_is_connected = e->bluetooth.comm_session_event.is_open;
+  if (!s_mobile_app_is_connected) {
+    // The next app to connect need not be the same one, and its version
+    // response can arrive after the first call it sends us.
+    s_phone_os = RemoteOSUnknown;
+  }
   if (!s_mobile_app_is_connected && (s_call_source != PhoneCallSource_ANCS)) {
     prv_handle_call_end(true /* disconnected */);
   }
@@ -291,6 +313,13 @@ void phone_call_service_init() {
     .handler = prv_handle_mobile_app_event,
   };
   event_service_client_subscribe(&mobile_app_event_info);
+
+  static EventServiceInfo app_info_event_info;
+  app_info_event_info = (EventServiceInfo) {
+    .type = PEBBLE_REMOTE_APP_INFO_EVENT,
+    .handler = prv_handle_remote_app_info_event,
+  };
+  event_service_client_subscribe(&app_info_event_info);
 
   static EventServiceInfo ancs_disconnected_event_info;
   ancs_disconnected_event_info = (EventServiceInfo) {
