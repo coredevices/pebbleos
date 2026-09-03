@@ -15,11 +15,8 @@ config KERNEL_BACKEND_FREERTOS
 
 config KERNEL_BACKEND_NATIVE
 	bool "Native kernel"
-	depends on !MODDABLE_XS
 	help
-	  PebbleOS's own scheduler and Cortex-M port in kernel/native. The
-	  moddable platform glue still calls FreeRTOS directly, so the two
-	  are exclusive until it is ported.
+	  PebbleOS's own scheduler and Cortex-M port in kernel/native.
 
 endchoice
 
