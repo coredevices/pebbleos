@@ -43,11 +43,15 @@ extern void music_protocol_msg_callback(CommSession *session, const uint8_t* msg
 // Helpers
 ///////////////////////////////////////////////////////////
 
-static void prv_receive_app_info_event(bool is_android) {
+static void prv_receive_app_info_event_for_os(RemoteOS os) {
   const PebbleRemoteAppInfoEvent app_info_event = (const PebbleRemoteAppInfoEvent) {
-    .os = is_android ? RemoteOSAndroid : RemoteOSiOS,
+    .os = os,
   };
   music_endpoint_handle_mobile_app_info_event(&app_info_event);
+}
+
+static void prv_receive_app_info_event(bool is_android) {
+  prv_receive_app_info_event_for_os(is_android ? RemoteOSAndroid : RemoteOSiOS);
 }
 
 static void prv_receive_app_event(bool is_open) {
@@ -249,6 +253,22 @@ void test_music_endpoint__ignore_now_playing_from_ios_app(void) {
   // iOS app connects:
   prv_receive_app_info_event(false /* is_android */);
   // iOS app is not supposed to use this endpoint:
+  prv_receive_and_assert_all(false /* expect_is_handled*/);
+}
+
+void test_music_endpoint__request_now_playing_from_desktop_app(void) {
+  fake_transport_set_sent_cb(s_transport, &prv_assert_now_playing_requested_cb);
+
+  // A desktop app has no Apple Media Service to read instead:
+  prv_receive_app_info_event_for_os(RemoteOSX);
+
+  fake_comm_session_process_send_next();
+  cl_assert_equal_b(s_now_playing_requested, true);
+}
+
+void test_music_endpoint__ignore_now_playing_from_app_of_unknown_os(void) {
+  // An app that does not say what it runs on could be an iOS one:
+  prv_receive_app_info_event_for_os(RemoteOSUnknown);
   prv_receive_and_assert_all(false /* expect_is_handled*/);
 }
 

@@ -294,11 +294,20 @@ static void prv_set_connected(bool connected) {
 }
 
 void music_endpoint_handle_mobile_app_info_event(const PebbleRemoteAppInfoEvent *app_info_event) {
-  if (app_info_event->os != RemoteOSAndroid) {
-    // Only on Android we use Pebble Protocol for music metadata and control.
-    return;
+  // iOS publishes the Apple Media Service over GATT and the watch reads that
+  // directly, so the protocol is not wanted there. Neither is it wanted where
+  // the app did not say what it runs on, which could be an older iOS one.
+  // Everything else — a desktop, or Android — has nothing but this endpoint.
+  switch (app_info_event->os) {
+    case RemoteOSAndroid:
+    case RemoteOSX:
+    case RemoteOSLinux:
+    case RemoteOSWindows:
+      break;
+    default:
+      return;
   }
-  
+
   ams_music_disconnect();
   prv_set_connected(true);
 }
