@@ -97,6 +97,13 @@ static const Codepoint ZERO_WIDTH_CODEPOINTS[] = {
   WORD_JOINER_CODEPOINT,
 };
 
+static const Codepoint THAI_COMBINING_MARKS[] = {
+  0x0E31,
+  0x0E34, 0x0E35, 0x0E36, 0x0E37,
+  0x0E3A,
+  0x0E47, 0x0E48, 0x0E49, 0x0E4A, 0x0E4B, 0x0E4C, 0x0E4D, 0x0E4E,
+};
+
 static bool codepoint_in_list(const Codepoint codepoint, const Codepoint *codepoints, size_t size) {
   for (size_t i = 0; i < size; ++i) {
     if (codepoints[i] >= codepoint) {
@@ -167,6 +174,10 @@ bool codepoint_should_skip(const Codepoint codepoint) {
 
 bool codepoint_is_zero_width(const Codepoint codepoint) {
   return codepoint_in_list(codepoint, ZERO_WIDTH_CODEPOINTS, ARRAY_LENGTH(ZERO_WIDTH_CODEPOINTS));
+}
+
+bool codepoint_is_zero_advance(const Codepoint codepoint) {
+  return codepoint_in_list(codepoint, THAI_COMBINING_MARKS, ARRAY_LENGTH(THAI_COMBINING_MARKS));
 }
 
 bool codepoint_is_latin(const Codepoint codepoint) {

@@ -26,6 +26,8 @@ FONT_VERSION_3 = 3
 # Feature flags
 FEATURE_OFFSET_16 = 0x01
 FEATURE_RLE4 = 0x02
+FEATURE_GPOS_ANCHORS = 0x04
+GPOS_ANCHOR_MAGIC = b"GA"
 
 GLYPH_MD_STRUCT = "BBbbb"
 
@@ -111,7 +113,7 @@ def extract_pbf(pbf_path, output_dir):
     os.makedirs(glyphs_dir, exist_ok=True)
 
     # Extract all glyphs
-    glyphs = []
+    offset_entries = []
     for _, count, offset in hash_table:
         for i in range(count):
             entry_start = offset_tables_start + offset + i * offset_entry_size
@@ -119,69 +121,107 @@ def extract_pbf(pbf_path, output_dir):
                 offset_table_format,
                 font_data[entry_start : entry_start + offset_entry_size],
             )
+            offset_entries.append((codepoint, glyph_offset))
 
-            # Read glyph header
-            bitmap_offset_bytes = glyph_offset + struct.calcsize(GLYPH_MD_STRUCT)
-            header_data = glyph_table[glyph_offset:bitmap_offset_bytes]
+    next_offset_by_glyph_offset = {}
+    unique_offsets = sorted(set(offset for _, offset in offset_entries))
+    for idx, glyph_offset in enumerate(unique_offsets):
+        next_offset_by_glyph_offset[glyph_offset] = (
+            unique_offsets[idx + 1]
+            if idx + 1 < len(unique_offsets)
+            else len(glyph_table)
+        )
 
-            if len(header_data) < struct.calcsize(GLYPH_MD_STRUCT):
-                continue
+    glyphs = []
+    for codepoint, glyph_offset in offset_entries:
+        # Read glyph header
+        bitmap_offset_bytes = glyph_offset + struct.calcsize(GLYPH_MD_STRUCT)
+        header_data = glyph_table[glyph_offset:bitmap_offset_bytes]
 
-            (width, height_or_rle, left, top, advance) = struct.unpack(
-                GLYPH_MD_STRUCT, header_data
-            )
+        if len(header_data) < struct.calcsize(GLYPH_MD_STRUCT):
+            continue
 
-            # Read bitmap data
-            if features & FEATURE_RLE4:
-                bitmap_length = (height_or_rle + 1) // 2
-            else:
-                bitmap_length = ((height_or_rle * width) + 7) // 8
+        (width, height_or_rle, left, top, advance) = struct.unpack(
+            GLYPH_MD_STRUCT, header_data
+        )
 
-            bitmap_length_aligned = ((bitmap_length + 3) // 4) * 4
-            bitmap_data = glyph_table[
-                bitmap_offset_bytes : bitmap_offset_bytes + bitmap_length_aligned
-            ]
+        # Read bitmap data
+        if features & FEATURE_RLE4:
+            bitmap_length = (height_or_rle + 1) // 2
+        else:
+            bitmap_length = ((height_or_rle * width) + 7) // 8
 
-            # Convert to bitlist
-            if width == 0 or (height_or_rle == 0 and not (features & FEATURE_RLE4)):
-                bitlist = []
-                height = 0
-            elif features & FEATURE_RLE4:
-                bitlist, height = decompress_rle4(bitmap_data, height_or_rle, width)
-            else:
-                bitlist = []
-                for w in array.array("I", bitmap_data):
-                    bitlist.extend((w & (1 << bit)) != 0 for bit in range(32))
-                height = height_or_rle
+        bitmap_length_aligned = ((bitmap_length + 3) // 4) * 4
+        bitmap_data = glyph_table[
+            bitmap_offset_bytes : bitmap_offset_bytes + bitmap_length_aligned
+        ]
 
-            # Create and save image
-            filename = f"U+{codepoint:04X}.png"
-            filepath = os.path.join(glyphs_dir, filename)
+        anchors = []
+        if features & FEATURE_GPOS_ANCHORS:
+            glyph_end = next_offset_by_glyph_offset.get(glyph_offset, len(glyph_table))
+            payload_start = bitmap_offset_bytes + bitmap_length_aligned
+            payload = glyph_table[payload_start:glyph_end]
+            if len(payload) >= 4 and payload[:2] == GPOS_ANCHOR_MAGIC:
+                anchor_version = payload[2]
+                anchor_count = payload[3]
+                cursor = 4
+                if anchor_version == 1:
+                    for _ in range(anchor_count):
+                        if cursor + 6 > len(payload):
+                            break
+                        mark_cp, dx_fu, dy_fu = struct.unpack(
+                            "<Hhh", payload[cursor : cursor + 6]
+                        )
+                        anchors.append(
+                            {
+                                "mark_codepoint": mark_cp,
+                                "dx_fu": dx_fu,
+                                "dy_fu": dy_fu,
+                            }
+                        )
+                        cursor += 6
 
-            if width > 0 and height > 0 and bitlist:
-                # PBF format: 1 = glyph (drawn as text_color), 0 = background.
-                # PIL mode '1': 0 = black, 255 = white. Write glyph bits as black.
-                img = Image.new("1", (width, height), 1)  # white background
-                pixels = img.load()
-                for y in range(height):
-                    for x in range(width):
-                        idx = y * width + x
-                        if idx < len(bitlist) and bitlist[idx]:
-                            pixels[x, y] = 0  # black glyph pixel
-                img.save(filepath)
+        # Convert to bitlist
+        if width == 0 or (height_or_rle == 0 and not (features & FEATURE_RLE4)):
+            bitlist = []
+            height = 0
+        elif features & FEATURE_RLE4:
+            bitlist, height = decompress_rle4(bitmap_data, height_or_rle, width)
+        else:
+            bitlist = []
+            for w in array.array("I", bitmap_data):
+                bitlist.extend((w & (1 << bit)) != 0 for bit in range(32))
+            height = height_or_rle
 
-            glyphs.append(
-                {
-                    "codepoint": codepoint,
-                    "char": chr(codepoint) if 0x20 <= codepoint <= 0x10FFFF else None,
-                    "file": f"glyphs/{filename}",
-                    "width": width,
-                    "height": height,
-                    "left_offset": left,
-                    "top_offset": top,
-                    "advance": advance,
-                }
-            )
+        # Create and save image
+        filename = f"U+{codepoint:04X}.png"
+        filepath = os.path.join(glyphs_dir, filename)
+
+        if width > 0 and height > 0 and bitlist:
+            # PBF format: 1 = glyph (drawn as text_color), 0 = background.
+            # PIL mode '1': 0 = black, 255 = white. Write glyph bits as black.
+            img = Image.new("1", (width, height), 1)  # white background
+            pixels = img.load()
+            for y in range(height):
+                for x in range(width):
+                    idx = y * width + x
+                    if idx < len(bitlist) and bitlist[idx]:
+                        pixels[x, y] = 0  # black glyph pixel
+            img.save(filepath)
+
+        glyphs.append(
+            {
+                "codepoint": codepoint,
+                "char": chr(codepoint) if 0x20 <= codepoint <= 0x10FFFF else None,
+                "file": f"glyphs/{filename}",
+                "width": width,
+                "height": height,
+                "left_offset": left,
+                "top_offset": top,
+                "advance": advance,
+                "anchors": anchors,
+            }
+        )
 
     # Sort glyphs by codepoint
     glyphs.sort(key=lambda g: g["codepoint"])
@@ -197,6 +237,7 @@ def extract_pbf(pbf_path, output_dir):
         "features": {
             "offset_16": bool(features & FEATURE_OFFSET_16),
             "rle4": bool(features & FEATURE_RLE4),
+            "gpos_anchors": bool(features & FEATURE_GPOS_ANCHORS),
         },
         "glyphs": glyphs,
     }

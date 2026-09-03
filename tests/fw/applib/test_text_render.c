@@ -23,6 +23,10 @@ const GlyphData* text_resources_get_glyph(FontCache* font_cache, const Codepoint
                                           FontInfo* fontinfo,
                                           int16_t *baseline_adjust_out) { return NULL; }
 
+bool text_resources_get_mark_anchor_offset(FontCache* font_cache, Codepoint base_codepoint,
+                                           Codepoint mark_codepoint, FontInfo* fontinfo,
+                                           GPoint* offset_out) { return false; }
+
 
 extern int32_t prv_convert_1bit_addr_to_8bit_x(GBitmap *dest_bitmap, uint32_t *block_addr,
                                                int32_t y_offset);

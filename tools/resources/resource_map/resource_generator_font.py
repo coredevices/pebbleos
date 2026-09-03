@@ -34,6 +34,7 @@ class FontResourceGenerator(ResourceGenerator):
         definition.compatibility = definition_dict.get("compatibility")
         definition.compress = definition_dict.get("compress")
         definition.extended = bool(definition_dict.get("extended"))
+        definition.gpos_anchors = bool(definition_dict.get("gposAnchors"))
         definition.tracking_adjust = definition_dict.get("trackingAdjust")
         definition.pixel_height = definition_dict.get("pixelHeight")
         return definition
@@ -112,6 +113,9 @@ class FontResourceGenerator(ResourceGenerator):
 
             if definition.tracking_adjust is not None:
                 font.set_tracking_adjust(definition.tracking_adjust)
+
+            if definition.gpos_anchors:
+                font.set_gpos_anchors(True)
 
             font.build_tables()
             return font.bitstring()

@@ -145,7 +145,7 @@ static int8_t prv_codepoint_get_horizontal_advance(FontCache* const font_cache,
                                                    const Codepoint codepoint) {
   PBL_ASSERTN(font_cache);
   int8_t horiz_advance = 0;
-  if (codepoint_is_zero_width(codepoint)) {
+  if (codepoint_is_zero_width(codepoint) || codepoint_is_zero_advance(codepoint)) {
     return 0;
   }
   const int8_t space_advance = prv_unicode_space_advance(font_cache, font, codepoint);
