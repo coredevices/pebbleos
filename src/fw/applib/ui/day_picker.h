@@ -13,6 +13,7 @@ typedef enum {
   DayPickerKindWeekends,
   DayPickerKindCustom,
   DayPickerKindJustOnce,
+  DayPickerKindJustOnceThenDelete,
   DayPickerKindNumItems,
 } DayPickerKind;
 

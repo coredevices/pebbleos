@@ -32,6 +32,7 @@ typedef enum AlarmKind {
   ALARM_KIND_WEEKDAYS,     // Alarms of this type happen Saturaday and Sunday
   ALARM_KIND_JUST_ONCE,    // Alarms of this type will happen next time the specified time occurs
   ALARM_KIND_CUSTOM,       // Alarms of this type happen on specified days
+  ALARM_KIND_JUST_ONCE_DELETE, // Alarms of this type will happen once and then be deleted
 } AlarmKind;
 
 typedef enum AlarmType {
@@ -160,7 +161,8 @@ uint16_t alarm_get_snooze_delay(void);
 void alarm_set_snooze_delay(uint16_t delay_m);
 
 //! Dismisses the most recently triggered alarm.
-void alarm_dismiss_alarm(void);
+//! @return True if the alarm was auto-deleted (ALARM_KIND_JUST_ONCE_DELETE), False otherwise.
+bool alarm_dismiss_alarm(void);
 
 //! Runs the callback for each alarm pairing
 void alarm_for_each(AlarmForEach cb, void *context);
