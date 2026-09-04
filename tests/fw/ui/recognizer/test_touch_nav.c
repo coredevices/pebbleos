@@ -749,18 +749,31 @@ void test_touch_nav__dead_zone_dropped(void) {
   cl_assert_equal_i(prv_state(s_state.swipe), RecognizerState_Failed);
 }
 
-// Status-bar dead zone with exactly one registered widget (via the Swap registry) that is not
-// under the active layer routes to that sole widget (Tier-1), not Dropped. Pins the sole-widget
-// branch and the Swap-type registry walk that the y=90 registry tests never reach (they match on
-// the parent walk before the dead-zone check).
+// Status-bar dead zone with exactly one registered widget (via the Swap registry) that is not under the active layer but does lie under the dead-zone strip routes to that sole widget (Tier-1), not Dropped. Pins the sole-widget branch and the Swap-type registry walk that the y=90 registry tests never reach (they match on the parent walk before the dead-zone check).
 void test_touch_nav__dead_zone_sole_widget_routes_tier1(void) {
   static TouchNavWidgetNode node;
   node = (TouchNavWidgetNode){0};
+  // The fallback is geometric: frame the widget so the dead-zone strip lies over it.
+  s_child_layer.frame = GRect(0, 0, 200, 200);
   touch_nav_registry_add(&s_state, TouchNavWidgetType_Swap, &node, &s_child_layer, NULL, NULL);
   s_active_layer = NULL;  // the parent walk finds nothing, so the dead-zone branch runs
 
   prv_dispatch(TouchEvent_Touchdown, 50, 4 /* inside the dead zone */, false);
   cl_assert_equal_i(s_state.route, TouchNavRoute_Tier1);
+
+  touch_nav_registry_remove(&s_state, TouchNavWidgetType_Swap, &node);
+}
+
+// The dead-zone fallback is geometric: a sole widget positioned away from the strip must not capture a dead-zone touch -- the touch is over chrome, not over the widget's content.
+void test_touch_nav__dead_zone_sole_widget_away_drops(void) {
+  static TouchNavWidgetNode node;
+  node = (TouchNavWidgetNode){0};
+  s_child_layer.frame = GRect(0, 100, 200, 200);
+  touch_nav_registry_add(&s_state, TouchNavWidgetType_Swap, &node, &s_child_layer, NULL, NULL);
+  s_active_layer = NULL;
+
+  prv_dispatch(TouchEvent_Touchdown, 50, 4 /* inside the dead zone */, false);
+  cl_assert_equal_i(s_state.route, TouchNavRoute_Dropped);
 
   touch_nav_registry_remove(&s_state, TouchNavWidgetType_Swap, &node);
 }
@@ -1124,6 +1137,32 @@ void test_touch_nav__widget_can_start_decline_then_accept(void) {
   // 30-35 px per 20 ms, so a vertical-only negative velocity in px/s must reach the widget.
   cl_assert_equal_i(s_widget.snap_velocity.x, 0);
   cl_assert(s_widget.snap_velocity.y < 0);
+
+  touch_nav_registry_remove(&s_state, TouchNavWidgetType_Menu, &node);
+}
+
+// The dead-zone sole-widget fallback must actually drive the widget when it is migrated (ops-bearing): the router commits Tier-1, so the unified set has to latch the sole widget and keep driving the gesture after the finger leaves the dead zone. Otherwise both recognizer sets end up failed and the touch does nothing.
+void test_touch_nav__dead_zone_routes_to_sole_migrated_widget(void) {
+  static TouchNavWidgetNode node;
+  prv_register_fake_widget(&node);
+  s_widget.can_start_result = true;
+  // The fallback is geometric: frame the widget so the dead-zone strip lies over it (the status bar swallows the hit, but the menu continues beneath it).
+  s_child_layer.frame = GRect(0, 0, 200, 200);
+  s_active_layer = NULL;  // the parent walk finds nothing, so the dead-zone branch runs
+
+  prv_dispatch(TouchEvent_Touchdown, 50, 4 /* inside the dead zone */, false);
+  cl_assert_equal_i(s_state.route, TouchNavRoute_Tier1);
+  cl_assert_equal_p(s_state.latched_target, &node);
+
+  prv_advance_ms(20);
+  prv_dispatch(TouchEvent_PositionUpdate, 50, 55, false);  // 51px down -> pan Starts
+  cl_assert_equal_i(s_widget.pan_started_calls, 1);
+  prv_advance_ms(20);
+  prv_dispatch(TouchEvent_PositionUpdate, 50, 90, false);  // Updated -> live pan_update
+  cl_assert_equal_i(s_widget.pan_update_calls, 1);
+  prv_dispatch(TouchEvent_Liftoff, 0, 0, false);           // Completed -> pan_snap
+  cl_assert_equal_i(s_widget.pan_snap_calls, 1);
+  cl_assert_equal_p(s_state.latched_target, NULL);
 
   touch_nav_registry_remove(&s_state, TouchNavWidgetType_Menu, &node);
 }
