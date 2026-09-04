@@ -63,19 +63,22 @@ static void prv_add_subscriber_cb(PebbleTask task) {
 static void prv_remove_subscriber_cb(PebbleTask task) {
   mutex_lock(s_touch_mutex);
   PBL_ASSERTN(s_subscriber_count > 0);
-  if (--s_subscriber_count == 0 && s_globally_enabled) {
+  const bool was_last_subscriber = (--s_subscriber_count == 0);
+  if (was_last_subscriber && s_globally_enabled) {
     touch_sensor_set_enabled(false);
   }
-  // An app whose shared touch subscription disappears (task exit, or both
-  // slots emptied) cannot have a live raw handler or nav dispatcher anymore;
-  // drop its raw-slot mark and the app-nav-active flag so a crashed app cannot
-  // leak backlight-follow behavior.
+  // An app whose shared touch subscription disappears (task exit, or both slots emptied) cannot have a live raw handler or nav dispatcher anymore; drop its raw-slot mark and the app-nav-active flag so a crashed app cannot leak backlight-follow behavior.
   if (task == PebbleTask_App) {
     s_raw_subscriber_tasks &= (uint8_t)~(1u << task);
     s_app_nav_active = false;
   }
   PBL_LOG_DBG("Touch: subscriber removed, count=%" PRIu8, s_subscriber_count);
   mutex_unlock(s_touch_mutex);
+
+  if (was_last_subscriber) {
+    // A finger down when the last subscriber goes away never gets a Liftoff otherwise (the sensor stops reporting), so the backlight hold counter stays pinned. Same teardown the global toggle performs.
+    touch_release_active();
+  }
 }
 
 void touch_init(void) {
