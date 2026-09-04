@@ -11,7 +11,6 @@
 
 #include <bluetooth/bluetooth_types.h>
 #include <bluetooth/sm_types.h>
-#include <pbl/btutil/bt_device.h>
 #include <pbl/btutil/sm_util.h>
 
 //

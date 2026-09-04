@@ -1,2 +1,0 @@
-bld(export_includes=['CMSIS/CMSIS/Core/Include', '.'],
-    name='cmsis_core')

@@ -1,0 +1,4 @@
+[lint]
+exclude = [
+    "sdk/waf/waflib/**/*.py"
+]

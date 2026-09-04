@@ -11,8 +11,6 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 
-#include "bf0_hal.h"
-
 // Block deep sleep while a transfer is in flight. The flag keeps the release
 // exactly-once across the IRQ, kickoff-failure and abort paths.
 static void prv_deepsleep_block(I2CBus *bus) {

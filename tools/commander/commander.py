@@ -1,30 +1,21 @@
-#!/usr/bin/env python
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
 
-from datetime import datetime
-import json
-import logging
-import os
+import contextlib
 import re
-import readline
 import shlex
-import sys
 import threading
-import time
 import tokenize
 import traceback
 import types
-import unicodedata as ud
 
 import prompt_toolkit
-
-from log_hashing.logdehash import LogDehash
 import pulse
+from log_hashing.logdehash import LogDehash
 
 
-class PebbleCommander(object):
+class PebbleCommander:
     """Pebble Commander.
     Implements everything for interfacing with PULSE things.
     """
@@ -82,10 +73,10 @@ class PebbleCommander(object):
                 cmdname = fn.__name__.replace("_", "-")
             funcname = cmdname.replace("-", "_")
             if not re.match(tokenize.Name + "$", funcname):
-                raise ValueError("command name %s isn't a valid name" % funcname)
+                raise ValueError(f"command name {funcname} isn't a valid name")
             if hasattr(cls, funcname):
                 raise ValueError(
-                    "function name %s clashes with existing attribute" % funcname
+                    f"function name {funcname} clashes with existing attribute"
                 )
             fn.is_command = True
             fn.name = cmdname
@@ -97,10 +88,8 @@ class PebbleCommander(object):
         return decorator
 
     def close(self):
-        try:
+        with contextlib.suppress(Exception):
             self.connection.close()
-        except:
-            pass
 
     def _start_logging(self):
         """Thread to handle logging messages."""
@@ -109,10 +98,8 @@ class PebbleCommander(object):
             with self.log_listeners_lock:
                 # TODO: Buffer log messages if no listeners attached?
                 for listener in self.log_listeners:
-                    try:
+                    with contextlib.suppress(Exception):
                         listener(msg)
-                    except:
-                        pass
 
     def attach_log_listener(self, listener):
         """Attaches a listener for log messages.
@@ -144,7 +131,7 @@ class PebbleCommander(object):
         return None
 
 
-class InteractivePebbleCommander(object):
+class InteractivePebbleCommander:
     """Interactive Pebble Commander.
     Most/all UI implementations should either use this directly or sub-class it.
     """
@@ -166,10 +153,8 @@ class InteractivePebbleCommander(object):
         self.close()
 
     def close(self):
-        try:
+        with contextlib.suppress(Exception):
             self.cmdr.close()
-        except:
-            pass
 
     def attach_prompt_toolkit(self):
         """Attaches prompt_toolkit things"""
@@ -225,7 +210,7 @@ class InteractivePebbleCommander(object):
             resp = self.dispatch_command(string)
             if resp is not None:
                 print("\x1b[1m" + "\n".join(resp) + "\x1b[m")
-        except:
+        except Exception:  # noqa: BLE001
             print("An error occurred!")
             traceback.print_exc()
 

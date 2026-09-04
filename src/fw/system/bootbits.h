@@ -6,8 +6,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "system/rtc_registers.h"
-
 typedef enum BootBitValue {
   BOOT_BIT_INITIALIZED = 0x1 << 0,
   BOOT_BIT_NEW_FW_AVAILABLE = 0x1 << 1,

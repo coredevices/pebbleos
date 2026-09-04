@@ -4,19 +4,13 @@
 #include "pbl/services/stationary.h"
 
 #include "applib/accel_service_private.h"
-#include "applib/battery_state_service.h"
-#include "applib/ui/dialogs/dialog_private.h"
-#include "applib/ui/dialogs/simple_dialog.h"
-#include "comm/bt_lock.h"
 #include <pbl/drivers/battery.h>
 #include "kernel/event_loop.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/accel_manager.h"
 #include "pbl/services/analytics/analytics.h"
-#include "pbl/services/i18n/i18n.h"
 #include "pbl/services/regular_timer.h"
-#include "pbl/services/system_task.h"
 #include "pbl/services/runlevel.h"
 #include "shell/prefs.h"
 #include <pbl/logging/logging.h>

@@ -85,8 +85,10 @@ Look things up: protocol specifications, podcasts, developer documents and more!
 :hidden:
 :caption: 🛠️ Development
 development/getting_started.md
+development/pbl.md
 development/options.md
 development/building_fw.md
+development/build_system.md
 development/testing.md
 development/qemu.md
 development/debugging.md

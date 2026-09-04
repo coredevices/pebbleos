@@ -11,10 +11,12 @@ Usage:
 """
 
 import argparse
+import array
 import json
 import os
 import struct
-import array
+import sys
+
 from PIL import Image
 
 # Font version constants
@@ -65,7 +67,7 @@ def extract_pbf(pbf_path, output_dir):
         wildcard_cp,
         table_size,
         cp_bytes,
-        struct_size,
+        _struct_size,
         features,
     ) = header
 
@@ -149,7 +151,7 @@ def extract_pbf(pbf_path, output_dir):
             else:
                 bitlist = []
                 for w in array.array("I", bitmap_data):
-                    bitlist.extend(((w & (1 << bit)) != 0 for bit in range(32)))
+                    bitlist.extend((w & (1 << bit)) != 0 for bit in range(32))
                 height = height_or_rle
 
             # Create and save image
@@ -230,4 +232,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

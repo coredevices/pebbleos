@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import print_function
 import argparse
 import logging
-import pulse
 import sys
+
+import pulse
 
 
 def auto_int(num):
@@ -61,7 +61,7 @@ def main():
         "identifier", metavar="filename", help="filename of file to retrieve"
     )
 
-    framebuffer_parser = subparsers.add_parser("framebuffer")
+    subparsers.add_parser("framebuffer")
 
     args = parser.parse_args()
 
@@ -76,12 +76,10 @@ def main():
         connection.change_baud_rate(921600)
 
         try:
-            method = getattr(connection.read, "_".join((args.operation, args.domain)))
+            method = getattr(connection.read, f"{args.operation}_{args.domain}")
         except AttributeError:
             print(
-                "Domain {!r} doesn't support method {!r}".format(
-                    args.domain, args.operation
-                ),
+                f"Domain {args.domain!r} doesn't support method {args.operation!r}",
                 file=sys.stderr,
             )
             sys.exit(1)

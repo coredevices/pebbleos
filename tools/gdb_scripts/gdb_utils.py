@@ -4,14 +4,13 @@
 try:
     import gdb
 except ImportError:
-    raise Exception(
+    raise RuntimeError(
         "This file is a GDB script.\n"
         "It is not intended to be run outside of GDB.\n"
         "Hint: to load a script in GDB, use `source this_file.py`"
     )
 import argparse
 import re
-
 from collections import namedtuple
 
 
@@ -30,7 +29,7 @@ class AddressInfo(namedtuple("AddressInfo", "filename line addr")):
         return cls._make([filename, line, addr])
 
     def __str__(self):
-        return "{}:{} (0x{:0>8x})".format(self.filename, self.line, self.addr)
+        return f"{self.filename}:{self.line} (0x{self.addr:0>8x})"
 
 
 def addr2line(addr_value):
@@ -44,7 +43,7 @@ def addr2line(addr_value):
     filename = None
     line = None
     if s and s.symtab:
-        filename = s.symtab.filename.lstrip("../")
+        filename = re.sub(r"^[./]+", "", s.symtab.filename)
         line = s.line
     if not filename:
         filename = "?"
@@ -79,11 +78,11 @@ class Address(int):
                 match = Address.ADDR_REGEX.match(val)
                 if match:
                     val = match.group(1)
-                    return super(Address, cls).__new__(cls, val, base=16)
-        return super(Address, cls).__new__(cls, *args, **kwargs)
+                    return super().__new__(cls, val, base=16)
+        return super().__new__(cls, *args, **kwargs)
 
     def __repr__(self):
-        return "0x%08x" % self
+        return f"0x{self:08x}"
 
     def __str__(self):
         return self.__repr__()
@@ -126,7 +125,7 @@ class ActionBreakpoint(gdb.Breakpoint):
         self, action_callable, symbol_name=None, addr=None, auto_continue=True
     ):
         if addr and symbol_name:
-            raise Exception(
+            raise RuntimeError(
                 "Can't use arguments `symbol_name` and `addr` simultaneously!"
             )
         if addr:
@@ -136,7 +135,7 @@ class ActionBreakpoint(gdb.Breakpoint):
             symbol_name = "*" + str(addr)
         if not symbol_name:
             symbol_name = action_callable.__name__
-        super(ActionBreakpoint, self).__init__(symbol_name)
+        super().__init__(symbol_name)
         self.action_callable = action_callable
         self.auto_continue = auto_continue
 
@@ -167,9 +166,9 @@ class MonkeyPatch(ActionBreakpoint):
 
     def handle_break(self):
         return_value_str = self.action_callable(self)
-        gdb.write("Hit monkey patch %s, returning `%s`" % (self, return_value_str))
+        gdb.write(f"Hit monkey patch {self}, returning `{return_value_str}`")
         if return_value_str:
-            gdb.execute("return (%s)" % return_value_str)
+            gdb.execute(f"return ({return_value_str})")
         else:
             gdb.execute("return")
         gdb.execute("continue")

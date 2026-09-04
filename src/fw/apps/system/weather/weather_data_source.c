@@ -6,12 +6,10 @@
 
 #include "pbl/services/weather/weather_service.h"
 #include "pbl/services/weather/weather_service_private.h"  // SerializedWeatherAppPrefs
-#include "pbl/services/weather/weather_types.h"
 #include "pbl/services/blob_db/weather_db.h"
 #include "pbl/services/blob_db/watch_app_prefs_db.h"
 #include "kernel/pbl_malloc.h"  // task_zalloc_check / task_free
 
-#include <limits.h>
 #include <string.h>
 
 static void prv_copy_str(char *dst, size_t dst_size, const char *src) {

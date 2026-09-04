@@ -13,7 +13,6 @@
 #include "shell/prefs.h"
 #include "shell/prefs_private.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 #include "pbl/services/system_task.h"
 #include "pbl/util/list.h"
 #include "pbl/util/size.h"
@@ -144,6 +143,7 @@ static const char *s_syncable_notif_prefs[] = {
   "notifBacklight",
   "dndMotionBacklight",
   "dndTouchBacklight",
+  "dndAutoDismiss",
 };
 
 static const size_t s_num_syncable_notif_prefs = ARRAY_LENGTH(s_syncable_notif_prefs);

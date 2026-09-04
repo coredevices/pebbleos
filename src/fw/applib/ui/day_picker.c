@@ -11,7 +11,6 @@
 #include "resource/resource_ids.auto.h"
 #include "shell/prefs.h"
 #include "system/passert.h"
-#include "pbl/util/size.h"
 
 #include <string.h>
 

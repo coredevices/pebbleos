@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <inttypes.h>
-
 #include "comm/ble/gap_le_scan.h"
 
 //! Returns true on success, false on failure

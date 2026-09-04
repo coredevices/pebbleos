@@ -4,7 +4,6 @@
 #include "pbl/services/evented_timer.h"
 
 #include "kernel/events.h"
-#include "pbl/os/tick.h"
 #include "pbl/os/mutex.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/services/new_timer/new_timer.h"

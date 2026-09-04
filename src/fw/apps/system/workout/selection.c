@@ -4,15 +4,11 @@
 #include "selection.h"
 #include "utils.h"
 
-#include "applib/app.h"
 #include "applib/ui/ui.h"
 #include "kernel/pbl_malloc.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
 #include "shell/prefs.h"
-#include <pbl/logging/logging.h>
-
-#include <stdio.h>
 
 typedef enum {
   WorkoutType_Run,

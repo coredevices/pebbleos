@@ -1,6 +1,0 @@
-if not bld.env.PYTHON_TOOL_TESTS_DISABLED:
-    tests = bld.path.ant_glob('test_*.py')
-    bld(rule="python -m unittest discover -s {} -p 'test_*.py'".format(bld.path.abspath()),
-        source=tests)
-
-# vim:filetype=python

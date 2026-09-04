@@ -19,8 +19,10 @@
 //! restore the shared animation's fling defaults.
 void scroll_layer_touch_handle_touchdown(ScrollLayer *scroll_layer);
 
-//! Live scroll during a pan: move the content to \a base + \a delta_since_start on the y axis,
-//! clamped to [min(frame_h - content_h, 0), 0].
+//! Live scroll during a pan: move the content to \a base + \a delta_since_start on the y axis.
+//! Within [min(frame_h - content_h, 0), 0] the content follows 1:1; past an edge it rubber-bands
+//! (damped overscroll, see \ref scroll_layer_touch_overscroll_damp). Paging layers keep the hard
+//! clamp.
 void scroll_layer_touch_handle_pan_update(ScrollLayer *scroll_layer, GPoint base,
                                           GPoint delta_since_start);
 
@@ -42,6 +44,31 @@ void scroll_layer_touch_handle_snap(ScrollLayer *scroll_layer, GPoint base, GPoi
 #define TOUCH_FLING_MIN_DURATION_MS 100
 #define TOUCH_FLING_MAX_DURATION_MS (3 * TOUCH_FLING_TAU_MS)
 #define TOUCH_FLING_MIN_DISTANCE_PX 3
+
+//! How long the animated return from a rubber-band overscroll takes.
+#define TOUCH_OVERSCROLL_SPRING_BACK_MS 200
+
+//! Rubber-band overscroll mapping for a held pan: offsets inside [min_y, max_y] pass through;
+//! beyond an edge the excess is damped asymptotically (half the finger's speed at first,
+//! saturating at ~1/6 of \a frame_h), so the content can be pulled a little past the edge.
+//! \a raw_y is 32-bit so callers can pass base + delta unclamped.
+int16_t scroll_layer_touch_overscroll_damp(int32_t raw_y, int16_t min_y, int16_t max_y,
+                                           int16_t frame_h);
+
+//! @internal
+//! Set the content offset to \a y without the [min, 0] clamp of the regular setter (which would
+//! swallow a rubber-banded offset every frame). Unschedules a running scroll animation, like the
+//! non-animated regular setter. Touch pan updates only.
+void scroll_layer_touch_set_content_offset_overscrolled(ScrollLayer *scroll_layer, int16_t y);
+
+//! @internal
+//! Animated glide from a rubber-banded offset back to \a target_y (the edge). Runs on the shared
+//! scroll animation with an unclamped setter -- the standard animation would clip its very first
+//! out-of-bounds frame to the edge and snap. \a stopped runs when the glide ends (finished or
+//! unscheduled) and MUST call scroll_layer_touch_fling_cleanup(), like a fling's stopped handler.
+void scroll_layer_touch_overscroll_spring_back(ScrollLayer *scroll_layer, int16_t target_y,
+                                               AnimationStoppedHandler stopped,
+                                               void *stopped_context);
 
 //! @internal
 //! Start an inertial coast on the shared scroll animation toward \a target_y (already clamped by

@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import print_function
 
 import argparse
 import re
@@ -156,7 +155,7 @@ def dstrules_parse(tzfile):
         "Any": 255,
     }
 
-    with open(tzfile, "r") as infile:
+    with open(tzfile) as infile:
         lines = infile.readlines()
         for line_num, line in enumerate(lines):
             match_list = re.finditer(
@@ -208,7 +207,7 @@ def dstrules_parse(tzfile):
                         elif modech == "w":  # Wall time
                             flag |= 8
                         else:
-                            raise Exception("hurf char")
+                            raise RuntimeError("hurf char")
 
                     if "last" in wday_stuff:  # Last wday of the month
                         # pick the last day of the month
@@ -251,7 +250,7 @@ def build_zoneinfo_list(tzfile):
 
     zoneinfo_list = []
 
-    with open(tzfile, "r") as infile:
+    with open(tzfile) as infile:
         lines = infile.readlines()
         region = ""
         continent = ""
@@ -286,18 +285,7 @@ def build_zoneinfo_list(tzfile):
                     # Don't include Troll, Antarctica as their DST is 2 hours and overlapping rules
                     # not even a city, actually just a station :
                     # http://mm.icann.org/pipermail/tz/2014-February/020605.html
-                    if full_region == "Antarctica/Troll":
-                        region = ""
-                    # Don't include Egypt because our rules for handling its DST are broken!
-                    elif full_region == "Africa/Cairo":
-                        region = ""
-                    # Don't include Morocco because our rules for handling its DST are broken!
-                    elif full_region == "Africa/Casablanca":
-                        region = ""
-                    elif full_region == "Africa/El_Aaiun":
-                        region = ""
-                    # Don't include Lord Howe Island because our rules for handling its DST are broken!
-                    elif full_region == "Australia/Lord_Howe":
+                    if full_region == "Antarctica/Troll" or full_region == "Africa/Cairo" or full_region == "Africa/Casablanca" or full_region == "Africa/El_Aaiun" or full_region == "Australia/Lord_Howe":
                         region = ""
 
             # Now look to see if we've found the final line of the block
@@ -324,7 +312,7 @@ def build_zoneinfo_list(tzfile):
                         match.group("offset"),
                     )
                     if not m:
-                        raise Exception(
+                        raise RuntimeError(
                             f"Unsupported offset {match.group('offset')} for region {region}"
                         )
 
@@ -334,7 +322,7 @@ def build_zoneinfo_list(tzfile):
                     tz_abbr = f"{sign}{hours:02d}{minutes:02d}"
                 else:
                     tz_abbr = match.group("tz_abbr").replace("%s", "*")
-                    if tz_abbr.startswith("GMT/") or tz_abbr.startswith("IST/"):
+                    if tz_abbr.startswith(("GMT/", "IST/")):
                         tz_abbr = tz_abbr[4:]
 
                 zoneinfo_list.append(
@@ -365,7 +353,7 @@ def zonelink_parse(tzfile):
 
     zonelink_list = []
 
-    with open(tzfile, "r") as infile:
+    with open(tzfile) as infile:
         lines = infile.readlines()
         for line in lines:
             # Parse blocks that look like this
@@ -443,18 +431,14 @@ def zoneinfo_to_bin(zoneinfo_list, dstrule_list, zonelink_list, output_bin):
         if dst_zone not in dstzone_dict:
             tz_abbr = tz_abbr.replace("*", "S")
         if len(tz_abbr) > 5:
-            raise Exception(f"Timezone abbreviation too long: {tz_abbr}")
+            raise RuntimeError(f"Timezone abbreviation too long: {tz_abbr}")
         output_bin.write(
             tz_abbr.ljust(5, "\0").encode("utf8")
         )  # 5-character region zero padded
 
         # dst table entry, 0 for NONE (ie. dash '-')
-        if dst_zone in dstzone_dict:
-            dstzone_index = dstzone_dict[dst_zone]
-        else:
-            dstzone_index = (
-                0  # Includes '-', 'SA', 'CR', ... that no longer support DST
-            )
+        # Default includes '-', 'SA', 'CR', ... that no longer support DST
+        dstzone_index = dstzone_dict.get(dst_zone, 0)
         output_bin.write(struct.pack("B", dstzone_index))
 
     # Each DST rule is serialised as 8 bytes (see TimezoneDSTRule). The reader in
@@ -508,8 +492,7 @@ def build_and_create_tzdata(olson_database, output_text, output_bin):
 
     # save output as text for reference
     with open(output_text, "wb") as output_txt:
-        for zoneinfo in zoneinfo_list:
-            output_txt.write(f"{zoneinfo}\n".encode())
+        output_txt.writelines(f"{zoneinfo}\n".encode() for zoneinfo in zoneinfo_list)
 
     dstrule_list = dstrules_parse(olson_database)
 

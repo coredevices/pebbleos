@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import collections
 import struct
@@ -12,7 +11,7 @@ import pebble.pulse2.exceptions
 from .. import exceptions
 
 
-class Prompt(object):
+class Prompt:
     PORT_NUMBER = 0x3E20
 
     def __init__(self, link):
@@ -59,7 +58,7 @@ class PromptResponse(
         result = cls.response_struct.unpack(response[: cls.response_struct.size])
 
         response_type = result[0]
-        timestamp = datetime.fromtimestamp(result[1] / 1000.0)
+        timestamp = datetime.fromtimestamp(result[1] / 1000.0).astimezone()
         message = response[cls.response_struct.size :]
 
         return cls(response_type, timestamp, message)

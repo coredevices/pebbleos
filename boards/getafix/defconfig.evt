@@ -1,4 +1,0 @@
-# getafix evt board revision configuration
-
-CONFIG_VIBE_AW8623X=y
-CONFIG_ACCEL_LIS2DW12_DISABLE_ADDR_PULLUP=y

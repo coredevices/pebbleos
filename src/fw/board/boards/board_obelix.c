@@ -2,7 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "board/board.h"
-#include "board/display.h"
 #include "board/splash.h"
 #include <pbl/drivers/backlight.h>
 #include <pbl/drivers/pmic/npm1300.h>
@@ -10,8 +9,6 @@
 #include <pbl/drivers/hrm/gh3x2x.h>
 #include "system/passert.h"
 #include "kernel/util/delay.h"
-
-#include "bf0_hal.h"
 
 static UARTDeviceState s_dbg_uart_state = {
   .huart = {
@@ -615,8 +612,13 @@ static const MicDevice mic_device = {
     },
     .pdm_dma_irq = DMAC1_CH5_IRQn,
     .pdm_irq = PDM1_IRQn,
-    .pdm_irq_priority = 5, 
+    .pdm_irq_priority = 5,
+#ifdef CONFIG_MFG
+    // MFG mic test needs stereo capture to verify both microphones
+    .channels = 2,
+#else
     .channels = 1,
+#endif
     .sample_rate = 16000,
     .channel_depth = 16,
 };

@@ -11,7 +11,6 @@
 #include "pbl/services/activity/workout_service.h"
 #include "pbl/services/timeline/timeline.h"
 #include "system/passert.h"
-#include "pbl/util/attributes.h"
 
 static TimelineItem *prv_create_abandoned_workout_notification(void) {
   const char *msg = i18n_noop("Still sweating? Your workout is active and will be ended soon. "

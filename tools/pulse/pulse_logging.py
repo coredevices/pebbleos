@@ -2,9 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import collections
-import json
 import struct
-import threading
 from datetime import datetime
 
 from . import socket
@@ -34,14 +32,14 @@ class LogMessage(
 
         log_level = result[2]
         task = result[3]
-        timestamp = datetime.fromtimestamp(result[4] / 1000.0)
+        timestamp = datetime.fromtimestamp(result[4] / 1000.0).astimezone()
         file_name = result[1].split("\x00", 1)[0]  # NUL terminated
         line_number = result[5]
 
         return cls(log_level, task, timestamp, file_name, line_number, msg)
 
 
-class LoggingProtocol(object):
+class LoggingProtocol:
     PROTOCOL_NUMBER = 0x03
 
     def __init__(self, connection):

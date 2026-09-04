@@ -79,7 +79,8 @@ def build_shim(shim_s, dest_dir):
     # Delete any existing archive, otherwise `ar` will append/insert to it:
     if os.path.exists(shim_a):
         os.remove(shim_a)
-    shim_o = tempfile.NamedTemporaryFile(suffix="pebble.o").name
+    shim_o_fd, shim_o = tempfile.mkstemp(suffix="pebble.o")
+    os.close(shim_o_fd)
     gcc_process = subprocess.Popen(
         [
             "arm-none-eabi-gcc",
@@ -111,7 +112,8 @@ def build_shim(shim_s, dest_dir):
 
 
 def make_app_shim_lib(functions, sdk_lib_dir):
-    temp_asm_file = tempfile.NamedTemporaryFile(suffix="pbl_shim.s").name
+    temp_asm_fd, temp_asm_file = tempfile.mkstemp(suffix="pbl_shim.s")
+    os.close(temp_asm_fd)
     with open(temp_asm_file, "w") as shim_s:
         shim_s.write(gen_shim_asm(functions))
 

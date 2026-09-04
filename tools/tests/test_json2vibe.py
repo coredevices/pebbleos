@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # See pebbletechnology.atlassian.net/wiki/display/DEV/Project%3A+Vibe+Pattern+Format
+import json
 import os
+import struct
 import sys
 import unittest
-import json
-import struct
 
 # Allow us to run even if not at the `tools` directory.
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
@@ -143,9 +143,9 @@ class TestJsonToVibe(unittest.TestCase):
 
     def test_vibe_resource_negative_strengths(self):
         json_data = self.get_json_data("good_negative_strength")
-        parsed_vibe_file, parsed_length = VibeFile().parse(serialize(json_data))
+        _parsed_vibe_file, parsed_length = VibeFile().parse(serialize(json_data))
         self.assertEqual(parsed_length, 37)
-        to_compare = VibeFile(
+        VibeFile(
             fourcc="VIBE",
             score=VibeScore(
                 version=1,
@@ -189,9 +189,9 @@ class TestJsonToVibe(unittest.TestCase):
 
     def test_nonzero_repeating_delay(self):
         json_data = self.get_json_data("nonzero_repeating_delay")
-        parsed_vibe_file, parsed_length = VibeFile().parse(serialize(json_data))
+        _parsed_vibe_file, parsed_length = VibeFile().parse(serialize(json_data))
         self.assertEqual(parsed_length, 35)
-        to_compare = VibeFile(
+        VibeFile(
             fourcc="VIBE",
             score=VibeScore(
                 version=1,

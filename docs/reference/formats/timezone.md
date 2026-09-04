@@ -4,7 +4,7 @@ The firmware's timezone list is a binary resource
 (`RESOURCE_ID_TIMEZONE_DATABASE`) built from an IANA tzdata snapshot
 (`resources/normal/base/tzdata/timezones_olson.txt`) by
 `tools/timezones.py`, wired into the resource build by
-`tools/waf/generate_timezone_data.py`. It is read by
+`tools/cmake/resources.py`. It is read by
 `src/fw/services/timezone_database/service.c`; the DST-rule struct is
 `TimezoneDSTRule` in `include/pbl/services/timezone_database.h`.
 

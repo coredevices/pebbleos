@@ -35,7 +35,7 @@ static void prv_audio_trans_handler(uint32_t *free_size) {
 
 static void prv_play_audio(void) {
   audio_start(AUDIO, prv_audio_trans_handler);
-  audio_set_volume(AUDIO, 100);
+  audio_set_volume(AUDIO, 30);
 }
 
 static void prv_result_confirmed(ClickRecognizerRef recognizer, void *context) {

@@ -12,9 +12,7 @@
 #include "pbl/services/comm_session/session_remote_version.h"
 #include "pbl/services/blob_db/watch_app_prefs_db.h"
 #include "pbl/services/blob_db/weather_db.h"
-#include "pbl/services/weather/weather_types.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 
 PBL_LOG_MODULE_DEFINE(service_weather, CONFIG_SERVICE_WEATHER_LOG_LEVEL);
 

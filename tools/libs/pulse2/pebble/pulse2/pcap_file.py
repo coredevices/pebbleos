@@ -6,17 +6,15 @@
 https://wiki.wireshark.org/Development/LibpcapFileFormat
 """
 
-from __future__ import absolute_import
 
 import struct
 import threading
 import time
 
-
 LINKTYPE_PPP_WITH_DIR = 204
 
 
-class PcapWriter(object):
+class PcapWriter:
     def __init__(self, outfile, linktype):
         self.lock = threading.Lock()
         self.outfile = outfile

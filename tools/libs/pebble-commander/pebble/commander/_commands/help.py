@@ -25,13 +25,13 @@ def get_help_short(cmdr, cmd_name, help_output=None):
         if len(spec.args) > 1:
             maxargs = len(spec.args) - 1
             if spec.defaults is None:
-                cmdstr += " {%d args}" % maxargs
+                cmdstr += f" {{{maxargs:d} args}}"
             else:
                 minargs = maxargs - len(spec.defaults)
-                cmdstr += " {%d~%d args}" % (minargs, maxargs)
+                cmdstr += f" {{{minargs:d}~{maxargs:d} args}}"
 
         if func.__doc__ is not None:
-            output = "%-30s - %s" % (cmdstr, trim_docstring(func).splitlines()[0])
+            output = f"{cmdstr:<30} - {trim_docstring(func).splitlines()[0]}"
         else:
             output = cmdstr
     else:  # Prompt command
@@ -53,11 +53,11 @@ def get_help_short(cmdr, cmd_name, help_output=None):
 
 
 def help_arginfo_nodefault(arg):
-    return "%s" % arg.upper()
+    return f"{arg.upper()}"
 
 
 def help_arginfo_default(arg, dflt):
-    return "[%s (default: %s)]" % (arg.upper(), str(dflt))
+    return f"[{arg.upper()} (default: {dflt!s})]"
 
 
 def get_help_long(cmdr, cmd_name):
@@ -83,15 +83,15 @@ def get_help_long(cmdr, cmd_name):
         specstr = " ".join(specstr)
         cmdstr = func.name + " " + specstr
         if func.__doc__ is None:
-            output = "%s\n\nNo help available." % cmdstr
+            output = f"{cmdstr}\n\nNo help available."
         else:
-            output = "%s - %s" % (cmdstr, trim_docstring(func))
+            output = f"{cmdstr} - {trim_docstring(func)}"
     else:  # Prompt command
         cmdstr = get_help_short(cmdr, cmd_name)
         if cmdstr is None:
             output = None
         else:
-            output = "%s\n\nNo help available, due to being a prompt command." % cmdstr
+            output = f"{cmdstr}\n\nNo help available, due to being a prompt command."
     return output
 
 
@@ -105,7 +105,7 @@ def help(cmdr, cmd=None):
     if cmd is not None:
         helpstr = get_help_long(cmdr, cmd)
         if helpstr is None:
-            raise exceptions.ParameterError("No command '%s' found." % cmd)
+            raise exceptions.ParameterError(f"No command '{cmd}' found.")
         out.append(helpstr)
     else:  # List commands
         out.append("===Host commands===")

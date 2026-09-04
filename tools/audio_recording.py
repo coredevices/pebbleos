@@ -3,12 +3,10 @@
 
 import argparse
 import array
-import glob
-import serial
 import struct
-import sys
 
 import prompt
+import serial
 import stm32_crc as crc
 from hdlc import HDLCDecoder
 from serial_port_wrapper import SerialPortWrapper
@@ -17,10 +15,9 @@ from serial_port_wrapper import SerialPortWrapper
 This script will invoke the microphone test command on snowy, read the
 PCM encoded audio data from the serial port and store it to a .wav file, 
 which can be played back from any audio player. It can be invoked via
-the './waf record' command or by running the script from the command line.
+running the script from the command line.
 
-The output sample rate and sample size when recording using the waf script
-can be configured by modifying the 'freq' and 'sample_size' variables, 
+The output sample rate and sample size can be configured by modifying the 'freq' and 'sample_size' variables, 
 respectively.
 """
 
@@ -54,7 +51,7 @@ def store_wav(samples, filename, sample_size, freq):
     with open(filename, "wb") as f:
         f.write(wav)
         f.close()
-        print("{0} samples packed into {1}".format(len(samples), filename))
+        print(f"{len(samples)} samples packed into {filename}")
 
 
 def receive_hdlc_data(s, sample_size):
@@ -89,8 +86,8 @@ def receive_hdlc_data(s, sample_size):
             elif sample_size == 2:
                 d = data[i] | (data[i + 1] << 8)
             samples.append(d)
-        except:
-            print("conversion failed on word {0}".format(i / sample_size))
+        except IndexError:
+            print(f"conversion failed on word {i / sample_size}")
 
     return samples
 
@@ -124,11 +121,11 @@ def record_from_tty(
     try:
         prompt.go_to_prompt(s)
         print(
-            "record {0}-bit audio data for {1}s at {2}Hz (~{3} samples)".format(
+            "record {}-bit audio data for {}s at {}Hz (~{} samples)".format(
                 "8" if sample_size == 1 else "16", t, str(sample_rate), t * sample_rate
             )
         )
-        cmd = "mic start {0} {1} {2} {3}".format(
+        cmd = "mic start {} {} {} {}".format(
             t, "8" if sample_size == 1 else "16", sample_rate, volume
         )
         prompt.issue_command(s, cmd)
@@ -142,12 +139,10 @@ def record_from_tty(
             s = open_serial_port(tty_accessory, 115200)
 
         samples = receive_hdlc_data(s, sample_size)
-        print("{0} samples read".format(len(samples)))
+        print(f"{len(samples)} samples read")
         if len(samples) != (sample_rate * t):
             print(
-                "Not enough samples received ({0}/{1})".format(
-                    len(samples), (sample_rate * t)
-                )
+                f"Not enough samples received ({len(samples)}/{sample_rate * t})"
             )
         else:
             print("Output file: " + filename)
@@ -211,7 +206,7 @@ if __name__ == "__main__":
         tty_accessory = args.tty_accessory
         tty_prompt = args.tty_accessory
     elif args.tty_prompt and not args.tty_accessory:
-        raise Exception(
+        raise RuntimeError(
             "If the prompt tty is specified, the accessory port tty must be specified "
             "too!"
         )

@@ -3,20 +3,15 @@
 
 #include <pbl/drivers/rtc.h>
 
-#include "console/dbgserial.h"
-
 #include <pbl/drivers/exti.h>
-#include <pbl/drivers/watchdog.h>
 #include <pbl/drivers/task_watchdog.h>
 
 #include "pbl/mcu/interrupts.h"
 
 #include "pbl/services/regular_timer.h"
 
-#include "system/bootbits.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "system/reset.h"
 
 #include "util/time/time.h"
 
@@ -25,8 +20,6 @@
 #include <hal/nrf_rtc.h>
 
 #include <inttypes.h>
-#include <stdio.h>
-#include <string.h>
 
 PBL_LOG_MODULE_DEFINE(driver_rtc_nrf5, CONFIG_DRIVER_RTC_LOG_LEVEL);
 

@@ -1,18 +1,17 @@
+#!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
 import logging
+import operator
 import subprocess
 import sys
-import argparse
-import pexpect
 import time
-import pprint
-import operator
 
 
 ##########################################################################################
-class Profiler(object):
+class Profiler:
     """This class encapsulates the profiling functionality"""
 
     #####################################################################################
@@ -40,7 +39,7 @@ class Profiler(object):
                 import telnetlib
 
                 tn = telnetlib.Telnet("localhost", self.openocd_port)
-            except Exception:
+            except OSError:
                 print("Could not connect to OpenOCD via telnet")
                 sys.exit()
 
@@ -50,9 +49,9 @@ class Profiler(object):
 
             # Capture the samples
             num_samples = total_secs * 1000 / sample_period_ms
-            print("Capturing %d samples..." % (num_samples))
+            print(f"Capturing {num_samples:d} samples...")
             n = 0
-            pcs = dict()
+            pcs = {}
 
             sample_period_sec = sample_period_ms * 0.001
 
@@ -60,7 +59,7 @@ class Profiler(object):
             last_sample_time = time.time()
             while n < num_samples:
                 if (n % 1000) == 0:
-                    print("%d..." % (n), end=" ")
+                    print(f"{n:d}...", end=" ")
                     sys.stdout.flush()
 
                 # Space the samples apart by the requested amount
@@ -81,22 +80,20 @@ class Profiler(object):
 
         # Save results to a file
         print(
-            "\n%d samples collected in %f seconds (%f ms/sample)"
-            % (num_samples, elapsed_time, elapsed_time * 1000.0 / num_samples)
+            f"\n{num_samples:d} samples collected in {elapsed_time:f} seconds ({elapsed_time * 1000.0 / num_samples:f} ms/sample)"
         )
-        print("Saving samples to %s..." % (filename))
+        print(f"Saving samples to {filename}...")
         with open(filename, "w") as out:
-            for k, v in pcs.iteritems():
-                out.write("%s %d\n" % (k, v))
+            out.writelines(f"{k} {v:d}\n" for k, v in pcs.iteritems())
 
     #####################################################################################
     def view(self, filename, elf):
 
         ADDR2LINE = "arm-none-eabi-addr2line"
-        output = dict()
+        output = {}
 
         # Read in the raw samples
-        pcs = dict()
+        pcs = {}
         total_samples = 0
         with open(filename) as f:
             for line in f:
@@ -110,14 +107,14 @@ class Profiler(object):
         output = subprocess.check_output(cmdline)
 
         # Collect results by method name and by file:line
-        method_count = dict()
-        file_line_count = dict()
+        method_count = {}
+        file_line_count = {}
 
         # Map file:line to method
-        method_lookup = dict()
+        method_lookup = {}
 
         # Map PC to file:line
-        file_line_lookup = dict()
+        file_line_lookup = {}
 
         items = output.splitlines()
         result_count = len(items) / 3
@@ -151,14 +148,14 @@ class Profiler(object):
             file_line_count.items(), key=operator.itemgetter(1), reverse=True
         )
         for k, v in sorted_values:
-            k = "{0}   ({1:.24})".format(k, method_lookup[k])
+            k = f"{k}   ({method_lookup[k]:.24})"
             print(format_str % (k, v * 100.0 / total_samples, v))
 
         print("\n\nSamples grouped by address ")
         print("---------------------------------------------------------------")
         sorted_values = sorted(pcs.items(), key=operator.itemgetter(1), reverse=True)
         for k, v in sorted_values:
-            k = "{0}   ({1:.48})".format(k, file_line_lookup[k])
+            k = f"{k}   ({file_line_lookup[k]:.48})"
             print(format_str % (k, v * 100.0 / total_samples, v))
 
 
@@ -221,7 +218,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=level)
 
     if args.sample_period_ms <= 0:
-        raise Exception("sample_period_ms must be >= 0")
+        raise RuntimeError("sample_period_ms must be >= 0")
 
     profiler = Profiler(args.openocd_port, args.pblprog_board)
     if args.action == "capture":

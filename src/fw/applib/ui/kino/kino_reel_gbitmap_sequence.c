@@ -6,10 +6,7 @@
 #include "applib/applib_malloc.auto.h"
 #include "applib/graphics/gbitmap_sequence.h"
 #include "syscall/syscall.h"
-#include <pbl/logging/logging.h>
 #include "pbl/util/struct.h"
-
-#include <limits.h>
 
 typedef struct {
   KinoReel base;

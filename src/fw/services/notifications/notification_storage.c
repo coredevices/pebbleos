@@ -7,7 +7,6 @@
 #include "pbl/util/uuid.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/services/filesystem/pfs.h"
-#include "pbl/services/system_task.h"
 #include <pbl/logging/logging.h>
 #include <pbl/logging/logging.h>
 #include "pbl/os/mutex.h"

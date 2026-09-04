@@ -12,7 +12,6 @@
 #include "applib/graphics/gdraw_command_transforms.h"
 #include "applib/ui/animation.h"
 #include "applib/ui/animation_interpolate.h"
-#include "applib/ui/app_window_stack.h"
 #include "applib/ui/property_animation.h"
 #include "util/time/time.h"
 #include <stdint.h>

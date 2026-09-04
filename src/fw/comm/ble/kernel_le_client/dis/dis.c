@@ -7,7 +7,6 @@
 #if defined(CONFIG_BT_ANCS_CLIENT)
 #include "comm/ble/kernel_le_client/ancs/ancs.h"
 #endif
-#include "comm/bt_lock.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 

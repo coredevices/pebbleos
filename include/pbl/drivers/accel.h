@@ -5,7 +5,6 @@
 
 #include "pbl/services/imu/units.h"
 
-#include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
 

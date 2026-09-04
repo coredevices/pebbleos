@@ -8,8 +8,8 @@ import os
 import sys
 import threading
 import time
-from datetime import datetime
 import unicodedata as ud
+from datetime import datetime
 
 from pebble.loghashing import newlogging
 
@@ -58,7 +58,7 @@ BOLD = "\x1b[1m"
 CLEAR_LINE = "\x1b[2K"
 
 
-class LogDehash(object):
+class LogDehash:
     """Dehashing helper with a file update watch thread"""
 
     def __init__(
@@ -124,7 +124,7 @@ class LogDehash(object):
         print("Supported Cores:")
         for key in sorted(self.loghash_dict, key=self.loghash_dict.get):
             if key.startswith(LOG_DICT_KEY_CORE_ID):
-                print("    {}: {}".format(key, self.loghash_dict[key]))
+                print(f"    {key}: {self.loghash_dict[key]}")
 
     def update_log_string_metrics(self):
         if not self.loghash_dict:
@@ -173,13 +173,12 @@ class LogDehash(object):
             line_dict[key] for key in ("date", "time") if key in line_dict
         )
         if timestamp:
-            output.append("[{}]".format(timestamp))
+            output.append(f"[{timestamp}]")
         elif "support" not in line_dict:
             # Use the current time if one isn't provided by the system
-            now = datetime.now()
+            now = datetime.now().astimezone()
             output.append(
-                "[%02d:%02d:%02d.%03d]"
-                % (now.hour, now.minute, now.second, now.microsecond / 1000)
+                f"[{now.hour:02d}:{now.minute:02d}:{now.second:02d}.{now.microsecond / 1000:03d}]"
             )
 
         if "support" not in line_dict and line_dict.get("re_level"):
@@ -220,9 +219,8 @@ class LogDehash(object):
             color = line_dict["color"]
             if color in COLOR_DICT:
                 output.append(COLOR_DICT[color])
-        if "level" in line_dict:
-            if int(line_dict["level"]) <= self.arg_bold:
-                output.append(BOLD)
+        if "level" in line_dict and int(line_dict["level"]) <= self.arg_bold:
+            output.append(BOLD)
         output.append(CLEAR_LINE)
         output.append(self.basic_format_line(line_dict))
         output.append("\n")
@@ -236,9 +234,8 @@ class LogDehash(object):
             color = line_dict["color"]
             if color in COLOR_DICT:
                 output.append(COLOR_DICT[color])
-        if "level" in line_dict:
-            if int(line_dict["level"]) <= self.arg_bold:
-                output.append(BOLD)
+        if "level" in line_dict and int(line_dict["level"]) <= self.arg_bold:
+            output.append(BOLD)
         output.append(self.basic_format_line(line_dict))
         output.append(COLOR_BOLD_RESET)
 

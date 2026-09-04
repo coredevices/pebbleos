@@ -8,7 +8,6 @@
 #include "pbl/os/mutex.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
-#include "pbl/services/process_management/app_storage.h"
 #include "pbl/services/clock.h"
 #include "pbl/services/event_service.h"
 #include "pbl/services/new_timer/new_timer.h"

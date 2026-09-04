@@ -6,7 +6,6 @@
 #include "applib/applib_malloc.auto.h"
 #include "applib/graphics/graphics.h"
 #include "applib/graphics/text.h"
-#include "applib/ui/window_private.h"
 #include "process_management/process_manager.h"
 #include "shell/system_theme.h"
 #include <pbl/logging/logging.h>

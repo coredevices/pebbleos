@@ -7,7 +7,7 @@ from bitarray import bitarray
 
 
 def chunks(l, n):
-    for i in xrange(0, len(l), n):
+    for i in range(0, len(l), n):
         yield l[i : i + n]
 
 
@@ -39,7 +39,7 @@ def framebuffer_to_png(data, png_path, width, bpp):
 
     data = list(chunks(data, width * len(channels)))
 
-    png.from_array(data, mode="%s;%d" % (channels, bpp)).save(png_path)
+    png.from_array(data, mode=f"{channels};{bpp:d}").save(png_path)
 
 
 def cmd_screenshot(args):

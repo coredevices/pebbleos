@@ -4,7 +4,6 @@
 #include "app_idle_timeout.h"
 
 #include "kernel/event_loop.h"
-#include "pbl/os/tick.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "shell/normal/watchface.h"
 #include "shell/shell.h"

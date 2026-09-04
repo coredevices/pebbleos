@@ -25,10 +25,8 @@
 #include <cmsis_core.h>
 
 #include "FreeRTOS.h"
-#include "portmacro.h"
 #include "task.h"
 
-#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
 

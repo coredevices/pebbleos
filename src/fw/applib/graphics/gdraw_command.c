@@ -5,7 +5,6 @@
 #include "gdraw_command.h"
 #include "gdraw_command_private.h"
 
-#include "applib/applib_malloc.auto.h"
 #include "applib/graphics/gpath.h"
 #include "system/passert.h"
 #include "syscall/syscall.h"

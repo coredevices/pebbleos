@@ -4,7 +4,6 @@
 #pragma once
 
 #include "gtypes.h"
-#include "pbl/util/math_fixed.h"
 
 //! @addtogroup Graphics
 //! @{

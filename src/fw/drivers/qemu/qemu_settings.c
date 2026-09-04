@@ -4,8 +4,6 @@
 #include <pbl/drivers/qemu/qemu_settings.h>
 #include "system/passert.h"
 
-#include <stdarg.h>
-#include <stdbool.h>
 #include <stdio.h>
 
 #include "board/board.h"

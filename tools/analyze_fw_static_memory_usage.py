@@ -8,7 +8,7 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 import analyze_static_memory_usage
-from binutils import nm_generator, analyze_elf
+from binutils import analyze_elf, nm_generator
 
 
 def cleanup_path(f):
@@ -18,8 +18,7 @@ def cleanup_path(f):
     if len(f) > 6 and f[-6:-3] == ".c." and f[-2:] == ".o":
         f = f[:-4]
 
-    if f.startswith("src/"):
-        f = f[4:]
+    f = f.removeprefix("src/")
 
     newlib_index = f.rfind("/newlib/libc")
     if newlib_index != -1:
@@ -58,9 +57,8 @@ def analyze_map(map_file, sections):
     text_section = sections["t"]
 
     def line_generator(map_file):
-        with open(map_file, "r") as f:
-            for line in f:
-                yield line
+        with open(map_file) as f:
+            yield from f
 
     lines = line_generator(map_file)
     for line in lines:
@@ -137,7 +135,7 @@ def print_groups(text_section, verbose):
         ("build/src/fw", "FW Other"),
     ]
 
-    class Group(object):
+    class Group:
         def __init__(self, name):
             self.name = name
             self.total_size = 0
@@ -167,11 +165,11 @@ def print_groups(text_section, verbose):
 
     sorted_items = sorted(group_sizes.iteritems(), key=lambda x: -x[1].total_size)
     for group_name, group in sorted_items:
-        print("%-20s %u" % (group_name, group.total_size))
+        print(f"{group_name:<20} {group.total_size:d}")
         if verbose:
             sorted_files = sorted(group.files, key=lambda x: -x.size)
             for f in sorted_files:
-                print("  %6u %-20s" % (f.size, f.filename))
+                print(f"  {f.size:6d} {f.filename:<20}")
 
 
 if __name__ == "__main__":

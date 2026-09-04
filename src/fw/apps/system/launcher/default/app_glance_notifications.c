@@ -15,8 +15,6 @@
 #include "pbl/util/string.h"
 #include "pbl/util/struct.h"
 
-#include <stdio.h>
-
 typedef struct LauncherAppGlanceNotifications {
   char title[APP_NAME_SIZE_BYTES];
   char subtitle[ATTRIBUTE_APP_GLANCE_SUBTITLE_MAX_LEN];

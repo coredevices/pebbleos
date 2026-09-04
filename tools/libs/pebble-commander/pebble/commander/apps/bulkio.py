@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import collections
 import logging
 import struct
+from typing import ClassVar
 
 from ..exceptions import PebbleCommanderError
+
+logger = logging.getLogger(__name__)
 
 
 class ResponseParseError(PebbleCommanderError):
@@ -18,7 +20,7 @@ class EraseError(PebbleCommanderError):
     pass
 
 
-class OpenCommand(object):
+class OpenCommand:
     command_type = 1
     command_struct = struct.Struct("<BB")
 
@@ -35,7 +37,7 @@ class OpenCommand(object):
         return cmd
 
 
-class CloseCommand(object):
+class CloseCommand:
     command_type = 2
     command_struct = struct.Struct("<BB")
 
@@ -47,7 +49,7 @@ class CloseCommand(object):
         return self.command_struct.pack(self.command_type, self.fd)
 
 
-class ReadCommand(object):
+class ReadCommand:
     command_type = 3
     command_struct = struct.Struct("<BBII")
 
@@ -63,7 +65,7 @@ class ReadCommand(object):
         )
 
 
-class WriteCommand(object):
+class WriteCommand:
     command_type = 4
     command_struct = struct.Struct("<BBI")
     header_size = command_struct.size
@@ -81,7 +83,7 @@ class WriteCommand(object):
         )
 
 
-class CRCCommand(object):
+class CRCCommand:
     command_type = 5
     command_struct = struct.Struct("<BBII")
 
@@ -97,7 +99,7 @@ class CRCCommand(object):
         )
 
 
-class StatCommand(object):
+class StatCommand:
     command_type = 6
     command_struct = struct.Struct("<BB")
 
@@ -109,7 +111,7 @@ class StatCommand(object):
         return self.command_struct.pack(self.command_type, self.fd)
 
 
-class EraseCommand(object):
+class EraseCommand:
     command_type = 7
     command_struct = struct.Struct("<BB")
 
@@ -126,7 +128,7 @@ class EraseCommand(object):
         return cmd
 
 
-class OpenResponse(object):
+class OpenResponse:
     response_type = 128
     response_format = "<xB"
     response_struct = struct.Struct(response_format)
@@ -137,11 +139,11 @@ class OpenResponse(object):
     def parse(cls, response):
         response_type = ord(response[0])
         if response_type != cls.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
-class CloseResponse(object):
+class CloseResponse:
     response_type = 129
     response_format = "<xB"
     response_struct = struct.Struct(response_format)
@@ -152,11 +154,11 @@ class CloseResponse(object):
     def parse(cls, response):
         response_type = ord(response[0])
         if response_type != cls.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
-class ReadResponse(object):
+class ReadResponse:
     response_type = 130
     response_format = "<xBI"
     response_struct = struct.Struct(response_format)
@@ -166,7 +168,7 @@ class ReadResponse(object):
     @classmethod
     def parse(cls, response):
         if ord(response[0]) != cls.response_type:
-            raise ResponseParseError("Unexpected response: %r" % response)
+            raise ResponseParseError(f"Unexpected response: {response!r}")
         header = response[: cls.header_size]
         body = response[cls.header_size :]
         (
@@ -176,7 +178,7 @@ class ReadResponse(object):
         return cls.Response(fd, address, body)
 
 
-class WriteResponse(object):
+class WriteResponse:
     response_type = 131
     response_format = "<xBII"
     response_struct = struct.Struct(response_format)
@@ -187,11 +189,11 @@ class WriteResponse(object):
     def parse(cls, response):
         response_type = ord(response[0])
         if response_type != cls.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
-class CRCResponse(object):
+class CRCResponse:
     response_type = 132
     response_format = "<xBIII"
     response_struct = struct.Struct(response_format)
@@ -202,11 +204,11 @@ class CRCResponse(object):
     def parse(cls, response):
         response_type = ord(response[0])
         if response_type != cls.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
-class StatResponse(object):
+class StatResponse:
     response_type = 133
 
     def __init__(self, name, format, fields):
@@ -217,16 +219,14 @@ class StatResponse(object):
     def parse(self, response):
         response_type = ord(response[0])
         if response_type != self.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return self.tuple._make(self.struct.unpack(response))
 
     def __repr__(self):
-        return "StatResponse({self.name!r}, {self.struct!r}, {self.tuple!r})".format(
-            self=self
-        )
+        return f"StatResponse({self.name!r}, {self.struct!r}, {self.tuple!r})"
 
 
-class EraseResponse(object):
+class EraseResponse:
     response_type = 134
     response_format = "<xBb"
     response_struct = struct.Struct(response_format)
@@ -237,7 +237,7 @@ class EraseResponse(object):
     def parse(cls, response):
         response_type = ord(response[0])
         if response_type != cls.response_type:
-            raise ResponseParseError("Unexpected response type: %r" % response_type)
+            raise ResponseParseError(f"Unexpected response type: {response_type!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
@@ -248,7 +248,7 @@ def enum(**enums):
 ReadDomains = enum(MEMORY=1, EXTERNAL_FLASH=2, FRAMEBUFFER=3, COREDUMP=4, PFS=5)
 
 
-class PULSEIO_Base(object):
+class PULSEIO_Base:
     ERASE_FORMAT = None
     STAT_FORMAT = None
     DOMAIN = None
@@ -301,7 +301,7 @@ class PULSEIO_Base(object):
             options = struct.pack("<" + cls.ERASE_FORMAT, *args)
         else:
             raise NotImplementedError(
-                "Erase is not supported for domain %d" % cls.DOMAIN
+                f"Erase is not supported for domain {cls.DOMAIN:d}"
             )
         cmd = EraseCommand(cls.DOMAIN, options)
         socket.send(cmd.packet)
@@ -309,7 +309,7 @@ class PULSEIO_Base(object):
         while status > 0:
             ret = socket.receive(block=True)
             resp = EraseResponse.parse(ret)
-            logging.debug("ERASE: domain %d status %d", resp.domain, resp.status)
+            logger.debug("ERASE: domain %d status %d", resp.domain, resp.status)
             status = resp.status
 
         if status < 0:
@@ -321,7 +321,7 @@ class PULSEIO_Base(object):
 
         mss = self.socket.mtu - WriteCommand.header_size
 
-        for offset in xrange(0, len(data), mss):
+        for offset in range(0, len(data), mss):
             segment = data[offset : offset + mss]
             resp = self._send_and_receive(
                 WriteCommand, WriteResponse, self.fd, self.pos, segment
@@ -341,7 +341,7 @@ class PULSEIO_Base(object):
         bytes_left = length
         while bytes_left > 0:
             packet = self.socket.receive(block=True)
-            fd, chunk_offset, chunk = ReadResponse.parse(packet)
+            fd, _chunk_offset, chunk = ReadResponse.parse(packet)
             assert fd == self.fd
             data.extend(chunk)
 
@@ -363,7 +363,7 @@ class PULSEIO_Base(object):
 
         if not self.STAT_FORMAT:
             raise NotImplementedError(
-                "Stat is not supported for domain %d" % self.DOMAIN
+                f"Stat is not supported for domain {self.DOMAIN:d}"
             )
 
         return self._send_and_receive(StatCommand, self.STAT_FORMAT, self.fd)
@@ -419,9 +419,9 @@ class PULSEIO_PFS(PULSEIO_Base):
         return struct.pack("<BBI", mode_num, flags, initial_size) + filename
 
 
-class BulkIO(object):
+class BulkIO:
     PROTOCOL_NUMBER = 0x3E21
-    DOMAIN_MAP = {"pfs": PULSEIO_PFS, "framebuffer": PULSEIO_Framebuffer}
+    DOMAIN_MAP: ClassVar = {"pfs": PULSEIO_PFS, "framebuffer": PULSEIO_Framebuffer}
 
     def __init__(self, link):
         self.socket = link.open_socket("reliable", self.PROTOCOL_NUMBER)

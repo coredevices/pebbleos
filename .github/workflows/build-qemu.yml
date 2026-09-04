@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
 
 jobs:
   changes-qemu:
@@ -29,9 +30,9 @@ jobs:
               - 'stored_apps/**'
               - 'tools/**'
               - 'third_party/**'
-              - 'tools/waf/**'
-              - 'waf'
-              - 'wscript'
+              - 'cmake/**'
+              - 'CMakeLists.txt'
+              - 'Kconfig'
 
   build-qemu:
     needs: changes-qemu
@@ -39,7 +40,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     container:
-      image: ghcr.io/coredevices/pebbleos-docker:v6
+      image: ghcr.io/coredevices/pebbleos-docker:v7
 
     strategy:
       matrix:
@@ -54,6 +55,9 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
+
+      - name: Fetch tags
+        run: git fetch --tags --force
 
       - name: Rebase onto target branch
         uses: ./.github/actions/rebase
@@ -71,18 +75,23 @@ jobs:
         run: echo "dir=$(npm config get cache)" >> ${GITHUB_OUTPUT}
 
       - name: Configure
-        run: ./waf configure --board ${{ matrix.board }}
+        run: pbl configure --board ${{ matrix.board }}
 
       - name: Build
-        run: ./waf build qemu_image_micro qemu_image_spi
+        run: pbl build qemu_image_micro qemu_image_spi
+
+      - name: Copy artifacts
+        run: |
+          version=$(git describe)
+          mkdir artifacts
+          cp build/qemu_micro_flash.bin "artifacts/${{ matrix.board }}_${version}_micro_flash.bin"
+          cp build/qemu_spi_flash.bin "artifacts/${{ matrix.board }}_${version}_spi_flash.bin"
 
       - name: Store
         uses: actions/upload-artifact@v7
         with:
           name: firmware-${{ matrix.board }}-qemu
-          path: |
-            build/qemu_micro_flash.bin
-            build/qemu_spi_flash.bin
+          path: artifacts
 
   build-qemu-status:
     needs: [changes-qemu, build-qemu]

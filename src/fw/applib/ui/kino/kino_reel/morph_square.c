@@ -7,7 +7,6 @@
 #include "applib/applib_malloc.auto.h"
 #include "applib/graphics/gdraw_command_transforms.h"
 #include "applib/ui/kino/kino_reel.h"
-#include "applib/ui/kino/kino_reel_custom.h"
 #include "applib/ui/animation_timing.h"
 
 typedef struct {

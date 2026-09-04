@@ -3,11 +3,11 @@
 
 import os.path
 import re
-import sh
 import subprocess
 import sys
 import tempfile
 
+import sh
 
 NM_LINE_PATTERN = re.compile(
     r"""([0-9a-f]+)\s+ # address
@@ -20,16 +20,16 @@ NM_LINE_PATTERN = re.compile(
 )
 
 
-class Symbol(object):
+class Symbol:
     def __init__(self, name, size):
         self.name = name
         self.size = size
 
     def __str__(self):
-        return "<Symbol %s: %u>" % (self.name, self.size)
+        return f"<Symbol {self.name}: {self.size:d}>"
 
 
-class FileInfo(object):
+class FileInfo:
     def __init__(self, filename):
         self.filename = filename
         self.size = 0
@@ -49,17 +49,17 @@ class FileInfo(object):
         return result
 
     def pprint(self, verbose):
-        print("  %s: size %u" % (self.filename, self.size))
+        print(f"  {self.filename}: size {self.size:d}")
         if verbose:
             l = sorted(self.symbols.values(), key=lambda x: -x.size)
             for s in l:
-                print("    %6u %-36s" % (s.size, s.name))
+                print(f"    {s.size:6d} {s.name:<36}")
 
     def __str__(self):
-        return "<FileInfo %s: %u>" % (self.filename, self.size)
+        return f"<FileInfo {self.filename}: {self.size:d}>"
 
 
-class SectionInfo(object):
+class SectionInfo:
     def __init__(self, name):
         self.name = name
         self.count = 0
@@ -87,7 +87,7 @@ class SectionInfo(object):
         return self.files.values()
 
     def pprint(self, summary, verbose):
-        print("%s: count %u size %u" % (self.name, self.count, self.size))
+        print(f"{self.name}: count {self.count:d} size {self.size:d}")
 
         if not summary:
             l = self.files.values()
@@ -115,9 +115,9 @@ def analyze_elf(elf_file_path, sections_letters, use_fast_nm):
             elif s == "t":
                 sections["t"] = SectionInfo(".text")
             else:
-                raise Exception(
-                    "Invalid section <%s>, must be a combination"
-                    " of [bdt] characters\n" % s
+                raise RuntimeError(
+                    f"Invalid section <{s}>, must be a combination"
+                    " of [bdt] characters\n"
                 )
         return sections
 
@@ -189,9 +189,9 @@ def _get_symbols_table(f):
         success = False
         while not success:
             try:
-                addr2line.stdin.write("0x%s\n" % addr)
+                addr2line.stdin.write(f"0x{addr}\n")
                 success = True
-            except IOError:
+            except OSError:
                 # This happens if the previous iteration caused an error
                 addr2line = create_addr2line_process()
 

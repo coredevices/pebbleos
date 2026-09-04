@@ -5,7 +5,6 @@
 
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "system/reset.h"
 
 #include "kernel/pbl_malloc.h"
 #include "pbl/os/tick.h"
@@ -18,7 +17,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <string.h>
 
 static QueueHandle_t s_kernel_event_queue = NULL;
 static QueueHandle_t s_from_app_event_queue = NULL;

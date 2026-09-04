@@ -7,9 +7,6 @@
 
 #include "applib/graphics/gtypes.h"
 
-#include <stdbool.h>
-#include <stdint.h>
-
 //! @addtogroup UI
 //! @{
 //!   @addtogroup Recognizer

@@ -2,12 +2,10 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "kernel/kernel_applib_state.h"
-#include "kernel/memory_layout.h"
 #include "process_management/app_manager.h"
 #include "process_management/worker_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "process_state/worker_state/worker_state.h"
-#include "pbl/services/compositor/compositor.h"
 #include "pbl/services/event_service.h"
 #include "syscall/syscall_internal.h"
 #include <pbl/logging/logging.h>

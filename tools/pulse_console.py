@@ -1,20 +1,17 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import print_function
 
 import argparse
 import os
 import signal
 import threading
-import sys
 
+from log_hashing.logdehash import LogDehash
+from pebble import commander, pulse2
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
-
-from pebble import pulse2, commander
-from log_hashing.logdehash import LogDehash
 
 PROMPT_STRING = "> "
 
@@ -31,7 +28,7 @@ def handle_prompt_command(interface, session):
         for line in prompt.command_and_response(cmd):
             print(line)
     except commander.exceptions.CommandTimedOut:
-        print("Command '%s' timed out" % cmd)
+        print(f"Command '{cmd}' timed out")
     finally:
         prompt.close()
 
@@ -64,7 +61,7 @@ def start_logging_thread(*args):
 
 def generate_dehash_arguments():
     def yes_no_to_bool(arg):
-        return True if arg == "yes" else False
+        return arg == "yes"
 
     args = {
         "justify": "small",
@@ -93,7 +90,7 @@ def generate_dehash_arguments():
             elif key == "--core":
                 args["print_core"] = yes_no_to_bool(value)
             else:
-                raise Exception(
+                raise RuntimeError(
                     "Unknown console argument '{}'. Choices are ({})".format(
                         key, ["--justify", "--color", "--bold", "--dict", "--core"]
                     )
@@ -119,7 +116,7 @@ def main():
 
     start_logging_thread(interface, dehasher)
 
-    print("--- PULSE terminal on %s ---" % args.tty)
+    print(f"--- PULSE terminal on {args.tty} ---")
     print("--- Ctrl-C or Ctrl-D to exit ---")
 
     session = PromptSession(history=InMemoryHistory())

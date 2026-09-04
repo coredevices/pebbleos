@@ -3,10 +3,8 @@
 
 #include <pbl/drivers/temperature.h>
 
-#include "bf0_hal.h"
 #include "board/board.h"
 #include "console/prompt.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "kernel/util/delay.h"
 

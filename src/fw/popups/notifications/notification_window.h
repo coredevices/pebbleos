@@ -4,7 +4,6 @@
 #pragma once
 
 #include <stdbool.h>
-#include <stdint.h>
 
 #include "applib/fonts/fonts.h"
 #include "pbl/services/notifications/notifications.h"

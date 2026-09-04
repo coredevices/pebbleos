@@ -4,12 +4,15 @@
 import json
 import os
 from string import Template
+
+from sdk_helpers import (  # noqa: F401
+    find_sdk_component,
+    get_node_from_abspath,
+    process_package,
+)
+from waflib import Context, Logs, Task
 from waflib.Errors import WafError
 from waflib.TaskGen import before_method, feature
-from waflib import Context, Logs, Task
-
-from sdk_helpers import find_sdk_component, get_node_from_abspath  # noqa: F401
-from sdk_helpers import process_package  # noqa: F401
 
 
 @feature("js")
@@ -91,16 +94,12 @@ class copy_js(Task.Task):
 
         if len(self.inputs) != len(self.outputs):
             bld.fatal(
-                "Number of input JS files ({}) does not match number of target JS files ({})".format(
-                    len(self.inputs), len(self.outputs)
-                )
+                f"Number of input JS files ({len(self.inputs)}) does not match number of target JS files ({len(self.outputs)})"
             )
 
         for i in range(len(self.inputs)):
             bld.cmd_and_log(
-                'cp "{src}" "{tgt}"'.format(
-                    src=self.inputs[i].abspath(), tgt=self.outputs[i].abspath()
-                ),
+                f'cp "{self.inputs[i].abspath()}" "{self.outputs[i].abspath()}"',
                 quiet=Context.BOTH,
             )
 
@@ -116,20 +115,18 @@ class merge_js(Task.Task):
         :return: N/A
         """
         bld = self.generator.bld
-        js_build_type = getattr(self, "js_build_type")
+        js_build_type = self.js_build_type
 
         # Check for a valid JS entry point among JS files
         js_nodes = self.inputs
         entry_point = bld.path.find_resource(self.js_entry_file)
         if entry_point not in js_nodes:
             bld.fatal(
-                "\n\nJS entry file '{}' not found in JS source files '{}'. We expect to find "
+                f"\n\nJS entry file '{self.js_entry_file}' not found in JS source files '{js_nodes}'. We expect to find "
                 "a javascript file here that we will execute directly when your app launches."
                 "\n\nIf you are an advanced user, you can supply the 'js_entry_file' "
                 "parameter to 'pbl_bundle' in your wscript to change the default entry point."
-                " Note that doing this will break CloudPebble compatibility.".format(
-                    self.js_entry_file, js_nodes
-                )
+                " Note that doing this will break CloudPebble compatibility."
             )
         target_js = self.outputs[0]
 
@@ -157,7 +154,7 @@ class merge_js(Task.Task):
         pebble_packages = [
             str(lib["name"]) for lib in bld.env.LIB_JSON if "pebble" in lib
         ]
-        aliases = {lib: "{}/dist/js".format(lib) for lib in pebble_packages}
+        aliases = {lib: f"{lib}/dist/js" for lib in pebble_packages}
 
         info_json_file = bld.path.find_node("package.json") or bld.path.find_node(
             "appinfo.json"
@@ -166,7 +163,7 @@ class merge_js(Task.Task):
             aliases.update({"app_package.json": info_json_file.abspath()})
 
         config_file = bld.path.get_bld().make_node(
-            "webpack/{}/webpack.config.js".format(js_build_type)
+            f"webpack/{js_build_type}/webpack.config.js"
         )
         config_file.parent.mkdir()
         with open(config_file.abspath(), "w") as f:
@@ -193,7 +190,7 @@ class merge_js(Task.Task):
         try:
             out = bld.cmd_and_log(cmd, quiet=Context.BOTH, output=Context.STDOUT)
         except WafError as e:
-            bld.fatal("JS bundling failed\n{}\n{}".format(e.stdout, e.stderr))
+            bld.fatal(f"JS bundling failed\n{e.stdout}\n{e.stderr}")
         else:
             if self.env.VERBOSE > 0:
                 Logs.pprint("WHITE", out)

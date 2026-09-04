@@ -1,13 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "window.h"
 #include "app_window_stack.h"
-#include "window_stack.h"
-#include "click.h"
-#include "layer.h"
-#include "animation.h"
-#include "property_animation.h"
 #include "scroll_layer.h"
 #include "menu_layer.h"
 #include "action_bar_layer.h"
@@ -15,10 +9,8 @@
 #include "progress_layer.h"
 #include "text_layer.h"
 #include "bitmap_layer.h"
-#include "rotate_bitmap_layer.h"
 #include "rotbmp_pair_layer.h"
 #include "path_layer.h"
-#include "inverter_layer.h"
 #include "vibes.h"
 #include "number_window.h"
 #include "status_bar_layer.h"

@@ -26,8 +26,8 @@ def generate_bin_file(task_gen, bin_type, elf_file, has_pkjs, has_worker):
         resources_file = platform_build_node.find_or_declare("app_resources.pbpack")
         packaged_files.append(resources_file)
 
-    raw_bin_file = platform_build_node.make_node("pebble-{}.raw.bin".format(bin_type))
-    bin_file = platform_build_node.make_node("pebble-{}.bin".format(bin_type))
+    raw_bin_file = platform_build_node.make_node(f"pebble-{bin_type}.raw.bin")
+    bin_file = platform_build_node.make_node(f"pebble-{bin_type}.bin")
 
     task_gen.bld(rule=objcopy.objcopy_bin, source=elf_file, target=raw_bin_file)
     pebble_sdk_gcc.gen_inject_metadata_rule(

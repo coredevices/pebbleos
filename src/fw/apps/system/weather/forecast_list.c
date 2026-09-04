@@ -2,12 +2,10 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "forecast_list.h"
-#include "weather.h"
 #include "expanded_view.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/status_bar_layer.h"   // status-bar height/offset constants (top time)
 #include "weather_math.h"
-#include "resource_ids.pin.h"
 #include "pbl/services/clock.h"            // clock_copy_time_string — notification-style top time
 #include "applib/graphics/gdraw_command_transforms.h"
 #include "applib/graphics/gdraw_command.h"

@@ -9,7 +9,6 @@
 #include "system/passert.h"
 
 #include "FreeRTOS.h"
-#include "portmacro.h"
 
 #include <time.h>
 

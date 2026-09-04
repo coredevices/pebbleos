@@ -5,8 +5,6 @@
 
 #include "pbl/services/battery/battery_monitor.h"
 
-#include <inttypes.h>
-
 //! Represents an angle relative to get to a reference direction, e.g. (magnetic) north.
 //! The angle value is scaled linearly, such that a value of TRIG_MAX_ANGLE
 //! corresponds to 360 degrees or 2 PI radians.

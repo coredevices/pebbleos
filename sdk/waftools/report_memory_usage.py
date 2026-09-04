@@ -2,17 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from waflib import Logs, Task
-from waflib.TaskGen import after_method, feature
 
+# binutils and memory_reports live in the SDK's common/tools, which sdk_paths
+# puts on the path; importing it first is what makes them resolvable.
+import sdk_paths  # noqa: F401
 from binutils import size
 from memory_reports import (
+    app_appstore_resource_memory_error,
     app_memory_report,
     app_resource_memory_error,  # noqa: F401
-    app_appstore_resource_memory_error,
     simple_memory_report,
 )
 from sdk_helpers import is_sdk_2x  # noqa: F401
+from waflib import Logs, Task
+from waflib.TaskGen import after_method, feature
 
 
 class memory_usage_report(Task.Task):

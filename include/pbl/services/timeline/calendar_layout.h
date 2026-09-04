@@ -3,13 +3,9 @@
 
 #pragma once
 
-#include "item.h"
 #include "layout_layer.h"
 #include "timeline_layout.h"
 
-#include "applib/graphics/gdraw_command_image.h"
-#include "applib/graphics/graphics.h"
-#include "applib/graphics/text.h"
 #include "applib/ui/ui.h"
 
 typedef enum {

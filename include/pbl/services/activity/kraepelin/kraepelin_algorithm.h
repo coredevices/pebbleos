@@ -1,7 +1,6 @@
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
-#include "applib/accel_service.h"
 #include "util/time/time.h"
 
 

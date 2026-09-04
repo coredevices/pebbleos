@@ -10,8 +10,6 @@
 #include "process_management/pebble_process_info.h"
 #include "system/status_codes.h"
 #include "pbl/util/attributes.h"
-#include "pbl/util/list.h"
-
 
 //! App database entry for BlobDB. First pass is very basic. The list will expand as more features
 //! and requirements are implemented.

@@ -6,7 +6,6 @@
 #include "notifications_presented_list.h"
 #include "notification_window_private.h"
 
-#include "applib/fonts/fonts.h"
 #include "applib/ui/action_button.h"
 #include "applib/ui/action_menu_window.h"
 #include "applib/ui/app_window_stack.h"
@@ -26,7 +25,6 @@
 #include "process_management/process_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/bluetooth/bluetooth_persistent_storage.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/evented_timer.h"
@@ -54,9 +52,7 @@
 #include "pbl/services/timeline/timeline_actions.h"
 #include "pbl/services/timeline/timeline_resources.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 #include "pbl/util/math.h"
-#include "pbl/util/trig.h"
 
 #include <inttypes.h>
 #include <stdio.h>

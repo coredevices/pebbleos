@@ -9,7 +9,6 @@
 
 #include <services/gatt/ble_svc_gatt.h>
 
-#include <FreeRTOS.h>
 #include <semphr.h>
 
 #include "nimble_gattc_op_queue.h"

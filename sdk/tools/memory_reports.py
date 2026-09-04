@@ -74,13 +74,9 @@ def app_resource_memory_error(platform_name, resource_size, max_resource_size):
     """
     report = (
         "======================================================\n"
-        "Build failed: {}\n"
-        "Error: Resource pack is too large ({}KB / {}KB)\n"
-        "======================================================\n".format(
-            platform_name,
-            _convert_bytes_to_kilobytes(resource_size),
-            _convert_bytes_to_kilobytes(max_resource_size),
-        )
+        f"Build failed: {platform_name}\n"
+        f"Error: Resource pack is too large ({_convert_bytes_to_kilobytes(resource_size)}KB / {_convert_bytes_to_kilobytes(max_resource_size)}KB)\n"
+        "======================================================\n"
     )
 
     return "RED", report
@@ -98,13 +94,9 @@ def app_appstore_resource_memory_error(
     :return: a tuple containing the color for the string print, and the string to print
     """
     report = (
-        "WARNING: Your {} app resources are too large ({}KB / {}KB). You will not be "
+        f"WARNING: Your {platform_name} app resources are too large ({_convert_bytes_to_kilobytes(resource_size)}KB / {_convert_bytes_to_kilobytes(max_appstore_resource_size)}KB). You will not be "
         "able "
-        "to publish your app.\n".format(
-            platform_name,
-            _convert_bytes_to_kilobytes(resource_size),
-            _convert_bytes_to_kilobytes(max_appstore_resource_size),
-        )
+        "to publish your app.\n"
     )
 
     return "RED", report

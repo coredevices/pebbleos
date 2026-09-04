@@ -4,7 +4,6 @@
 #include "applib/app.h"
 #include "applib/app_comm.h"
 #include "applib/app_sync/app_sync.h"
-#include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "process_state/app_state/app_state.h"
 #include "pbl/services/activity/activity_algorithm.h"
@@ -17,7 +16,6 @@
 #include "controller.h"
 #include "metrics.h"
 
-#include <limits.h>
 #include <stdio.h>
 
 

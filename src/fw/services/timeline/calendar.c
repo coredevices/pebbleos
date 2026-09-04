@@ -4,14 +4,8 @@
 #include "pbl/services/timeline/calendar.h"
 
 #include <pbl/drivers/rtc.h>
-#include "kernel/event_loop.h"
 #include "kernel/events.h"
-#include "kernel/pbl_malloc.h"
-#include "kernel/pebble_tasks.h"
-#include "pbl/services/system_task.h"
-#include "pbl/services/blob_db/pin_db.h"
 #include <pbl/logging/logging.h>
-#include "system/status_codes.h"
 #include "util/time/time.h"
 
 static bool s_event_ongoing = false;

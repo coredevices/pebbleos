@@ -6,8 +6,6 @@
 #include "applib/fonts/codepoint.h"
 #include "resource/resource_ids.auto.h"
 
-#include <stdint.h>
-
 typedef struct {
   Codepoint codepoint;
   ResourceId resource_id;

@@ -4,7 +4,6 @@
 #pragma once
 
 #include <stdint.h>
-#include <stdbool.h>
 
 #include "board/board.h"
 

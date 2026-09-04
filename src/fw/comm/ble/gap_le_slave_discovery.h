@@ -13,7 +13,6 @@
 //! the sake of completeness.
 
 #include <stdbool.h>
-#include <stdint.h>
 
 //! @return True is Pebble is currently explicitely discoverable as BLE slave
 //! or false if not.

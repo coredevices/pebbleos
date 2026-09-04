@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <inttypes.h>
-
 // ratio32 - uint32 as a real number between 0 and 1
 
 #define RATIO32_MIN 0

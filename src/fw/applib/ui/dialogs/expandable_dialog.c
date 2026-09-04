@@ -7,18 +7,15 @@
 #include "applib/fonts/fonts.h"
 #include "applib/graphics/gtypes.h"
 #include "applib/graphics/text.h"
-#include "applib/ui/bitmap_layer.h"
 #include "applib/ui/dialogs/dialog_private.h"
 #include "applib/ui/layer.h"
 #include "applib/ui/text_layer.h"
 #include "applib/ui/window.h"
-#include "applib/ui/window_private.h"
 #include "kernel/ui/kernel_ui.h"
 #include "resource/resource.h"
 #include "resource/resource_ids.auto.h"
 #include "system/passert.h"
 
-#include <limits.h>
 #include <stdint.h>
 #include <string.h>
 

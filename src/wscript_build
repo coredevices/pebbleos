@@ -1,4 +1,0 @@
-if bld.variant != 'test':
-    bld.recurse('bluetooth-fw')
-
-# vim:filetype=python

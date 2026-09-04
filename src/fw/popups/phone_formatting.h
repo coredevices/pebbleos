@@ -4,8 +4,6 @@
 #pragma once
 
 #include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
 
 //! Turns every word after the first one into an initial.
 //! e.g. Katharine Claire Berry -> Katharine C. B.

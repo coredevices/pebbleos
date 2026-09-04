@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <stdbool.h>
-
 #include "pbl/services/firmware_update.h"
 
 #include <pbl/util/attributes.h>

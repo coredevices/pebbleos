@@ -6,10 +6,9 @@
 # directly via sftool to the correct flash addresses. No PULSE descriptor is
 # prepended, so recovery (PRF) stays in PBLBOOT format for the bootloader.
 #
-# Same CLI as pulse_flash_imaging / pulse_legacy_flash_imaging so waf can
+# Same CLI as pulse_flash_imaging / pulse_legacy_flash_imaging so callers can
 # select this tool via _get_pulse_flash_tool() for MICRO_FAMILY == 'SF32LB52'.
 
-from __future__ import print_function
 
 import argparse
 import subprocess
@@ -21,7 +20,7 @@ SYSTEM_RESOURCES_ADDR = 0x12620000
 
 
 def run_sftool(tty, path, address, chip="SF32LB52"):
-    cmd = ["sftool", "-c", chip, "-p", tty, "write_flash", "%s@0x%x" % (path, address)]
+    cmd = ["sftool", "-c", chip, "-p", tty, "write_flash", f"{path}@0x{address:x}"]
     r = subprocess.call(cmd)
     return r == 0
 
@@ -60,7 +59,7 @@ def main():
         addr = SYSTEM_RESOURCES_ADDR
         name = "resources (SYSTEM_RESOURCES)"
 
-    print("Writing %s to 0x%x via sftool..." % (name, addr))
+    print(f"Writing {name} to 0x{addr:x} via sftool...")
     if run_sftool(args.tty, args.file, addr, chip=args.chip):
         print("Success!")
     else:

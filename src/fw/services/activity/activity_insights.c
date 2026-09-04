@@ -8,32 +8,23 @@
 #include "pbl/services/activity/insights_settings.h"
 
 #include "applib/event_service_client.h"
-#include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
-#include "resource/resource_ids.auto.h"
 #include "resource/timeline_resource_ids.auto.h"
 #include "pbl/services/clock.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/activity/health_util.h"
 #include "pbl/services/activity/hr_util.h"
-#include "pbl/services/notifications/notification_storage.h"
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/timeline/health_layout.h"
-#include "pbl/services/timeline/metricgroup.h"
 #include "pbl/services/timeline/timeline.h"
 #include "pbl/services/timeline/weather_layout.h"
-#include "shell/prefs.h"
-#include "shell/system_app_ids.auto.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 #include "pbl/util/attributes.h"
 #include "pbl/util/math.h"
-#include "pbl/util/size.h"
 #include "util/stats.h"
 #include "pbl/util/string.h"
 #include "util/time/time.h"
-#include "util/units.h"
 
 #include <stdio.h>
 

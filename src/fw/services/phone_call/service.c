@@ -4,10 +4,8 @@
 #include "pbl/services/phone_call.h"
 
 #include "applib/event_service_client.h"
-#include "applib/ui/vibes.h"
 #include "comm/ble/kernel_le_client/ancs/ancs.h"
 #include "comm/ble/kernel_le_client/ancs/ancs_types.h"
-#include "kernel/pbl_malloc.h"
 #include "popups/phone_ui.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/comm_session/session.h"

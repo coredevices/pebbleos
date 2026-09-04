@@ -8,16 +8,12 @@
 #include "pbl/services/blob_db/sync_util.h"
 #include "pbl/services/blob_db/timeline_item_storage.h"
 
-#include <string.h>
-
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "process_management/app_install_manager.h"
 #include "pbl/services/app_cache.h"
-#include "pbl/services/timeline/calendar.h"
 #include "pbl/services/timeline/timeline.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 #include "util/units.h"
 #include "pbl/util/uuid.h"
 

@@ -2,11 +2,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
-#include "kernel/events.h"
 #include "event_service_client.h"
 #include "plugin_service.h"
-#include "pbl/util/uuid.h"
-
 
 // We dynamically allocate one of these for every service we subscribe to
 typedef struct {

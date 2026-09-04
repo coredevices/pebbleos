@@ -10,7 +10,6 @@
 #include "pbl/mcu/cache.h"
 #include "system/passert.h"
 #include "system/status_codes.h"
-#include "pbl/util/math.h"
 
 #define SEC_ADDR_TO_IDX(addr) (((addr) >> 12U) - 1U)
 

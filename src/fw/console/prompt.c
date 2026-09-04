@@ -7,7 +7,6 @@
 #include "console_internal.h"
 #include "dbgserial.h"
 #include <pbl/drivers/rtc.h>
-#include "kernel/pbl_malloc.h"
 #include "pulse_protocol_impl.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
@@ -17,7 +16,6 @@
 
 #include <string.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdio.h>
 
 #define PROMPT_RESP_ACK (100)

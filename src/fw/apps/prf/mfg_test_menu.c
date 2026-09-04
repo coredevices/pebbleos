@@ -2,7 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include <stdio.h>
-#include <string.h>
 
 #include "applib/app.h"
 #include "applib/ui/ui.h"

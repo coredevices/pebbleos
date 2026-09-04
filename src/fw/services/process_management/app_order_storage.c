@@ -6,7 +6,6 @@
 #include "kernel/pbl_malloc.h"
 #include "process_management/app_install_manager.h"
 #include "pbl/services/filesystem/pfs.h"
-#include "pbl/services/system_task.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 

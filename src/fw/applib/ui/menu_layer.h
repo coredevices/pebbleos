@@ -12,7 +12,6 @@
 #include "applib/graphics/text.h"
 
 #include <stdint.h>
-#include <stddef.h>
 
 //! @file menu_layer.h
 //! @addtogroup UI
@@ -428,6 +427,12 @@ typedef struct MenuLayer {
   MenuIndex last_selected_index;
 
   //! @internal
+  //! Timer that hides the transient scrollbar overlay shortly after scrolling stops. Carved from
+  //! \ref padding (4-byte aligned here, like \ref touch_nav_node) so \c sizeof(MenuLayer) stays
+  //! within the fixed applib-malloc budget.
+  AppTimer *scrollbar_hide_timer;
+
+  //! @internal
   //! If true, there will be padding after the bottom item in the menu
   //! Defaults to 'true'
   bool pad_bottom:1;
@@ -483,10 +488,33 @@ typedef struct MenuLayer {
   //! \ref menu_layer_set_tap_select_only. Packs into \ref touch_fling_active's byte.
   bool tap_select_only:1;
 
+  //! If true, the transient scrollbar overlay is never shown. See
+  //! \ref menu_layer_set_scrollbar_hidden. Packs into \ref touch_fling_active's byte.
+  bool scrollbar_hidden:1;
+
+  //! @internal
+  //! True while the scrollbar overlay is drawn: set while a touch gesture (pan or inertial coast)
+  //! scrolls the content, cleared when \ref scrollbar_hide_timer fires. Packs into
+  //! \ref touch_fling_active's byte.
+  bool scrollbar_visible:1;
+
+  //! @internal
+  //! True while a touch overscroll stretches the selection background to the viewport edge.
+  //! Derived purely from the (rubber-banded) scroll offset in the offset-changed handler. Packs
+  //! into \ref touch_fling_active's byte.
+  bool overscroll_stretched:1;
+
+  //! @internal
+  //! True while a touch gesture (pan, coast, or the settle that follows) pins a center-focused
+  //! menu's selection highlight to the viewport centre, so rows slide through the fixed box the
+  //! way button steps look. Cleared lazily when the settling row lands in the box. Packs into
+  //! \ref touch_fling_active's byte.
+  bool touch_center_pin:1;
+
   //! Add some padding to keep track of the \ref MenuLayer size budget.
   //! As long as the size stays within this budget, 2.x apps can safely use the 3.x MenuLayer type.
   //! The actual size check is generated from applib_malloc.json, not asserted here.
-  uint8_t padding[19];
+  uint8_t padding[15];
 } MenuLayer;
 
 //! Padding used below the last item in pixels
@@ -693,6 +721,15 @@ bool menu_layer_get_center_focused(MenuLayer *menu_layer);
 //! @param center_focused true = enable the mode, false = disable it.
 //! @see \ref menu_layer_get_center_focused
 void menu_layer_set_center_focused(MenuLayer *menu_layer, bool center_focused);
+
+//! Controls whether the \ref MenuLayer shows a transient scrollbar overlay while touch scrolling
+//! (default: shown). The scrollbar appears while a touch gesture (pan or inertial coast) scrolls
+//! content taller than the frame, and hides again shortly after the movement stops. Button
+//! scrolling never shows it. On rectangular displays it is a straight bar on the right edge; on
+//! round displays it is an arc hugging the display edge. Only available on touch-capable builds.
+//! @param menu_layer The menu layer for which to set the scrollbar visibility.
+//! @param hidden true = never show the scrollbar, false (default) = show it while scrolling.
+void menu_layer_set_scrollbar_hidden(MenuLayer *menu_layer, bool hidden);
 
 //! @internal
 //! On a plain (non-center-focused) menu a touch tap on a not-selected row selects it and activates

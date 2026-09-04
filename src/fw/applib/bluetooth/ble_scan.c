@@ -3,8 +3,6 @@
 
 #include "ble_scan.h"
 
-#include "ble_ad_parse.h"
-
 #include "applib/app_logging.h"
 #include "applib/applib_malloc.auto.h"
 

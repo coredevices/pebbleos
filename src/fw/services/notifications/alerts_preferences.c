@@ -5,14 +5,11 @@
 #include "pbl/services/notifications/alerts_preferences_private.h"
 
 #include <pbl/drivers/rtc.h>
-#include "popups/notifications/notification_window.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/notifications/do_not_disturb.h"
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/vibes/vibe_intensity.h"
 #include "system/passert.h"
 #include "pbl/os/mutex.h"
-#include "util/bitset.h"
 
 #include <string.h>
 

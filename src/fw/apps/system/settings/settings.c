@@ -3,11 +3,12 @@
 
 #include "settings.h"
 #include "menu.h"
-#include "window.h"
 
 #include "applib/app.h"
+#include "applib/event_service_client.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/ui.h"
+#include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
@@ -50,7 +51,19 @@ typedef struct {
 #ifdef CONFIG_SETTINGS_ICONS
   GBitmap *icons[SettingsMenuItem_Count];
 #endif
+  EventServiceInfo pref_change_event_info; //!< Subscription for pref change notifications
 } SettingsAppData;
+
+static void prv_pref_change_handler(PebbleEvent *event, void *context) {
+  SettingsAppData *data = context;
+  // Reload the menu when any pref changes: cell heights are cached by the menu
+  // layer and can change with the preferred content size. Re-anchor the
+  // selection afterwards so the scroll offset stays within the new geometry.
+  menu_layer_reload_data(&data->menu_layer);
+  menu_layer_set_selected_index(&data->menu_layer,
+                                menu_layer_get_selected_index(&data->menu_layer),
+                                MenuRowAlignCenter, false /* animated */);
+}
 
 static uint16_t prv_get_num_rows_callback(MenuLayer *menu_layer,
                                           uint16_t section_index, void *context) {
@@ -101,8 +114,7 @@ static int16_t prv_get_cell_height_callback(MenuLayer *menu_layer,
   return menu_layer_is_index_selected(menu_layer, cell_index) ? focused_cell_height :
                                                                 unfocused_cell_height;
 #else
-  // FIXME: hardcoding as settings menu is "special"
-  return 37;
+  return menu_cell_basic_cell_height();
 #endif
 }
 
@@ -154,10 +166,19 @@ static void prv_window_load(Window *window) {
   menu_layer_set_scroll_vibe_on_blocked(menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnLocked);
 
   layer_add_child(&data->window.layer, menu_layer_get_layer(menu_layer));
+
+  data->pref_change_event_info = (EventServiceInfo) {
+    .type = PEBBLE_PREF_CHANGE_EVENT,
+    .handler = prv_pref_change_handler,
+    .context = data,
+  };
+  event_service_client_subscribe(&data->pref_change_event_info);
 }
 
 static void prv_window_unload(Window *window) {
   SettingsAppData *data = window_get_user_data(window);
+
+  event_service_client_unsubscribe(&data->pref_change_event_info);
 
 #ifdef CONFIG_SETTINGS_ICONS
   // Free icons

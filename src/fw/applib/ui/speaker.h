@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "pbl/services/speaker/limits.h"
 #include "pbl/services/speaker/note_sequence.h"
 #include "pbl/services/speaker/speaker_finish_reason.h"
 #include "pbl/services/speaker/speaker_pcm_format.h"

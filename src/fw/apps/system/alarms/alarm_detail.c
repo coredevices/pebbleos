@@ -6,7 +6,6 @@
 
 #include "applib/ui/action_menu_window.h"
 #include "applib/ui/action_menu_window_private.h"
-#include "applib/ui/dialogs/actionable_dialog.h"
 #include "applib/ui/dialogs/simple_dialog.h"
 #include "kernel/pbl_malloc.h"
 #include "popups/health_tracking_ui.h"
@@ -14,7 +13,6 @@
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/alarms/alarm.h"
-#include <pbl/logging/logging.h>
 
 #ifdef CONFIG_SPEAKER
 #include "popups/alarm_popup.h"

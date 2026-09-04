@@ -9,32 +9,25 @@
 #include "applib/ui/dialogs/actionable_dialog.h"
 #include "applib/ui/dialogs/dialog.h"
 #include "applib/ui/dialogs/expandable_dialog.h"
-#include "applib/ui/dialogs/simple_dialog.h"
-#include "applib/ui/vibes.h"
 #include "applib/ui/window_manager.h"
-#include "applib/ui/window_stack.h"
 #include <pbl/drivers/rtc.h>
 #include "kernel/events.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "pbl/services/system_task.h"
-#include "pbl/services/activity/activity.h"
 #include "pbl/services/notifications/alerts_preferences.h"
 #include "pbl/services/notifications/alerts_preferences_private.h"
 #include "pbl/services/timeline/calendar.h"
 #include "syscall/syscall_internal.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "pbl/util/list.h"
 #include "pbl/util/math.h"
 #include "util/time/time.h"
 
 #include <stdbool.h>
-#include <string.h>
 
 PBL_LOG_MODULE_DECLARE(service_notifications, CONFIG_SERVICE_NOTIFICATIONS_LOG_LEVEL);
 

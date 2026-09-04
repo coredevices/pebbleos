@@ -8,7 +8,6 @@
 #include "applib/app_logging.h"
 #include "applib/moddable/moddable.h"
 #include "applib/ui/dialogs/expandable_dialog.h"
-#include "applib/ui/dialogs/simple_dialog.h"
 
 #include <stddef.h>
 

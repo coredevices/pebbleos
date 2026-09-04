@@ -13,20 +13,14 @@
 #include "kernel/events.h"
 #include "kernel/low_power.h"
 #include "pbl/services/analytics/analytics.h"
-#include "pbl/services/battery/battery_monitor.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "pbl/util/math.h"
 #include "services/light/als_screen_compensation.h"
 #include "syscall/syscall_internal.h"
 #include <pbl/logging/logging.h>
 #include "pbl/os/mutex.h"
-#include "system/passert.h"
 
 #include "FreeRTOS.h"
-#include "semphr.h"
-#include "task.h"
-
-#include <stdlib.h>
 
 PBL_LOG_MODULE_DEFINE(service_light, CONFIG_SERVICE_LIGHT_LOG_LEVEL);
 

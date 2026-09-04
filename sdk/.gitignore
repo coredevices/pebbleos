@@ -1,2 +1,4 @@
-# the waf script in the waf folder is dynamically built
+# Both are produced by building the SDK's waf in place; the SDK packaging
+# step builds it out of tree.
 waf/waf
+waf/zip/waflib.zip

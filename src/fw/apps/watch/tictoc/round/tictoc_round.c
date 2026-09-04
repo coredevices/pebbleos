@@ -8,13 +8,10 @@
 #include "applib/graphics/gpath.h"
 #include "applib/graphics/graphics_circle.h"
 #include "applib/graphics/text.h"
-#include "pbl/util/trig.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/ui.h"
 #include "kernel/pbl_malloc.h"
 #include "process_state/app_state/app_state.h"
-#include "resource/resource_ids.auto.h"
-#include "pbl/services/clock.h"
 #include "util/time/time.h"
 
 typedef struct {

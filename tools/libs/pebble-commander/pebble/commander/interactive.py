@@ -1,18 +1,18 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
+import contextlib
 import shlex
 import traceback
 
-from log_hashing.logdehash import LogDehash
 import prompt_toolkit
+from log_hashing.logdehash import LogDehash
 
 from .commander import PebbleCommander
 
 
-class InteractivePebbleCommander(object):
+class InteractivePebbleCommander:
     """Interactive Pebble Commander.
     Most/all UI implementations should either use this directly or sub-class it.
     """
@@ -34,10 +34,8 @@ class InteractivePebbleCommander(object):
         self.close()
 
     def close(self):
-        try:
+        with contextlib.suppress(Exception):
             self.cmdr.close()
-        except:
-            pass
 
     def attach_prompt_toolkit(self):
         """Attaches prompt_toolkit things"""
@@ -93,7 +91,7 @@ class InteractivePebbleCommander(object):
             resp = self.dispatch_command(string)
             if resp is not None:
                 print("\x1b[1m" + "\n".join(resp) + "\x1b[m")
-        except:
+        except Exception:  # noqa: BLE001
             print("An error occurred!")
             traceback.print_exc()
 

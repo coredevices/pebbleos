@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from analyze_mcu_flash_config import *
-
 import argparse
+
 import binutils
 import sh
+from analyze_mcu_flash_config import *
 
 
 def contains(a, b):
@@ -22,7 +22,7 @@ def claim(c, unclaimed_regions, symbol):
 
     """
     if c[0] == c[1]:
-        raise Exception("Invalid region: 0 size! %s" % c)
+        raise RuntimeError(f"Invalid region: 0 size! {c}")
 
     for u in unclaimed_regions:
         if contains(u, c):
@@ -30,9 +30,9 @@ def claim(c, unclaimed_regions, symbol):
 
             # Defensive programming:
             if c[0] < u[0]:
-                raise Exception("WTF! %s %s" % (u, c))
+                raise RuntimeError(f"WTF! {u} {c}")
             if c[1] > u[1]:
-                raise Exception("WTF! %s %s" % (u, c))
+                raise RuntimeError(f"WTF! {u} {c}")
 
             if u[0] != c[0]:
                 # Lower edge of the claimed region does not overlap with
@@ -44,7 +44,7 @@ def claim(c, unclaimed_regions, symbol):
                 unclaimed_regions.add((c[1], u[1]))
             return True
 
-    print("Warning: doubly claimed %s, 0x%08x - 0x%08x?" % (symbol, c[0], c[1]))
+    print(f"Warning: doubly claimed {symbol}, 0x{c[0]:08x} - 0x{c[1]:08x}?")
     return False
 
 
@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     # The set of (addr_start, addr_end) tuples that we use to keep track of
     # unclaimed space in the flash:
-    unclaimed_regions = set([config.memory_region_to_analyze()])
+    unclaimed_regions = {config.memory_region_to_analyze()}
 
     # Using arm-none-eabi-nm, 'claim' all .text symbols by removing the regions
     # from the unclaimed_regions set
@@ -77,8 +77,8 @@ if __name__ == "__main__":
             continue
         c = (addr, addr + size)
         if not contains(config.memory_region_to_analyze(), c):
-            raise Exception(
-                "Not in memory region: %s 0x%08x - 0x%08x" % (symbol, c[0], c[1])
+            raise RuntimeError(
+                f"Not in memory region: {symbol} 0x{c[0]:08x} - 0x{c[1]:08x}"
             )
         claim(c, unclaimed_regions, symbol)
         bytes_claimed += size
@@ -93,19 +93,19 @@ if __name__ == "__main__":
     text_size = binutils.size(elf_file)[0]
     region = config.memory_region_to_analyze()
     print("------------------------------------------------------------")
-    print(".text:                            %u" % text_size)
-    print("unclaimed memory:                 %u" % bytes_unclaimed)
-    print("claimed memory:                   %u" % bytes_claimed)
-    print("unknown .text regions             %u" % (text_size - bytes_claimed))
-    print("")
+    print(f".text:                            {text_size:d}")
+    print(f"unclaimed memory:                 {bytes_unclaimed:d}")
+    print(f"claimed memory:                   {bytes_claimed:d}")
+    print(f"unknown .text regions             {text_size - bytes_claimed:d}")
+    print()
     print("These should add up:")
-    print("bytes_unclaimed + bytes_claimed = %u" % (bytes_unclaimed + bytes_claimed))
-    print("REGION_END - REGION_START =       %u" % (region[1] - region[0]))
-    print("")
+    print(f"bytes_unclaimed + bytes_claimed = {bytes_unclaimed + bytes_claimed:d}")
+    print(f"REGION_END - REGION_START =       {region[1] - region[0]:d}")
+    print()
 
     num = 30
     print("------------------------------------------------------------")
-    print("Top %u unclaimed memory regions:" % num)
+    print(f"Top {num:d} unclaimed memory regions:")
 
     def comparator(a, b):
         return cmp(a[1] - a[0], b[1] - b[0])
@@ -116,18 +116,18 @@ if __name__ == "__main__":
         size = region[1] - region[0]
         if args.dump:
             print("-----------------------------------------------------------")
-            print("%u bytes @ 0x%08x" % (size, region[0]))
-            print("")
+            print(f"{size:d} bytes @ 0x{region[0]:08x}")
+            print()
             print(
                 sh.arm_none_eabi_objdump(
                     "-S",
-                    "--start-address=0x%x" % region[0],
-                    "--stop-address=0x%x" % region[1],
+                    f"--start-address=0x{region[0]:x}",
+                    f"--stop-address=0x{region[1]:x}",
                     elf_file,
                 )
             )
         else:
-            print("%u bytes @ 0x%08x" % (size, region[0]))
+            print(f"{size:d} bytes @ 0x{region[0]:08x}")
 
     print("------------------------------------------------------------")
     print("Unclaimed regions are regions that did map to symbols in the .elf.")

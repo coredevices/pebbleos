@@ -1,10 +1,10 @@
-import os
-import unittest
-import sys
 import argparse
+import os
+import sys
+import unittest
 
-from pblconvert.pblconvert import parse_args
 from pblconvert import pblconvert
+from pblconvert.pblconvert import parse_args
 
 
 class FakeFile:
@@ -12,7 +12,7 @@ class FakeFile:
         self.name = name
 
 
-class FakeFileType(object):
+class FakeFileType:
     def __init__(self, mode="r", bufsize=-1):
         self._mode = mode
         self._bufsize = bufsize
@@ -25,7 +25,7 @@ class FakeFileType(object):
             elif "w" in self._mode:
                 return sys.stdout
             else:
-                msg = _('argument "-" with mode %r') % self._mode
+                msg = f'argument "-" with mode {self._mode!r}'
                 raise ValueError(msg)
 
         return FakeFile(string)
@@ -33,10 +33,7 @@ class FakeFileType(object):
 
 class ParseArgsTests(unittest.TestCase):
     def fake_path_exists(self, path):
-        if path in self.files:
-            return True
-        else:
-            return False
+        return path in self.files
 
     def setUp(self):
         self.files = []

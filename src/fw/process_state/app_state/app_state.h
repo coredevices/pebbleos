@@ -8,17 +8,13 @@
 #include "applib/app_inbox.h"
 #include "applib/app_message/app_message_internal.h"
 #include "applib/app_wakeup.h"
-#include "applib/backlight_service.h"
 #include "applib/backlight_service_private.h"
-#include "applib/battery_state_service.h"
 #include "applib/battery_state_service_private.h"
 #include "applib/bluetooth/ble_app_support.h"
 #include "applib/compass_service_private.h"
-#include "applib/connection_service.h"
 #include "applib/connection_service_private.h"
 #include "applib/graphics/gtypes.h"
 #include "applib/graphics/text_render.h"
-#include "applib/health_service.h"
 #include "applib/health_service_private.h"
 #include "applib/pbl_std/locale.h"
 #include "applib/plugin_service_private.h"
@@ -28,7 +24,6 @@
 #include "applib/ui/animation_private.h"
 #include "applib/ui/click_internal.h"
 #include "applib/ui/content_indicator_private.h"
-#include "applib/ui/recognizer/recognizer.h"
 #include "applib/ui/speaker.h"
 #include "applib/ui/window_stack_private.h"
 #include "applib/unobstructed_area_service_private.h"
@@ -36,7 +31,6 @@
 #include "pbl/services/app_glances/app_glance_service.h"
 #include "pbl/services/timeline/timeline_actions.h"
 #include "pbl/util/heap.h"
-#include "pbl/util/list.h"
 
 struct _reent;
 

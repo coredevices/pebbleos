@@ -13,11 +13,11 @@ import uuid
 
 
 def generate_appinfo(input_filename, output_filename):
-    with open(input_filename, "r") as json_file:
+    with open(input_filename) as json_file:
         try:
             app_info = json.load(json_file)
         except ValueError as e:
-            raise Exception("Could not parse appinfo.json file: " + str(e))
+            raise RuntimeError("Could not parse appinfo.json file: " + str(e))
     generate_appinfo_c(app_info, output_filename)
 
 
@@ -26,20 +26,20 @@ def generate_appinfo_c(app_info, output_filename, platform_name=None):
     try:
         app_uuid = uuid.UUID(app_info["uuid"])
     except KeyError:
-        raise Exception("Could not find $.uuid in appinfo.json")
-    uuid_initializer_string = "{ %s }" % ", ".join(
-        ["0x%02X" % b for b in app_uuid.bytes]
-    )
+        raise RuntimeError("Could not find $.uuid in appinfo.json")
+    uuid_initializer_string = "{{ {} }}".format(", ".join(
+        [f"0x{b:02X}" for b in app_uuid.bytes]
+    ))
 
     try:
         name = app_info["shortName"]
     except KeyError:
-        raise Exception("Could not find $.shortName in appinfo.json")
+        raise RuntimeError("Could not find $.shortName in appinfo.json")
 
     try:
         company_name = app_info["companyName"]
     except KeyError:
-        raise Exception("Could not find $.companyName in appinfo.json")
+        raise RuntimeError("Could not find $.companyName in appinfo.json")
 
     try:
         version_label = app_info["versionLabel"]
@@ -62,12 +62,12 @@ def generate_appinfo_c(app_info, output_filename, platform_name=None):
             if int(version_label_minor) < 0 or int(version_label_minor) > 255:
                 raise ValueError
         except ValueError:
-            raise Exception(
+            raise RuntimeError(
                 "appinfo.json versionLabel contains invalid or out of range values [0-255]"
             )
 
     except KeyError:
-        raise Exception("Could not find $.versionLabel in appinfo.json")
+        raise RuntimeError("Could not find $.versionLabel in appinfo.json")
 
     # Handle 'watchapp' options
     try:
@@ -89,9 +89,9 @@ def generate_appinfo_c(app_info, output_filename, platform_name=None):
     icon_resource_id = None
     try:
         for r in app_info["resources"]["media"]:
-            if "menuIcon" in r and r["menuIcon"]:
+            if r.get("menuIcon"):
                 if icon_resource_id is not None:
-                    raise Exception(
+                    raise RuntimeError(
                         "More than one resource is set to be your menuIcon!"
                     )
                 icon_resource_id = "RESOURCE_ID_" + r["name"]
@@ -116,7 +116,7 @@ def generate_appinfo_c(app_info, output_filename, platform_name=None):
     if is_moddable:
         flags.append("PROCESS_INFO_MODDABLE_APP")
     if platform_name:
-        flags.append("PROCESS_INFO_PLATFORM_{}".format(platform_name.upper()))
+        flags.append(f"PROCESS_INFO_PLATFORM_{platform_name.upper()}")
 
     if len(flags):
         flags_string = " | ".join(flags)

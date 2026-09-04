@@ -1,14 +1,12 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "bitblt_private.h"
 #include "graphics.h"
 #include "graphics_private.h"
 #include "graphics_private_raw.h"
 #include "gtypes.h"
 #include "system/passert.h"
 #include "util/bitset.h"
-#include "util/graphics.h"
 #include "pbl/util/math.h"
 
 ALWAYS_INLINE void graphics_private_raw_blend_color_factor(const GContext *ctx, GColor *dst_color,

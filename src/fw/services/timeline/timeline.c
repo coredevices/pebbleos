@@ -5,7 +5,6 @@
 
 #include "pbl/util/uuid.h"
 #include "applib/ui/status_bar_layer.h"
-#include "apps/system_app_ids.h"
 #include "apps/system/timeline/timeline.h"
 #include "apps/system/timeline/pin_window.h"
 #include "comm/ble/kernel_le_client/ancs/ancs.h"
@@ -16,7 +15,6 @@
 #include "kernel/ui/modals/modal_manager.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/activity/activity_insights.h"
 #include "pbl/services/blob_db/api.h"
@@ -30,7 +28,6 @@
 #include "system/passert.h"
 #include "pbl/util/list.h"
 #include "pbl/util/math.h"
-#include "pbl/util/order.h"
 #include "pbl/util/size.h"
 #include "util/time/time.h"
 

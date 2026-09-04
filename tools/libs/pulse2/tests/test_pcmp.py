@@ -6,9 +6,10 @@ import unittest
 try:
     from unittest import mock
 except ImportError:
-    import mock
+    from unittest import mock
 
 from pebble.pulse2 import pcmp
+
 from .fake_timer import FakeTimer
 
 

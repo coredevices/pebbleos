@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import zipfile
 import os
 import tempfile
+import zipfile
 
 
 def merge_pbz_files(slot0_pbz, slot1_pbz, output_pbz):

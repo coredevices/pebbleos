@@ -13,12 +13,9 @@
 #include "comm/bt_lock.h"
 #include <pbl/drivers/flash.h>
 #include <pbl/drivers/rtc.h>
-#include <pbl/drivers/watchdog.h>
-#include "flash_region/flash_region.h"
 #include "kernel/pbl_malloc.h"
 #include "process_management/pebble_process_md.h"
 #include "process_management/process_manager.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/regular_timer.h"
 #include "pbl/services/system_task.h"

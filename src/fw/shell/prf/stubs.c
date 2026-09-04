@@ -9,14 +9,12 @@
 
 #include "pbl/util/uuid.h"
 #include "board/board.h"
-#include <pbl/drivers/backlight.h>
 #include "kernel/events.h"
 #include "popups/crashed_ui.h"
 #include "popups/notifications/notification_window.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/pebble_process_md.h"
 #include "resource/resource_ids.auto.h"
-#include "resource/resource_storage.h"
 #include "resource/resource_storage_file.h"
 #include "pbl/services/light.h"
 #include "pbl/services/notifications/do_not_disturb.h"
@@ -24,6 +22,7 @@
 #include "pbl/services/persist.h"
 #include "shell/normal/button_lock.h"
 #include "shell/prefs.h"
+#include "shell/system_theme.h"
 
 void app_fetch_binaries(const Uuid *uuid, AppInstallId app_id, bool has_worker) {
 }
@@ -99,8 +98,6 @@ void wakeup_enable(bool enable) {
 bool phone_call_is_using_ANCS(void) {
   return true;
 }
-
-#include "pbl/services/notifications/alerts.h"
 
 #include "pbl/services/blob_db/app_db.h"
 #include "pbl/services/app_cache.h"
@@ -196,6 +193,14 @@ int16_t shell_prefs_get_automatic_timezone_id(void) {
 bool shell_prefs_can_coredump_on_request() {
   // it would be good to have a core dump escape hatch in PRF
   return true;
+}
+
+// PRF has no preference storage, so the content size is fixed at the runtime platform default.
+void system_theme_set_content_size(PreferredContentSize content_size) {
+}
+
+PreferredContentSize system_theme_get_content_size(void) {
+  return system_theme_get_default_content_size_for_runtime_platform();
 }
 
 AlertMask alerts_get_mask(void) {

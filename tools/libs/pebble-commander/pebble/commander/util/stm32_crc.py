@@ -46,6 +46,7 @@ def crc32(data):
 
 if __name__ == "__main__":
     import sys
+    from pathlib import Path
 
     assert 0x89F3BAB2 == process_buffer("123 567 901 34")
     assert 0xAFF19057 == process_buffer("123456789")
@@ -55,6 +56,6 @@ if __name__ == "__main__":
     print("All tests passed!")
 
     if len(sys.argv) >= 2:
-        b = open(sys.argv[1]).read()
+        b = Path(sys.argv[1]).read_text()
         crc = crc32(b)
-        print("%u or 0x%x" % (crc, crc))
+        print(f"{crc:d} or 0x{crc:x}")

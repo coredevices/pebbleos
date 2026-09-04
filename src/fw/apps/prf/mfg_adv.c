@@ -6,7 +6,6 @@
 #include "applib/ui/qr_code.h"
 #include "applib/ui/text_layer.h"
 #include "applib/ui/window.h"
-#include "applib/ui/window_private.h"
 #include "kernel/pbl_malloc.h"
 #include "process_management/pebble_process_md.h"
 #include "process_state/app_state/app_state.h"

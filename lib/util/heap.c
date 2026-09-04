@@ -7,7 +7,6 @@
 #include "pbl/util/math.h"
 #include "pbl/util/logging.h"
 
-#include <inttypes.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>

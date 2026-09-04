@@ -7,16 +7,15 @@ Module for de-hashing log strings
 """
 
 from pebble.loghashing.constants import (
+    DEHASHED_MSG_PATTERN,
+    FORMAT_TAG_PATTERN,
+    HASHED_INFO_PATTERN,
     LOG_LINE_CONSOLE_PATTERN,
     LOG_LINE_SUPPORT_PATTERN,
     LOG_MSG_PATTERN,
-    DEHASHED_MSG_PATTERN,
-    HASHED_INFO_PATTERN,
-    FORMAT_TAG_PATTERN,
 )
-
-from pebble.loghashing.newlogging import dehash_line as newlogging_dehash_line
 from pebble.loghashing.newlogging import LOG_DICT_KEY_VERSION
+from pebble.loghashing.newlogging import dehash_line as newlogging_dehash_line
 
 
 def dehash_file(file_name, lookup_dict):
@@ -143,7 +142,7 @@ def parse_message(msg, lookup_dict):
 
         dehashed_str = dehash_str(hashed, lookup_dict)
 
-        output["msg"] = "LH:{}".format(dehashed_str)
+        output["msg"] = f"LH:{dehashed_str}"
 
         match2 = DEHASHED_MSG_PATTERN.search(dehashed_str)
 

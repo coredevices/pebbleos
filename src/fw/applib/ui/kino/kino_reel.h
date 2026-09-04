@@ -9,7 +9,6 @@
 #include "applib/graphics/gdraw_command_image.h"
 #include "applib/graphics/gdraw_command_sequence.h"
 #include "applib/graphics/gtypes.h"
-#include "applib/graphics/graphics.h"
 
 struct KinoReel;
 typedef struct KinoReel KinoReel;

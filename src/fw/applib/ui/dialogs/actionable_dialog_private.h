@@ -8,7 +8,6 @@
 #pragma once
 
 #include "applib/graphics/gtypes.h"
-#include "applib/graphics/perimeter.h"
 #include "applib/ui/action_bar_layer.h"
 #include "applib/ui/click.h"
 #include "applib/ui/dialogs/dialog.h"

@@ -9,8 +9,8 @@ def click_short(cmdr, button):
     """Click a button."""
     button = int(str(button), 0)
     if not 0 <= button <= 3:
-        raise exceptions.ParameterError("button out of range: %d" % button)
-    ret = cmdr.send_prompt_command("click short %d" % button)
+        raise exceptions.ParameterError(f"button out of range: {button:d}")
+    ret = cmdr.send_prompt_command(f"click short {button:d}")
     if not ret[0].startswith("OK"):
         raise exceptions.PromptResponseError(ret)
 
@@ -32,13 +32,13 @@ def click_multiple(cmdr, button, count=1, hold_ms=20, delay_ms=0):
     hold_ms = int(str(hold_ms), 0)
     delay_ms = int(str(delay_ms), 0)
     if not 0 <= button <= 3:
-        raise exceptions.ParameterError("button out of range: %d" % button)
+        raise exceptions.ParameterError(f"button out of range: {button:d}")
     if not count > 0:
-        raise exceptions.ParameterError("count out of range: %d" % count)
+        raise exceptions.ParameterError(f"count out of range: {count:d}")
     if hold_ms < 0:
-        raise exceptions.ParameterError("hold_ms out of range: %d" % hold_ms)
+        raise exceptions.ParameterError(f"hold_ms out of range: {hold_ms:d}")
     if delay_ms < 0:
-        raise exceptions.ParameterError("delay_ms out of range: %d" % delay_ms)
+        raise exceptions.ParameterError(f"delay_ms out of range: {delay_ms:d}")
     ret = cmdr.send_prompt_command(
         "click multiple {button:d} {count:d} {hold_ms:d} {delay_ms:d}".format(
             **locals()

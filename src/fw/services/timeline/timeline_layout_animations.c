@@ -3,19 +3,12 @@
 
 #include "pbl/services/timeline/timeline_layout_animations.h"
 
-#include "applib/graphics/graphics.h"
 #include "applib/ui/animation_interpolate.h"
-#include "applib/ui/animation_timing.h"
 #include "applib/ui/kino/kino_reel/scale_segmented.h"
 #include "applib/ui/kino/kino_reel/transform.h"
-#include "applib/ui/kino/kino_reel_pdci.h"
 #include "applib/ui/ui.h"
 #include "apps/system/timeline/animations.h"
-#include "kernel/pbl_malloc.h"
 #include "process_state/app_state/app_state.h"
-#include "process_management/app_install_manager.h"
-#include "pbl/services/timeline/timeline_resources.h"
-#include <pbl/logging/logging.h>
 
 #define CARD_TRANSITION_ICON_EXPAND 5
 

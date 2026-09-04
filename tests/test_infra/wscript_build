@@ -1,8 +1,0 @@
-from tools.waf.pebble_test import clar
-
-clar(ctx,
-    sources=['header_overrides.c'],
-    test_sources_ant_glob='test_test_infra.c',
-    override_includes=['test_infra_test'])
-
-# vim:filetype=python

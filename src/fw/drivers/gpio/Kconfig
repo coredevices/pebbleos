@@ -11,12 +11,14 @@ if GPIO
 config GPIO_NRF5
     bool "Nordic nRF5"
     default y if SOC_NRF52
+    select HAL_NORDIC
     help
       Support for the Nordic nRF5 GPIO controller.
 
 config GPIO_SF32LB
     bool "SiFli SF32LB"
     default y if SOC_SF32LB52
+    select HAL_SIFLI
     select HAL_SIFLI_GPIO
     help
       Support for the SiFli SF32LB GPIO controller.

@@ -5,7 +5,6 @@
 #include <pbl/drivers/gpio.h>
 #include <pbl/drivers/backlight.h>
 #include "kernel/util/delay.h"
-#include <pbl/logging/logging.h>
 #include "pbl/util/math.h"
 
 #include "FreeRTOS.h"

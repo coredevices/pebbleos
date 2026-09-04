@@ -11,8 +11,6 @@
 #include "applib/ui/window.h"
 #include "pbl/services/clock.h"
 
-#include <time.h>
-
 #define TIME_SELECTION_WINDOW_MAX_RANGE_LENGTH 64
 
 struct TimeSelectionWindowData;

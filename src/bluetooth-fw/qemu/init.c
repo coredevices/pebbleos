@@ -10,8 +10,6 @@
 #include <bluetooth/init.h>
 #include <bluetooth/qemu_transport.h>
 
-#include <stdlib.h>
-
 // ----------------------------------------------------------------------------------------
 void bt_driver_init(void) {
   // We need the QEMU serial driver

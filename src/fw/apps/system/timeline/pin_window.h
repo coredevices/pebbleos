@@ -4,7 +4,6 @@
 #pragma once
 
 #include "popups/timeline/timeline_item_layer.h"
-#include "pbl/services/timeline/timeline.h"
 
 #include "applib/ui/ui.h"
 

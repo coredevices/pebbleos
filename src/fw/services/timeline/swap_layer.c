@@ -8,7 +8,6 @@
 #include "applib/graphics/gtypes.h"
 #include "applib/ui/property_animation.h"
 #include "applib/ui/status_bar_layer.h"
-#include "applib/ui/shadows.h"
 #include "applib/ui/window.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/timeline/layout_layer.h"
@@ -16,17 +15,12 @@
 #include "pbl/services/notifications/alerts_preferences_private.h"
 #include "kernel/ui/kernel_ui.h"
 #include "process_state/app_state/app_state.h"
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
 #include "pbl/util/math.h"
-#include "pbl/util/size.h"
 
 #ifdef CONFIG_TOUCH
 #include "applib/ui/recognizer/touch_nav.h"
 #include "kernel/pebble_tasks.h"
 #endif
-
-#include <string.h>
 
 // Initial pixel scroll amount, paging_height (LAYOUT_HEIGHT) for circular display
 #define INITIAL_SCROLL_PX PBL_IF_RECT_ELSE(LAYOUT_BANNER_HEIGHT_RECT, LAYOUT_HEIGHT)

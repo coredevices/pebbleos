@@ -6,8 +6,6 @@
 #include "applib/graphics/gtypes.h"
 #include "applib/fonts/fonts.h"
 
-#include <inttypes.h>
-
 #ifdef CONFIG_PLATFORM_GABBRO
 
 #define LOCAL_HOUR_HAND_LENGTH_DEFAULT 74

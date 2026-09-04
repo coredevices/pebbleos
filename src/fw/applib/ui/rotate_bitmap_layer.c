@@ -10,9 +10,6 @@
 #include "system/passert.h"
 #include "pbl/util/math.h"
 
-
-#include <string.h>
-
 void rot_bitmap_layer_update_proc(RotBitmapLayer *image, GContext* ctx) {
   const GColor corner_clip_color = image->corner_clip_color;
   if (!(gcolor_is_transparent(corner_clip_color))) {

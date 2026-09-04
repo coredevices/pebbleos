@@ -114,6 +114,10 @@ def options(opt):
 	opt.add_option('--namesfrom', action='store', help='Obtain the file names from a model archive', dest='namesfrom', default=None)
 	opt.load('python')
 
+# Python 3.12+ splits f-strings into FSTRING_START/MIDDLE/END; older versions
+# emit a single STRING. Either way the opening token carries the prefix.
+FSTRING_START = getattr(tokenize, 'FSTRING_START', None)
+
 def process_tokens(tokens):
 	accu = []
 	prev = tokenize.NEWLINE
@@ -143,9 +147,11 @@ def process_tokens(tokens):
 		elif type == tokenize.NUMBER:
 			if prev == tokenize.NAME or prev == tokenize.NUMBER: line_buf.append(' ')
 			line_buf.append(token)
-		elif type == tokenize.STRING:
+		elif type == tokenize.STRING or type == FSTRING_START:
 			if not line_buf and token.startswith('"'): pass
-			else: line_buf.append(token)
+			else:
+				if prev == tokenize.NAME and token[:1].isidentifier(): line_buf.append(' ')
+				line_buf.append(token)
 		elif type == tokenize.COMMENT:
 			pass
 		elif type == tokenize.OP:

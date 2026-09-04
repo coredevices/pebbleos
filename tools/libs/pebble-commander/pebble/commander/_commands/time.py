@@ -13,7 +13,7 @@ def set_time(cmdr, new_time):
     new_time = int(str(new_time), 0)
     if new_time < 1262304000:
         raise exceptions.ParameterError("time must be later than 2010-01-01")
-    ret = cmdr.send_prompt_command("set time %s" % new_time)
+    ret = cmdr.send_prompt_command(f"set time {new_time}")
     if not ret[0].startswith("Time is now"):
         raise exceptions.PromptResponseError(ret)
     return ret

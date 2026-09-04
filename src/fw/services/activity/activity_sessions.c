@@ -4,17 +4,13 @@
 #include "applib/data_logging.h"
 #include "applib/health_service.h"
 #include "kernel/events.h"
-#include "kernel/pbl_malloc.h"
 #include "pbl/os/mutex.h"
-#include "pbl/os/tick.h"
 #include "pbl/services/alarms/alarm.h"
 #include "syscall/syscall.h"
 #include "syscall/syscall_internal.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/size.h"
-
-#include <pebbleos/cron.h>
 
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/activity/activity_algorithm.h"

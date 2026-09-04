@@ -7,7 +7,6 @@
 #include "applib/app_watch_info.h"
 #include "applib/pbl_std/pbl_std.h"
 #include "applib/tick_timer_service.h"
-#include "applib/platform.h"
 #include "resource/resource_ids.auto.h"
 #include "syscall/syscall.h"
 #include "util/time/time.h"

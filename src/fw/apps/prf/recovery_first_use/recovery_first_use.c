@@ -10,17 +10,11 @@
 #include "comm/ble/gap_le_connection.h"
 #include "comm/ble/gap_le_device_name.h"
 #include "comm/ble/gap_le_connect.h"
-#include <pbl/drivers/backlight.h>
 #include "mfg/mfg_info.h"
 #include "mfg/mfg_serials.h"
-#include "process_management/app_install_manager.h"
-#include "process_management/app_manager.h"
 
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
-
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
 
 #include "applib/app.h"
 #include "applib/event_service_client.h"
@@ -31,10 +25,7 @@
 #include "applib/ui/text_layer.h"
 #include "applib/ui/window.h"
 #include "applib/ui/window_private.h"
-#include "applib/ui/window_stack.h"
 #include "process_state/app_state/app_state.h"
-
-#include "apps/system/settings/time.h"
 
 #include "pbl/services/bluetooth/local_id.h"
 #include "pbl/services/bluetooth/pairability.h"

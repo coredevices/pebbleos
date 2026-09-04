@@ -6,8 +6,6 @@
 #include "pbl/util/uuid.h"
 #include "pbl/services/notifications/notification_types.h"
 
-#include <inttypes.h>
-
 //! @file notifications_presented_list.h
 //!
 //! \brief File that manages a list of presented notifications.

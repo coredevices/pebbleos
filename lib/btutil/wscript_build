@@ -1,9 +1,0 @@
-import tools.waf
-
-bld.stlib(source=bld.path.ant_glob('**/*.c'),
-          target='libbtutil',
-          includes=['.'],
-          use=['pbl_includes'],
-          env=bld.env.derive())
-
-# vim:filetype=python

@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include "pbl/services/comm_session/protocol.h"
-
 typedef enum {
   RegistryEndpointIdSystem = 5000,
   RegistryEndpointIdFactory = 5001,

@@ -5,7 +5,6 @@
 #include "tick_timer_service_private.h"
 
 #include "event_service_client.h"
-#include "process_management/app_manager.h"
 
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/services/clock.h"

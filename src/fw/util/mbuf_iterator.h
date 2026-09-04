@@ -6,7 +6,6 @@
 #include "util/mbuf.h"
 
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 
 //! NOTE: MBufIterator APIs are not thread safe

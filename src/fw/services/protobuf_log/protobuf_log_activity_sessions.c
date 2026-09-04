@@ -4,17 +4,12 @@
 #include "pbl/services/protobuf_log/protobuf_log_activity_sessions.h"
 #include "pbl/services/protobuf_log/protobuf_log.h"
 #include "pbl/services/protobuf_log/protobuf_log_private.h"
-#include "pbl/services/protobuf_log/protobuf_log_util.h"
 
-#include "pbl/services/hrm/hrm_manager.h"
 #include "pbl/services/activity/activity.h"
 
 #include "nanopb/event.pb.h"
 #include "system/passert.h"
 
-#include <pbl/util/size.h>
-
-#include <stdint.h>
 #include <stdbool.h>
 
 

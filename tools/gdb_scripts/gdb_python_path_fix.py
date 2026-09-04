@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from subprocess import check_output
 import sys
+from subprocess import check_output
 
 # run the brewed python and get its sitepackages path
 output = check_output(

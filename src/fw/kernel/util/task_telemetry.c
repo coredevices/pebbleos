@@ -7,8 +7,6 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#include <stdlib.h>
-
 #if 0
 void command_print_task_list(void) {
 #if ( configUSE_TRACE_FACILITY == 1 )

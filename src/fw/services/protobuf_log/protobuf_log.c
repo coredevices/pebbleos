@@ -11,14 +11,12 @@
 #include "mfg/mfg_serials.h"
 #include "pbl/os/mutex.h"
 #include "pb.h"
-#include "pb_decode.h"
 #include "pb_encode.h"
 #include "pbl/services/data_logging/data_logging_service.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "system/version.h"
 #include "pbl/util/math.h"
-#include "pbl/util/size.h"
 #include "util/time/time.h"
 
 #include "pbl/util/uuid.h"
@@ -26,7 +24,6 @@
 #include <string.h>
 
 // These headers auto-generated from the measurements.proto
-#include "nanopb/common.pb.h"
 #include "nanopb/event.pb.h"
 #include "nanopb/measurements.pb.h"
 #include "nanopb/payload.pb.h"

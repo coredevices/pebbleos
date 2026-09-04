@@ -4,7 +4,6 @@
 #include "memory_layout.h"
 
 #include "logging/logging_private.h"
-#include "system/passert.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
 #include "pbl/util/string.h"

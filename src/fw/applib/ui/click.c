@@ -7,11 +7,9 @@
 #include "window_stack_private.h"
 
 #include "process_state/app_state/app_state.h"
-#include "process_management/app_manager.h"
 #include "pbl/util/size.h"
 
 #include <stddef.h>
-#include <string.h>
 
 //! The time that the user has to hold the button before repetition kicks in.
 static const uint32_t CLICK_REPETITION_DELAY_MS = 400;

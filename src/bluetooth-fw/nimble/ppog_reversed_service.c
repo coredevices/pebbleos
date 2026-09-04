@@ -13,7 +13,6 @@
 #include <os/os_mbuf.h>
 #include <pbl/logging/logging.h>
 #include <system/passert.h>
-#include <util/uuid.h>
 
 #include "nimble_type_conversions.h"
 

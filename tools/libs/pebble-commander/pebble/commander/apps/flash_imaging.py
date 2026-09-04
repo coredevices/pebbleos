@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import collections
 import struct
@@ -12,7 +11,7 @@ import pebble.pulse2.exceptions
 from .. import exceptions
 
 
-class EraseCommand(object):
+class EraseCommand:
     command_type = 1
     command_struct = struct.Struct("<BII")
 
@@ -30,18 +29,17 @@ class EraseCommand(object):
 
     def parse_response(self, response):
         if response[0] != self.response_type:
-            raise exceptions.ResponseParseError("Unexpected response: %r" % response)
+            raise exceptions.ResponseParseError(f"Unexpected response: {response!r}")
         unpacked = self.Response._make(self.response_struct.unpack(response))
         if unpacked.address != self.address or unpacked.length != self.length:
             raise exceptions.ResponseParseError(
                 "Response does not match command: "
-                "address=%#.08x legnth=%d (expected %#.08x, %d)"
-                % (unpacked.address, unpacked.length, self.address, self.length)
+                f"address={unpacked.address:#010x} length={unpacked.length} (expected {self.address:#010x}, {self.length})"
             )
         return unpacked
 
 
-class WriteCommand(object):
+class WriteCommand:
     command_type = 2
     command_struct = struct.Struct("<BI")
     header_len = command_struct.size
@@ -56,7 +54,7 @@ class WriteCommand(object):
         return header + self.data
 
 
-class WriteResponse(object):
+class WriteResponse:
     response_type = 129
     response_struct = struct.Struct("<xII?")
     Response = collections.namedtuple("WriteResponse", "address length complete")
@@ -64,11 +62,11 @@ class WriteResponse(object):
     @classmethod
     def parse(cls, response):
         if response[0] != cls.response_type:
-            raise exceptions.ResponseParseError("Unexpected response: %r" % response)
+            raise exceptions.ResponseParseError(f"Unexpected response: {response!r}")
         return cls.Response._make(cls.response_struct.unpack(response))
 
 
-class CrcCommand(object):
+class CrcCommand:
     command_type = 3
     command_struct = struct.Struct("<BII")
 
@@ -86,18 +84,17 @@ class CrcCommand(object):
 
     def parse_response(self, response):
         if response[0] != self.response_type:
-            raise exceptions.ResponseParseError("Unexpected response: %r" % response)
+            raise exceptions.ResponseParseError(f"Unexpected response: {response!r}")
         unpacked = self.Response._make(self.response_struct.unpack(response))
         if unpacked.address != self.address or unpacked.length != self.length:
             raise exceptions.ResponseParseError(
                 "Response does not match command: "
-                "address=%#.08x legnth=%d (expected %#.08x, %d)"
-                % (unpacked.address, unpacked.length, self.address, self.length)
+                f"address={unpacked.address:#010x} length={unpacked.length} (expected {self.address:#010x}, {self.length})"
             )
         return unpacked
 
 
-class QueryFlashRegionCommand(object):
+class QueryFlashRegionCommand:
     command_type = 4
     command_struct = struct.Struct("<BB")
 
@@ -117,14 +114,14 @@ class QueryFlashRegionCommand(object):
 
     def parse_response(self, response):
         if response[0] != self.response_type:
-            raise exceptions.ResponseParseError("Unexpected response: %r" % response)
+            raise exceptions.ResponseParseError(f"Unexpected response: {response!r}")
         unpacked = self.Response._make(self.response_struct.unpack(response))
         if unpacked.address == 0 and unpacked.length == 0:
             raise exceptions.RegionDoesNotExist(self.region)
         return unpacked
 
 
-class FinalizeFlashRegionCommand(object):
+class FinalizeFlashRegionCommand:
     command_type = 5
     command_struct = struct.Struct("<BB")
 
@@ -140,16 +137,16 @@ class FinalizeFlashRegionCommand(object):
 
     def parse_response(self, response):
         if response[0] != self.response_type:
-            raise exceptions.ResponseParseError("Unexpected response: %r" % response)
+            raise exceptions.ResponseParseError(f"Unexpected response: {response!r}")
         (region,) = self.response_struct.unpack(response)
         if region != self.region:
             raise exceptions.ResponseParseError(
                 "Response does not match command: "
-                "response is for region %d (expected %d)" % (region, self.region)
+                f"response is for region {region:d} (expected {self.region:d})"
             )
 
 
-class FlashImaging(object):
+class FlashImaging:
     PORT_NUMBER = 0x0002
 
     RESP_BAD_CMD = 192
@@ -210,7 +207,7 @@ class FlashImaging(object):
                                     # ACK for a segment we never sent?!
                                     raise exceptions.WriteError(
                                         "Received ACK for an unsent segment: "
-                                        "%#.08x" % ack.address
+                                        f"{ack.address:#08x}"
                                     )
 
                                 # Got an ACK for a sent (but timed out) segment
@@ -219,13 +216,12 @@ class FlashImaging(object):
                         else:
                             raise exceptions.WriteError(
                                 "Received ACK for an unknown segment: "
-                                "%#.08x" % ack.address
+                                f"{ack.address:#08x}"
                             )
 
                     if len(cmd.data) != ack.length:
                         raise exceptions.WriteError(
-                            "ACK length %d != data length %d"
-                            % (ack.length, len(cmd.data))
+                            f"ACK length {ack.length:d} != data length {len(cmd.data):d}"
                         )
                     assert ack.complete
                     if progress_cb:
@@ -234,7 +230,6 @@ class FlashImaging(object):
                 pass
 
             # Retry any in_flight writes where the ACK has timed out
-            to_retry = []
             timeout_time = time.time() - 0.5
             for seg_address, (cmd, send_time, retry_count) in in_flight.copy().items():
                 if send_time > timeout_time:
@@ -243,8 +238,7 @@ class FlashImaging(object):
                     break
                 if retry_count >= max_retries:
                     raise exceptions.WriteError(
-                        "Segment %#.08x exceeded the max retry count (%d)"
-                        % (seg_address, max_retries)
+                        f"Segment {seg_address:#010x} exceeded the max retry count ({max_retries})"
                     )
                 # Enqueue the packet again to resend later.
                 del in_flight[seg_address]

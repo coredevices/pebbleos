@@ -10,21 +10,15 @@
 #include "applib/ui/menu_layer.h"
 #include "applib/ui/time_range_selection_window.h"
 #include "kernel/pbl_malloc.h"
-#include "popups/health_tracking_ui.h"
 #include "pbl/services/clock.h"
 #include "pbl/services/i18n/i18n.h"
-#include "pbl/services/activity/activity.h"
 #include "pbl/services/notifications/alerts_private.h"
 #include "pbl/services/notifications/do_not_disturb.h"
 #include "pbl/services/notifications/alerts_preferences.h"
-#include "pbl/services/notifications/alerts_preferences_private.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/size.h"
 #include "pbl/util/string.h"
 #include "shell/prefs.h"
-
-#include <stdio.h>
 
 typedef struct {
   SettingsCallbacks callbacks;

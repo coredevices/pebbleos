@@ -3,7 +3,6 @@
 
 """PULSE Control Message Protocol"""
 
-from __future__ import absolute_import
 
 import codecs
 import collections
@@ -14,7 +13,6 @@ import threading
 
 from . import exceptions
 from . import logging as pulse2_logging
-
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -48,7 +46,7 @@ class PCMPPacket(collections.namedtuple("PCMPPacket", "code information")):
         return struct.pack("B", code) + bytes(information)
 
 
-class PulseControlMessageProtocol(object):
+class PulseControlMessageProtocol:
     """This protocol is unique in that it is logically part of the
     transport but is layered on top of the transport over the wire.
     To keep from needing to create a new thread just for reading from
@@ -67,7 +65,7 @@ class PulseControlMessageProtocol(object):
     def __init__(self, transport, port):
         assert port == self.PORT
         self.logger = pulse2_logging.TaggedAdapter(
-            logger, {"tag": "PCMP(%s)" % (type(transport).__name__)}
+            logger, {"tag": f"PCMP({type(transport).__name__})"}
         )
         self.transport = transport
         self.closed = False

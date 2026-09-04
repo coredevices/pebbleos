@@ -8,7 +8,6 @@ import os
 import subprocess
 import sys
 
-
 LIB_PATH_FIXES = [
     ("/usr/local/opt/pixman/lib/libpixman-1.0.dylib", "libpixman-1.0.dylib"),
     ("/usr/local/opt/sdl2/lib/libSDL2-2.0.0.dylib", "libSDL2-2.0.0.dylib"),

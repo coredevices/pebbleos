@@ -5,11 +5,10 @@ import collections
 import struct
 from datetime import datetime
 
-from . import exceptions
-from . import socket
+from . import exceptions, socket
 
 
-class PromptProtocol(object):
+class PromptProtocol:
     PROTOCOL_NUMBER = 0x04
 
     def __init__(self, connection):
@@ -20,7 +19,7 @@ class PromptProtocol(object):
 
         cmd = PromptCommand(command_string)
 
-        for _ in xrange(5):
+        for _ in range(5):
             self.socket.send(cmd.packet)
             try:
                 response = PromptResponse.parse(self.socket.receive(timeout=timeout))
@@ -83,13 +82,13 @@ class PromptResponse(
         result = cls.response_struct.unpack(response[: cls.response_struct.size])
 
         response_type = result[0]
-        timestamp = datetime.fromtimestamp(result[1] / 1000.0)
+        timestamp = datetime.fromtimestamp(result[1] / 1000.0).astimezone()
         message = response[cls.response_struct.size :]
 
         return cls(response_type, timestamp, message)
 
 
-class PromptCommand(object):
+class PromptCommand:
     _cookie = 0
 
     def __init__(self, body):

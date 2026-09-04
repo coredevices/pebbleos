@@ -8,7 +8,6 @@
 #include "pbl/services/voice_endpoint.h"
 
 #include <stddef.h>
-#include <stdint.h>
 #include <stdbool.h>
 
 typedef struct VoiceUiData VoiceWindow;

@@ -5,27 +5,19 @@
 
 #include "flash_region/filesystem_regions.h"
 #include "kernel/events.h"
-#include "kernel/util/sleep.h"
-#include "process_management/worker_manager.h"
 #include "pbl/services/comm_session/protocol.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/firmware_update.h"
-#include "pbl/services/i18n/i18n.h"
 #include "pbl/services/put_bytes/put_bytes.h"
 #include "pbl/services/system_task.h"
-#include "pbl/services/runlevel.h"
-#include "system/bootbits.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "system/reboot_reason.h"
 #include "system/reset.h"
-#include "system/version.h"
 #include "pbl/util/attributes.h"
-#include "util/net.h"
 
 #include "FreeRTOS.h"
 
-#include <string.h>
 #include <stdbool.h>
 #include <inttypes.h>
 

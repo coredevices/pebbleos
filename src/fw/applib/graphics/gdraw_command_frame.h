@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "applib/graphics/graphics.h"
 #include "applib/graphics/gdraw_command_list.h"
 
 #include <stdint.h>

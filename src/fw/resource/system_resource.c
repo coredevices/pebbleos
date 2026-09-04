@@ -8,14 +8,12 @@
 #include "kernel/event_loop.h"
 #include "kernel/memory_layout.h"
 #include "kernel/panic.h"
-#include "kernel/pbl_malloc.h"
 #include "kernel/util/fw_reset.h"
 #include "resource/resource.h"
 #include "resource/resource_storage.h"
 #include "syscall/syscall_internal.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "system/testinfra.h"
 #include "pbl/util/size.h"
 
 #include "resource/resource_ids.auto.h"

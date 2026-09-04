@@ -1,0 +1,82 @@
+name: Release QA
+
+on:
+  workflow_run:
+    workflows: [Build Firmware]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Build Firmware run id whose merged firmware artifacts are tested"
+        required: true
+
+run-name: Release QA (${{ github.event.workflow_run.head_branch || format('run {0}', inputs.run_id) }})
+
+concurrency:
+  group: release-qa-${{ github.event.workflow_run.head_repository.full_name || 'manual' }}-${{ github.event.workflow_run.head_branch || inputs.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  dispatch-unicorn:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'pull_request')
+    runs-on: ubuntu-24.04
+    steps:
+      # Untrusted authors must never reach the hardware lab: same-repo branches imply write
+      # access; fork PRs are allowed only when the PR author is an org member/collaborator.
+      # Fork-controlled values (branch name!) are passed via env, never interpolated.
+      - name: Check the PR author is trusted
+        id: author
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || \
+             [ "$HEAD_REPO" = "${{ github.repository }}" ]; then
+            echo "TRUSTED=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          assoc=$(gh api -X GET "repos/${{ github.repository }}/pulls" \
+            -f state=open -f head="${HEAD_OWNER}:${HEAD_BRANCH}" \
+            --jq '.[0].author_association')
+          case "$assoc" in
+            OWNER|MEMBER|COLLABORATOR)
+              echo "TRUSTED=true" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "PR author is not trusted (association: ${assoc:-unknown}), skipping"
+              echo "TRUSTED=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Check the run for merged firmware
+        id: check
+        if: steps.author.outputs.TRUSTED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+        run: |
+          # Merged dual-slot bundles are uploaded as firmware-<board> (no _slot suffix);
+          # none = Build Firmware skipped its builds (e.g. docs-only PR).
+          if gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts?per_page=100" \
+              --paginate --jq '.artifacts[].name' | grep -v '_slot' | \
+              grep -qE '^firmware-(obelix|getafix)_'; then
+            echo "FOUND=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "FOUND=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dispatch coredevices/unicorn one-off-pebbleos-test
+        if: steps.check.outputs.FOUND == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.UNICORN_DISPATCH_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::UNICORN_DISPATCH_TOKEN not set, skipping"
+            exit 0
+          fi
+          gh workflow run one-off-pebbleos-test.yml -R coredevices/unicorn \
+            -f to_pbz_run_id="${RUN_ID}"

@@ -4,7 +4,7 @@
 import pickle
 
 
-class ResourceObject(object):
+class ResourceObject:
     """
     Defines a single resource object in a namespace. Must be serializable.
     """

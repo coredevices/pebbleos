@@ -4,13 +4,10 @@
 #include "switch_worker_ui.h"
 
 #include <stdio.h>
-#include <string.h>
 
 #include "applib/ui/action_bar_layer.h"
 #include "applib/ui/dialogs/confirmation_dialog.h"
-#include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
-#include "kernel/ui/modals/modal_manager.h"
 #include "process_management/app_install_manager.h"
 #include "process_management/process_manager.h"
 #include "process_management/worker_manager.h"

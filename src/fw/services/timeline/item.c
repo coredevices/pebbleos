@@ -4,7 +4,6 @@
 #include "pbl/services/timeline/item.h"
 #include "pbl/services/timeline/attributes_actions.h"
 
-#include <pbl/drivers/rtc.h>
 #include "kernel/pbl_malloc.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"

@@ -8,7 +8,6 @@
 #include <string.h>
 
 #include "FreeRTOS.h"
-#include "portmacro.h"
 
 // timezone abbreviation
 static char s_timezone_abbr[TZ_LEN] = { 0 }; // longest timezone abbreviation is 5 char + null

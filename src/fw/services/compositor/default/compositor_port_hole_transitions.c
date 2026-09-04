@@ -3,7 +3,6 @@
 
 #include "pbl/services/compositor/default/compositor_port_hole_transitions.h"
 
-#include "applib/graphics/bitblt.h"
 #include "applib/graphics/framebuffer.h"
 #include "applib/graphics/graphics_private.h"
 #include "pbl/util/trig.h"

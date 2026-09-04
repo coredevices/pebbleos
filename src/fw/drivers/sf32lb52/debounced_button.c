@@ -6,13 +6,11 @@
 #include "board/board.h"
 #include <pbl/drivers/button.h>
 #include <pbl/drivers/exti.h>
-#include <pbl/drivers/gpio.h>
 #include "kernel/events.h"
 #include "pbl/soc/sf32lb/sleep.h"
 #include "system/bootbits.h"
 #include "system/reset.h"
 #include "util/bitset.h"
-#include "kernel/util/sleep.h"
 #include "bf0_hal_tim.h"
 
 #include "FreeRTOS.h"

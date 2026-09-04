@@ -3,7 +3,6 @@
 
 #include "status_bar_layer.h"
 
-#include "animation_timing.h"
 #include "applib/app_logging.h"
 #include "applib/applib_malloc.auto.h"
 #include "applib/fonts/fonts.h"
@@ -16,7 +15,6 @@
 #include "process_state/app_state/app_state.h"
 #include "pbl/services/clock.h"
 #include "syscall/syscall.h"
-#include "syscall/syscall_internal.h"
 #include "system/passert.h"
 #include "pbl/util/math.h"
 #include "pbl/util/string.h"

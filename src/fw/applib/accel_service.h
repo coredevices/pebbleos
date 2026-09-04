@@ -7,7 +7,6 @@
 #include "pbl/services/imu/units.h"
 #include "kernel/pebble_tasks.h"
 
-#include <inttypes.h>
 #include <stdbool.h>
 
 //! @addtogroup Foundation

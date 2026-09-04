@@ -7,7 +7,6 @@
 
 #include "comm/ble/kernel_le_client/ancs/ancs_types.h"
 #include "pbl/services/blob_db/ios_notif_pref_db.h"
-#include "pbl/services/timeline/timeline.h"
 
 //! Creates a new timeline item from ANCS data
 //! @param notif_attributes ANCS Notification attributes

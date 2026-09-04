@@ -3,7 +3,6 @@
 
 #include "card_view.h"
 
-#include "health.h"
 #include "activity_summary_card.h"
 #include "sleep_summary_card.h"
 #include "hr_summary_card.h"
@@ -16,7 +15,6 @@
 #include "kernel/pbl_malloc.h"
 #include "pbl/services/activity/activity_private.h"
 #include "pbl/services/timeline/health_layout.h"
-#include <pbl/logging/logging.h>
 #include "util/time/time.h"
 
 #define BACK_TO_WATCHFACE (-1)

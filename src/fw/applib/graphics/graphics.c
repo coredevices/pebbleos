@@ -4,28 +4,19 @@
 #include "graphics.h"
 
 #include "bitblt.h"
-#include "bitblt_private.h"
 #include "framebuffer.h"
 #include "graphics_private.h"
 #include "graphics_private_raw.h"
-#include "gtransform.h"
 
 #include "applib/app_logging.h"
-#include "applib/applib_malloc.auto.h"
-#include "kernel/ui/kernel_ui.h"
 #include "process_management/process_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "system/passert.h"
-#include <pbl/logging/logging.h>
 #include "util/bitset.h"
 #include "util/graphics.h"
 #include "pbl/util/math.h"
-#include "util/reverse.h"
-#include "pbl/util/trig.h"
 
-#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 #if !defined(__clang__)
 #pragma GCC optimize ("O3")
@@ -677,7 +668,6 @@ MOCKABLE GBitmap *graphics_capture_frame_buffer(GContext *ctx) {
   return graphics_capture_frame_buffer_format(ctx, GBITMAP_NATIVE_FORMAT);
 }
 
-#include "system/profiler.h"
 MOCKABLE bool graphics_release_frame_buffer(GContext *ctx, GBitmap *buffer) {
   PBL_ASSERTN(ctx);
   GBitmap *native_framebuffer = graphics_context_get_bitmap(ctx);

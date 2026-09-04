@@ -139,7 +139,6 @@ typedef struct {
   const MagConfig mag_config;
 } BoardConfigMag;
 
-#include <pbl/drivers/flash/qspi_flash.h>
 #include <pbl/drivers/flash/qspi_flash_definitions.h>
 #include <pbl/drivers/qspi_definitions.h>
 #include <pbl/drivers/uart/sf32lb.h>

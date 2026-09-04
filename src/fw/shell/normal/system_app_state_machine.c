@@ -11,9 +11,7 @@
 #include "shell/normal/watchface.h"
 #include "kernel/low_power.h"
 #include "kernel/panic.h"
-#include "resource/resource.h"
 #include "pbl/services/battery/battery_monitor.h"
-#include "system/bootbits.h"
 #include <pbl/logging/logging.h>
 #include "process_management/app_manager.h"
 

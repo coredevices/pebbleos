@@ -1,14 +1,12 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from resources.types.resource_object import ResourceObject
-from resources.resource_map.resource_generator import ResourceGenerator
-
-from pebble_sdk_platform import pebble_platforms  # noqa: F401
+from io import BytesIO
 
 import json2vibe
-
-from io import BytesIO
+from pebble_sdk_platform import pebble_platforms  # noqa: F401
+from resources.resource_map.resource_generator import ResourceGenerator
+from resources.types.resource_object import ResourceObject
 
 
 class VibeResourceGenerator(ResourceGenerator):

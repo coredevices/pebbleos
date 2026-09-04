@@ -4,7 +4,6 @@
 #include "text_render.h"
 
 #include "gcontext.h"
-#include "graphics.h"
 #include "process_state/app_state/app_state.h"
 #include "system/passert.h"
 #include "text_resources.h"

@@ -1,4 +1,5 @@
 build
+build-test
 xcode
 
 .ycm*
@@ -22,7 +23,6 @@ TAGS
 *.swo
 *.swn
 
-.waf*
 .lock*
 
 *.pyc
@@ -30,6 +30,7 @@ TAGS
 
 qemu_serial.txt
 uart*.log
+.openocd.log
 
 serial_dump.txt
 
@@ -49,7 +50,6 @@ compile_commands.json
 loghash_dict.pickle
 analyze_mcu_flash_usage_treemap.jsonp
 **/.idea
-**/CMakeLists.txt
 
 .env
 
@@ -58,7 +58,6 @@ analyze_mcu_flash_usage_treemap.jsonp
 .cache/
 *.egg-info
 
-waflib.zip
 *~
 
 docs/_build

@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Workspace descriptor for the `pbl` developer CLI. Its presence is what
+# marks this directory as a PebbleOS checkout: `pbl` walks up from wherever
+# it is run until it finds this file.
+
+build:
+  dir: build
+  test-dir: build-test
+
+lang:
+  dir: resources/normal/base/lang
+
+# Commands living outside the CLI package. Each entry names a Python file
+# and the PblCommand subclasses in it; they are only imported when one of
+# them is the command being run.
+#
+# commands:
+#   - file: tools/pbl_commands/example.py
+#     commands:
+#       - name: example
+#         class: Example
+#         help: what it does
+commands: []

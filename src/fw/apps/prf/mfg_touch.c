@@ -10,17 +10,13 @@
 #include "applib/ui/text_layer.h"
 #include "applib/ui/window.h"
 #include "apps/prf/mfg_test_result.h"
-#include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "process_management/pebble_process_md.h"
 #include "process_state/app_state/app_state.h"
 #include <pbl/logging/logging.h>
 #include "applib/touch_service.h"
 #include "pbl/services/light.h"
-#include "pbl/services/touch/touch.h"
 #include "pbl/util/math.h"
-
-#include <stdio.h>
 
 #define TOUCH_SUPPORT_DEBUG    0
 

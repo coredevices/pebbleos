@@ -13,6 +13,7 @@ choice BT_FW
 
 config BT_FW_NIMBLE
     bool "NimBLE"
+    select MBEDTLS
     select HAL_SIFLI_IPC_QUEUE if SOC_SF32LB52
     select HAL_SIFLI_LCPU if SOC_SF32LB52
 

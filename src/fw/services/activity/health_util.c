@@ -8,11 +8,9 @@
 #include "shell/prefs.h"
 #include "util/time/time.h"
 #include "util/units.h"
-#include "pbl/util/string.h"
 
 #include <limits.h>
 #include <stdio.h>
-#include <string.h>
 
 static void prv_convert_duration_to_hours_and_minutes(int duration_s, int *hours, int *minutes) {
   *hours = (duration_s / SECONDS_PER_HOUR) ?: INT_MIN;

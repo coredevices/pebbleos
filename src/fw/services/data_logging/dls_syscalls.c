@@ -4,11 +4,8 @@
 #include "pbl/services/data_logging/data_logging_service.h"
 #include "pbl/services/data_logging/dls_private.h"
 
-#include "kernel/memory_layout.h"
 #include "syscall/syscall_internal.h"
 #include <pbl/logging/logging.h>
-
-#include <inttypes.h>
 
 PBL_LOG_MODULE_DECLARE(service_data_logging, CONFIG_SERVICE_DATA_LOGGING_LOG_LEVEL);
 

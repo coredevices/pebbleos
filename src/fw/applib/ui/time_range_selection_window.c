@@ -9,8 +9,6 @@
 #include "pbl/services/i18n/i18n.h"
 #include "shell/system_theme.h"
 
-#include <stdio.h>
-
 typedef struct TimeSelectionSizeConfig {
   int16_t cell_width;
   int16_t cell_padding;

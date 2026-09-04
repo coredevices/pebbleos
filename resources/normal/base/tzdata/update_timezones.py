@@ -13,7 +13,7 @@ TZDATA_DIR = os.path.dirname(os.path.abspath(__file__))
 tmp_dir = tempfile.mkdtemp()
 os.chdir(tmp_dir)
 
-print("Downloading timezone data to {}".format(tmp_dir))
+print(f"Downloading timezone data to {tmp_dir}")
 
 sh.wget("https://ftp.iana.org/tz/tzdata-latest.tar.gz")
 
@@ -90,7 +90,6 @@ with open(tz_file, "w") as outfile:
         "southamerica",
         "backward",
     ]:
-        for line in process_tzfile(filename):
-            outfile.write(line)
+        outfile.writelines(process_tzfile(filename))
 
-print("Updated database written to {}".format(tz_file))
+print(f"Updated database written to {tz_file}")

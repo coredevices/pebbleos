@@ -5,20 +5,14 @@
 
 #include "applib/applib_malloc.auto.h"
 #include "applib/graphics/gtypes.h"
-#include "applib/graphics/text_render.h"
 #include "applib/graphics/utf8.h"
 #include "applib/ui/action_bar_layer.h"
 #include "applib/ui/animation.h"
-#include "applib/ui/animation_interpolate.h"
-#include "applib/ui/dialogs/dialog_private.h"
 #include "applib/ui/scroll_layer.h"
 #include "kernel/ui/kernel_ui.h"
 #include "resource/resource_ids.auto.h"
 #include "shell/system_theme.h"
 #include "system/passert.h"
-
-#include <stdlib.h>
-#include <string.h>
 
 #define SCROLL_ANIMATION_DURATION  (300)
 #define POP_WINDOW_DELAY (400)

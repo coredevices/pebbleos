@@ -7,12 +7,9 @@
 
 #include "applib/voice/voice_window.h"
 #include "applib/applib_malloc.auto.h"
-#include "process_management/app_install_manager.h"
 #include "syscall/syscall.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-
-#include <string.h>
 
 #ifdef CONFIG_MIC
 

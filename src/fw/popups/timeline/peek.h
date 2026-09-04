@@ -7,7 +7,6 @@
 #include "applib/ui/animation.h"
 #include "applib/ui/window.h"
 #include "kernel/events.h"
-#include "pbl/services/timeline/timeline.h"
 
 #define TIMELINE_PEEK_HEIGHT \
     PREFERRED_CONTENT_SIZE_SWITCH(PreferredContentSizeDefault,     \

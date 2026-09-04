@@ -7,4 +7,5 @@ rm -r src
 pushd "tools/generate_watchface"
 python generate_watchface.py ../../watch_generators/gen_analog.json ../../src/
 popd
-./waf distclean configure build
+./pbl configure --board $BOARD
+./pbl build

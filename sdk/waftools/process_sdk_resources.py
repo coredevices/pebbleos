@@ -2,19 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
-from waflib import Node
 
+import resources.resource_map.resource_generator_bitmap
+import resources.resource_map.resource_generator_font
+import resources.resource_map.resource_generator_js
+import resources.resource_map.resource_generator_pbi
+import resources.resource_map.resource_generator_png
+import resources.resource_map.resource_generator_raw  # noqa: F401
 from resources.find_resource_filename import find_most_specific_filename
+from resources.resource_map import resource_generator
 from resources.types.resource_definition import ResourceDefinition
 from resources.types.resource_object import ResourceObject
-from resources.resource_map import resource_generator
-import resources.resource_map.resource_generator_bitmap  # noqa: F401
-import resources.resource_map.resource_generator_font  # noqa: F401
-import resources.resource_map.resource_generator_js  # noqa: F401
-import resources.resource_map.resource_generator_pbi  # noqa: F401
-import resources.resource_map.resource_generator_png  # noqa: F401
-import resources.resource_map.resource_generator_raw  # noqa: F401
 from sdk_helpers import is_sdk_2x, validate_resource_not_larger_than
+from waflib import Node
 
 
 def _preprocess_resource_ids(bld, resources_list, has_published_media=False):
@@ -80,7 +80,7 @@ def generate_resources(bld, resource_source_path):
     resource_definitions = []
     max_menu_icon_dimensions = (25, 25)
     for r in resources_json:
-        if "menuIcon" in r and r["menuIcon"]:
+        if r.get("menuIcon"):
             res_file = (
                 resources_node.find_node(
                     find_most_specific_filename(
@@ -110,7 +110,7 @@ def generate_resources(bld, resource_source_path):
                 # their own resource ids, so we need two entries in our definitions list.
                 for suffix in ("WHITE", "BLACK"):
                     new_definition = copy.deepcopy(d)
-                    new_definition.name = "%s_%s" % (d.name, suffix)
+                    new_definition.name = f"{d.name}_{suffix}"
                     resource_definitions.append(new_definition)
 
                 continue
@@ -128,7 +128,7 @@ def generate_resources(bld, resource_source_path):
         import os
 
         platform = bld.env.PLATFORM_NAME
-        mod_path = "build/mods/{}/mc.xsa".format(platform)
+        mod_path = f"build/mods/{platform}/mc.xsa"
         full_mod_path = os.path.join(bld.path.abspath(), mod_path)
         if os.path.exists(full_mod_path):
             mod_definition = ResourceDefinition(
@@ -137,13 +137,11 @@ def generate_resources(bld, resource_source_path):
             resource_definitions.append(mod_definition)
             resource_file_mapping["MOD"] = mod_path
             print(
-                "Auto-injected MOD resource for {} from {}".format(platform, mod_path)
+                f"Auto-injected MOD resource for {platform} from {mod_path}"
             )
         else:
             print(
-                "WARNING: MOD resource not found at {} for {}".format(
-                    full_mod_path, platform
-                )
+                f"WARNING: MOD resource not found at {full_mod_path} for {platform}"
             )
 
     bld_dir = bld.path.get_bld().make_node(bld.env.BUILD_DIR)
@@ -176,9 +174,11 @@ def generate_resources(bld, resource_source_path):
 
         for lib_resource in bld.env.LIB_RESOURCES_JSON.get(lib["name"], []):
             # Skip resources that specify targetPlatforms other than this one
-            if "targetPlatforms" in lib_resource:
-                if bld.env.PLATFORM_NAME not in lib_resource["targetPlatforms"]:
-                    continue
+            if (
+                "targetPlatforms" in lib_resource
+                and bld.env.PLATFORM_NAME not in lib_resource["targetPlatforms"]
+            ):
+                continue
 
             reso_file = "{}.{}.reso".format(lib_resource["file"], lib_resource["name"])
             resource_node = resources_path.find_node(reso_file)
@@ -214,9 +214,8 @@ def generate_resources(bld, resource_source_path):
         project_resource_ball = bld_dir.make_node("project_resources.resball")
         bld.env.PROJECT_RESBALL = project_resource_ball
 
-    if published_media_json:
-        # Only create TLUT for non-packages
-        if build_type != "lib":
+    # Only create TLUT for non-packages
+    if published_media_json and build_type != "lib":
             timeline_resource_table = bld_dir.make_node("timeline_resource_table.reso")
             resources_list.append(timeline_resource_table)
             _preprocess_resource_ids(bld, resources_list, True)

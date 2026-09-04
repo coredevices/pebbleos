@@ -1,7 +1,0 @@
-# SPDX-Copyright-Text: 2026 Core Devices LLC
-# SPDX-License-Identifier: Apache-2.0
-
-# test_args_receiver_get_app_info() lives in the always-built shared demo library.
-pass
-
-# vim:filetype=python

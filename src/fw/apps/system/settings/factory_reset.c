@@ -7,7 +7,6 @@
 #include "applib/fonts/fonts.h"
 #include "applib/ui/action_bar_layer.h"
 #include "applib/ui/app_window_stack.h"
-#include "applib/ui/window_stack_private.h"
 #include "applib/ui/ui.h"
 #include "apps/system/timeline/peek_layer.h"
 #include "kernel/pbl_malloc.h"
@@ -16,9 +15,7 @@
 #include "kernel/util/factory_reset.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
-#include "pbl/services/system_task.h"
 #include "bluetooth.h"
-#include <pbl/logging/logging.h>
 
 #define MESSAGE_BUF_SIZE 96
 

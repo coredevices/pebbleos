@@ -1,6 +1,0 @@
-bld.stlib(source=['tinflate.c'],
-          export_includes='.',
-          target='tinflate',
-          use='fw_includes')
-
-# vim:filetype=python

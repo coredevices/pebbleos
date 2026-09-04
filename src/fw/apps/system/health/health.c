@@ -7,16 +7,12 @@
 
 #include "applib/app.h"
 #include "applib/ui/dialogs/expandable_dialog.h"
-#include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
-#include "kernel/ui/modals/modal_manager.h"
 #include "popups/health_tracking_ui.h"
 #include "process_state/app_state/app_state.h"
 #include "pbl/services/activity/activity.h"
-#include "pbl/services/activity/activity_private.h"
 #include "pbl/services/timeline/timeline.h"
 #include "resource/resource_ids.auto.h"
-#include <pbl/logging/logging.h>
 
 // Health app versions
 // 0: Invalid (app was never opened)

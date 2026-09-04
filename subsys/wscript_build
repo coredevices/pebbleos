@@ -1,8 +1,0 @@
-# SPDX-FileCopyrightText: 2026 Core Devices LLC
-# SPDX-License-Identifier: Apache-2.0
-
-bld(export_includes=['.'], name='subsys_includes')
-
-bld.recurse('logging')
-
-# vim:filetype=python

@@ -12,10 +12,7 @@
 #include "pbl/services/evented_timer.h"
 #include "pbl/services/timeline/notification_layout.h"
 #include "pbl/services/timeline/timeline_resources.h"
-#include <pbl/logging/logging.h>
 #include "pbl/util/math.h"
-
-#include "resource/resource_ids.auto.h"
 
 //! Title text vertically centered position
 #define TEXT_OFFSET_Y ((DISP_ROWS / 2) + PBL_IF_RECT_ELSE(46,  42))

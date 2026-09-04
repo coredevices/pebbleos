@@ -8,7 +8,6 @@
 #include "notifications.h"
 #include "quick_launch.h"
 #include "quiet_time.h"
-#include "remote.h"
 #include "system.h"
 #include "time.h"
 #include "timeline.h"
@@ -19,9 +18,7 @@
 #include "vibe_patterns.h"
 
 #include "applib/ui/app_window_stack.h"
-#include "pbl/services/i18n/i18n.h"
 #include "system/passert.h"
-#include "shell/prefs.h"
 
 static const SettingsModuleGetMetadata s_submodule_registry[] = {
   [SettingsMenuItemBluetooth]     = settings_bluetooth_get_info,

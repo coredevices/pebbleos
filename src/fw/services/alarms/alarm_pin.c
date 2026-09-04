@@ -3,7 +3,6 @@
 
 #include "pbl/services/alarms/alarm_pin.h"
 
-#include "apps/system_app_ids.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/blob_db/pin_db.h"

@@ -9,9 +9,11 @@ choice
 
 config SOC_NRF52
     bool "Nordic nRF52"
+    select HAL_NORDIC
 
 config SOC_SF32LB52
     bool "SiFli SF32LB52"
+    select HAL_SIFLI
 
 config SOC_QEMU
     bool "QEMU emulated"

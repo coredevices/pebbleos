@@ -3,8 +3,6 @@
 
 #include "pbl/services/timeline/calendar_layout_resources.h"
 
-#include "applib/graphics/gdraw_command_image.h"
-#include "applib/graphics/gdraw_command_private.h"
 #include "pbl/util/size.h"
 
 // FIXME: PBL-28898 GPath algorithm requires strange coordinates for pixel perfection

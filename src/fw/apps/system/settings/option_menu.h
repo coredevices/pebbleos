@@ -3,8 +3,6 @@
 
 #include "applib/ui/option_menu_window.h"
 
-#include "applib/ui/ui.h"
-
 typedef struct {
   OptionMenuCallbacks callbacks;
   void *context;

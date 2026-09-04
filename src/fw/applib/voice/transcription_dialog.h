@@ -6,7 +6,6 @@
 #include "applib/app_timer.h"
 #include "applib/ui/property_animation.h"
 #include "applib/ui/dialogs/expandable_dialog.h"
-#include "applib/ui/window_stack.h"
 
 #include <stdint.h>
 #include <stdbool.h>

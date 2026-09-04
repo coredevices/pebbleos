@@ -6,21 +6,21 @@
 
 import re
 
-f = open("log.txt")
-r = re.compile("[^\n]+(\+\+|\-\-)no_sniff_count : [0-9]+ \(([A-z]+)\)")
+f = open("log.txt")  # noqa: SIM115
+r = re.compile("[^\n]+(\\+\\+|\\-\\-)no_sniff_count : [0-9]+ \\(([A-z]+)\\)")
 d = {}
 for line in f:
     m = r.search(line)
     if m != None:
-        is_add = True if m.group(1) == "++" else False
+        is_add = m.group(1) == "++"
         tag = m.group(2)
-        print("tag: {0} {1}".format(tag, "+" if is_add else "-"))
+        print("tag: {} {}".format(tag, "+" if is_add else "-"))
         if not tag in d:
             d[tag] = 0
         if is_add:
             d[tag] += 1
         else:
             d[tag] -= 1
-print("")
-for tag in d:
-    print("{0} -> {1}".format(tag, d[tag]))
+print()
+for tag, count in d.items():
+    print(f"{tag} -> {count}")

@@ -12,9 +12,6 @@
 #include "system/passert.h"
 #include "pbl/util/math_fixed.h"
 
-#include <stdio.h>
-
-
 ////////////////////
 // scale
 

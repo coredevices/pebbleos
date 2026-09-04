@@ -6,7 +6,6 @@
 #include "pbl/services/timeline/item.h"
 
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdbool.h>
 
 //! You probably don't want to be using the APIs in this file unless you are doing

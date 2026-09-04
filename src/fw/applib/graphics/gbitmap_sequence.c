@@ -5,7 +5,6 @@
 
 #include "gbitmap_png.h"
 #include "util/graphics.h"
-#include "util/net.h"
 #include "util/time/time.h"
 #include "applib/app_logging.h"
 #include "applib/applib_malloc.auto.h"

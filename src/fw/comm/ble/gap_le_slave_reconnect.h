@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <stdbool.h>
-
 //! @file gap_le_slave_reconnect.h
 //! Sub-system that will start advertising for reconnection, whenever there is a
 //! bonded master device AND the local device is not already connected as slave.

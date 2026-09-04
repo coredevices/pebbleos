@@ -4,16 +4,10 @@
 #include <pbl/drivers/uart/nrf5.h>
 #include <pbl/drivers/uart.h>
 
-#include <pbl/drivers/gpio.h>
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 
-#include "FreeRTOS.h"
-
-#include <pbl/mcu/interrupts.h>
-
 #include <nrfx_uarte.h>
-#include <nrfx_timer.h>
 #ifdef NRF_PPI_BASE
 #include <nrfx_ppi.h>
 #else

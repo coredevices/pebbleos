@@ -17,7 +17,6 @@
 #include "pbl/util/attributes.h"
 #include "pbl/util/string.h"
 #include "pbl/util/struct.h"
-#include "board/display.h"
 
 // Use display height to determine icon margins: larger displays use more margin
 #if PBL_DISPLAY_HEIGHT >= 200

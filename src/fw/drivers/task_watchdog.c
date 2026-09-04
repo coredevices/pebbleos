@@ -4,14 +4,11 @@
 #include <pbl/drivers/task_watchdog.h>
 
 #include <pbl/drivers/watchdog.h>
-#include "kernel/core_dump.h"
 #include "kernel/event_loop.h"
 #include "kernel/pebble_tasks.h"
-#include "pbl/os/mutex.h"
 #include "process_management/app_manager.h"
 #include "pbl/services/new_timer/new_timer.h"
 #include "pbl/services/system_task.h"
-#include "system/bootbits.h"
 #include "system/die.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"

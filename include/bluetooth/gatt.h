@@ -3,15 +3,11 @@
 
 #pragma once
 
-#include <inttypes.h>
-
 #include <bluetooth/bluetooth_types.h>
 #include <bluetooth/gatt_discovery.h>
 #include <bluetooth/hci_types.h>
 
 #include "comm/ble/gap_le_connection.h"
-#include "comm/ble/gatt_client_accessors.h"
-#include "pbl/util/attributes.h"
 
 // -- Gatt Device/Server Events
 

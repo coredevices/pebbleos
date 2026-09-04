@@ -5,7 +5,6 @@
 
 #include "attributes_address.h"
 
-#include "pbl/util/attributes.h"
 #include "pbl/util/uuid.h"
 
 typedef struct {

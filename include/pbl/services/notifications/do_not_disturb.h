@@ -7,7 +7,6 @@
 #include "kernel/events.h"
 #include "pbl/services/notifications/alerts_preferences.h"
 
-#include <inttypes.h>
 #include <stdbool.h>
 
 typedef enum DoNotDisturbScheduleType {

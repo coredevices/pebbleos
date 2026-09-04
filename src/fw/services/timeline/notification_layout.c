@@ -3,33 +3,22 @@
 
 #include "pbl/services/timeline/notification_jumboji_table.h"
 #include "pbl/services/timeline/notification_layout.h"
-#include "pbl/services/timeline/timeline_layout.h"
 
-#include "applib/fonts/fonts.h"
 #include "applib/graphics/gtypes.h"
-#include "applib/graphics/text.h"
-#include "apps/system/timeline/peek_layer.h"
-#include "font_resource_keys.auto.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/ui/kernel_ui.h"
 #include "resource/resource_ids.auto.h"
 #include "resource/timeline_resource_ids.auto.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/clock.h"
 #include "pbl/services/clock.h"
-#include "pbl/services/i18n/i18n.h"
 #include "pbl/services/blob_db/pin_db.h"
 #include "pbl/services/notifications/alerts_preferences_private.h"
 #include "pbl/services/notifications/notification_image.h"
 #include "pbl/services/timeline/timeline_resources.h"
 #include "shell/system_theme.h"
-#include "system/hexdump.h"
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
 #include "pbl/util/string.h"
-#include "pbl/util/trig.h"
 
 // NOTIFICATION
 // Title -> Sender/App

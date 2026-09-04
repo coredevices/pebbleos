@@ -5,16 +5,12 @@
 
 #include "app_glance_structured.h"
 
-#include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "process_management/app_install_manager.h"
 #include "shell/normal/watchface.h"
 #include "system/passert.h"
 #include "pbl/util/attributes.h"
-#include "pbl/util/string.h"
 #include "pbl/util/struct.h"
-
-#include <stdio.h>
 
 typedef struct LauncherAppGlanceWatchfaces {
   char title[APP_NAME_SIZE_BYTES];

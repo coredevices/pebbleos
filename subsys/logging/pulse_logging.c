@@ -6,7 +6,6 @@
 #include "logging_private.h"
 #include "kernel/pebble_tasks.h"
 
-#include "console/pulse.h"
 #include "console/pulse_protocol_impl.h"
 #include "kernel/events.h"
 

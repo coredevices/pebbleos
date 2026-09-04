@@ -8,16 +8,11 @@
 #include "syscall_internal.h"
 
 #include <pbl/drivers/rtc.h>
-#include "kernel/memory_layout.h"
-#include "kernel/pebble_tasks.h"
 #include "pbl/mcu/privilege.h"
 #include "pbl/os/tick.h"
-#include "process_management/app_manager.h"
 #include "process_management/worker_manager.h"
-#include "pbl/services/comm_session/session.h"
 #include "logging/logging_private.h"
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 #include "pbl/util/string.h"
 
 #include "FreeRTOS.h"

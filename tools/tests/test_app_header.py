@@ -9,8 +9,9 @@ import unittest
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 sys.path.insert(0, root_dir)
 
-from app_header import PebbleAppHeader
 from uuid import UUID
+
+from app_header import PebbleAppHeader
 
 V1_APP_HEADER = (
     b"\x50\x42\x4c\x41\x50\x50\x00\x00\x08\x01\x03\x01\x03\x00"

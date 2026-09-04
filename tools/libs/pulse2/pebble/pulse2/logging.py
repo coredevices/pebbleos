@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import
 
 import logging
 
@@ -17,4 +16,4 @@ class TaggedAdapter(logging.LoggerAdapter):
     """
 
     def process(self, msg, kwargs):
-        return "[%s] %s" % (self.extra["tag"], msg), kwargs
+        return "[{}] {}".format(self.extra["tag"], msg), kwargs

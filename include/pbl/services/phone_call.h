@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include "kernel/events.h"
-
 void phone_call_service_init(void);
 
 void phone_call_answer(void);

@@ -11,7 +11,7 @@ def battery_force_charge(cmdr, charging=True):
         charging = "enable"
     else:
         charging = "disable"
-    ret = cmdr.send_prompt_command("battery chargeopt %s" % charging)
+    ret = cmdr.send_prompt_command(f"battery chargeopt {charging}")
     if ret:
         raise exceptions.PromptResponseError(ret)
 

@@ -6,7 +6,6 @@
 #include "pbl/services/timeline/peek.h"
 
 #include <pbl/drivers/rtc.h>
-#include "kernel/event_loop.h"
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"

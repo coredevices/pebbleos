@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "pebble_compat.h"
 #include "weather_types.h"
 
 // Push the condensed weekly forecast list onto the window stack.

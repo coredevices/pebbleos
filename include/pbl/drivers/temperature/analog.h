@@ -5,8 +5,6 @@
 
 #include <stdint.h>
 
-#include "board/board.h"
-
 struct AnalogTemperatureSensor {
   const VoltageMonitorDevice *voltage_monitor;
   int32_t millivolts_ref;

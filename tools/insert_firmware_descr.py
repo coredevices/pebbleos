@@ -3,13 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import with_statement, print_function
 
-import sys
 import struct
+import sys
 
 from fw_binary_info import PebbleFirmwareBinaryInfo
-
 
 # typedef struct ATTR_PACKED FirmwareDescription {
 #   uint32_t description_length;
@@ -39,7 +37,7 @@ def insert_firmware_description_struct(input_binary, output_binary=None):
 
 
 def usage_and_exit():
-    print("Usage: %s INPUT_FILE OUTPUT_FILE" % sys.argv[0])
+    print(f"Usage: {sys.argv[0]} INPUT_FILE OUTPUT_FILE")
     sys.exit(1)
 
 

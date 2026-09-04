@@ -1,0 +1,13 @@
+[project]
+name = "pbl-watch"
+version = "1.0.1"
+description = "Internal tool for interacting with pebbles."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+	"pebble_tool>=5.0.18",
+	"libpebble2[pulse]>=0.0.23",
+]
+
+[project.scripts]
+pbl-watch = "pblwatch:run_tool"

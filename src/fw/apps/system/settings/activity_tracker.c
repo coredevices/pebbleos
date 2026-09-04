@@ -3,27 +3,18 @@
 
 #include "activity_tracker.h"
 #include "menu.h"
-#include "window.h"
 
-#include "applib/app.h"
 #include "applib/app_timer.h"
 #include "applib/ui/kino/kino_reel.h"
 #include "applib/ui/option_menu_window.h"
 #include "applib/ui/ui.h"
 #include "applib/ui/window.h"
-#include "applib/ui/window_stack.h"
-#include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "popups/switch_worker_ui.h"
 #include "process_management/app_menu_data_source.h"
 #include "process_management/worker_manager.h"
 #include "process_state/app_state/app_state.h"
-#include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
-#include "shell/normal/watchface.h"
-#include "system/passert.h"
-
-#include <string.h>
 
 typedef struct SettingsActivityTrackerData {
   OptionMenu option_menu;

@@ -9,16 +9,13 @@
 
 #include "comm/ble/gatt_client_subscriptions.h"
 #include "comm/ble/gatt_client_operations.h"
-#include "comm/ble/kernel_le_client/dis/dis.h"
 
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/evented_timer.h"
 #include "pbl/services/notifications/ancs/ancs_notifications.h"
 #include "pbl/services/regular_timer.h"
-#include "pbl/services/timeline/timeline.h"
 
 #include "system/hexdump.h"
 #include "system/passert.h"

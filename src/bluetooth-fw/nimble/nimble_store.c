@@ -5,7 +5,6 @@
 #include <bluetooth/gap_le_connect.h>
 #include <bluetooth/sm_types.h>
 #include <host/ble_hs.h>
-#include <host/ble_hs_hci.h>
 #include <host/ble_store.h>
 #include <kernel/event_loop.h>
 #include <kernel/pbl_malloc.h>

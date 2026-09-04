@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import print_function
 
 CRC_POLY = 0x04C11DB7
 CRC_WIDTH = 32
@@ -11,9 +10,9 @@ CRC_WIDTH = 32
 
 def precompute_table(bits):
     lookup_table = []
-    for i in xrange(2**bits):
+    for i in range(2**bits):
         rr = i << (CRC_WIDTH - bits)
-        for x in xrange(bits):
+        for x in range(bits):
             if rr & 0x80000000:
                 rr = (rr << 1) ^ CRC_POLY
             else:
@@ -24,5 +23,5 @@ def precompute_table(bits):
 
 print("static const uint32_t s_lookup_table[] = {")
 for entry in precompute_table(4):
-    print("  0x{:08x},".format(entry))
+    print(f"  0x{entry:08x},")
 print("};")

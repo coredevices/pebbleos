@@ -10,7 +10,6 @@
 #include "applib/ui/app_window_stack.h"
 #include "kernel/pbl_malloc.h"
 #include "shell/normal/app_idle_timeout.h"
-#include "system/passert.h"
 #include "shell/prefs.h"
 #include "process_state/app_state/app_state.h"
 #include "pbl/util/attributes.h"

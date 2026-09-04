@@ -10,7 +10,6 @@
 #include "kernel/pbl_malloc.h"
 #include "pbl/os/mutex.h"
 #include "process_management/app_install_manager.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/clock.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/new_timer/new_timer.h"
@@ -18,11 +17,9 @@
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/timeline/event.h"
-#include "pbl/services/timeline/timeline.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/attributes.h"
-#include "pbl/util/list.h"
 #include "pbl/util/string.h"
 #include "util/units.h"
 

@@ -1,33 +1,22 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "notifications_private.h"
 #include "menu.h"
 #include "option_menu.h"
 #include "window.h"
 
 #include "applib/event_service_client.h"
-#include "applib/fonts/fonts.h"
 #include "applib/ui/action_menu_window_private.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/option_menu_window.h"
 #include "applib/ui/ui.h"
-#include <pbl/drivers/battery.h>
 #include "kernel/pbl_malloc.h"
-#include "popups/notifications/notification_window.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/notifications/alerts_preferences_private.h"
 #include "pbl/services/notifications/alerts_private.h"
-#include "pbl/services/vibes/vibe_intensity.h"
-#include "shell/prefs.h"
-#include "shell/system_theme.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/size.h"
 #include "util/time/time.h"
-
-#include <stdio.h>
 
 // Offset between vibe intensity menu item index and vibe intensity enum values
 #define INTENSITY_ROW_OFFSET 1
@@ -39,7 +28,6 @@ typedef struct {
 
 enum NotificationsItem {
   NotificationsItemFilter,
-  NotificationsItemTextSize,
   NotificationsItemWindowTimeout,
 #if PBL_BW
   NotificationsItemDesignStyle,
@@ -105,34 +93,7 @@ static void prv_filter_menu_push(SettingsNotificationsData *data) {
       true /* icons_enabled */, s_alert_mode_labels, data);
 }
 
-// Text Size
-////////////////////////
-
-static const char *s_text_size_names[] = {
-  [SettingsContentSize_Small]   = i18n_noop("Smaller"),
-  [SettingsContentSize_Default] = i18n_ctx_noop("TextSize", "Default"),
-  [SettingsContentSize_Large]   = i18n_noop("Larger"),
-};
-
-static void prv_text_size_menu_select(OptionMenu *option_menu, int selection, void *context) {
-  system_theme_set_content_size(settings_content_size_to_preferred_size(selection));
-  app_window_stack_remove(&option_menu->window, true /* animated */);
-}
-
-static void prv_text_size_menu_push(SettingsNotificationsData *data) {
-  const OptionMenuCallbacks callbacks = {
-    .select = prv_text_size_menu_select,
-  };
-  /// The option in the Settings app for choosing the text size of notifications.
-  const char *title = i18n_noop("Text Size");
-  const SettingsContentSize index =
-      settings_content_size_from_preferred_size(system_theme_get_content_size());
-  settings_option_menu_push(
-      title, OptionMenuContentType_SingleLine, index, &callbacks, SettingsContentSizeCount,
-      true /* icons_enabled */, s_text_size_names, data);
-}
-
-// Text Size
+// Window Timeout
 ////////////////////////
 
 // NOTE: Keep the following two arrays in sync and with the same size.
@@ -316,14 +277,6 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       title = i18n_noop("Filter");
       subtitle = prv_alert_mask_to_label(alerts_get_mask());
       break;
-    case NotificationsItemTextSize: {
-      /// String within Settings->Notifications that describes the text font size
-      title = i18n_noop("Text Size");
-      const SettingsContentSize index =
-          settings_content_size_from_preferred_size(system_theme_get_content_size());
-      subtitle = (index < SettingsContentSizeCount) ? s_text_size_names[index] : "";
-      break;
-    }
     case NotificationsItemWindowTimeout: {
       /// String within Settings->Notifications that describes the window timeout setting
       title = i18n_noop("Timeout");
@@ -376,9 +329,6 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
   switch (row) {
     case NotificationsItemFilter:
       prv_filter_menu_push(data);
-      break;
-    case NotificationsItemTextSize:
-      prv_text_size_menu_push(data);
       break;
     case NotificationsItemWindowTimeout:
       prv_window_timeout_menu_push(data);

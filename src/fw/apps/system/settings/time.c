@@ -7,9 +7,6 @@
 #include "window.h"
 
 #include "applib/app.h"
-#include "applib/applib_resource.h"
-#include "applib/fonts/fonts.h"
-#include "applib/graphics/text.h"
 #include "applib/ui/action_menu_window_private.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/date_selection_window.h"
@@ -17,9 +14,7 @@
 #include "applib/ui/time_selection_window.h"
 #include "applib/ui/ui.h"
 #include "kernel/pbl_malloc.h"
-#include "process_management/app_manager.h"
 #include "util/date.h"
-#include "pbl/util/size.h"
 #include "util/time/time.h"
 #include "pbl/util/string.h"
 

@@ -10,9 +10,11 @@ Currently the following SVG elements are supported:
 g, layer, path, rect, polyline, polygon, line, circle,
 """
 
-import xml.etree.ElementTree as ET
-import svg.path
 import glob
+import xml.etree.ElementTree as ET
+
+import svg.path
+
 from . import pebble_commands
 
 xmlns = "{http://www.w3.org/2000/svg}"
@@ -118,10 +120,14 @@ def parse_path(
     if d is not None:
         path = svg.path.parse_path(d)
         non_move = [line for line in path if not isinstance(line, svg.path.Move)]
-        points = [(lambda l: (l.real, l.imag))(line.start) for line in non_move]
+        points = [(line.start.real, line.start.imag) for line in non_move]
         move_commands_only = len(non_move) == 0
         if not points or move_commands_only:
-            print("No points in parsed path")
+            # A path that only moves draws nothing. Stray anchor points are a
+            # common export artefact -- a hundred of them across the icon set
+            # -- and skipping them loses no ink, so say so only when asked.
+            if verbose:
+                print(f"No points in parsed path: {d}")
             return None
 
         path_open = path[-1].end != path[0].start
@@ -482,7 +488,7 @@ def get_commands(
 def get_xml(filename):
     try:
         root = ET.parse(filename).getroot()
-    except IOError:
+    except OSError:
         return None
     return root
 

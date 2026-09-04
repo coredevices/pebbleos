@@ -20,6 +20,7 @@
 // Stubs
 /////////////////////
 #include "stubs_app_state.h"
+#include "stubs_app_timer.h"
 #include "stubs_click.h"
 #include "stubs_fonts.h"
 #include "stubs_graphics.h"
@@ -97,8 +98,6 @@ GSize graphics_text_layout_get_max_used_size(GContext *ctx, const char *text, GF
                                              GTextLayoutCacheRef layout) {
   return GSize(10, FONT_HEIGHT);
 }
-
-GFont system_theme_get_font(TextStyleFont font) { return NULL; }
 
 void menu_cell_basic_draw_custom(GContext *ctx, const Layer *cell_layer, GFont const title_font,
                                  const char *title, GFont const value_font, const char *value,

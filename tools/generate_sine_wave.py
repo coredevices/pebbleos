@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2025 Core Devices, LLC
 # SPDX-License-Identifier: Apache-2.0
 
@@ -61,7 +62,7 @@ int16_t {array_name}[SINE_WAVE_TOTAL_SAMPLES] = {{
         with open(output_file, "w") as f:
             f.write(c_content)
         print(f"Successfully generated {output_file}")
-    except Exception as e:
+    except OSError as e:
         print(f"Error writing C file: {e}", file=sys.stderr)
         return False
 
@@ -87,7 +88,7 @@ extern int16_t {array_name}[SINE_WAVE_TOTAL_SAMPLES];
         with open(header_file, "w") as f:
             f.write(header_content)
         print(f"Successfully generated {header_file}")
-    except Exception as e:
+    except OSError as e:
         print(f"Error writing header file: {e}", file=sys.stderr)
         return False
 

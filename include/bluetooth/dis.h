@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <stdbool.h>
-
 #include "pbl/util/attributes.h"
 
 // The reason the headers that define these lengths aren't included is because this header

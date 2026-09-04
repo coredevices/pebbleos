@@ -1,4 +1,6 @@
 # ===- cindex.py - Python Indexing Library Bindings -----------*- python -*--===#
+from typing import ClassVar
+
 #
 # Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
@@ -44,7 +46,6 @@ Most object information is exposed using properties, when the underlying API
 call is efficient.
 """
 
-from __future__ import absolute_import, division, print_function
 
 # TODO
 # ====
@@ -63,75 +64,57 @@ from __future__ import absolute_import, division, print_function
 #
 # o implement additional SourceLocation, SourceRange, and File methods.
 
+import contextlib
+import os
 from ctypes import *
 
 import clang.enumerations
 
-import os
-import sys
 
-if sys.version_info[0] == 3:
-    # Python 3 strings are unicode, translate them to/from utf8 for C-interop.
-    class c_interop_string(c_char_p):
-        def __init__(self, p=None):
-            if p is None:
-                p = ""
-            if isinstance(p, str):
-                p = p.encode("utf8")
-            super(c_char_p, self).__init__(p)
+class c_interop_string(c_char_p):
+    def __init__(self, p=None):
+        if p is None:
+            p = ""
+        if isinstance(p, str):
+            p = p.encode("utf8")
+        super(c_char_p, self).__init__(p)
 
-        def __str__(self):
-            return self.value
+    def __str__(self):
+        return self.value
 
-        @property
-        def value(self):
-            if super(c_char_p, self).value is None:
-                return None
-            return super(c_char_p, self).value.decode("utf8")
+    @property
+    def value(self):
+        if super(c_char_p, self).value is None:
+            return None
+        return super(c_char_p, self).value.decode("utf8")
 
-        @classmethod
-        def from_param(cls, param):
-            if isinstance(param, str):
-                return cls(param)
-            if isinstance(param, bytes):
-                return cls(param)
-            if param is None:
-                # Support passing null to C functions expecting char arrays
-                return None
-            raise TypeError(
-                "Cannot convert '{}' to '{}'".format(type(param).__name__, cls.__name__)
-            )
+    @classmethod
+    def from_param(cls, param):
+        if isinstance(param, str):
+            return cls(param)
+        if isinstance(param, bytes):
+            return cls(param)
+        if param is None:
+            # Support passing null to C functions expecting char arrays
+            return None
+        raise TypeError(
+            f"Cannot convert '{type(param).__name__}' to '{cls.__name__}'"
+        )
 
-        @staticmethod
-        def to_python_string(x, *args):
-            return x.value
+    @staticmethod
+    def to_python_string(x, *args):
+        return x.value
 
-    def b(x):
-        if isinstance(x, bytes):
-            return x
-        return x.encode("utf8")
-
-elif sys.version_info[0] == 2:
-    # Python 2 strings are utf8 byte strings, no translation is needed for
-    # C-interop.
-    c_interop_string = c_char_p
-
-    def _to_python_string(x, *args):
+def b(x):
+    if isinstance(x, bytes):
         return x
-
-    c_interop_string.to_python_string = staticmethod(_to_python_string)
-
-    def b(x):
-        return x
+    return x.encode("utf8")
 
 
 # Importing ABC-s directly from collections is deprecated since Python 3.7,
 # will stop working in Python 3.8.
 # See: https://docs.python.org/dev/whatsnew/3.7.html#id3
-if sys.version_info[:2] >= (3, 7):
-    from collections import abc as collections_abc
-else:
-    import collections as collections_abc
+from collections import abc as collections_abc
 
 # We only support PathLike objects on Python version with os.fspath present
 # to be consistent with the Python standard library. On older Python versions
@@ -164,7 +147,6 @@ class TranslationUnitLoadError(Exception):
     FIXME: Make libclang expose additional error information in this scenario.
     """
 
-    pass
 
 
 class TranslationUnitSaveError(Exception):
@@ -190,20 +172,20 @@ class TranslationUnitSaveError(Exception):
         assert isinstance(enumeration, int)
 
         if enumeration < 1 or enumeration > 3:
-            raise Exception(
+            raise RuntimeError(
                 "Encountered undefined TranslationUnit save error "
-                "constant: %d. Please file a bug to have this "
-                "value supported." % enumeration
+                f"constant: {enumeration:d}. Please file a bug to have this "
+                "value supported."
             )
 
         self.save_error = enumeration
-        Exception.__init__(self, "Error %d: %s" % (enumeration, message))
+        Exception.__init__(self, f"Error {enumeration:d}: {message}")
 
 
 ### Structures and Utility Classes ###
 
 
-class CachedProperty(object):
+class CachedProperty:
     """Decorator that lazy-loads the value of a property.
 
     The first time the property is accessed, the original property function is
@@ -213,10 +195,8 @@ class CachedProperty(object):
 
     def __init__(self, wrapped):
         self.wrapped = wrapped
-        try:
+        with contextlib.suppress(AttributeError):
             self.__doc__ = wrapped.__doc__
-        except:
-            pass
 
     def __get__(self, instance, instance_type=None):
         if instance is None:
@@ -231,7 +211,7 @@ class CachedProperty(object):
 class _CXString(Structure):
     """Helper for transforming CXString results."""
 
-    _fields_ = [("spelling", c_char_p), ("free", c_int)]
+    _fields_: ClassVar = [("spelling", c_char_p), ("free", c_int)]
 
     def __del__(self):
         conf.lib.clang_disposeString(self)
@@ -247,7 +227,7 @@ class SourceLocation(Structure):
     A SourceLocation represents a particular location within a source file.
     """
 
-    _fields_ = [("ptr_data", c_void_p * 2), ("int_data", c_uint)]
+    _fields_: ClassVar = [("ptr_data", c_void_p * 2), ("int_data", c_uint)]
     _data = None
 
     def _get_instantiation(self):
@@ -312,11 +292,7 @@ class SourceLocation(Structure):
             filename = self.file.name
         else:
             filename = None
-        return "<SourceLocation file %r, line %r, column %r>" % (
-            filename,
-            self.line,
-            self.column,
-        )
+        return f"<SourceLocation file {filename!r}, line {self.line!r}, column {self.column!r}>"
 
 
 class SourceRange(Structure):
@@ -325,7 +301,7 @@ class SourceRange(Structure):
     code.
     """
 
-    _fields_ = [
+    _fields_: ClassVar = [
         ("ptr_data", c_void_p * 2),
         ("begin_int_data", c_uint),
         ("end_int_data", c_uint),
@@ -378,17 +354,16 @@ class SourceRange(Structure):
             # same file first line
             if self.start.column <= other.column:
                 return True
-        elif other.line == self.end.line:
+        elif other.line == self.end.line and other.column <= self.end.column:
             # same file last line
-            if other.column <= self.end.column:
-                return True
+            return True
         return False
 
     def __repr__(self):
-        return "<SourceRange start %r, end %r>" % (self.start, self.end)
+        return f"<SourceRange start {self.start!r}, end {self.end!r}>"
 
 
-class Diagnostic(object):
+class Diagnostic:
     """
     A Diagnostic is a single instance of a Clang diagnostic. It includes the
     diagnostic severity, the message, the location the diagnostic occurred, as
@@ -429,7 +404,7 @@ class Diagnostic(object):
 
     @property
     def ranges(self):
-        class RangeIterator(object):
+        class RangeIterator:
             def __init__(self, diag):
                 self.diag = diag
 
@@ -445,7 +420,7 @@ class Diagnostic(object):
 
     @property
     def fixits(self):
-        class FixItIterator(object):
+        class FixItIterator:
             def __init__(self, diag):
                 self.diag = diag
 
@@ -464,7 +439,7 @@ class Diagnostic(object):
 
     @property
     def children(self):
-        class ChildDiagnosticsIterator(object):
+        class ChildDiagnosticsIterator:
             def __init__(self, diag):
                 self.diag_set = conf.lib.clang_getChildDiagnostics(diag)
 
@@ -515,11 +490,7 @@ class Diagnostic(object):
         return conf.lib.clang_formatDiagnostic(self, options)
 
     def __repr__(self):
-        return "<Diagnostic severity %r, location %r, spelling %r>" % (
-            self.severity,
-            self.location,
-            self.spelling,
-        )
+        return f"<Diagnostic severity {self.severity!r}, location {self.location!r}, spelling {self.spelling!r}>"
 
     def __str__(self):
         return self.format()
@@ -528,7 +499,7 @@ class Diagnostic(object):
         return self.ptr
 
 
-class FixIt(object):
+class FixIt:
     """
     A FixIt represents a transformation to be applied to the source to
     "fix-it". The fix-it shouldbe applied by replacing the given source range
@@ -540,10 +511,10 @@ class FixIt(object):
         self.value = value
 
     def __repr__(self):
-        return "<FixIt range %r, value %r>" % (self.range, self.value)
+        return f"<FixIt range {self.range!r}, value {self.value!r}>"
 
 
-class TokenGroup(object):
+class TokenGroup:
     """Helper class to facilitate token management.
 
     Tokens are allocated from libclang in chunks. They must be disposed of as a
@@ -589,7 +560,7 @@ class TokenGroup(object):
 
         token_group = TokenGroup(tu, tokens_memory, tokens_count)
 
-        for i in range(0, count):
+        for i in range(count):
             token = Token()
             token.int_data = tokens_array[i].int_data
             token.ptr_data = tokens_array[i].ptr_data
@@ -599,10 +570,10 @@ class TokenGroup(object):
             yield token
 
 
-class TokenKind(object):
+class TokenKind:
     """Describes a specific type of a Token."""
 
-    _value_map = {}  # int -> TokenKind
+    _value_map: ClassVar = {}  # int -> TokenKind
 
     def __init__(self, value, name):
         """Create a new TokenKind instance from a numeric value and a name."""
@@ -610,7 +581,7 @@ class TokenKind(object):
         self.name = name
 
     def __repr__(self):
-        return "TokenKind.%s" % (self.name,)
+        return f"TokenKind.{self.name}"
 
     @staticmethod
     def from_value(value):
@@ -618,7 +589,7 @@ class TokenKind(object):
         result = TokenKind._value_map.get(value, None)
 
         if result is None:
-            raise ValueError("Unknown TokenKind: %d" % value)
+            raise ValueError(f"Unknown TokenKind: {value:d}")
 
         return result
 
@@ -630,7 +601,7 @@ class TokenKind(object):
         package.
         """
         if value in TokenKind._value_map:
-            raise ValueError("TokenKind already registered: %d" % value)
+            raise ValueError(f"TokenKind already registered: {value:d}")
 
         kind = TokenKind(value, name)
         TokenKind._value_map[value] = kind
@@ -638,7 +609,7 @@ class TokenKind(object):
 
 
 ### Cursor Kinds ###
-class BaseEnumeration(object):
+class BaseEnumeration:
     """
     Common base class for named enumerations held in sync with Index.h values.
 
@@ -675,7 +646,7 @@ class BaseEnumeration(object):
     @staticmethod
     def from_id(id):
         if id >= len(CursorKind._kinds) or CursorKind._kinds[id] is None:
-            raise ValueError("Unknown cursor kind %d" % id)
+            raise ValueError(f"Unknown cursor kind {id:d}")
         return CursorKind._kinds[id]
 
     @staticmethod
@@ -720,7 +691,7 @@ class BaseEnumeration(object):
         return conf.lib.clang_isUnexposed(self)
 
     def __repr__(self):
-        return "CursorKind.%s" % (self.name,)
+        return f"CursorKind.{self.name}"
 
 
 ###
@@ -1394,7 +1365,7 @@ class TemplateArgumentKind(BaseEnumeration):
     """
 
     # The required BaseEnumeration declarations.
-    _kinds = []
+    _kinds: ClassVar = []
     _name_map = None
 
 
@@ -1413,11 +1384,11 @@ class ExceptionSpecificationKind(BaseEnumeration):
     """
 
     # The required BaseEnumeration declarations.
-    _kinds = []
+    _kinds: ClassVar = []
     _name_map = None
 
     def __repr__(self):
-        return "ExceptionSpecificationKind.{}".format(self.name)
+        return f"ExceptionSpecificationKind.{self.name}"
 
 
 ExceptionSpecificationKind.NONE = ExceptionSpecificationKind(0)
@@ -1439,7 +1410,7 @@ class Cursor(Structure):
     acts as a kind of iterator.
     """
 
-    _fields_ = [("_kind_id", c_int), ("xdata", c_int), ("data", c_void_p * 3)]
+    _fields_: ClassVar = [("_kind_id", c_int), ("xdata", c_int), ("data", c_void_p * 3)]
 
     @staticmethod
     def from_location(tu, location):
@@ -1818,7 +1789,7 @@ class Cursor(Structure):
     def get_arguments(self):
         """Return an iterator for accessing the arguments of this cursor."""
         num_args = conf.lib.clang_Cursor_getNumArguments(self)
-        for i in range(0, num_args):
+        for i in range(num_args):
             yield conf.lib.clang_Cursor_getArgument(self, i)
 
     def get_num_template_arguments(self):
@@ -1867,8 +1838,7 @@ class Cursor(Structure):
         """
         yield self
         for child in self.get_children():
-            for descendant in child.walk_preorder():
-                yield descendant
+            yield from child.walk_preorder()
 
     def get_tokens(self):
         """Obtain Token instances formulating that compose this Cursor.
@@ -1936,13 +1906,13 @@ class Cursor(Structure):
         return res
 
 
-class StorageClass(object):
+class StorageClass:
     """
     Describes the storage class of a declaration
     """
 
     # The unique kind objects, index by id.
-    _kinds = []
+    _kinds: ClassVar = []
     _name_map = None
 
     def __init__(self, value):
@@ -1970,11 +1940,11 @@ class StorageClass(object):
     @staticmethod
     def from_id(id):
         if id >= len(StorageClass._kinds) or not StorageClass._kinds[id]:
-            raise ValueError("Unknown storage class %d" % id)
+            raise ValueError(f"Unknown storage class {id:d}")
         return StorageClass._kinds[id]
 
     def __repr__(self):
-        return "StorageClass.%s" % (self.name,)
+        return f"StorageClass.{self.name}"
 
 
 StorageClass.INVALID = StorageClass(0)
@@ -1995,11 +1965,11 @@ class AvailabilityKind(BaseEnumeration):
     """
 
     # The unique kind objects, indexed by id.
-    _kinds = []
+    _kinds: ClassVar = []
     _name_map = None
 
     def __repr__(self):
-        return "AvailabilityKind.%s" % (self.name,)
+        return f"AvailabilityKind.{self.name}"
 
 
 AvailabilityKind.AVAILABLE = AvailabilityKind(0)
@@ -2016,14 +1986,14 @@ class AccessSpecifier(BaseEnumeration):
     """
 
     # The unique kind objects, index by id.
-    _kinds = []
+    _kinds: ClassVar = []
     _name_map = None
 
     def from_param(self):
         return self.value
 
     def __repr__(self):
-        return "AccessSpecifier.%s" % (self.name,)
+        return f"AccessSpecifier.{self.name}"
 
 
 AccessSpecifier.INVALID = AccessSpecifier(0)
@@ -2041,7 +2011,7 @@ class TypeKind(BaseEnumeration):
     """
 
     # The unique kind objects, indexed by id.
-    _kinds = []
+    _kinds: ClassVar = []
     _name_map = None
 
     def __init__(self, value):
@@ -2069,11 +2039,11 @@ class TypeKind(BaseEnumeration):
     @staticmethod
     def from_id(id):
         if id >= len(TypeKind._kinds) or TypeKind._kinds[id] is None:
-            raise ValueError("Unknown type kind %d" % id)
+            raise ValueError(f"Unknown type kind {id:d}")
         return TypeKind._kinds[id]
 
     def __repr__(self):
-        return "TypeKind.%s" % (self.name,)
+        return f"TypeKind.{self.name}"
 
 
 TypeKind.INVALID = TypeKind(0)
@@ -2177,14 +2147,14 @@ class RefQualifierKind(BaseEnumeration):
     """Describes a specific ref-qualifier of a type."""
 
     # The unique kind objects, indexed by id.
-    _kinds = []
+    _kinds: ClassVar = []
     _name_map = None
 
     def from_param(self):
         return self.value
 
     def __repr__(self):
-        return "RefQualifierKind.%s" % (self.name,)
+        return f"RefQualifierKind.{self.name}"
 
 
 RefQualifierKind.NONE = RefQualifierKind(0)
@@ -2196,14 +2166,14 @@ class LinkageKind(BaseEnumeration):
     """Describes the kind of linkage of a cursor."""
 
     # The unique kind objects, indexed by id.
-    _kinds = []
+    _kinds: ClassVar = []
     _name_map = None
 
     def from_param(self):
         return self.value
 
     def __repr__(self):
-        return "LinkageKind.%s" % (self.name,)
+        return f"LinkageKind.{self.name}"
 
 
 LinkageKind.INVALID = LinkageKind(0)
@@ -2217,14 +2187,14 @@ class TLSKind(BaseEnumeration):
     """Describes the kind of thread-local storage (TLS) of a cursor."""
 
     # The unique kind objects, indexed by id.
-    _kinds = []
+    _kinds: ClassVar = []
     _name_map = None
 
     def from_param(self):
         return self.value
 
     def __repr__(self):
-        return "TLSKind.%s" % (self.name,)
+        return f"TLSKind.{self.name}"
 
 
 TLSKind.NONE = TLSKind(0)
@@ -2237,7 +2207,7 @@ class Type(Structure):
     The type of an element in the abstract syntax tree.
     """
 
-    _fields_ = [("_kind_id", c_int), ("data", c_void_p * 2)]
+    _fields_: ClassVar = [("_kind_id", c_int), ("data", c_void_p * 2)]
 
     @property
     def kind(self):
@@ -2273,7 +2243,7 @@ class Type(Structure):
                 if key >= len(self):
                     raise IndexError(
                         "Index greater than container length: "
-                        "%d > %d" % (key, len(self))
+                        f"{key:d} > {len(self):d}"
                     )
 
                 result = conf.lib.clang_getArgType(self.parent, key)
@@ -2294,7 +2264,7 @@ class Type(Structure):
         """
         result = conf.lib.clang_getElementType(self)
         if result.kind == TypeKind.INVALID:
-            raise Exception("Element type not available on this type.")
+            raise RuntimeError("Element type not available on this type.")
 
         return result
 
@@ -2308,7 +2278,7 @@ class Type(Structure):
         """
         result = conf.lib.clang_getNumElements(self)
         if result < 0:
-            raise Exception("Type does not have elements.")
+            raise RuntimeError("Type does not have elements.")
 
         return result
 
@@ -2506,7 +2476,7 @@ class Type(Structure):
 # a void*.
 
 
-class ClangObject(object):
+class ClangObject:
     """
     A helper for Clang objects. This class helps act as an intermediary for
     the ctypes library and the Clang CIndex library.
@@ -2523,7 +2493,7 @@ class ClangObject(object):
 class _CXUnsavedFile(Structure):
     """Helper for passing unsaved file arguments."""
 
-    _fields_ = [("name", c_char_p), ("contents", c_char_p), ("length", c_ulong)]
+    _fields_: ClassVar = [("name", c_char_p), ("contents", c_char_p), ("length", c_ulong)]
 
 
 # Functions calls through the python interface are rather slow. Fortunately,
@@ -2554,8 +2524,8 @@ SpellingCache = {
 }
 
 
-class CompletionChunk(object):
-    class Kind(object):
+class CompletionChunk:
+    class Kind:
         def __init__(self, name):
             self.name = name
 
@@ -2563,7 +2533,7 @@ class CompletionChunk(object):
             return self.name
 
         def __repr__(self):
-            return "<ChunkKind: %s>" % self
+            return f"<ChunkKind: {self}>"
 
     def __init__(self, completionString, key):
         self.cs = completionString
@@ -2600,8 +2570,7 @@ class CompletionChunk(object):
 
         if res:
             return CompletionString(res)
-        else:
-            None
+        return None
 
     def isKindOptional(self):
         return self.__kindNumber == 0
@@ -2645,7 +2614,7 @@ completionChunkKindMap = {
 
 
 class CompletionString(ClangObject):
-    class Availability(object):
+    class Availability:
         def __init__(self, name):
             self.name = name
 
@@ -2653,7 +2622,7 @@ class CompletionString(ClangObject):
             return self.name
 
         def __repr__(self):
-            return "<Availability: %s>" % self
+            return f"<Availability: {self}>"
 
     def __len__(self):
         return self.num_chunks
@@ -2703,7 +2672,7 @@ availabilityKinds = {
 
 
 class CodeCompletionResult(Structure):
-    _fields_ = [("cursorKind", c_int), ("completionString", c_object_p)]
+    _fields_: ClassVar = [("cursorKind", c_int), ("completionString", c_object_p)]
 
     def __repr__(self):
         return str(CompletionString(self.completionString))
@@ -2718,7 +2687,7 @@ class CodeCompletionResult(Structure):
 
 
 class CCRStructure(Structure):
-    _fields_ = [("results", POINTER(CodeCompletionResult)), ("numResults", c_int)]
+    _fields_: ClassVar = [("results", POINTER(CodeCompletionResult)), ("numResults", c_int)]
 
     def __len__(self):
         return self.numResults
@@ -2747,7 +2716,7 @@ class CodeCompletionResults(ClangObject):
 
     @property
     def diagnostics(self):
-        class DiagnosticsItr(object):
+        class DiagnosticsItr:
             def __init__(self, ccr):
                 self.ccr = ccr
 
@@ -3028,7 +2997,7 @@ class TranslationUnit(ClangObject):
         f = self.get_file(filename)
 
         if len(locations) < 2:
-            raise Exception("Must pass object with at least 2 elements")
+            raise RuntimeError("Must pass object with at least 2 elements")
 
         start_location, end_location = locations
 
@@ -3057,7 +3026,7 @@ class TranslationUnit(ClangObject):
         Return an iterable (and indexable) object containing the diagnostics.
         """
 
-        class DiagIterator(object):
+        class DiagIterator:
             def __init__(self, tu):
                 self.tu = tu
 
@@ -3098,7 +3067,7 @@ class TranslationUnit(ClangObject):
                 unsaved_files_array[i].name = name
                 unsaved_files_array[i].contents = value
                 unsaved_files_array[i].length = len(value)
-        ptr = conf.lib.clang_reparseTranslationUnit(
+        conf.lib.clang_reparseTranslationUnit(
             self, len(unsaved_files), unsaved_files_array, options
         )
 
@@ -3216,7 +3185,7 @@ class File(ClangObject):
         return self.name
 
     def __repr__(self):
-        return "<File: %s>" % (self.name)
+        return f"<File: {self.name}>"
 
     @staticmethod
     def from_result(res, fn, args):
@@ -3228,7 +3197,7 @@ class File(ClangObject):
         return res
 
 
-class FileInclusion(object):
+class FileInclusion:
     """
     The FileInclusion class represents the inclusion of one source file by
     another via a '#include' directive or as the input file for the translation
@@ -3267,17 +3236,17 @@ class CompilationDatabaseError(Exception):
         assert isinstance(enumeration, int)
 
         if enumeration > 1:
-            raise Exception(
+            raise RuntimeError(
                 "Encountered undefined CompilationDatabase error "
-                "constant: %d. Please file a bug to have this "
-                "value supported." % enumeration
+                f"constant: {enumeration:d}. Please file a bug to have this "
+                "value supported."
             )
 
         self.cdb_error = enumeration
-        Exception.__init__(self, "Error %d: %s" % (enumeration, message))
+        Exception.__init__(self, f"Error {enumeration:d}: {message}")
 
 
-class CompileCommand(object):
+class CompileCommand:
     """Represents the compile command used to build a file"""
 
     def __init__(self, cmd, ccmds):
@@ -3309,7 +3278,7 @@ class CompileCommand(object):
             yield conf.lib.clang_CompileCommand_getArg(self.cmd, i)
 
 
-class CompileCommands(object):
+class CompileCommands:
     """
     CompileCommands is an iterable object containing all CompileCommand
     that can be used for building a specific file.
@@ -3395,7 +3364,7 @@ class Token(Structure):
     can't create tokens manually.
     """
 
-    _fields_ = [("int_data", c_uint * 4), ("ptr_data", c_void_p)]
+    _fields_: ClassVar = [("int_data", c_uint * 4), ("ptr_data", c_void_p)]
 
     @property
     def spelling(self):
@@ -3760,7 +3729,7 @@ def register_functions(lib, ignore_errors):
         register(f)
 
 
-class Config(object):
+class Config:
     library_path = None
     library_file = None
     compatibility_check = True
@@ -3770,7 +3739,7 @@ class Config(object):
     def set_library_path(path):
         """Set the path in which to search for libclang"""
         if Config.loaded:
-            raise Exception(
+            raise RuntimeError(
                 "library path must be set before before using "
                 "any other functionalities in libclang."
             )
@@ -3781,7 +3750,7 @@ class Config(object):
     def set_library_file(filename):
         """Set the exact location of libclang"""
         if Config.loaded:
-            raise Exception(
+            raise RuntimeError(
                 "library file must be set before before using "
                 "any other functionalities in libclang."
             )
@@ -3807,7 +3776,7 @@ class Config(object):
         libclang versions.
         """
         if Config.loaded:
-            raise Exception(
+            raise RuntimeError(
                 "compatibility_check must be set before before "
                 "using any other functionalities in libclang."
             )
@@ -3873,13 +3842,13 @@ register_enumerations()
 
 __all__ = [
     "AvailabilityKind",
-    "Config",
     "CodeCompletionResults",
     "CompilationDatabase",
-    "CompileCommands",
     "CompileCommand",
-    "CursorKind",
+    "CompileCommands",
+    "Config",
     "Cursor",
+    "CursorKind",
     "Diagnostic",
     "File",
     "FixIt",
@@ -3888,10 +3857,10 @@ __all__ = [
     "SourceLocation",
     "SourceRange",
     "TLSKind",
-    "TokenKind",
     "Token",
-    "TranslationUnitLoadError",
+    "TokenKind",
     "TranslationUnit",
-    "TypeKind",
+    "TranslationUnitLoadError",
     "Type",
+    "TypeKind",
 ]

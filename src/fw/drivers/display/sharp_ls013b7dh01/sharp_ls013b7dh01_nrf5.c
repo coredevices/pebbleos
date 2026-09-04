@@ -7,22 +7,18 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "applib/graphics/gtypes.h"
 #include "board/board.h"
 #include <pbl/drivers/gpio.h>
 #include "kernel/events.h"
-#include "pbl/os/mutex.h"
 #include "system/passert.h"
 #include "util/reverse.h"
 
-#include <hal/nrf_gpio.h>
 #include <hal/nrf_gpiote.h>
 #include <hal/nrf_rtc.h>
 #include <nrfx_gppi.h>
 #include <nrfx_spim.h>
 
 #include "FreeRTOS.h"
-#include "task.h"
 #include "semphr.h"
 
 #define DISP_MODE_WRITE 0x01U

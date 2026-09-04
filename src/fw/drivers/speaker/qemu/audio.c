@@ -7,7 +7,6 @@
 
 #include "FreeRTOS.h"
 
-#include <cmsis_core.h>
 #include <stdint.h>
 
 // QEMU audio device register offsets (must match pebble-audio QEMU device)

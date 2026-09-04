@@ -6,7 +6,6 @@
 #include "pbl/services/data_logging/dls_list.h"
 #include "pbl/services/data_logging/dls_storage.h"
 
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/comm_session/protocol.h"
 #include "pbl/services/comm_session/session_send_buffer.h"
 #include "pbl/services/system_task.h"
@@ -22,7 +21,6 @@
 #include <inttypes.h>
 
 #include "FreeRTOS.h"
-#include "timers.h"
 
 PBL_LOG_MODULE_DECLARE(service_data_logging, CONFIG_SERVICE_DATA_LOGGING_LOG_LEVEL);
 

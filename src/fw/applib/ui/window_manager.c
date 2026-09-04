@@ -11,7 +11,6 @@
 #include "kernel/pebble_tasks.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "process_state/app_state/app_state.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 
 typedef bool (*ModalWindowPredicate)(Window *window);

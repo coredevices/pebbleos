@@ -16,6 +16,7 @@
 #include "applib/ui/animation_private.h"
 #include "applib/ui/property_animation_private.h"
 
+#include "fake_app_timer.h"
 #include "fake_rtc.h"
 #include "pbl/drivers/rtc.h"
 
@@ -179,6 +180,7 @@ bool animation_set_handlers(Animation *animation, AnimationHandlers callbacks, v
 
 void test_menu_layer__initialize(void) {
   s_num_rows = 10;
+  fake_app_timer_init();
   fake_rtc_init(0, 0);
   s_anim_to = GPointZero;
   s_anim_handlers = (AnimationHandlers) { 0 };
@@ -192,6 +194,7 @@ void test_menu_layer__initialize(void) {
 }
 
 void test_menu_layer__cleanup(void) {
+  fake_app_timer_deinit();
 }
 
 static void prv_draw_row(GContext* ctx,
@@ -1202,20 +1205,28 @@ void test_menu_layer__touch_clamp_center_focused_widens(void) {
   menu_layer_set_center_focused(&l, true);
   prv_set_touch_callbacks(&l);
   menu_layer_reload_data(&l);
-  // center_focused widens the clamp by frame_h/2 (=90), so a positive offset up to +90 is allowed
-  // where a normal menu would clamp at 0.
-  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 300));
-  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, 90);
-
-  // The widen is symmetric: it also lowers the min bound by frame_h/2. A large negative pan reaches
-  // min(frame_h - content_h, 0) - frame_h/2; dropping the min_y widen would stop it at the un-widened
-  // min, so this pins the lower-bound widen the +90 case alone leaves untested.
   const int16_t frame_h = l.scroll_layer.layer.frame.size.h;
   const int16_t content_h = scroll_layer_get_content_size(&l.scroll_layer).h;
-  const int16_t expected_min = MIN((int16_t)(frame_h - content_h), (int16_t)0) - (int16_t)(frame_h / 2);
+  // With the first row selected the top bound is its exact centred rest offset; the selection is
+  // not the last row, so the bottom bound keeps the coarse half-frame widen.
+  const int16_t widened_max = (int16_t)((frame_h - 44) / 2);
+  const int16_t widened_min =
+      MIN((int16_t)(frame_h - content_h), (int16_t)0) - (int16_t)(frame_h / 2);
+
+  // center_focused widens the bounds so the terminal rows can reach the centre; past the widened
+  // edge the pan rubber-bands by the shared damp mapping instead of hard-clamping.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 300));
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y,
+                    scroll_layer_touch_overscroll_damp(300, widened_min, widened_max, frame_h));
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y > widened_max);
+
+  // The widen is symmetric: the min bound is lowered by frame_h/2 too, and the rubber band hangs
+  // off the widened min; dropping the min_y widen would damp from the un-widened min instead.
   scroll_layer_set_content_offset(&l.scroll_layer, GPoint(0, 0), false);
   menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -3000));
-  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, expected_min);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y,
+                    scroll_layer_touch_overscroll_damp(-3000, widened_min, widened_max, frame_h));
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y < widened_min);
 }
 
 // ---- Criterion 6: a cancelled pan leaves the selection alone and fires no client callback ----
@@ -1959,4 +1970,367 @@ void test_menu_layer__touch_catch_center_focused_settles_to_row(void) {
   cl_assert(anim != NULL);
   cl_assert(animation_is_scheduled(anim));
   cl_assert_equal_i(s_anim_to.y, -108);
+}
+
+// Scrollbar overlay
+//////////////////////
+
+GRect prv_scrollbar_thumb_rect(MenuLayer *menu_layer, int16_t content_top_y);
+
+static void prv_init_scrollbar_menu(MenuLayer *l) {
+  menu_layer_init(l, &GRect(0, 0, 144, 168));
+  menu_layer_set_callbacks(l, NULL, &(MenuLayerCallbacks){
+      .draw_row = prv_draw_row,
+      .get_num_rows = prv_get_num_rows,
+  });
+}
+
+void test_menu_layer__scrollbar_shows_on_touch_pan_and_times_out(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -40));
+  cl_assert(l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer != NULL);
+  cl_assert(fake_app_timer_is_scheduled(l.scrollbar_hide_timer));
+
+  cl_assert(app_timer_trigger(l.scrollbar_hide_timer));
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_not_shown_on_button_scroll(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  // Button scrolling moves the offset through the selection, not a touch gesture
+  menu_layer_set_selected_index(&l, MenuIndex(0, 5), MenuRowAlignTop, false);
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y < 0);
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_not_shown_when_content_fits(void) {
+  s_num_rows = 2;
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -40));
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_rearms_timer_while_scrolling(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -40));
+  AppTimer *timer = l.scrollbar_hide_timer;
+  cl_assert(timer != NULL);
+  // A further pan movement reschedules the same timer instead of registering a new one
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -60));
+  cl_assert(l.scrollbar_hide_timer == timer);
+  cl_assert(l.scrollbar_visible);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_kept_alive_by_fling_coast(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  // Fast liftoff schedules an inertial coast and shows the scrollbar
+  menu_layer_touch_handle_snap(&l, GPoint(0, -40), GPoint(0, -60), GPoint(0, -500));
+  cl_assert(l.touch_fling_active);
+  cl_assert(l.scrollbar_visible);
+
+  // Even if the hide timer fires mid-coast, the next coast frame re-shows and re-arms it
+  cl_assert(app_timer_trigger(l.scrollbar_hide_timer));
+  cl_assert(!l.scrollbar_visible);
+  prv_scroll_layer_set_content_offset_internal(&l.scroll_layer, GPoint(0, -120));
+  cl_assert(l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer != NULL);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_set_hidden(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_set_scrollbar_hidden(&l, true);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -40));
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+
+  // Re-enabling shows it on the next touch scroll; hiding while visible clears it immediately
+  menu_layer_set_scrollbar_hidden(&l, false);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, -40), GPoint(0, -20));
+  cl_assert(l.scrollbar_visible);
+  AppTimer *timer = l.scrollbar_hide_timer;
+  cl_assert(timer != NULL);
+  menu_layer_set_scrollbar_hidden(&l, true);
+  cl_assert(!l.scrollbar_visible);
+  cl_assert(l.scrollbar_hide_timer == NULL);
+  cl_assert(!fake_app_timer_is_scheduled(timer));
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__scrollbar_thumb_rect_geometry(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t frame_w = 144;
+  const int16_t frame_h = 168;
+  const int16_t content_h = scroll_layer_get_content_size(&l.scroll_layer).h;
+  cl_assert(content_h > frame_h);
+  const int16_t scrollable_h = content_h - frame_h;
+  const int16_t track_h = frame_h - 2;  // 1px margin at each end
+  const int16_t thumb_h = (int16_t)(((int32_t)track_h * frame_h) / content_h);
+
+  // Top of the list: thumb rests at the top track margin
+  GRect r = prv_scrollbar_thumb_rect(&l, 0);
+  cl_assert_equal_i(r.origin.x, frame_w - 4);  // 1px margin + 3px thumb
+  cl_assert_equal_i(r.size.w, 3);
+  cl_assert_equal_i(r.origin.y, 1);
+  cl_assert_equal_i(r.size.h, thumb_h);
+
+  // Bottom of the list: thumb ends at the bottom track margin (content-space coordinates)
+  r = prv_scrollbar_thumb_rect(&l, scrollable_h);
+  cl_assert_equal_i(r.origin.y + r.size.h, scrollable_h + frame_h - 1);
+
+  // Center-focused over-scroll past the top clamps the thumb to the track
+  r = prv_scrollbar_thumb_rect(&l, -40);
+  cl_assert_equal_i(r.origin.y, -40 + 1);
+  menu_layer_deinit(&l);
+}
+
+// Overscroll (rubber band)
+//////////////////////
+
+void test_menu_layer__overscroll_pan_rubber_bands_past_top(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t frame_h = 168;
+  const int16_t content_h = scroll_layer_get_content_size(&l.scroll_layer).h;
+  cl_assert(content_h > frame_h);
+  const int16_t min_y = (int16_t)(frame_h - content_h);
+
+  // A pull past the top follows the shared damp mapping: some movement, but less than the finger.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  const int16_t y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert_equal_i(y, scroll_layer_touch_overscroll_damp(50, min_y, 0, frame_h));
+  cl_assert(y > 0);
+  cl_assert(y < 50);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_snap_springs_back_to_edge(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  const int16_t overscrolled_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert(overscrolled_y > 0);
+
+  // Liftoff (even a fast one) glides back to the edge instead of coasting or snapping.
+  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, 50), GPoint(0, 2000));
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(anim != NULL);
+  cl_assert(animation_is_scheduled(anim));
+  cl_assert_equal_i(s_anim_to.y, 0);
+  cl_assert(!l.touch_fling_active);  // a spring-back is not a coast
+  // The glide starts from the rubber-banded offset; nothing snapped yet.
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, overscrolled_y);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_cancel_restores_instantly(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y > 0);
+
+  menu_layer_touch_handle_cancel(&l);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, 0);
+  Animation *anim = property_animation_get_animation(l.scroll_layer.animation);
+  cl_assert(!anim || !animation_is_scheduled(anim));
+  menu_layer_deinit(&l);
+}
+
+// Overscroll highlight stretch
+//////////////////////
+
+void test_menu_layer__overscroll_stretch_fills_gap_at_top(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t cell_h = l.selection.h;
+  cl_assert_equal_i(l.selection.y, 0);  // first row selected
+
+  // Pulling past the top rubber-bands the offset; the selection background extends up to the
+  // viewport top so the exposed gap reads as the selected cell stretching.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  const int16_t offset_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert(offset_y > 0);
+  cl_assert(l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, -offset_y);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, cell_h + offset_y);
+
+  // Tracking the finger back into range restores the natural frame and clears the flag.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, -10));
+  cl_assert(!l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, 0);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, cell_h);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_stretch_only_with_edge_row_selected(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  menu_layer_set_selected_index(&l, MenuIndex(0, 5), MenuRowAlignTop, false);
+  const int16_t base_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  const GRect before = l.inverter.layer.frame;
+
+  // The offset still rubber-bands past the top, but with a mid-list row selected the highlight
+  // is left alone.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, base_y), GPoint(0, -base_y + 50));
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y > 0);
+  cl_assert(!l.overscroll_stretched);
+  cl_assert(grect_equal(&l.inverter.layer.frame, &before));
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_stretch_fills_gap_at_bottom(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t frame_h = 168;
+  const int16_t min_y = (int16_t)(frame_h - scroll_layer_get_content_size(&l.scroll_layer).h);
+  menu_layer_set_selected_index(&l, MenuIndex(0, 9), MenuRowAlignCenter, false);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, min_y);
+
+  // Pulling past the bottom: the highlight extends down to the viewport bottom (covering the
+  // bottom padding on the way), anchored at the cell's top.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, min_y), GPoint(0, -50));
+  const int16_t offset_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert(offset_y < min_y);
+  cl_assert(l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, l.selection.y);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y + l.inverter.layer.frame.size.h,
+                    frame_h - offset_y);  // content-space viewport bottom
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_stretch_follows_spring_back(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t cell_h = l.selection.h;
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  cl_assert(l.overscroll_stretched);
+
+  // Liftoff schedules the offset spring-back toward the edge; the stretch is offset-derived, so
+  // each animation frame shrinks it, and reaching the edge restores the natural frame.
+  menu_layer_touch_handle_snap(&l, GPoint(0, 0), GPoint(0, 50), GPoint(0, 0));
+  cl_assert(animation_is_scheduled(property_animation_get_animation(l.scroll_layer.animation)));
+  cl_assert_equal_i(s_anim_to.y, 0);
+  scroll_layer_touch_set_content_offset_overscrolled(&l.scroll_layer, 5);  // a mid-glide frame
+  cl_assert(l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, -5);
+  scroll_layer_touch_set_content_offset_overscrolled(&l.scroll_layer, 0);  // the glide lands on the edge
+  cl_assert(!l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, 0);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, cell_h);
+  menu_layer_deinit(&l);
+}
+
+void test_menu_layer__overscroll_stretch_resets_on_cancel(void) {
+  MenuLayer l;
+  prv_init_scrollbar_menu(&l);
+  const int16_t cell_h = l.selection.h;
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 0), GPoint(0, 50));
+  cl_assert(l.overscroll_stretched);
+
+  // A cancelled gesture restores the offset instantly, and the stretch follows.
+  menu_layer_touch_handle_cancel(&l);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&l.scroll_layer).y, 0);
+  cl_assert(!l.overscroll_stretched);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, cell_h);
+  menu_layer_deinit(&l);
+}
+
+// Center-focused highlight pin during touch scrolling
+//////////////////////
+
+void test_menu_layer__touch_center_pin_holds_highlight_during_pan(void) {
+  MenuLayer l;
+  const int16_t frame_h = 180;
+  menu_layer_init(&l, &GRect(0, 0, 144, frame_h));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  const int16_t centered_pad = (frame_h - 44) / 2;  // 68: row 0 centred offset
+
+  // Mid-pan the highlight is pinned to the viewport centre, not to the selected row.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, centered_pad), GPoint(0, -30));
+  const int16_t offset_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert_equal_i(offset_y, centered_pad - 30);
+  cl_assert(l.touch_center_pin);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, -offset_y + centered_pad);
+  cl_assert(l.inverter.layer.frame.origin.y != l.selection.y);  // row 0 is mid-transit
+
+  // A centre crossing re-selects the row underneath but the box does not move with it.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, centered_pad), GPoint(0, -188));
+  const int16_t offset2_y = scroll_layer_get_content_offset(&l.scroll_layer).y;
+  cl_assert(menu_layer_get_selected_index(&l).row > 0);
+  cl_assert(l.touch_center_pin);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, -offset2_y + centered_pad);
+}
+
+void test_menu_layer__touch_center_pin_releases_when_row_lands(void) {
+  MenuLayer l;
+  const int16_t frame_h = 180;
+  menu_layer_init(&l, &GRect(0, 0, 144, frame_h));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  const int16_t centered_pad = (frame_h - 44) / 2;
+
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, centered_pad), GPoint(0, -188));
+  cl_assert(l.touch_center_pin);
+  const uint16_t row = menu_layer_get_selected_index(&l).row;
+
+  // The settle glide's final frame centres the selected row exactly: the pin releases and the
+  // highlight is back on the row's own frame.
+  const int16_t settled_y = (int16_t)(centered_pad - (44 * row));
+  prv_scroll_layer_set_content_offset_internal(&l.scroll_layer, GPoint(0, settled_y));
+  cl_assert(!l.touch_center_pin);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, l.selection.y);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, l.selection.h);
+}
+
+void test_menu_layer__touch_center_pin_cleared_by_button_step(void) {
+  MenuLayer l;
+  menu_layer_init(&l, &GRect(0, 0, 144, 180));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, 68), GPoint(0, -30));
+  cl_assert(l.touch_center_pin);
+
+  // A button step hands the highlight back to the selection and its own animations.
+  menu_down_click_handler(NULL, &l);
+  cl_assert(!l.touch_center_pin);
+}
+
+void test_menu_layer__touch_center_pin_moves_with_row_past_the_edge(void) {
+  MenuLayer l;
+  const int16_t frame_h = 180;
+  menu_layer_init(&l, &GRect(0, 0, 144, frame_h));
+  menu_layer_set_center_focused(&l, true);
+  prv_set_touch_callbacks(&l);
+  menu_layer_reload_data(&l);
+  const int16_t rest_y = (frame_h - 44) / 2;  // row 0 centred
+
+  // Pulling past the first row's centred rest rubber-bands the offset; the box has no next row
+  // to transit to, so it glues to the row and moves together with the pull.
+  menu_layer_touch_handle_pan_update(&l, GPoint(0, rest_y), GPoint(0, 50));
+  cl_assert(scroll_layer_get_content_offset(&l.scroll_layer).y > rest_y);
+  cl_assert_equal_i(menu_layer_get_selected_index(&l).row, 0);
+  cl_assert_equal_i(l.inverter.layer.frame.origin.y, l.selection.y);
+  cl_assert_equal_i(l.inverter.layer.frame.size.h, l.selection.h);
 }

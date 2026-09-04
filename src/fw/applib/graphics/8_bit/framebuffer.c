@@ -5,10 +5,8 @@
 
 #include "applib/graphics/gtypes.h"
 #include "board/display.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "system/profiler.h"
-#include "util/bitset.h"
 
 #include <stdint.h>
 #include <string.h>

@@ -5,7 +5,6 @@
 
 #include "applib/bluetooth/ble_ad_parse.h"
 
-#include "gap_le.h"
 #include "gap_le_advert.h"
 #include "gap_le_connect.h"
 

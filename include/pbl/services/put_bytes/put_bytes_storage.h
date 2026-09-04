@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <inttypes.h>
 #include <stdbool.h>
 
 #include "pbl/services/put_bytes/put_bytes.h"

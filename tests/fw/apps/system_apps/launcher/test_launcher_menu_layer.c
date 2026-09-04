@@ -234,6 +234,10 @@ bool shell_prefs_get_menu_scroll_wrap_around_enable(void) {
   return false;
 }
 
+PreferredContentSize system_theme_get_content_size(void) {
+  return PreferredContentSizeDefault;
+}
+
 void vibes_enqueue_custom_pattern(VibePattern pattern) {}
 
 // We can't include stubs_process_manager.h because it conflicts with the two helper includes below

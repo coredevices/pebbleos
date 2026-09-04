@@ -5,8 +5,6 @@
 
 #include "dis.h"
 
-#include <pbl/btutil/bt_device.h>
-
 //! DIS Service UUID - 0000180A-0000-1000-8000-00805F9B34FB
 static const Uuid s_dis_service_uuid = {
   BT_UUID_EXPAND(0x180A)

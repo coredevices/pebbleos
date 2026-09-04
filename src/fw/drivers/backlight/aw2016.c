@@ -3,7 +3,6 @@
 
 #include <pbl/drivers/backlight.h>
 
-#include "board/board.h"
 #include <pbl/drivers/i2c.h>
 #include <pbl/logging/logging.h>
 

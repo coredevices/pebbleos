@@ -8,7 +8,6 @@
 #include "applib/ui/dialogs/dialog.h"
 #include "applib/ui/dialogs/actionable_dialog.h"
 #include "applib/ui/dialogs/expandable_dialog.h"
-#include "applib/ui/window_stack.h"
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/ui/modals/modal_manager.h"

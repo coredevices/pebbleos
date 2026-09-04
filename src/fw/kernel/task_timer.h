@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "pbl/util/list.h"
 #include "pbl/os/mutex.h"
 
 #include <stdbool.h>

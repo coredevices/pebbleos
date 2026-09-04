@@ -12,11 +12,9 @@
 #include "system/passert.h"
 #include "pbl/util/circular_buffer.h"
 #include "pbl/util/heap.h"
-#include "kernel/util/sleep.h"
 #include "pbl/soc/sf32lb/sleep.h"
 #include <pbl/drivers/mic/sf32lb52/pdm_definitions.h>
 #include "pbl/services/system_task.h"
-#include "FreeRTOS.h"
 
 PBL_LOG_MODULE_DEFINE(driver_mic_sf32lb, CONFIG_DRIVER_MIC_LOG_LEVEL);
 
@@ -444,7 +442,6 @@ void mic_stop(const MicDevice *this) {
 }
 
 #include "console/prompt.h"
-#include "console/console_internal.h"
 
 void command_mic_start(char *timeout_str, char *sample_size_str, char *sample_rate_str, char *format_str) {
   prompt_send_response("Microphone console commands not supported");

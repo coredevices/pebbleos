@@ -3,7 +3,6 @@
 
 #include "flash_logging.h"
 
-#include "console/dbgserial.h"
 #include <pbl/drivers/flash.h>
 #include "pbl/os/mutex.h"
 #include "system/passert.h"

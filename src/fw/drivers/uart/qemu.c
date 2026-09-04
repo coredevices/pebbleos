@@ -9,9 +9,6 @@
 
 #include "FreeRTOS.h"
 
-#include <cmsis_core.h>
-#include <stddef.h>
-
 #define REG32(addr) (*(volatile uint32_t *)(addr))
 
 // QEMU pebble-simple-uart register offsets

@@ -3,12 +3,10 @@
 
 #include "mfg_command.h"
 
-#include "applib/app_launch_reason.h"
 #include "applib/app_watch_info.h"
 #include "console/prompt.h"
 #include "kernel/util/standby.h"
 #include "mfg/mfg_info.h"
-#include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
 
 void command_enter_standby(void) {

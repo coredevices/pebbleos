@@ -13,11 +13,11 @@ LOOKUP_DICT = {
 
 from pebble.loghashing.dehashing import (
     dehash_line,
-    parse_line,
-    parse_support_line,
-    parse_message,
     dehash_str,
     parse_args,
+    parse_line,
+    parse_message,
+    parse_support_line,
 )
 
 
@@ -25,7 +25,6 @@ def test_dehash_file():
     """
     Test for dehash_file()
     """
-    pass
 
 
 def test_dehash_line():

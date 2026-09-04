@@ -9,8 +9,6 @@
 #include <pbl/drivers/backlight.h>
 #endif
 
-#include <stdlib.h>
-
 #define REG32(addr) (*(volatile uint32_t *)(addr))
 
 // Display register offsets (must match QEMU pebble-display)

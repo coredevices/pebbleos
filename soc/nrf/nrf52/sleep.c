@@ -6,7 +6,6 @@
 #include "system/passert.h"
 
 #include "FreeRTOS.h"
-#include "task.h"
 
 static int s_block_count;
 

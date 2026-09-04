@@ -1,16 +1,12 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-from serial_port_wrapper import SerialPortWrapper
-import time
-import re
-from bisect import bisect_left
-import json
-from datetime import datetime
-import sys
-from collections import deque
-from collections import namedtuple
 import argparse
+import re
+import sys
+from collections import deque, namedtuple
+
+from serial_port_wrapper import SerialPortWrapper
 
 PowerDataPoint = namedtuple("PowerDataPoint", ["timestamp", "power", "duration"])
 
@@ -92,34 +88,30 @@ class IntervalPowerSystem(PowerSystem):
 # Special case for the battery
 class BattPowerSystem(PowerSystem):
     def addPower(self, timestamp, data):
-        chg_state = data[0]
-        voltage = data[1]
-        return
+        data[0]
+        data[1]
 
 
 # Special case for the accelerometer
 class AccelPowerSystem(PowerSystem):
     def addPower(self, timestamp, data):
-        state = data[0]
-        frequency = data[1]
-        return
+        data[0]
+        data[1]
 
 
 # Special case for the magnetometer
 class MagPowerSystem(PowerSystem):
     def addPower(self, timestamp, data):
-        state = data[0]
-        adc_rate = data[1]
-        return
+        data[0]
+        data[1]
 
 
 # Special case for the vibe motor
 class VibePowerSystem(PowerSystem):
     def addPower(self, timestamp, data):
-        state = data[0]
-        freq = data[1]
-        duty = data[2]
-        return
+        data[0]
+        data[1]
+        data[2]
 
 
 # Special case for the backlight
@@ -130,7 +122,7 @@ class BacklightPowerSystem(PowerSystem):
 
     def addPower(self, timestamp, data):
         state = data[0]
-        freq = int(data[1])
+        int(data[1])
         duty = int(data[2])
 
         if state == "OFF":
@@ -199,7 +191,6 @@ powerSystems = {
     "AccelLowPower": IntervalPowerSystem(),
     "AccelNormal": IntervalPowerSystem(),
     "Mfi": IntervalPowerSystem(),
-    "Mag": IntervalPowerSystem(),
     "BtShutdown": IntervalPowerSystem(),
     "BtDeepSleep": IntervalPowerSystem(),
     "BtActive": IntervalPowerSystem(activePower=2.5),
@@ -244,7 +235,7 @@ def gatherData(tty, outfile):
     else:
         s = sys.stdin
 
-    f = open(outfile, "w")
+    f = open(outfile, "w")  # noqa: SIM115
 
     systemKeys = powerSystems.keys()
 
@@ -252,8 +243,8 @@ def gatherData(tty, outfile):
         lastOutputTimestamp = -1
         outString = '"ticks"'
         for system in plottedSystems:
-            outString = '%s,"%s"' % (outString, system)
-        f.write("%s\n" % outString)
+            outString = f'{outString},"{system}"'
+        f.write(f"{outString}\n")
 
         while True:
             powerLine = pwr_regex.search(s.readline())
@@ -281,11 +272,11 @@ def gatherData(tty, outfile):
             latency = 4 * 1024
 
             for ts in range(lastOutputTimestamp, timestamp - 1 - latency, 1024):
-                outString = "%d" % ts
+                outString = f"{ts:d}"
                 for system in plottedSystems:
                     avgPower = powerSystems[system].getAvgPowerBetween(ts, ts + 1024)
-                    outString = "%s,%f" % (outString, avgPower)
-                f.write("%s\n" % outString)
+                    outString = f"{outString},{avgPower:f}"
+                f.write(f"{outString}\n")
                 lastOutputTimestamp = ts + 1024
 
     except KeyboardInterrupt:

@@ -10,14 +10,10 @@
 
 #include "applib/pbl_std/pbl_std.h"
 #include "applib/ui/kino/kino_layer.h"
-#include "applib/ui/text_layer.h"
 #include "board/display.h"
-#include "kernel/pbl_malloc.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
-#include <pbl/logging/logging.h>
 #include "pbl/util/size.h"
-#include "pbl/util/string.h"
 
 // Compile-time display offset calculations
 #define HEALTH_X_OFFSET ((DISP_COLS - LEGACY_2X_DISP_COLS) / 2)

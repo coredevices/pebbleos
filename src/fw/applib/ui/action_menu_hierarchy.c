@@ -5,7 +5,6 @@
 #include "action_menu_window_private.h"
 
 #include "applib/applib_malloc.auto.h"
-#include "kernel/pbl_malloc.h"
 
 // Item
 /////////////////////////////////

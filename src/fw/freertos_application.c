@@ -5,9 +5,6 @@
 #include "kernel/pbl_malloc.h"
 #include "process_management/worker_manager.h"
 #include "syscall/syscall_internal.h"
-#include "pbl/util/math.h"
-
-#include <cmsis_core.h>
 
 #include "FreeRTOS.h"
 #include "task.h"

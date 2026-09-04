@@ -6,7 +6,6 @@
 #include <pbl/drivers/flash.h>
 #include "flash_region/flash_region.h"
 #include <pbl/logging/logging.h>
-#include "pbl/util/math.h"
 
 #ifndef CONFIG_PBLBOOT
 FirmwareDescription firmware_storage_read_firmware_description(uint32_t firmware_start_address) {

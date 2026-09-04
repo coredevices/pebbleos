@@ -4,7 +4,6 @@
 #include "resource_storage.h"
 #include "resource_storage_impl.h"
 
-#include <stdio.h>
 #include <string.h>
 
 #include "pbl/services/filesystem/app_file.h"
@@ -12,7 +11,6 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "system/version.h"
-#include "pbl/util/math.h"
 #include "pbl/util/size.h"
 
 static const ResourceStoreImplementation *s_resource_store_impls[] = {

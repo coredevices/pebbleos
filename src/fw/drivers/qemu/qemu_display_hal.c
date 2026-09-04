@@ -4,7 +4,6 @@
 #include <pbl/drivers/display/display.h>
 
 #include "board/board.h"
-#include "board/display.h"
 #include "system/passert.h"
 
 #include <string.h>

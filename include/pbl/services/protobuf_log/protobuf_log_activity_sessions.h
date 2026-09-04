@@ -5,11 +5,9 @@
 
 #include "protobuf_log.h"
 
-#include "pbl/services/hrm/hrm_manager.h"
 #include "pbl/services/activity/activity.h"
 
 #include <stdbool.h>
-#include <stdint.h>
 
 ProtobufLogRef protobuf_log_activity_sessions_create(void);
 

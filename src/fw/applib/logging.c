@@ -15,15 +15,11 @@
 #include <pbl/logging/log_hashing.h>
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "pbl/util/attributes.h"
 #include "util/net.h"
 #include "pbl/util/string.h"
 
-#include <inttypes.h>
-#include <limits.h>
 #include <stdarg.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 

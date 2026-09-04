@@ -3,14 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-import os
-import sys
-import zipfile
 import argparse
 import json
-import time
-import stm32_crc
+import os
 import pprint
+import sys
+import time
+import zipfile
+
+import stm32_crc
 
 MANIFEST_VERSION = 2
 BUNDLE_PREFIX = "bundle"
@@ -38,7 +39,7 @@ def check_paths(*args):
             raise MissingFileException(path)
 
 
-class PebbleBundle(object):
+class PebbleBundle:
     def __init__(self, subfolder=None):
         self.generated_at = int(time.time())
         self.bundle_manifest = {
@@ -72,13 +73,13 @@ class PebbleBundle(object):
         firmware_slot=None,
     ):
         if self.has_firmware:
-            raise Exception("Added multiple firmwares to a single bundle")
+            raise RuntimeError("Added multiple firmwares to a single bundle")
 
         if self.has_watchapp or self.has_worker:
-            raise Exception("Cannot add firmware and watchapp to a single bundle")
+            raise RuntimeError("Cannot add firmware and watchapp to a single bundle")
 
         if firmware_type != "normal" and firmware_type != "recovery":
-            raise Exception("Invalid firmware type!")
+            raise RuntimeError("Invalid firmware type!")
 
         check_paths(firmware_path)
         self.type = "firmware"
@@ -96,9 +97,9 @@ class PebbleBundle(object):
 
         if firmware_slot is not None:
             if firmware_type != "normal":
-                raise Exception("Only normal firmware can have a slot")
+                raise RuntimeError("Only normal firmware can have a slot")
             if firmware_slot not in (0, 1):
-                raise Exception("Firmware slot must be 0 or 1")
+                raise RuntimeError("Firmware slot must be 0 or 1")
             self.bundle_manifest["firmware"]["slot"] = firmware_slot
 
         self.has_firmware = True
@@ -106,7 +107,7 @@ class PebbleBundle(object):
 
     def add_resources(self, resources_path, resources_timestamp, sdk_version=None):
         if self.has_resources:
-            raise Exception("Added multiple resource packs to a single bundle")
+            raise RuntimeError("Added multiple resource packs to a single bundle")
 
         check_paths(resources_path)
         self.bundle_files.append(resources_path)
@@ -140,7 +141,7 @@ class PebbleBundle(object):
 
     def add_loghash(self, loghash_path):
         if self.has_loghash:
-            raise Exception("Added multiple loghash to a single bundle")
+            raise RuntimeError("Added multiple loghash to a single bundle")
 
         check_paths(loghash_path)
         self.bundle_files.append(loghash_path)
@@ -150,7 +151,7 @@ class PebbleBundle(object):
 
     def add_license(self, license_path):
         if self.has_license:
-            raise Exception("Added multiple license to a single bundle")
+            raise RuntimeError("Added multiple license to a single bundle")
 
         check_paths(license_path)
         self.bundle_files.append(license_path)
@@ -160,10 +161,10 @@ class PebbleBundle(object):
 
     def add_jstooling(self, jstooling_path, bytecode_version):
         if self.has_jstooling:
-            raise Exception("Added multiple js_toolings to a single bundle")
+            raise RuntimeError("Added multiple js_toolings to a single bundle")
 
         if not (1 <= bytecode_version <= 31):
-            raise Exception("Invalid bytecode version {}".format(bytecode_version))
+            raise RuntimeError(f"Invalid bytecode version {bytecode_version}")
 
         check_paths(jstooling_path)
         self.bundle_files.append(jstooling_path)
@@ -175,7 +176,7 @@ class PebbleBundle(object):
 
     def add_appinfo(self, appinfo_path):
         if self.has_appinfo:
-            raise Exception("Added multiple appinfo to a single bundle")
+            raise RuntimeError("Added multiple appinfo to a single bundle")
 
         check_paths(appinfo_path)
         self.bundle_files.append(appinfo_path)
@@ -185,7 +186,7 @@ class PebbleBundle(object):
 
     def add_layouts(self, layouts_path):
         if self.has_layouts:
-            raise Exception("Added multiple layouts maps to a single bundle")
+            raise RuntimeError("Added multiple layouts maps to a single bundle")
         check_paths(layouts_path)
         self.bundle_files.append(layouts_path)
 
@@ -194,10 +195,10 @@ class PebbleBundle(object):
 
     def add_watchapp(self, watchapp_path, app_timestamp, sdk_version):
         if self.has_watchapp:
-            raise Exception("Added multiple apps to a single bundle")
+            raise RuntimeError("Added multiple apps to a single bundle")
 
         if self.has_firmware:
-            raise Exception("Cannot add watchapp and firmware to a single bundle")
+            raise RuntimeError("Cannot add watchapp and firmware to a single bundle")
 
         if sdk_version["major"] == 5 and sdk_version["minor"] < 20:
             self.bundle_manifest["manifestVersion"] = 1
@@ -216,10 +217,10 @@ class PebbleBundle(object):
 
     def add_worker(self, worker_bin_path, worker_timestamp, sdk_version):
         if self.has_worker:
-            raise Exception("Added multiple workers to a single bundle")
+            raise RuntimeError("Added multiple workers to a single bundle")
 
         if self.has_firmware:
-            raise Exception("Cannot add worker and firmware to a single bundle")
+            raise RuntimeError("Cannot add worker and firmware to a single bundle")
 
         self.bundle_files.append(worker_bin_path)
 
@@ -244,7 +245,7 @@ class PebbleBundle(object):
 
     def add_jsapp(self, js_files):
         if self.has_jsapp:
-            raise Exception("Added multiple js apps to single bundle")
+            raise RuntimeError("Added multiple js apps to single bundle")
 
         check_paths(*js_files)
 
@@ -256,14 +257,14 @@ class PebbleBundle(object):
 
     def write(self, out_path=None, verbose=False):
         if not (self.has_firmware or self.has_watchapp):
-            raise Exception("Bundle must contain either a firmware or watchapp")
+            raise RuntimeError("Bundle must contain either a firmware or watchapp")
 
         if not out_path:
-            out_path = "pebble-{}-{:d}.pbz".format(self.type, self.generated_at)
+            out_path = f"pebble-{self.type}-{self.generated_at:d}.pbz"
 
         if verbose:
             pprint.pprint(self.bundle_manifest)
-            print("writing bundle to {}".format(out_path))
+            print(f"writing bundle to {out_path}")
 
         with zipfile.ZipFile(out_path, "w") as z:
             for f in self.bundle_files:
@@ -291,9 +292,9 @@ def check_required_args(opts, *args):
     for required_arg in args:
         try:
             if not options[required_arg]:
-                raise Exception("Missing argument {}".format(required_arg))
+                raise RuntimeError(f"Missing argument {required_arg}")
         except KeyError:
-            raise Exception("Missing argument {}".format(required_arg))
+            raise RuntimeError(f"Missing argument {required_arg}")
 
 
 def make_firmware_bundle(
@@ -352,7 +353,7 @@ def make_watchapp_bundle(timestamp, appinfo, binaries, js, outfile=None, verbose
     bundle.add_jsapp(js)
 
     if len(binaries) < 1:
-        raise Exception("Cannot bundle watchapp without binaries")
+        raise RuntimeError("Cannot bundle watchapp without binaries")
 
     for binary in binaries:
         bundle.has_children = True

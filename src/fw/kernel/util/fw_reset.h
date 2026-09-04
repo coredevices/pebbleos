@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <stdbool.h>
-
 void fw_prepare_for_reset(void);
 
 void fw_reset_into_prf(void);

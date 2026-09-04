@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from subprocess import Popen, PIPE
+from subprocess import PIPE, Popen
 
-from resources.types.resource_object import ResourceObject
 from resources.resource_map.resource_generator import ResourceGenerator
+from resources.types.resource_object import ResourceObject
 
 
 class JsResourceGenerator(ResourceGenerator):
@@ -28,7 +28,7 @@ class JsResourceGenerator(ResourceGenerator):
         bytecode = task.outputs[0].change_ext(".bytecode")
         bytecode.parent.mkdir()
         memory_usage_output = task.generator.bld.path.get_bld().make_node(
-            "{}_snapshot_size.json".format(task.generator.env.PLATFORM_NAME)
+            f"{task.generator.env.PLATFORM_NAME}_snapshot_size.json"
         )
 
         cmd = [
@@ -44,7 +44,7 @@ class JsResourceGenerator(ResourceGenerator):
 
         if proc.returncode != 0:
             task.generator.bld.fatal(
-                "JS compilation failed.\nSTDOUT: {}\nSTDERR: {}".format(out, err)
+                f"JS compilation failed.\nSTDOUT: {out}\nSTDERR: {err}"
             )
 
         # Save bytecode computed size and max size for SDK memory report

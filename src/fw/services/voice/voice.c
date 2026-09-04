@@ -9,7 +9,6 @@
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/os/mutex.h"
-#include "process_management/app_install_manager.h"
 #include "process_management/app_manager.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/new_timer/new_timer.h"
@@ -20,7 +19,6 @@
 #include "syscall/syscall_internal.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "system/profiler.h"
 #include "pbl/util/likely.h"
 #include "pbl/util/uuid.h"
 

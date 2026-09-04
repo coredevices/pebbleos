@@ -12,7 +12,6 @@
 #include "kernel/ui/modals/modal_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
-#include "pbl/services/i18n/i18n.h"
 #include "syscall/syscall.h"
 #include "system/passert.h"
 

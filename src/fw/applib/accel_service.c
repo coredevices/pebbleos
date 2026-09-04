@@ -5,20 +5,15 @@
 
 #include "accel_service_private.h"
 #include "applib/applib_malloc.auto.h"
-#include "applib/pbl_std/pbl_std.h"
 #include "event_service_client.h"
-#include "kernel/kernel_applib_state.h"
 #include "kernel/pbl_malloc.h"
 #include "process_state/app_state/app_state.h"
 #include "process_state/worker_state/worker_state.h"
 #include "pbl/services/accel_manager.h"
-#include "pbl/services/system_task.h"
-#include "pbl/services/vibe_pattern.h"
 #include "syscall/syscall.h"
 #include "system/passert.h"
 
 #include "FreeRTOS.h"
-#include "queue.h"
 
 static bool prv_is_session_task(void) {
   PebbleTask task = pebble_task_get_current();

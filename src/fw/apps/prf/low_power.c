@@ -4,19 +4,13 @@
 #include "applib/ui/ui.h"
 #include "applib/app.h"
 #include "applib/app_timer.h"
-#include "applib/graphics/graphics.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/kino/kino_layer.h"
-#include "applib/ui/kino/kino_reel.h"
 #include "applib/ui/layer.h"
 #include "applib/ui/window_private.h"
-#include "applib/ui/window_stack.h"
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
-#include "process_management/app_manager.h"
 #include "resource/resource_ids.auto.h"
-#include "pbl/services/i18n/i18n.h"
-
 
 #define LOW_POWER_APP_STATE_UPDATE_TIME_MS 2000
 

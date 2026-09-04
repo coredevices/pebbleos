@@ -7,7 +7,6 @@
 
 #include <bluetooth/bluetooth_types.h>
 #include <bluetooth/bonding_sync.h>
-#include <bluetooth/id.h>
 #include <bluetooth/sm_types.h>
 
 //! @file bluetooth_persistent_storage.h

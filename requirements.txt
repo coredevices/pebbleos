@@ -6,7 +6,8 @@ svg.path
 bitarray
 polib
 
-# Build system (waf) tooling
+# Build system tooling (CMake comes from the system, see
+# requirements-brew.txt)
 sh<2
 packaging
 PyYAML
@@ -30,6 +31,7 @@ prompt_toolkit>=3
 requests
 libpebble2>=0.0.16
 
+-e tools/libs/pbl-cli
 -e tools/libs/pebble-commander
 -e tools/libs/pulse2
 -e tools/libs/pebble-loghash

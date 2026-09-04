@@ -3,7 +3,6 @@
 
 #include "pbl/services/timeline/timeline_layout.h"
 
-#include "applib/graphics/graphics.h"
 #include "applib/preferred_content_size.h"
 #include "applib/ui/ui.h"
 #include "apps/system/timeline/text_node.h"
@@ -11,13 +10,11 @@
 #include "kernel/pbl_malloc.h"
 #include "kernel/ui/kernel_ui.h"
 #include "popups/timeline/peek.h"
-#include "process_management/app_install_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/timeline_resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/timeline/timeline_resources.h"
 #include "shell/system_theme.h"
-#include <pbl/logging/logging.h>
 #include "pbl/util/size.h"
 #include "pbl/util/string.h"
 

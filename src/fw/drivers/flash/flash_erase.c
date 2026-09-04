@@ -14,8 +14,6 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 
-#include <inttypes.h>
-
 PBL_LOG_MODULE_DECLARE(driver_flash, CONFIG_DRIVER_FLASH_LOG_LEVEL);
 
 

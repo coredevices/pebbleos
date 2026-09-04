@@ -19,8 +19,6 @@
 
 #include <bluetooth/qemu_transport.h>
 
-#include <string.h>
-
 typedef struct {
   CommSession *session;
 } QemuTransport;

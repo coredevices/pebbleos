@@ -5,7 +5,6 @@
 
 #include "gdraw_command_frame.h"
 
-#include "applib/graphics/graphics.h"
 #include "applib/graphics/gtypes.h"
 
 #include <stdint.h>

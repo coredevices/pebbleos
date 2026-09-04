@@ -3,18 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from __future__ import print_function
 import argparse
 import logging
 import sys
 import traceback
 
-from pebble import pulse2, commander
-
+from pebble import commander, pulse2
 from pebble.commander._commands.imaging import load_firmware, load_resources
 
 
-class FakeCommander(object):
+class FakeCommander:
     def __init__(self, flash):
         self.flash = flash
 

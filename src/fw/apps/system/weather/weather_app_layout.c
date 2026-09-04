@@ -6,7 +6,6 @@
 #include "applib/graphics/gdraw_command_transforms.h"
 #include "resource_ids.pin.h"
 
-#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 

@@ -86,12 +86,13 @@
         in
         {
           default = pkgs.mkShellNoCC {
-            hardeningDisable = [ "fortify" ]; # waf expects unoptimized builds
+            hardeningDisable = [ "fortify" ]; # the firmware is built unoptimized
             nativeBuildInputs = with pkgs; [
               pkg-config
             ];
             buildInputs = with pkgs; [
               pebbleos-sdk
+              cmake
               gettext
               git
               librsvg

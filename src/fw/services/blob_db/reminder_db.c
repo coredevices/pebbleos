@@ -8,7 +8,6 @@
 
 #include "pbl/util/uuid.h"
 #include "kernel/pbl_malloc.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/timeline/reminders.h"
 #include "system/passert.h"
 #include <pbl/logging/logging.h>

@@ -11,8 +11,6 @@
 #include "system/passert.h"
 #include "pbl/util/slist.h"
 
-#include <inttypes.h>
-
 PBL_LOG_MODULE_DECLARE(service_comm_session, CONFIG_SERVICE_COMM_SESSION_LOG_LEVEL);
 
 //! Default option for the kernel receiver, execute the endpoint handler on KernelBG.

@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-import json
 import argparse
 import codecs
-import re
+import json
 import os
+import re
 
 
 def generate_codepoint_requirements(path, encoding="utf-8", controlchars=False):
@@ -57,15 +57,15 @@ def main():
     if args.output is None:
         args.output = os.path.splitext(args.input)[0] + ".json"
 
-    fout = open(args.output, mode="w")
-    fout.write(
-        json.dumps(
-            generate_codepoint_requirements(
-                args.input, args.encoding, args.controlchars
-            ),
-            indent=2,
+    with open(args.output, mode="w") as fout:
+        fout.write(
+            json.dumps(
+                generate_codepoint_requirements(
+                    args.input, args.encoding, args.controlchars
+                ),
+                indent=2,
+            )
         )
-    )
 
 
 if __name__ == "__main__":

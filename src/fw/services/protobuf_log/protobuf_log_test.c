@@ -7,8 +7,6 @@
 #include "pbl/services/protobuf_log/protobuf_log_private.h"
 #include "pbl/services/protobuf_log/protobuf_log_activity_sessions.h"
 
-#include "pb.h"
-#include "pb_encode.h"
 #include "pb_decode.h"
 
 #include "nanopb/payload.pb.h"

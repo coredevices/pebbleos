@@ -6,7 +6,6 @@
 #include "system/passert.h"
 
 #include "FreeRTOS.h"
-#include "task.h"
 
 //! One refcount per blockable level. SOC_SF32LB_ACTIVE cannot be blocked
 //! (the CPU is always allowed to stay active), so index 0 is unused.

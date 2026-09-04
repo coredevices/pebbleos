@@ -3,7 +3,6 @@
 
 #include "pbl/services/vibes/vibe_client.h"
 
-#include "applib/ui/vibes.h"
 #include "pbl/services/notifications/alerts_preferences_private.h"
 #include "pbl/services/vibes/vibe_score.h"
 #include "pbl/services/vibes/vibe_score_info.h"

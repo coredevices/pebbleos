@@ -1,24 +1,24 @@
-# coding=utf-8
-from exceptions import *
-from StringIO import StringIO
-from functools import partial
-from lxml import etree
-import cairosvg
-from cairosvg.parser import Tree
-from cairosvg.surface import size, node_format, normalize, gradient_or_pattern, color
-from cairosvg.surface.helpers import point, paint
 import io
+from functools import partial
+
+import cairosvg
+from annotation import NS_ANNOTATION, PREFIX_ANNOTATION, TAG_HIGHLIGHT, Annotation
+from cairosvg.parser import Tree
+from cairosvg.surface import color, gradient_or_pattern, node_format, normalize, size
+from cairosvg.surface.helpers import paint, point
+from exceptions import *
+from lxml import etree
 from pdc import (
-    PathCommand,
     CircleCommand,
-    extend_bounding_box,
+    PathCommand,
     bounding_box_around_points,
+    extend_bounding_box,
 )
-from annotation import Annotation, NS_ANNOTATION, PREFIX_ANNOTATION, TAG_HIGHLIGHT
 from pebble_image_routines import (
-    truncate_color_to_pebble64_palette,
     rgba32_triplet_to_argb8,
+    truncate_color_to_pebble64_palette,
 )
+from StringIO import StringIO
 
 try:
     import cairocffi as cairo
@@ -36,7 +36,7 @@ def cairo_from_png(path):
 
 class PDCContext(cairo.Context):
     def line_to(self, x, y):
-        super(PDCContext, self).line_to(x, y)
+        super().line_to(x, y)
 
 
 # http://effbot.org/zone/element-lib.htm#prettyprint
@@ -47,10 +47,10 @@ def indent(elem, level=0):
             elem.text = i + "  "
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
-        for elem in elem:
-            indent(elem, level + 1)
-        if not elem.tail or not elem.tail.strip():
-            elem.tail = i
+        for child in elem:
+            indent(child, level + 1)
+        if not child.tail or not child.tail.strip():
+            child.tail = i
     else:
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
@@ -123,14 +123,14 @@ class PDCSurface(cairosvg.surface.PNGSurface):
 
         # register PDC namespace and add temporary fake attribute to propagate prefix
         etree.register_namespace(PREFIX_ANNOTATION, NS_ANNOTATION)
-        ns_fake_attr = "{%s}foo" % NS_ANNOTATION
+        ns_fake_attr = f"{{{NS_ANNOTATION}}}foo"
         tree.node.set(ns_fake_attr, "bar")
 
         # remove all PDC elements (annotations in case we're processing an annotated SVG)
         def remove_pdc_elements(elem):
             for child in elem:
                 if isinstance(child.tag, str) and child.tag.startswith(
-                    "{%s}" % NS_ANNOTATION
+                    f"{{{NS_ANNOTATION}}}"
                 ):
                     elem.remove(child)
                 else:
@@ -180,19 +180,19 @@ class PDCSurface(cairosvg.surface.PNGSurface):
             )
             node.pop("display")
 
-        super(PDCSurface, self).draw_root(node)
+        super().draw_root(node)
 
     def draw(self, node):
         self.cairo_tags_push_and_wrap()
         if not hasattr(node, "annotations"):
             node.annotations = []
-        super(PDCSurface, self).draw(node)
+        super().draw(node)
         cairosvg.surface.TAGS = self.cairosvg_tags.pop()
 
     def element_tree(self):
         indent(self.svg_tree.node)
         # ensure that viewbox is always set
-        view_box = self.svg_tree.node.get("viewBox", "0 0 %d %d" % self.size())
+        view_box = self.svg_tree.node.get("viewBox", "0 0 {} {}".format(*self.size()))
         self.svg_tree.node.set("viewBox", view_box)
 
         return etree.ElementTree(self.svg_tree.node)
@@ -347,7 +347,7 @@ def cubicbezier(p0, p1, p2, p3, min_dist):
 
 class PathSurfaceContext(cairo.Context):
     def __init__(self, target, node, approximate_bezier):
-        super(PathSurfaceContext, self).__init__(target)
+        super().__init__(target)
         self.points = []
         self.path_open = True
         self.node = node
@@ -372,20 +372,20 @@ class PathSurfaceContext(cairo.Context):
         return PathCommand(self.points, self.path_open, precise=True)
 
     def move_to(self, x, y):
-        super(PathSurfaceContext, self).move_to(x, y)
+        super().move_to(x, y)
         self.add_current_point()
 
     def line_to(self, x, y):
-        super(PathSurfaceContext, self).line_to(x, y)
+        super().line_to(x, y)
         self.add_current_point()
 
     def rel_line_to(self, dx, dy):
-        super(PathSurfaceContext, self).rel_line_to(dx, dy)
+        super().rel_line_to(dx, dy)
         self.add_current_point()
 
     def curve_to(self, x1, y1, x2, y2, x3, y3):
         first = self.get_current_point()
-        super(PathSurfaceContext, self).curve_to(x1, y1, x2, y2, x3, y3)
+        super().curve_to(x1, y1, x2, y2, x3, y3)
         last = self.get_current_point()
 
         # approximate bezier curve
@@ -393,10 +393,8 @@ class PathSurfaceContext(cairo.Context):
         box = bounding_box_around_points(points)
 
         if self.approximate_bezier:
-            description = "Curved command(s) were approximated."
             self.points.extend(points[1:])
         else:
-            description = "Element contains unsupported curved command(s)."
             self.add_current_point()
 
         link = "https://pebbletechnology.atlassian.net/wiki/display/DEV/Pebble+Draw+Commands#PebbleDrawCommands-issue-bezier"
@@ -416,14 +414,14 @@ class PathSurfaceContext(cairo.Context):
 
     def arc(self, xc, yc, radius, angle1, angle2):
         self.add_annotation_arc_unsupported(xc, yc, radius)
-        super(PathSurfaceContext, self).arc(xc, yc, radius, angle1, angle2)
+        super().arc(xc, yc, radius, angle1, angle2)
 
     def arc_negative(self, xc, yc, radius, angle1, angle2):
         self.add_annotation_arc_unsupported(xc, yc, radius)
-        super(PathSurfaceContext, self).arc_negative(xc, yc, radius, angle1, angle2)
+        super().arc_negative(xc, yc, radius, angle1, angle2)
 
     def close_path(self):
-        super(PathSurfaceContext, self).close_path()
+        super().close_path()
         self.path_open = False
 
     def add_annotation_arc_unsupported(self, xc, yc, radius):

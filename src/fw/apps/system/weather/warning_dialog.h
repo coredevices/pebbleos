@@ -5,8 +5,6 @@
 
 #include "applib/ui/dialogs/expandable_dialog.h"
 
-#include <stdbool.h>
-
 typedef ExpandableDialog WeatherAppWarningDialog;
 
 typedef void (*WeatherAppWarningDialogDismissedCallback)(void);

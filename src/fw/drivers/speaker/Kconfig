@@ -10,12 +10,14 @@ if SPEAKER
 
 config SPEAKER_DA7212
     bool "Dialog DA7212 codec (nRF5 I2S)"
+    select HAL_NORDIC
     help
       Support for the Dialog DA7212 audio codec driven over nRF5 I2S.
 
 config SPEAKER_SF32LB
     bool "SiFli SF32LB AUDEC"
     default y if SOC_SF32LB52
+    select HAL_SIFLI
     select HAL_SIFLI_AUDCODEC
     help
       Support for the SiFli SF32LB audio codec / DAC speaker output.

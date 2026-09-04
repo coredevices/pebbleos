@@ -5,7 +5,6 @@
 
 #include "applib/app.h"
 #include "applib/ui/action_toggle.h"
-#include "process_management/app_manager.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/notifications/do_not_disturb_toggle.h"
 

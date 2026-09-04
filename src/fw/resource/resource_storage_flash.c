@@ -5,7 +5,6 @@
 #include "resource_storage_impl.h"
 
 #include <pbl/drivers/flash.h>
-#include "kernel/pbl_malloc.h"
 #include "resource/resource_version.auto.h"
 #include "pbl/services/process_management/app_storage.h"
 #include "system/bootbits.h"

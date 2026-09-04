@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "pebble_compat.h"
 #include "weather_types.h"
 
 // "The Weather Report" — the screen SELECT opens from the forecast list.

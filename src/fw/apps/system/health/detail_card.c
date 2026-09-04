@@ -12,8 +12,6 @@
 #include "shell/prefs.h"
 #include "pbl/util/size.h"
 
-#include <pbl/logging/logging.h>
-
 // Compile-time display offset calculations
 #define HEALTH_Y_OFFSET ((DISP_ROWS - LEGACY_2X_DISP_ROWS) / 2)
 #define HEALTH_PADDING_OFFSET (HEALTH_Y_OFFSET / 10)

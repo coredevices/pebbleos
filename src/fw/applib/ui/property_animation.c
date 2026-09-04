@@ -10,7 +10,6 @@
 #include "applib/app_logging.h"
 #include "applib/applib_malloc.auto.h"
 #include "system/passert.h"
-#include <pbl/logging/logging.h>
 #include "pbl/util/size.h"
 #include "layer.h"
 

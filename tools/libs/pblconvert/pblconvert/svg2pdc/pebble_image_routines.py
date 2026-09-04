@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 
 import math
 
@@ -12,7 +11,7 @@ import math
 # Create pebble 64 colors-table (r, g, b - 2 bits per channel)
 def _get_pebble64_palette():
     pebble_palette = []
-    for i in xrange(0, 64):
+    for i in range(64):
         pebble_palette.append(
             (
                 ((i >> 4) & 0x3) * 85,  # R
@@ -112,7 +111,7 @@ def rgba32_triplet_to_rgba32(r, g, b, a):
 
 # takes number of colors and outputs PNG & PBI compatible bit depths for paletted images
 def num_colors_to_bitdepth(num_colors):
-    bitdepth = int(math.ceil(math.log(num_colors, 2)))
+    bitdepth = math.ceil(math.log2(num_colors))
 
     # only bitdepth 1,2,4 and 8 supported by PBI and PNG
     if bitdepth == 0:

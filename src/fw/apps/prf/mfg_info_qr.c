@@ -6,7 +6,6 @@
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/qr_code.h"
 #include "applib/ui/window.h"
-#include "applib/ui/window_private.h"
 #include "applib/ui/text_layer.h"
 #include "kernel/pbl_malloc.h"
 #include "mfg/mfg_info.h"
@@ -15,7 +14,6 @@
 #include "process_management/pebble_process_md.h"
 #include "pbl/services/battery/battery_state.h"
 #include "pbl/services/bluetooth/local_id.h"
-#include "util/bitset.h"
 #include "pbl/util/size.h"
 
 #include "git_version.auto.h"

@@ -3,17 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from analyze_mcu_flash_find_unclaimed import claim
-from analyze_mcu_flash_config import *
 import argparse
-import binutils
 import json
 import os.path
 import re
-import sh
 
+import binutils
+from analyze_mcu_flash_config import *
+from analyze_mcu_flash_find_unclaimed import claim
 
-ROOT_PATH_SPLIT_RE = re.compile("\.?\.?/?([^/]+)/(.*)")
+ROOT_PATH_SPLIT_RE = re.compile(r"\.?\.?/?([^/]+)/(.*)")
 
 
 def split_root_path(path):
@@ -54,7 +53,7 @@ def generate_tree(f, additional_symbols, config):
     be the value. In case of a symbol, the value is an int() of its size.
     """
     symbols = binutils.nm_generator(f)
-    unclaimed_regions = set([config.memory_region_to_analyze()])
+    unclaimed_regions = {config.memory_region_to_analyze()}
     tree = {}
     total_size = 0
     for addr, section, symbol, src_path, line, size in symbols:
@@ -72,7 +71,7 @@ def generate_tree(f, additional_symbols, config):
                 if symbol in additional_symbols[k]:
                     src_path = k
                     break
-                if symbol.startswith("sys_") or symbol.startswith("syscall"):
+                if symbol.startswith(("sys_", "syscall")):
                     src_path = "build/src/fw/syscall.auto.s"
                     break
         path = os.path.join(src_path, symbol)
@@ -94,9 +93,9 @@ def convert_tree_to_d3(parent_name, tree):
         elif val_type is int:
             node["value"] = val
         else:
-            raise Exception(
-                "Unexpected node type: %s, "
-                "parent_name=%s, val=%s" % (str(val_type), parent_name, val)
+            raise RuntimeError(
+                f"Unexpected node type: {val_type!s}, "
+                f"parent_name={parent_name}, val={val}"
             )
         return node
 
@@ -138,16 +137,15 @@ if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.realpath(__file__))
     json_path = os.path.join(script_dir, json_filename)
 
-    file_out = open(json_path, "wb")
-    file_out.write("renderJson(")
-    json.dump(d3_tree, file_out)
-    file_out.write(");")
-    file_out.close()
+    with open(json_path, "w") as file_out:
+        file_out.write("renderJson(")
+        json.dump(d3_tree, file_out)
+        file_out.write(");")
 
     # Print out some stats:
-    print("Total .text bytes:         %u" % text_size)
-    print("Total bytes mapped:        %u" % total_size)
+    print(f"Total .text bytes:         {text_size:d}")
+    print(f"Total bytes mapped:        {total_size:d}")
     print("-------------------------------------")
-    print("Unaccounted bytes:         %u" % (text_size - total_size))
-    print("")
-    print("Now go open %s.html to view treemap" % os.path.splitext(__file__)[0])
+    print(f"Unaccounted bytes:         {text_size - total_size:d}")
+    print()
+    print(f"Now go open {os.path.splitext(__file__)[0]}.html to view treemap")

@@ -8,7 +8,6 @@
 #include "kernel/events.h"
 #include "kernel/kernel_applib_state.h"
 #include "kernel/pebble_tasks.h"
-#include "pbl/services/touch/touch.h"
 #include "process_state/app_state/app_state.h"
 #include "syscall/syscall.h"
 #include "system/passert.h"

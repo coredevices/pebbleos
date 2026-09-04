@@ -7,20 +7,14 @@
 #include "flash_logging.h"
 #include "debug_reboot_reason.h"
 
-#include <pbl/drivers/watchdog.h>
-#include "flash_region/flash_region.h"
 #include "kernel/events.h"
 #include "logging/logging_private.h"
-#include "kernel/pbl_malloc.h"
 #include "kernel/pebble_tasks.h"
 #include "mfg/mfg_serials.h"
 #include "process_management/app_manager.h"
-#include "pbl/services/analytics/analytics.h"
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/comm_session/session_send_buffer.h"
-#include "pbl/services/system_task.h"
 #include "pbl/services/process_management/app_storage.h"
-#include "system/bootbits.h"
 #include "system/hexdump.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
@@ -28,8 +22,6 @@
 #include "system/version.h"
 #include "pbl/util/attributes.h"
 #include "pbl/util/build_id.h"
-
-#include <inttypes.h>
 
 static const uint16_t ENDPOINT_ID = 2002;
 

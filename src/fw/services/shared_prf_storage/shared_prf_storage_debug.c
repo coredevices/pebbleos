@@ -3,7 +3,6 @@
 
 #include "console/dbgserial.h"
 #include "console/prompt.h"
-#include "system/hexdump.h"
 #include <pbl/logging/logging.h>
 #include "pbl/util/string.h"
 
@@ -13,7 +12,6 @@
 
 #include <bluetooth/bluetooth_types.h>
 #include <bluetooth/sm_types.h>
-#include <pbl/btutil/bt_device.h>
 #include <pbl/btutil/sm_util.h>
 
 void shared_prf_storage_dump_contents(void) {

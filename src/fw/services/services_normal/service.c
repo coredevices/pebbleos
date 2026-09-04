@@ -9,18 +9,15 @@
 #include <pbl/drivers/rtc.h>
 #include "kernel/events.h"
 #include "process_management/app_install_manager.h" // FIXME: This should really be in services/
-#include "process_management/launcher_app_message.h" // FIXME: This should really be in services/
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/alarms/alarm.h"
 #include "pbl/services/app_cache.h"
-#include "pbl/services/app_fetch_endpoint.h"
 #include "pbl/services/app_glances/app_glance_service.h"
 #include "pbl/services/blob_db/api.h"
 #include "pbl/services/blob_db/endpoint_private.h"
 #include "pbl/services/data_logging/data_logging_service.h"
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/protobuf_log/protobuf_log.h"
-#include "pbl/services/music_endpoint.h"
 #include "pbl/services/music_internal.h"
 #include "pbl/services/notifications/alerts_private.h"
 #include "pbl/services/notifications/notifications.h"

@@ -27,7 +27,6 @@
 #include <bluetooth/bluetooth_types.h>
 #include <pbl/btutil/bt_uuid.h>
 #include <pbl/util/attributes.h>
-#include <pbl/util/size.h>
 
 static GAPLEAdvertisingJobRef s_discovery_advert_job;
 

@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
+from typing import ClassVar
+
 # SPDX-License-Identifier: Apache-2.0
 
 
-class FakeTimer(object):
-    TIMERS = []
+class FakeTimer:
+    TIMERS: ClassVar = []
 
     def __init__(self, interval, function):
         self.interval = interval
@@ -21,9 +23,7 @@ class FakeTimer(object):
                 "C" if self.cancelled else ".",
             ]
         )
-        return "<FakeTimer({}, {}) {} at {:#x}>".format(
-            self.interval, self.function, state_flags, id(self)
-        )
+        return f"<FakeTimer({self.interval}, {self.function}) {state_flags} at {id(self):#x}>"
 
     def start(self):
         if self.started:

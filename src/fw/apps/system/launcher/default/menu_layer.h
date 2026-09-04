@@ -6,7 +6,6 @@
 #include "app_glance_service.h"
 
 #include "process_management/app_menu_data_source.h"
-#include "board/display.h"
 
 // Use display height to determine launcher fonts: larger displays use larger fonts
 #if PBL_DISPLAY_HEIGHT >= 200

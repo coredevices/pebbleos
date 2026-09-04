@@ -3,9 +3,9 @@
 
 import argparse
 import os
-import sh
 import sys
 
+import sh
 
 total_alloc_size = 0
 alloc_count = 0
@@ -27,7 +27,7 @@ high_water_mark = 0
 def get_filename_linenumber(addr_str):
     try:
         line = sh.arm_none_eabi_addr2line(addr_str, exe=elf_path)
-    except:
+    except (sh.CommandNotFound, sh.ErrorReturnCode):
         return ("?", 0)
 
     line = line.strip()
@@ -77,13 +77,11 @@ def handle_line(line, verbose):
     if verbose:
         if is_free:
             print(
-                "Size: %6u, Addr: 0x%08x PC: 0x%08x FREE"
-                % (actual_size, int(addr, 0), int(pc, 0))
+                f"Size: {actual_size:6d}, Addr: 0x{int(addr, 0):08x} PC: 0x{int(pc, 0):08x} FREE"
             )
         else:
             print(
-                "Size: %6u, Addr: 0x%08x PC: 0x%08x %s:%s"
-                % (actual_size, int(addr, 0), int(pc, 0), filename, linenumber)
+                f"Size: {actual_size:6d}, Addr: 0x{int(addr, 0):08x} PC: 0x{int(pc, 0):08x} {filename}:{linenumber}"
             )
 
     global total_alloc_size
@@ -96,17 +94,15 @@ def handle_line(line, verbose):
     if is_free:
         total_free_size += actual_size
         free_count += 1
-        if actual_size > largest_free_block:
-            largest_free_block = actual_size
+        largest_free_block = max(largest_free_block, actual_size)
         return
 
     total_alloc_size += actual_size
     alloc_count += 1
 
-    filename = filename
     try:
         per_file_dict[filename] += actual_size
-    except:
+    except KeyError:
         per_file_dict[filename] = actual_size
 
     alloc_list.append([int(addr, base=16), actual_size])
@@ -160,7 +156,7 @@ if __name__ == "__main__":
 
     elf_path = args.elf_file
 
-    with open(args.in_file, "r") as f:
+    with open(args.in_file) as f:
         infile = f.readlines()
 
     for line in infile:
@@ -173,27 +169,25 @@ if __name__ == "__main__":
         max_addr = alloc_list[0][0] + alloc_list[0][1]
         for alloc in alloc_list:
             low_addr = alloc[0]
-            if low_addr < min_addr:
-                min_addr = low_addr
+            min_addr = min(min_addr, low_addr)
             high_addr = low_addr + alloc[1]
-            if high_addr > max_addr:
-                max_addr = high_addr
+            max_addr = max(max_addr, high_addr)
 
     if verbose:
-        print("")
-    print("Heap start: 0x%x" % min_addr)
-    print("Heap end: 0x%x" % max_addr)
-    print("Heap size: %u bytes" % (max_addr - min_addr))
-    print("Total allocated: %u bytes, %u blocks" % (total_alloc_size, alloc_count))
-    print("High water mark: %u" % high_water_mark)
-    print("Total free: %u bytes, %u blocks" % (total_free_size, free_count))
-    print("Largest free block: %u" % largest_free_block)
+        print()
+    print(f"Heap start: 0x{min_addr:x}")
+    print(f"Heap end: 0x{max_addr:x}")
+    print(f"Heap size: {max_addr - min_addr:d} bytes")
+    print(f"Total allocated: {total_alloc_size:d} bytes, {alloc_count:d} blocks")
+    print(f"High water mark: {high_water_mark:d}")
+    print(f"Total free: {total_free_size:d} bytes, {free_count:d} blocks")
+    print(f"Largest free block: {largest_free_block:d}")
     print()
 
     per_file_list = [[k, v] for k, v in per_file_dict.iteritems()]
     sorted_per_file_list = sorted(per_file_list, key=lambda v: v[1], reverse=True)
     for k, v in sorted_per_file_list:
-        print("%s: %u bytes" % (k, v))
+        print(f"{k}: {v:d} bytes")
 
     if args.image:
         draw_image()

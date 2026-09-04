@@ -9,8 +9,6 @@
 
 #include "gtypes.h"
 
-#include <inttypes.h>
-
 typedef struct GContext GContext;
 
 typedef void (*SpecialCodepointHandlerCb)(GContext *ctx, Codepoint codepoint, GRect cursor,

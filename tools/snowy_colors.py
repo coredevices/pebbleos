@@ -7,10 +7,10 @@
 import argparse
 import copy
 import json
-from math import sqrt
 import re
-import urllib
 import sys
+import urllib
+from math import sqrt
 from os.path import basename, splitext
 
 COLORS_JSON_PREFIX = splitext(basename(__file__))[0]
@@ -25,13 +25,13 @@ def download_values_from_color_lovers(r, g, b):
     NOTE: does a single HTTP request per call, please call wisely
     """
 
-    url = "http://www.colourlovers.com/api/color/%02x%02x%02x?format=json" % (r, g, b)
+    url = f"http://www.colourlovers.com/api/color/{r:02x}{g:02x}{b:02x}?format=json"
     opener = urllib.request.build_opener()
     opener.addheaders = [("User-agent", "Mozilla/5.0")]
     response = opener.open(url)
     s = response.read()
     values = json.loads(s)
-    print("r: %03d, g:%03d, b:%03d: %s" % (r, g, b, values))
+    print(f"r: {r:03d}, g:{g:03d}, b:{b:03d}: {values}")
     return values
 
 
@@ -40,9 +40,9 @@ def download_all_colors_from_color_lovers():
     Requests and caches into colorlovers_colors.json all 64 colors
     """
     colors = []
-    for r2 in range(0, 4):
-        for g2 in range(0, 4):
-            for b2 in range(0, 4):
+    for r2 in range(4):
+        for g2 in range(4):
+            for b2 in range(4):
                 colors += download_values_from_color_lovers(r2 * 85, g2 * 85, b2 * 85)
 
     with open(COLORLOVERS_COLORS_JSON, "w") as f:
@@ -103,7 +103,7 @@ def download_and_parse_colors_from_wikipedia():
     """
     Requests and caches into wikipedia_colors.json all available colors from wikipedias "list of colors" pages
     """
-    from mediawikiapi import MediaWikiAPI, Config
+    from mediawikiapi import Config, MediaWikiAPI
 
     wikipedia = MediaWikiAPI(config=Config(timeout=15))
 
@@ -274,13 +274,13 @@ def enhanced_color(color):
     g2 = int(g / 85)
     b2 = int(b / 85)
 
-    c_identifier = "GColor%s" % result["identifier"]
+    c_identifier = "GColor{}".format(result["identifier"])
     result["c_identifier"] = c_identifier
-    result["c_value_identifier"] = "GColor%sARGB8" % result["identifier"]
-    hex_value = "0x%0.2X%0.2X%0.2X" % (r, g, b)
-    html_value = "#%0.2X%0.2X%0.2X" % (r, g, b)
+    result["c_value_identifier"] = "GColor{}ARGB8".format(result["identifier"])
+    hex_value = f"0x{r:0.2X}{g:0.2X}{b:0.2X}"
+    html_value = f"#{r:0.2X}{g:0.2X}{b:0.2X}"
     result["html"] = html_value
-    binary = "0b11{0:02b}{1:02b}{2:02b}".format(r2, g2, b2)
+    binary = f"0b11{r2:02b}{g2:02b}{b2:02b}"
     result["binary"] = binary
 
     result["literals"] = [
@@ -288,25 +288,23 @@ def enhanced_color(color):
         {
             "id": "rgb",
             "description": "Code (RGB)",
-            "value": "GColorFromRGB(%d, %d, %d)" % (r, g, b),
+            "value": f"GColorFromRGB({r:d}, {g:d}, {b:d})",
         },
         {
             "id": "hex",
             "description": "Code (Hex)",
-            "value": "GColorFromHEX(%s)" % hex_value,
+            "value": f"GColorFromHEX({hex_value})",
         },
         {"id": "html", "description": "HTML code", "value": html_value},
         {
             "id": "gcolor_argb",
             "description": "GColor (argb)",
-            "value": "(GColor){.argb=%s}" % binary,
+            "value": f"(GColor){{.argb={binary}}}",
         },
         {
             "id": "gcolor_fields",
             "description": "GColor (components)",
-            "value": "(GColor){{.a=0b11, .r=0b{0:02b}, .g=0b{1:02b}, .b=0b{2:02b}}}".format(
-                r2, g2, b2
-            ),
+            "value": f"(GColor){{.a=0b11, .r=0b{r2:02b}, .g=0b{g2:02b}, .b=0b{b2:02b}}}",
         },
     ]
 
@@ -318,14 +316,14 @@ def validate_colors(colors):
     Some sanity checks on the set of colors.
     """
     if len(colors) != 64:
-        raise Exception(
+        raise RuntimeError(
             "Number of derived colors (%d) is different from expectation (64)",
             len(colors),
         )
 
     for c in colors:
         if len([cc for cc in colors if cc["identifier"] == c["identifier"]]) != 1:
-            raise Exception("duplicate identifier name: %s and %s", c["name"])
+            raise RuntimeError("duplicate identifier name: %s and %s", c["name"])
 
 
 def all_colors_with_names():
@@ -339,15 +337,15 @@ def all_colors_with_names():
         # for now, we only look at colors from wikipedia
         # color lovers code can be deleted as soon as we agreed on final color names
         # candidates += load_colorlovers_colors()
-    except IOError as e:
-        raise IOError(
-            "%s\n\n%s" % (e, "make sure you called --download_wikipedia once")
+    except OSError as e:
+        raise OSError(
+            "{}\n\n{}".format(e, "make sure you called --download_wikipedia once")
         )
 
     result = []
-    for r2 in range(0, 4):
-        for g2 in range(0, 4):
-            for b2 in range(0, 4):
+    for r2 in range(4):
+        for g2 in range(4):
+            for b2 in range(4):
                 c = {"r": r2 * 85, "g": g2 * 85, "b": b2 * 85}
                 closest = closest_color(c, candidates)
                 dist = color_dist(c, closest)
@@ -370,13 +368,12 @@ def render_header(colors):
     color_value_maxlen = max([len(c["c_value_identifier"]) for c in colors])
     color_value_defines = []
     color_value_defines.append(
-        "//%s AARRGGBB" % "".ljust(color_value_maxlen + len("#define (uint_8_t)"))
+        "//{} AARRGGBB".format("".ljust(color_value_maxlen + len("#define (uint_8_t)")))
     )
     for c in colors:
         identifier = c["c_value_identifier"]
         color_value_defines.append(
-            "#define %s ((uint8_t)%s)"
-            % (identifier.ljust(color_value_maxlen), c["binary"])
+            "#define {} ((uint8_t){})".format(identifier.ljust(color_value_maxlen), c["binary"])
         )
 
     color_define_maxlen = max([len(c["c_identifier"]) for c in colors])
@@ -384,15 +381,13 @@ def render_header(colors):
     for c in colors:
         identifier = c["c_identifier"]
         value_identifier = c["c_value_identifier"]
-        hex_value = "#%0.2X%0.2X%0.2X" % (c["r"], c["g"], c["b"])
+        hex_value = "#{:0.2X}{:0.2X}{:0.2X}".format(c["r"], c["g"], c["b"])
         color_defines.append("")
         color_defines.append(
-            '//! <span class="gcolor_sample" style="background-color: %s;"></span> <a href="https://developer.getpebble.com/tools/color-picker/%s">%s</a>'
-            % (hex_value, hex_value, identifier)
+            f'//! <span class="gcolor_sample" style="background-color: {hex_value};"></span> <a href="https://developer.getpebble.com/tools/color-picker/{hex_value}">{identifier}</a>'
         )
         color_defines.append(
-            "#define %s (GColor8){.argb=%s}"
-            % (identifier.ljust(color_define_maxlen), value_identifier)
+            f"#define {identifier.ljust(color_define_maxlen)} (GColor8){{.argb={value_identifier}}}"
         )
 
     file_content = """/* SPDX-FileCopyrightText: 2024 Google LLC */
@@ -400,15 +395,15 @@ def render_header(colors):
 
 #pragma once
 
-// @%s
+// @{}
 // THIS FILE HAS BEEN GENERATED, PLEASE DON'T MODIFY ITS CONTENT MANUALLY
-// USE <TINTIN_ROOT>/tools/%s TO MAKE CHANGES
+// USE <TINTIN_ROOT>/tools/{} TO MAKE CHANGES
 
 //! @addtogroup Graphics
-//! @{
+//! @{{
 
 //! @addtogroup GraphicsTypes
-//! @{
+//! @{{
 
 //! Convert RGBA to GColor.
 //! @param red Red value from 0 - 255
@@ -416,12 +411,12 @@ def render_header(colors):
 //! @param blue Blue value from 0 - 255
 //! @param alpha Alpha value from 0 - 255
 //! @return GColor created from the RGBA values
-#define GColorFromRGBA(red, green, blue, alpha) ((GColor8){ \\
+#define GColorFromRGBA(red, green, blue, alpha) ((GColor8){{ \\
   .b = (uint8_t)(blue) >> 6, \\
   .g = (uint8_t)(green) >> 6, \\
   .r = (uint8_t)(red) >> 6, \\
   .a = (uint8_t)(alpha) >> 6, \\
-  })
+  }})
 
 //! Convert RGB to GColor.
 //! @param red Red value from 0 - 255
@@ -438,27 +433,27 @@ def render_header(colors):
 
 //! @addtogroup ColorDefinitions Color Definitions
 //! A list of all of the named colors available with links to the color map on the Pebble Developer website.
-//! @{
+//! @{{
 
 // 8bit color values of all natively supported colors
-%s
+{}
 
 // GColor values of all natively supported colors
-%s
+{}
 
 // Additional 8bit color values
 #define GColorClearARGB8 ((uint8_t)0b00000000)
 
 // Additional GColor values
-#define GColorClear ((GColor8){.argb=GColorClearARGB8})
+#define GColorClear ((GColor8){{.argb=GColorClearARGB8}})
 
-//! @} // group ColorDefinitions
+//! @}} // group ColorDefinitions
 
-//! @} // group GraphicsTypes
+//! @}} // group GraphicsTypes
 
-//! @} // group Graphics
+//! @}} // group Graphics
 
-""" % (
+""".format(
         "generated",
         basename(__file__),
         "\n".join(color_value_defines),
@@ -474,9 +469,9 @@ def render_html(colors):
     """
     html = '<table style="border-spacing:0"><thead>'
     html += '<tr><th colspan="4">Closest</th><th colspan="7">Actual Color</th></tr>'
-    html += "<tr>%s</tr>" % "".join(
+    html += "<tr>{}</tr>".format("".join(
         [
-            "<th>%s</th>" % s
+            f"<th>{s}</th>"
             for s in [
                 "r",
                 "g",
@@ -492,19 +487,15 @@ def render_html(colors):
                 "identifier",
             ]
         ]
-    )
+    ))
     html += "</thead><tbody>"
     for c in colors:
 
         def rgb(c):
-            return "<td>%d</td><td>%d</td><td>%d</td>" % (c["r"], c["g"], c["b"])
+            return "<td>{:d}</td><td>{:d}</td><td>{:d}</td>".format(c["r"], c["g"], c["b"])
 
         def color(c):
-            return '<td style="background-color:rgb(%d,%d,%d); width:4em;"></td>' % (
-                c["r"],
-                c["g"],
-                c["b"],
-            )
+            return '<td style="background-color:rgb({:d},{:d},{:d}); width:4em;"></td>'.format(c["r"], c["g"], c["b"])
 
         def c_code(c):
             return "(GColor){{.rgba=0b{:02b}{:02b}{:02b}11}}".format(
@@ -515,16 +506,16 @@ def render_html(colors):
         html += rgb(c["closest"])
         html += color(c["closest"])
         html += color(c)
-        html += "<td><strong>%d</strong></td>" % c["dist"]
+        html += "<td><strong>{:d}</strong></td>".format(c["dist"])
         html += rgb(c)
         html += "<td><pre>" + c_code(c) + "</pre></td>"
 
         html += "<td>"
         if "url" in c:
-            html += '<a href="%s">%s</a>' % (c["url"], c["name"])
+            html += '<a href="{}">{}</a>'.format(c["url"], c["name"])
         else:
             html += c["name"]
-        html += "<td>%s</td>" % c["identifier"]
+        html += "<td>{}</td>".format(c["identifier"])
 
         html += "</tr>"
 
@@ -539,7 +530,7 @@ def render_json(colors):
     """
     obj = {}
     for c in colors:
-        color_attr = "#%0.2X%0.2X%0.2X" % (c["r"], c["g"], c["b"])
+        color_attr = "#{:0.2X}{:0.2X}{:0.2X}".format(c["r"], c["g"], c["b"])
         obj[color_attr] = c
 
     return json.dumps(obj, indent=2)
@@ -569,11 +560,10 @@ def render_svg(colors=None):
                 ]
                 points = [(p[0] + xx, p[1] + yy) for p in points]
 
-                points_attr = " ".join(["%f,%f" % (p[0], p[1]) for p in points])
-                color_attr = "#%0.2X%0.2X%0.2X" % (r * 85, g * 85, b * 85)
+                points_attr = " ".join([f"{p[0]:f},{p[1]:f}" for p in points])
+                color_attr = f"#{r * 85:0.2X}{g * 85:0.2X}{b * 85:0.2X}"
                 polygon = (
-                    """<polygon fill="%s" stroke="black" stroke-width=".1" points="%s" />"""
-                    % (color_attr, points_attr)
+                    f"""<polygon fill="{color_attr}" stroke="black" stroke-width=".1" points="{points_attr}" />"""
                 )
                 polygons.append(polygon)
 
@@ -582,8 +572,8 @@ def render_svg(colors=None):
       "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
     <svg viewBox="0 0 4000 4000"
          xmlns="http://www.w3.org/2000/svg" version="1.1">
-    %s
-    </svg>""" % "\n".join(polygons)
+    {}
+    </svg>""".format("\n".join(polygons))
 
     return xml
 

@@ -5,7 +5,6 @@
 
 #include <pbl/drivers/accel.h>
 #include <pbl/drivers/vibe.h>
-#include <pbl/drivers/battery.h>
 #include <pbl/drivers/rtc.h>
 
 #include "kernel/pebble_tasks.h"

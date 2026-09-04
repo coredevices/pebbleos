@@ -4,18 +4,9 @@
 #pragma once
 
 // All graphics/UI includes needed for tests. Add here if more are needed.
-#include "applib/app.h"
-#include "applib/graphics/graphics.h"
-#include "applib/graphics/text.h"
-#include "applib/graphics/gtypes.h"
 #include "applib/ui/layer.h"
 #include "applib/ui/window.h"
-#include "applib/ui/window_stack.h"
-#include "applib/ui/text_layer.h"
 #include "applib/ui/menu_layer.h"
-#include "applib/fonts/fonts.h"
-#include "pbl/util/trig.h"
-#include "applib/graphics/gpath.h"
 
 #include <stdint.h>
 

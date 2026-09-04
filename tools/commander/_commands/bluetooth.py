@@ -15,7 +15,7 @@ def bt_airplane_mode(cmdr, enter=True):
     else:
         enter = "exit"
 
-    ret = cmdr.send_prompt_command("bt airplane mode %s" % enter)
+    ret = cmdr.send_prompt_command(f"bt airplane mode {enter}")
     if ret:
         raise exceptions.PromptResponseError(ret)
 
@@ -48,8 +48,8 @@ def bt_set_addr(cmdr, new_mac=None):
     if not new_mac:
         new_mac = "00:00:00:00:00:00"
     mac = parsers.str2mac(new_mac)
-    macstr = "".join(["%02X" % byte for byte in mac])
-    ret = cmdr.send_prompt_command("bt set addr %s" % macstr)
+    macstr = "".join([f"{byte:02X}" for byte in mac])
+    ret = cmdr.send_prompt_command(f"bt set addr {macstr}")
     if ret[0] != new_mac:
         raise exceptions.PromptResponseError(ret)
 
@@ -63,6 +63,6 @@ def bt_set_name(cmdr, new_name=None):
     # This can probably be removed when prompt goes away
     if " " in new_name:
         raise exceptions.ParameterError("bluetooth name must not have spaces")
-    ret = cmdr.send_prompt_command("bt set name %s" % new_name)
+    ret = cmdr.send_prompt_command(f"bt set name {new_name}")
     if ret:
         raise exceptions.PromptResponseError(ret)

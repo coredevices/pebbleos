@@ -7,7 +7,6 @@
 #include "applib/ui/progress_layer.h"
 
 #include <stdint.h>
-#include <stdbool.h>
 
 #define LOADING_LAYER_DEFAULT_SIZE { 79, PROGRESS_SUGGESTED_HEIGHT }
 

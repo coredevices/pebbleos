@@ -3,9 +3,6 @@
 
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #include <nrfx_twim.h>

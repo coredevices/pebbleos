@@ -4,27 +4,20 @@
 #include "pbl/services/firmware_update.h"
 
 #include "apps/core/progress_ui.h"
-#include "flash_region/flash_region.h"
-#include "kernel/event_loop.h"
 #include "kernel/system_message.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "process_management/app_manager.h"
 #include "process_management/app_manager.h"
 #include "pbl/services/battery/battery_monitor.h"
-#include "pbl/services/system_task.h"
 #include "pbl/services/runlevel.h"
-#include "system/bootbits.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "system/reset.h"
 #include "pbl/util/math.h"
 
 #include "FreeRTOS.h"
 #include "semphr.h"
 
-#include <inttypes.h>
 #include <stdbool.h>
-#include <string.h>
 
 PBL_LOG_MODULE_DEFINE(service_firmware_update, CONFIG_SERVICE_FIRMWARE_UPDATE_LOG_LEVEL);
 

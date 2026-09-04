@@ -19,16 +19,13 @@
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/light.h"
 #include "pbl/services/new_timer/new_timer.h"
-#include "pbl/services/system_task.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 
 #include "pbl/util/size.h"
 
-#include <bluetooth/id.h>
 #include <bluetooth/pairing_confirm.h>
 
-#include <stdio.h>
 #include <string.h>
 
 #define CODE_BUF_SIZE 16

@@ -2,7 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "app_manager.h"
-#include "worker_manager.h"
 #include "process_loader.h"
 
 // Pebble stuff
@@ -11,8 +10,6 @@
 #include "applib/fonts/fonts.h"
 #include "applib/ui/dialogs/dialog.h"
 #include "applib/ui/dialogs/simple_dialog.h"
-#include "applib/ui/window_stack.h"
-#include "apps/system_app_ids.h"
 #include "console/prompt.h"
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
@@ -20,9 +17,7 @@
 #include "kernel/ui/modals/modal_manager.h"
 #include "kernel/util/segment.h"
 #include "kernel/util/task_init.h"
-#include "pbl/mcu/cache.h"
 #include "pbl/mcu/privilege.h"
-#include "pbl/os/mutex.h"
 #include "popups/health_tracking_ui.h"
 #include "popups/timeline/peek.h"
 #include "process_management/app_run_state.h"
@@ -35,7 +30,6 @@
 #include "pbl/services/compositor/compositor_transitions.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/light.h"
-#include "pbl/services/app_cache.h"
 #include "pbl/services/app_inbox_service.h"
 #include "pbl/services/app_outbox_service.h"
 #include "pbl/services/vibe_pattern.h"
@@ -51,7 +45,6 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/math.h"
-#include "pbl/util/size.h"
 
 // FreeRTOS stuff
 #include "FreeRTOS.h"
@@ -61,7 +54,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #define RETURN_CRASH_TIMEOUT_TICKS  (60 * RTC_TICKS_HZ)

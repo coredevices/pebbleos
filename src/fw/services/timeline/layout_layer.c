@@ -14,7 +14,6 @@
 
 #include "pbl/services/notifications/alerts_preferences_private.h"
 #include "system/passert.h"
-#include "applib/ui/status_bar_layer.h"
 
 static const LayoutLayerConstructor s_layout_constructors[NumLayoutIds] = {
   [LayoutIdGeneric] = generic_layout_create,

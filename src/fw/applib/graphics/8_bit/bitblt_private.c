@@ -5,9 +5,7 @@
 
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
-#include "system/profiler.h"
 #include "util/graphics.h"
-#include "util/bitset.h"
 #include "pbl/util/math.h"
 
 #if !defined(__clang__)

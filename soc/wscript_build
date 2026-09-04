@@ -1,6 +1,0 @@
-if bld.env.CONFIG_QEMU:
-    bld.recurse("qemu")
-elif bld.env.CONFIG_SOC_NRF52:
-    bld.recurse("nrf")
-elif bld.env.CONFIG_SOC_SF32LB52:
-    bld.recurse("sf32lb")

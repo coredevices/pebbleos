@@ -6,15 +6,9 @@
 #include "comm/bt_lock.h"
 #include "gap_le_scan.h"
 #include "kernel/events.h"
-#include "system/hexdump.h"
-#include <pbl/logging/logging.h>
 #include "system/passert.h"
 #include "pbl/util/circular_buffer.h"
 #include "pbl/util/likely.h"
-
-#include <pbl/btutil/bt_device.h>
-
-#include <string.h>
 
 // -----------------------------------------------------------------------------
 // Static Variables -- MUST be protected with bt_lock/unlock!

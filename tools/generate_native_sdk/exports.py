@@ -4,10 +4,12 @@
 import json
 import logging
 
+logger = logging.getLogger(__name__)
+
 INTERNAL_REVISION = 999
 
 
-class Export(object):
+class Export:
     def __init__(self, v, app_only, worker_only, deprecated):
         self.name = v["name"]
         self.type = v["type"]
@@ -24,7 +26,7 @@ class Export(object):
 
 class FullExport(Export):
     def __init__(self, v, app_only, worker_only, deprecated):
-        super(FullExport, self).__init__(v, app_only, worker_only, deprecated)
+        super().__init__(v, app_only, worker_only, deprecated)
 
         self.full_definition = None
 
@@ -34,7 +36,7 @@ class FullExport(Export):
 
 class FunctionExport(FullExport):
     def __init__(self, v, app_only, worker_only, deprecated):
-        super(FunctionExport, self).__init__(v, app_only, worker_only, deprecated)
+        super().__init__(v, app_only, worker_only, deprecated)
 
         self.removed = False
         self.skip_definition = v.get("skipDefinition", False)
@@ -50,12 +52,12 @@ class FunctionExport(FullExport):
         if self.removed or self.skip_definition:
             return True
 
-        return super(FunctionExport, self).complete()
+        return super().complete()
 
 
 class StubbedFunctionExport(Export):
     def __init__(self, v, app_only, worker_only, deprecated):
-        super(StubbedFunctionExport, self).__init__(
+        super().__init__(
             v, app_only, worker_only, deprecated
         )
 
@@ -71,7 +73,7 @@ class StubbedFunctionExport(Export):
         return True
 
 
-class Group(object):
+class Group:
     def __init__(
         self,
         export,
@@ -128,19 +130,17 @@ def parse_exports_list(
         # Functions marked internal must be assigned a revision number to be sorted later
         if e.get("internal", False):
             if "addedRevision" in e:
-                raise Exception(
-                    "Internal symbol %s should not have an addedRevision property"
-                    % e["name"]
+                raise RuntimeError(
+                    "Internal symbol {} should not have an addedRevision property".format(e["name"])
                 )
             else:
                 e["addedRevision"] = INTERNAL_REVISION
         if "addedRevision" in e:
             added_revision = int(e["addedRevision"])
             if added_revision > current_revision:
-                logging.warn(
-                    "Omitting '%s' from SDK export because its revision "
-                    "(%u) is higher than the current revision (%u)"
-                    % (e["name"], added_revision, current_revision)
+                logger.warning(
+                    ("Omitting '{}' from SDK export because its revision "
+                    "({:d}) is higher than the current revision ({:d})").format(e["name"], added_revision, current_revision)
                 )
                 continue
 
@@ -174,7 +174,7 @@ def parse_exports_list(
         elif e["type"] == "type" or e["type"] == "define":
             exports.append(FullExport(e, app_only, worker_only, deprecated))
         else:
-            raise Exception('Unknown type "%s" in export "%s"' % (e["type"], e["name"]))
+            raise RuntimeError('Unknown type "{}" in export "{}"'.format(e["type"], e["name"]))
 
     return exports
 
@@ -185,9 +185,8 @@ def parse_export_file(filename, internal_sdk_build, frozen_revision=None):
         file_revision = int(shim_defs["revision"])
 
         if file_revision >= INTERNAL_REVISION - 12:
-            raise Exception(
-                "File revision at %d is approaching INTERNAL_REVISION at %d"
-                % (file_revision, INTERNAL_REVISION)
+            raise RuntimeError(
+                f"File revision at {file_revision:d} is approaching INTERNAL_REVISION at {INTERNAL_REVISION:d}"
             )
 
         current_revision = INTERNAL_REVISION if internal_sdk_build else file_revision

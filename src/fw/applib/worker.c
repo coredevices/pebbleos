@@ -4,10 +4,8 @@
 #include "worker.h"
 
 #include "process_management/worker_manager.h"
-#include "process_state/worker_state/worker_state.h"
 #include "applib/event_service_client.h"
 #include "syscall/syscall.h"
-#include "pbl/services/event_service.h"
 #include <pbl/logging/logging.h>
 
 

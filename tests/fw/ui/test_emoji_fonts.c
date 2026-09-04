@@ -21,6 +21,7 @@
 /////////////////////
 
 #include "stubs_analytics.h"
+#include "stubs_app_install_manager.h"
 #include "stubs_app_state.h"
 #include "stubs_bootbits.h"
 #include "stubs_heap.h"
@@ -33,6 +34,7 @@
 #include "stubs_print.h"
 #include "stubs_prompt.h"
 #include "stubs_serial.h"
+#include "stubs_shell_prefs.h"
 #include "stubs_sleep.h"
 #include "stubs_syscalls.h"
 #include "stubs_task_watchdog.h"

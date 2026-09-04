@@ -6,7 +6,6 @@
 #include "applib/event_service_client.h"
 #include "applib/ui/dialogs/simple_dialog.h"
 
-#include <stdint.h>
 #include <stdbool.h>
 
 typedef void (*BtConnDialogResultHandler)(bool connected, void *context);

@@ -1,7 +1,6 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/blob_db/sync.h"
 #include "pbl/services/blob_db/endpoint_private.h"
 #include "pbl/services/blob_db/settings_blob_db.h"
 
@@ -14,11 +13,8 @@
 #include "system/status_codes.h"
 #include "system/hexdump.h"
 #include "pbl/util/attributes.h"
-#include "util/net.h"
 
 #include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
 
 PBL_LOG_MODULE_DECLARE(service_blob_db, CONFIG_SERVICE_BLOB_DB_LOG_LEVEL);
 

@@ -14,8 +14,6 @@
 #include "system/passert.h"
 #include "pbl/util/size.h"
 
-#include <string.h>
-
 typedef struct SettingsHealthData {
     SettingsCallbacks callbacks;
 } SettingsHealthData;

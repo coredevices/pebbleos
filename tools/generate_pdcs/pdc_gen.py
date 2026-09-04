@@ -9,12 +9,10 @@ Magic Word (4 bytes) - 'PDCI' for image, 'PDCS' for sequence
 Size (4 bytes) - size of PDC image or sequence following the header in bytes
 """
 
-import os
 import argparse
+import os
 
-from . import pebble_commands
-from . import svg2commands
-from . import json2commands
+from . import json2commands, pebble_commands, svg2commands
 
 
 def create_pdc_data_from_path(
@@ -24,7 +22,7 @@ def create_pdc_data_from_path(
     output = b""
     errors = []
     if not os.path.exists(path):
-        raise Exception("Invalid path")
+        raise RuntimeError("Invalid path")
 
     if verbose:
         print(path + ":")
@@ -102,11 +100,13 @@ def create_pdc_from_path(
 
     if output != b"":
         if out_path is None:
-            if sequence:
-                f = os.path.basename(dir_name.rstrip("/")) + ".pdc"
-            else:
+            if os.path.isfile(path):
+                dir_name = os.path.dirname(path)
                 base = os.path.basename(path)
                 f = ".".join(base.split(".")[:-1]) + ".pdc"
+            else:
+                dir_name = path
+                f = os.path.basename(dir_name.rstrip("/")) + ".pdc"
             out_path = os.path.join(dir_name, f)
         with open(out_path, "wb") as out_file:
             out_file.write(output)

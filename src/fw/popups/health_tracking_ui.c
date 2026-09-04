@@ -4,16 +4,12 @@
 #include "health_tracking_ui.h"
 
 #include "applib/ui/dialogs/expandable_dialog.h"
-#include "applib/ui/window_stack.h"
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/ui/modals/modal_manager.h"
-#include "process_management/app_manager.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/light.h"
-
-#include <stdio.h>
 
 typedef struct HealthTrackingUIData {
   uint32_t res_id;

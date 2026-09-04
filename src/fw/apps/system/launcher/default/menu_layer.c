@@ -9,13 +9,10 @@
 #include "applib/graphics/gtypes.h"
 #include "applib/ui/app_window_stack.h"
 #include "applib/ui/content_indicator.h"
-#include "kernel/pbl_malloc.h"
 #include "resource/resource_ids.auto.h"
-#include "pbl/services/timeline/timeline_resources.h"
 #include "system/passert.h"
 #include "shell/prefs.h"
 #include "pbl/util/attributes.h"
-#include "pbl/util/struct.h"
 
 #define LAUNCHER_MENU_LAYER_CONTENT_INDICATOR_LAYER_HEIGHT (32)
 #define LAUNCHER_MENU_LAYER_GENERIC_APP_ICON (RESOURCE_ID_MENU_LAYER_GENERIC_WATCHAPP_ICON)
