@@ -60,6 +60,9 @@ static int16_t s_clock_phone_timezone_id = -1;
 #define PREF_KEY_UNITS_DISTANCE "unitsDistance"
 static uint8_t s_units_distance = UnitsDistance_Miles;
 
+#define PREF_KEY_UNITS_WIND "unitsWind"
+static uint8_t s_units_wind = UnitsWind_FromDistance;
+
 #define PREF_KEY_BACKLIGHT_BEHAVIOUR_DEPRECATED "lightBehaviour"
 #define PREF_KEY_BACKLIGHT_ENABLED "lightEnabled"
 static bool s_backlight_enabled = true;
@@ -375,6 +378,15 @@ static bool prv_set_s_units_distance(uint8_t *new_unit) {
     return false;
   }
   s_units_distance = *new_unit;
+  return true;
+};
+
+static bool prv_set_s_units_wind(uint8_t *new_unit) {
+  if (*new_unit >= UnitsWindCount) {
+    s_units_wind = UnitsWind_FromDistance;
+    return false;
+  }
+  s_units_wind = *new_unit;
   return true;
 };
 
@@ -1269,6 +1281,19 @@ UnitsDistance shell_prefs_get_units_distance(void) {
 void shell_prefs_set_units_distance(UnitsDistance new_unit) {
   uint8_t uint_new_unit = new_unit;
   prv_pref_set(PREF_KEY_UNITS_DISTANCE, &uint_new_unit, sizeof(uint_new_unit));
+}
+
+UnitsWind shell_prefs_get_units_wind(void) {
+  if (s_units_wind == UnitsWind_FromDistance) {
+    return (shell_prefs_get_units_distance() == UnitsDistance_Miles) ? UnitsWind_Mph
+                                                                    : UnitsWind_KmH;
+  }
+  return s_units_wind;
+}
+
+void shell_prefs_set_units_wind(UnitsWind new_unit) {
+  uint8_t uint_new_unit = new_unit;
+  prv_pref_set(PREF_KEY_UNITS_WIND, &uint_new_unit, sizeof(uint_new_unit));
 }
 
 void shell_prefs_set_clock_24h_style(bool is24h) {

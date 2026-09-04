@@ -45,6 +45,7 @@ static const char *s_syncable_settings[] = {
 
   // Display preferences
   "unitsDistance",
+  "unitsWind",
   "textStyle",
   "stationaryMode",
 #ifdef CONFIG_ORIENTATION_MANAGER

@@ -4,6 +4,7 @@
   PREFS_MACRO(PREF_KEY_CLOCK_TIME_SOURCE_IS_MANUAL, s_clock_time_source_is_manual)
   PREFS_MACRO(PREF_KEY_CLOCK_PHONE_TIMEZONE_ID, s_clock_phone_timezone_id)
   PREFS_MACRO(PREF_KEY_UNITS_DISTANCE, s_units_distance)
+  PREFS_MACRO(PREF_KEY_UNITS_WIND, s_units_wind)
   PREFS_MACRO(PREF_KEY_BACKLIGHT_ENABLED, s_backlight_enabled)
   PREFS_MACRO(PREF_KEY_BACKLIGHT_AMBIENT_SENSOR_ENABLED, s_backlight_ambient_sensor_enabled)
   PREFS_MACRO(PREF_KEY_BACKLIGHT_TIMEOUT_MS, s_backlight_timeout_ms)

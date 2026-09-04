@@ -12,6 +12,7 @@
 #include "resource/resource.h"
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/timeline/timeline_resources.h"
+#include "shell/prefs.h"
 #include "shell/system_theme.h"
 #include "util/buffer.h"
 #include "util/graphics.h"
@@ -93,7 +94,21 @@ GContext *graphics_context_get_current_context(void) {
   return &s_ctx;
 }
 
+static UnitsDistance s_units_distance;
+static UnitsWind s_units_wind;
+
+UnitsDistance shell_prefs_get_units_distance(void) {
+  return s_units_distance;
+}
+
+UnitsWind shell_prefs_get_units_wind(void) {
+  return s_units_wind;
+}
+
 void test_weather_app_layout__initialize(void) {
+  s_units_distance = UnitsDistance_Miles;
+  s_units_wind = UnitsWind_Mph;
+
   fb = malloc(sizeof(FrameBuffer));
   framebuffer_init(fb, &(GSize) {DISP_COLS, DISP_ROWS});
 

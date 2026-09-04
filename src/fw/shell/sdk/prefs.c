@@ -286,6 +286,10 @@ UnitsDistance shell_prefs_get_units_distance(void) {
   return UnitsDistance_Miles;
 }
 
+UnitsWind shell_prefs_get_units_wind(void) {
+  return UnitsWind_Mph;
+}
+
 GColor shell_prefs_get_theme_highlight_color(void) {
   return PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorBlack);
 }

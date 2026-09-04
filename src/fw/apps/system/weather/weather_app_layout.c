@@ -4,6 +4,7 @@
 #include "weather_app_layout.h"
 #include "weather_math.h"
 #include "applib/graphics/gdraw_command_transforms.h"
+#include "shell/prefs.h"
 #include "resource_ids.pin.h"
 
 #include <string.h>
@@ -414,6 +415,16 @@ static bool prv_precip_is_the_headline(WeatherType t) {
          (t == WeatherType_RainAndSnow);
 }
 
+// The phone sends temperatures already converted to the user's units, so every absolute
+// threshold below has to be stated in those same units.
+static bool prv_is_imperial(void) {
+  return shell_prefs_get_units_distance() == UnitsDistance_Miles;
+}
+
+static int prv_temp(int celsius) {
+  return prv_is_imperial() ? (celsius * 9 / 5) + 32 : celsius;
+}
+
 // The day's weather WARNING, one short call, picked by severity — dangerous
 // conditions first, then exposure, then the rain question, then a calm sign-off
 // (the newspaper version's ladder, verbatim). v4.2 raw readings are -1 on older
@@ -441,14 +452,14 @@ static void prv_build_alert(const WeatherLocationForecast *f, char *buf, size_t 
     alert = "Flood risk";
   } else if (f->today_wind_mph >= 25) {
     alert = "Strong winds";
-  } else if (high_known && f->today_high <= 0) {       // an ice day
+  } else if (high_known && f->today_high <= prv_temp(0)) {   // an ice day
     alert = "Below freezing";
-  } else if (low_known && f->today_low <= -4) {
+  } else if (low_known && f->today_low <= prv_temp(-4)) {
     alert = "Hard frost";
-  } else if (feels_known && f->today_feels <= 0 &&
-             temp_known && f->current_temp > 0) {      // wind chill crosses zero
+  } else if (feels_known && f->today_feels <= prv_temp(0) &&
+             temp_known && f->current_temp > prv_temp(0)) {   // wind chill crosses zero
     alert = "Feels below freezing";
-  } else if (high_known && f->today_high >= 30) {
+  } else if (high_known && f->today_high >= prv_temp(30)) {
     alert = "Heatwave";
   } else if (f->today_uv >= 8) {
     alert = "Very high UV";
@@ -457,7 +468,7 @@ static void prv_build_alert(const WeatherLocationForecast *f, char *buf, size_t 
   } else if (wmo == 45 || wmo == 48 ||                 // fog / depositing rime fog
              (f->today_visibility_m >= 0 && f->today_visibility_m <= 1000)) {
     alert = "Poor visibility";
-  } else if (f->today_humidity >= 85 && high_known && f->today_high >= 20) {
+  } else if (f->today_humidity >= 85 && high_known && f->today_high >= prv_temp(20)) {
     alert = "High humidity";
   } else if (!prv_precip_is_the_headline(t) && f->today_precip_mm >= 60) {
     snprintf(likely, sizeof(likely), "%s likely", prv_precip_noun(t));
@@ -478,7 +489,8 @@ static void prv_build_alert(const WeatherLocationForecast *f, char *buf, size_t 
       alert = "Calm breeze";
     } else if (t == WeatherType_PartlyCloudy) {
       alert = "Fair conditions";
-    } else if (temp_known && f->current_temp >= 12 && f->current_temp <= 24) {
+    } else if (temp_known && f->current_temp >= prv_temp(12) &&
+               f->current_temp <= prv_temp(24)) {
       alert = "Mild conditions";
     } else {
       alert = "All clear";
@@ -510,12 +522,16 @@ static void prv_build_forecast_desc(const WeatherLocationForecast *f,
                           (strstr(alert, "Wind") != NULL) ||
                           (strstr(alert, "breeze") != NULL);
   if (f->today_wind_mph >= 0 && (size_t)n < buf_size) {
+    const bool mph = shell_prefs_get_units_wind() == UnitsWind_Mph;
+    const int speed = mph ? f->today_wind_mph
+                          : ((f->today_wind_mph * 1609) + 500) / 1000;
+    const char *unit = mph ? "mph" : "km/h";
     if (f->today_wind_dir_deg >= 0) {
-      n += snprintf(buf + n, buf_size - n, wind_alert ? " %s at %dmph." : " Winds %s at %dmph.",
-                    prv_compass8(f->today_wind_dir_deg), f->today_wind_mph);
+      n += snprintf(buf + n, buf_size - n, wind_alert ? " %s at %d%s." : " Winds %s at %d%s.",
+                    prv_compass8(f->today_wind_dir_deg), speed, unit);
     } else {
-      n += snprintf(buf + n, buf_size - n, wind_alert ? " At %dmph." : " Winds at %dmph.",
-                    f->today_wind_mph);
+      n += snprintf(buf + n, buf_size - n, wind_alert ? " At %d%s." : " Winds at %d%s.",
+                    speed, unit);
     }
     if (n < 0) return;
   }
