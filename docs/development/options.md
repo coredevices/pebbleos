@@ -29,6 +29,10 @@ this to `pbl configure`.
 
 ## Main features
 
+:`-DCONFIG_KERNEL_BACKEND_FREERTOS=y`:
+Build on the FreeRTOS shim instead of the default native kernel. Pass to
+`pbl configure`. See {doc}`../architecture/kernel`.
+
 :`-DCONFIG_MODDABLE_XS=y` / `-DCONFIG_MODDABLE_XS=n`:
 Force the Moddable SDK's XS JavaScript engine on or off, overriding
 the board defconfig. Pass to `pbl configure`. See {doc}`moddable`.

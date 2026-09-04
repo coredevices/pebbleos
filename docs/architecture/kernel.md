@@ -76,6 +76,7 @@ NPL port is written against the pbl API.
 
 ## Backends
 
-`CONFIG_KERNEL_BACKEND` selects the implementation. The FreeRTOS shim is the
-default; `CONFIG_KERNEL_BACKEND_NATIVE=y` selects PebbleOS's own kernel in
-`kernel/native`, described in [the native backend](kernel_native.md).
+`CONFIG_KERNEL_BACKEND` selects the implementation. The default is PebbleOS's
+own kernel in `kernel/native`, described in
+[the native backend](kernel_native.md); `CONFIG_KERNEL_BACKEND_FREERTOS=y`
+selects the FreeRTOS shim.

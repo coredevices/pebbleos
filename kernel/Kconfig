@@ -5,7 +5,7 @@ menu "Kernel"
 
 choice KERNEL_BACKEND
 	prompt "Kernel backend"
-	default KERNEL_BACKEND_FREERTOS
+	default KERNEL_BACKEND_NATIVE
 
 config KERNEL_BACKEND_FREERTOS
 	bool "FreeRTOS shim"
