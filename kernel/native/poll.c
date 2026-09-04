@@ -9,8 +9,6 @@ void pbl_poll_group_init(struct pbl_poll_group *g) {
   *g = (struct pbl_poll_group)PBL_POLL_GROUP_INITIALIZER;
 }
 
-void pbl_poll_group_kobj_init(void *g) { pbl_poll_group_init(g); }
-
 void pbl_poll_group_add(struct pbl_poll_group *g, struct pbl_msgq *q) {
   KERNEL_ASSERT(q->group == NULL);
   pbl_irq_lock();

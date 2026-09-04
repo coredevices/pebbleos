@@ -111,7 +111,8 @@ def generate_shim_files(
 
     compiler_flags = [f"-D{d}" for d in platform_info["DEFINES"]]
 
-    compiler_flags.append(f"-I{pbl_src_dir}/../kernel/freertos/include")
+    compiler_flags.append(f"-I{pbl_src_dir}/../kernel/native/include")
+    compiler_flags.append(f"-I{pbl_src_dir}/../kernel/native/arch/arm/include")
     if autoconf:
         compiler_flags.extend(["-imacros", autoconf])
 

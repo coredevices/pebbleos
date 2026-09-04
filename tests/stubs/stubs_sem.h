@@ -8,9 +8,6 @@
 void pbl_sem_init(struct pbl_sem *s, uint32_t initial, uint32_t limit) {
 }
 
-void pbl_sem_kobj_init(void *s) {
-}
-
 void pbl_sem_deinit(struct pbl_sem *s) {
 }
 

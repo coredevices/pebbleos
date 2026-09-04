@@ -182,9 +182,6 @@ int s_queue_value = 0;
 void pbl_sem_init(struct pbl_sem *s, uint32_t initial, uint32_t limit) {
 }
 
-void pbl_sem_kobj_init(void *s) {
-}
-
 int pbl_sem_take(struct pbl_sem *s, pbl_timeout_t timeout) {
   while (s_queue_value <= 0) {
     fake_system_task_callbacks_invoke_pending();

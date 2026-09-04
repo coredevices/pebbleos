@@ -157,7 +157,7 @@ static void prv_giver(void *arg) {
 }
 
 void test_native_kernel__semaphore_handoff_and_timeout(void) {
-  pbl_sem_kobj_init(&s_sem);
+  pbl_sem_init(&s_sem, s_sem.initial, s_sem.limit);
   prv_spawn(0, "taker", 3, prv_taker, NULL);
   prv_spawn(1, "giver", 2, prv_giver, NULL);
   pbl_test_kernel_run();
@@ -182,7 +182,7 @@ static void prv_isr_giver(void *arg) {
 }
 
 void test_native_kernel__semaphore_give_from_isr(void) {
-  pbl_sem_kobj_init(&s_sem);
+  pbl_sem_init(&s_sem, s_sem.initial, s_sem.limit);
   prv_spawn(0, "taker", 3, prv_isr_taker, NULL);
   prv_spawn(1, "giver", 2, prv_isr_giver, NULL);
   pbl_test_kernel_run();
@@ -234,7 +234,7 @@ static void prv_pi_high(void *arg) {
 }
 
 void test_native_kernel__mutex_priority_inheritance(void) {
-  pbl_mutex_kobj_init(&s_mutex);
+  pbl_mutex_init(&s_mutex);
   prv_spawn(0, "low", 1, prv_pi_low, NULL);
   prv_spawn(1, "med", 2, prv_pi_medium, NULL);
   prv_spawn(2, "high", 4, prv_pi_high, NULL);
@@ -256,7 +256,7 @@ static void prv_recursive(void *arg) {
 }
 
 void test_native_kernel__mutex_recursive(void) {
-  pbl_mutex_kobj_init(&s_mutex);
+  pbl_mutex_init(&s_mutex);
   prv_spawn(0, "r", 2, prv_recursive, NULL);
   pbl_test_kernel_run();
 }
@@ -278,7 +278,7 @@ static void prv_timed_locker(void *arg) {
 }
 
 void test_native_kernel__mutex_timeouts(void) {
-  pbl_mutex_kobj_init(&s_mutex);
+  pbl_mutex_init(&s_mutex);
   prv_spawn(0, "holder", 2, prv_holder, NULL);
   prv_spawn(1, "locker", 3, prv_timed_locker, NULL);
   pbl_test_kernel_run();
@@ -311,7 +311,7 @@ static void prv_consumer(void *arg) {
 }
 
 void test_native_kernel__msgq_blocks_full_and_empty(void) {
-  pbl_msgq_kobj_init(&s_q);
+  pbl_msgq_init(&s_q, s_q.buf, s_q.msg_size, s_q.max_msgs);
   prv_spawn(0, "producer", 2, prv_producer, NULL);
   prv_spawn(1, "consumer", 3, prv_consumer, NULL);
   pbl_test_kernel_run();
@@ -369,9 +369,9 @@ static void prv_poll_poster(void *arg) {
 }
 
 void test_native_kernel__poll_group(void) {
-  pbl_msgq_kobj_init(&s_qa);
-  pbl_msgq_kobj_init(&s_qb);
-  pbl_poll_group_kobj_init(&s_group);
+  pbl_msgq_init(&s_qa, s_qa.buf, s_qa.msg_size, s_qa.max_msgs);
+  pbl_msgq_init(&s_qb, s_qb.buf, s_qb.msg_size, s_qb.max_msgs);
+  pbl_poll_group_init(&s_group);
   pbl_poll_group_add(&s_group, &s_qa);
   pbl_poll_group_add(&s_group, &s_qb);
   prv_spawn(0, "waiter", 3, prv_poll_waiter, NULL);
@@ -488,7 +488,7 @@ static void prv_sched_waiter(void *arg) {
 }
 
 void test_native_kernel__sched_lock_defers_switch(void) {
-  pbl_sem_kobj_init(&s_sem);
+  pbl_sem_init(&s_sem, s_sem.initial, s_sem.limit);
   prv_spawn(0, "waiter", 3, prv_sched_waiter, NULL);
   prv_spawn(1, "locker", 2, prv_sched_locked, NULL);
   pbl_test_kernel_run();

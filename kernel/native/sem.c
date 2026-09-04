@@ -11,11 +11,6 @@ void pbl_sem_init(struct pbl_sem *s, uint32_t initial, uint32_t limit) {
   s->backend.count = initial;
 }
 
-void pbl_sem_kobj_init(void *s) {
-  struct pbl_sem *sem = s;
-  pbl_sem_init(sem, sem->initial, sem->limit);
-}
-
 void pbl_sem_deinit(struct pbl_sem *s) { (void)s; }
 
 int pbl_sem_take(struct pbl_sem *s, pbl_timeout_t timeout) {

@@ -38,18 +38,3 @@ typedef uint8_t pbl_prio_t;
 
 struct pbl_thread;
 
-//! Registration record for objects defined at file scope; walked by pbl_kernel_init().
-struct pbl_kobj_init {
-  void (*init)(void *obj);
-  void *obj;
-};
-
-#ifdef __MACH__
-#define PBL_KOBJ_SECTION "__DATA,pbl_kobj_init"
-#else
-#define PBL_KOBJ_SECTION ".pbl_kobj_init"
-#endif
-
-#define PBL_KOBJ_REGISTER(name, fn)                                            \
-  static const struct pbl_kobj_init name##_kinit                               \
-      __attribute__((used, section(PBL_KOBJ_SECTION))) = { .init = (fn), .obj = (void *)&(name) }

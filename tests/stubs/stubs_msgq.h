@@ -9,9 +9,6 @@
 void pbl_msgq_init(struct pbl_msgq *q, void *buf, size_t msg_size, uint32_t max_msgs) {
 }
 
-void pbl_msgq_kobj_init(void *def) {
-}
-
 void pbl_msgq_deinit(struct pbl_msgq *q) {
 }
 
@@ -43,9 +40,6 @@ uint32_t pbl_msgq_num_free(const struct pbl_msgq *q) {
 }
 
 void pbl_poll_group_init(struct pbl_poll_group *g) {
-}
-
-void pbl_poll_group_kobj_init(void *g) {
 }
 
 void pbl_poll_group_add(struct pbl_poll_group *g, struct pbl_msgq *q) {

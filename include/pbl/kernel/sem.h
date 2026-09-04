@@ -15,12 +15,10 @@ struct pbl_sem {
 #define PBL_SEM_INITIALIZER(init, lim) \
   { .initial = (init), .limit = (lim), .backend = PBL_SEM_BACKEND_INITIALIZER(init) }
 
-#define PBL_SEM_DEFINE(name, initial, limit)                 \
-  struct pbl_sem name = PBL_SEM_INITIALIZER(initial, limit); \
-  PBL_KOBJ_REGISTER(name, pbl_sem_kobj_init)
+#define PBL_SEM_DEFINE(name, initial, limit) \
+  struct pbl_sem name = PBL_SEM_INITIALIZER(initial, limit)
 
 void pbl_sem_init(struct pbl_sem *s, uint32_t initial, uint32_t limit);
-void pbl_sem_kobj_init(void *s);
 
 //! Required before the memory of a dynamically allocated semaphore is reused.
 void pbl_sem_deinit(struct pbl_sem *s);

@@ -2,19 +2,17 @@
 
 `kernel/` owns every RTOS primitive the firmware uses. The public API lives in
 `include/pbl/kernel/` and is the only threading interface the rest of the tree
-may use. FreeRTOS is an implementation detail of `kernel/freertos/`.
+may use. The implementation is PebbleOS's own; its internals are described in
+[kernel internals](kernel_native.md).
 
 ## Layout
 
 ```
-include/pbl/kernel/     public API: types, irq, thread, mutex, sem, msgq, poll, sched, debug
-kernel/                 backend-independent code: kobj init walk, tick conversion
-kernel/freertos/        shim over third_party/freertos
-kernel/freertos/include/pbl/kernel/backend.h   per-object backend state (a FreeRTOS handle)
+include/pbl/kernel/     public API: types, irq, thread, mutex, sem, msgq, poll, sched, idle, debug
+kernel/                 backend-independent code: tick conversion
+kernel/native/          scheduler, objects and the Cortex-M and POSIX ports
+kernel/native/include/pbl/kernel/backend.h   per-object private state
 ```
-
-Exactly one backend directory is on the include path, so `backend.h` selects
-the per-object private state at compile time.
 
 ## Objects
 
@@ -29,7 +27,10 @@ the per-object private state at compile time.
 Conventions:
 
 - Every object is a caller-owned struct; there is no create/destroy pair that
-  hands out heap handles.
+  hands out heap handles. A `PBL_*_DEFINE` is a complete static initialiser,
+  so a defined object is usable before the scheduler starts and needs no init
+  call. `pbl_*_init()` exists for objects that live in dynamically allocated
+  memory.
 - Blocking calls take a `pbl_timeout_t` (`PBL_NO_WAIT`, `PBL_FOREVER`,
   `PBL_MSEC()`, `PBL_TICKS()`). The struct type stops ticks/ms mix-ups.
 - Return `int`: 0 on success, `-EAGAIN` on timeout, `-EBUSY` for `PBL_NO_WAIT`.
@@ -38,45 +39,31 @@ Conventions:
 - Mutexes are recursive with owner and lock-site tracking. Non-recursive
   intent is expressed with `pbl_mutex_assert_held(m, false)`.
 - Priorities: higher is more urgent, `PBL_PRIO_IDLE` .. `PBL_PRIO_MAX`.
-
-### Static definition under a runtime-initialised backend
-
-FreeRTOS objects need runtime construction, so each `PBL_*_DEFINE` also emits
-a `struct pbl_kobj_init` record into `.pbl_kobj_init`; `pbl_kernel_init()`
-walks that section once before anything else runs. A backend whose
-initialisers are complete at compile time makes the walk a no-op.
-
-The FreeRTOS fork is V8.2.1 and predates `xCreateStatic()`, so the shim keeps
-the FreeRTOS control block on the heap behind `backend.handle`. That matches
-today's cost and goes away with a native backend.
+- Returning from a thread entry function ends the thread.
 
 ### Threads
 
 `pbl_thread_create()` takes a `struct pbl_thread_attr`: entry, priority,
 privileged flag, a caller-owned stack and up to four `MpuRegion`s that are
-switched in with the thread. The shim keeps the `struct pbl_thread *`
-back-pointer in the last FreeRTOS TLS slot; `pbl_thread.tls[]` replaces the
-remaining FreeRTOS TLS pointers.
+switched in with the thread. `pbl_thread.tls[]` holds the per-thread pointers
+the syscall layer needs.
 
 ### Introspection
 
 `debug.h` covers what core dumps, fault handling, stack checks and telemetry
-read from FreeRTOS internals: a thread walk with saved registers in the
-canonical order the core dump format expects, saved PC/LR/CONTROL of a
-blocked thread, stack bounds and high-water marks, and a run-time stats
-snapshot.
+need: a thread walk with saved registers in the canonical order the core dump
+format expects, saved PC/LR/CONTROL of a blocked thread, stack bounds and
+high-water marks, and a run-time stats snapshot.
 
-## Boundary
+### Idle
 
-`third_party/freertos` exports its include directories only to
-`kernel/freertos`, which also holds `FreeRTOSConfig.h` and the port hooks.
-Anything else that includes a FreeRTOS header fails to compile. The SoC
-tickless-idle code talks to the kernel through `pbl/kernel/idle.h`; NimBLE's
-NPL port is written against the pbl API.
+The SoC tickless-idle code talks to the kernel through `pbl/kernel/idle.h`:
+`pbl_soc_idle()` and `pbl_soc_tick_enable()` are implemented per SoC, and
+`pbl_idle_confirm()`, `pbl_idle_slept()` and `pbl_kernel_tick_isr()` are what
+the kernel provides in return.
 
-## Backends
+## Configuration
 
-`CONFIG_KERNEL_BACKEND` selects the implementation. The default is PebbleOS's
-own kernel in `kernel/native`, described in
-[the native backend](kernel_native.md); `CONFIG_KERNEL_BACKEND_FREERTOS=y`
-selects the FreeRTOS shim.
+`kernel/Kconfig` holds the tick rate, the number of priorities, the NVIC
+priority levels the kernel uses, the thread limit, the TLS slot count and the
+stack alignment the MPU guard needs.

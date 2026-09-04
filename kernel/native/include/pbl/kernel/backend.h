@@ -59,6 +59,3 @@ struct pbl_poll_group_backend {
 
 #define PBL_SEM_BACKEND_INITIALIZER(initial) { .count = (initial) }
 
-#define PBL_KERNEL_MSGQ_NEEDS_BUF 1
-//! PBL_*_DEFINE initialisers are complete; pbl_kernel_init() has nothing to do.
-#define PBL_KERNEL_KOBJ_RUNTIME_INIT 0

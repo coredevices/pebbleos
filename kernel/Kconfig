@@ -3,23 +3,6 @@
 
 menu "Kernel"
 
-choice KERNEL_BACKEND
-	prompt "Kernel backend"
-	default KERNEL_BACKEND_NATIVE
-
-config KERNEL_BACKEND_FREERTOS
-	bool "FreeRTOS shim"
-	help
-	  Implements the pbl kernel API on the FreeRTOS fork in
-	  third_party/freertos.
-
-config KERNEL_BACKEND_NATIVE
-	bool "Native kernel"
-	help
-	  PebbleOS's own scheduler and Cortex-M port in kernel/native.
-
-endchoice
-
 config KERNEL_IDLE_STACK_SIZE
 	int "Idle thread stack size in bytes"
 	default 1024

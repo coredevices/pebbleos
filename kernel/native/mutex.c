@@ -7,8 +7,6 @@
 
 void pbl_mutex_init(struct pbl_mutex *m) { *m = (struct pbl_mutex)PBL_MUTEX_INITIALIZER; }
 
-void pbl_mutex_kobj_init(void *m) { pbl_mutex_init(m); }
-
 void pbl_mutex_deinit(struct pbl_mutex *m) { KERNEL_ASSERT(m->count == 0); }
 
 int pbl_mutex_lock_lr(struct pbl_mutex *m, pbl_timeout_t timeout, uintptr_t lr) {

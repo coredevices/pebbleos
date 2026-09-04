@@ -111,10 +111,6 @@ void pbl_mutex_init(struct pbl_mutex *m) {
   prv_get(m)->lock_count = 0;
 }
 
-void pbl_mutex_kobj_init(void *m) {
-  pbl_mutex_init(m);
-}
-
 void pbl_mutex_deinit(struct pbl_mutex *m) {
   FakePebbleMutex *fake = prv_get(m);
   list_remove((ListNode *)fake, (ListNode **)&s_mutex_list, NULL);

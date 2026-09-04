@@ -39,14 +39,8 @@ function(pbl_link_firmware)
     set(map_options -Wl,--cref -Wl,-Map=pebbleos.map)
   endif()
 
-  if(CONFIG_KERNEL_BACKEND_FREERTOS)
-    # OpenOCD's FreeRTOS thread awareness reads this symbol.
-    set(rtos_options -Wl,--undefined=uxTopUsedPriority)
-  endif()
-
   target_link_options(pebbleos PRIVATE
     ${map_options}
-    ${rtos_options}
     -Wl,--gc-sections
     -Wl,--build-id=sha1
     -Wl,--sort-section=alignment

@@ -26,7 +26,7 @@ communication).
 
 ## Task model
 
-The firmware runs a fixed set of FreeRTOS tasks, enumerated in
+The firmware runs a fixed set of kernel threads, enumerated in
 `src/fw/kernel/pebble_tasks.h`: KernelMain, KernelBackground, Worker, App,
 the Bluetooth tasks (host, controller, HCI), NewTimers and
 [PULSE](../reference/pulse2/pulse2.md). `main()`

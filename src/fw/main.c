@@ -114,7 +114,6 @@ int main(void) {
   enable_fault_handlers();
 
   kernel_heap_init();
-  pbl_kernel_init();
 
   mbuf_init();
   delay_init();

@@ -5,9 +5,6 @@
 
 #include "pbl/kernel/types.h"
 
-//! Initialises every object registered with PBL_*_DEFINE. Call before any kernel API.
-void pbl_kernel_init(void);
-
 //! Starts the scheduler; never returns.
 void pbl_kernel_start(void) __attribute__((noreturn));
 

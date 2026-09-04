@@ -15,12 +15,9 @@ struct pbl_mutex {
 
 #define PBL_MUTEX_INITIALIZER { .owner = NULL, .count = 0, .lock_lr = 0 }
 
-#define PBL_MUTEX_DEFINE(name)                   \
-  struct pbl_mutex name = PBL_MUTEX_INITIALIZER; \
-  PBL_KOBJ_REGISTER(name, pbl_mutex_kobj_init)
+#define PBL_MUTEX_DEFINE(name) struct pbl_mutex name = PBL_MUTEX_INITIALIZER
 
 void pbl_mutex_init(struct pbl_mutex *m);
-void pbl_mutex_kobj_init(void *m);
 
 //! Required before the memory of a dynamically allocated mutex is reused.
 void pbl_mutex_deinit(struct pbl_mutex *m);

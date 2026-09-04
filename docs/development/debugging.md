@@ -9,7 +9,8 @@ pbl debug
 ```
 
 On QEMU boards this attaches GDB to the {doc}`emulator <./qemu>` through a
-proxy (`tools/qemu/qemu_gdb_proxy.py`) that adds FreeRTOS thread awareness,
+proxy (`tools/qemu/qemu_gdb_proxy.py`) that adds thread awareness (written against FreeRTOS task structures; it needs
+porting to the kernel's thread list),
 so `info threads` and per-thread backtraces work. On real hardware,
 `pbl debug` is available on boards whose runner is OpenOCD (e.g. asterix,
 configured by `boards/asterix/support/openocd.cfg`); boards flashed via

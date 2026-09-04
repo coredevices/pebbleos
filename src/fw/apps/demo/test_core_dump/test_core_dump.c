@@ -15,7 +15,6 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 
-#include "FreeRTOSConfig.h"
 
 
 #define NUM_MENU_ITEMS 13

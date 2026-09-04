@@ -15,12 +15,9 @@ struct pbl_poll_group {
 
 #define PBL_POLL_GROUP_INITIALIZER { .members = NULL, .capacity = 0 }
 
-#define PBL_POLL_GROUP_DEFINE(name)                        \
-  struct pbl_poll_group name = PBL_POLL_GROUP_INITIALIZER; \
-  PBL_KOBJ_REGISTER(name, pbl_poll_group_kobj_init)
+#define PBL_POLL_GROUP_DEFINE(name) struct pbl_poll_group name = PBL_POLL_GROUP_INITIALIZER
 
 void pbl_poll_group_init(struct pbl_poll_group *g);
-void pbl_poll_group_kobj_init(void *g);
 
 //! @p q must be empty and may belong to one group only.
 void pbl_poll_group_add(struct pbl_poll_group *g, struct pbl_msgq *q);

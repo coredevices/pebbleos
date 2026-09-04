@@ -13,12 +13,10 @@ pbl_clar_test(test_native_kernel
     kernel/native/irq.c
     kernel/native/debug.c
     kernel/native/arch/posix/arch.c
-  OVERRIDES kernel_native
   INCLUDES
     kernel/native
     kernel/native/arch
     kernel/native/arch/posix/include
   DEFINES
-    CONFIG_KERNEL_BACKEND_NATIVE=1
     CONFIG_KERNEL_IDLE_STACK_SIZE=1024
 )

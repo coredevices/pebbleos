@@ -316,9 +316,6 @@ Heap *worker_state_get_heap(void) {
 void pbl_msgq_init(struct pbl_msgq *q, void *buf, size_t msg_size, uint32_t max_msgs) {
 }
 
-void pbl_msgq_kobj_init(void *def) {
-}
-
 int pbl_msgq_put(struct pbl_msgq *q, const void *msg, pbl_timeout_t timeout) {
   if (q == app_manager_get_task_context()->to_process_event_queue) {
     s_last_to_app_event = *(PebbleEvent*) msg;

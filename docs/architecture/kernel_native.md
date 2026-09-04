@@ -1,8 +1,8 @@
-# Native kernel backend
+# Kernel internals
 
-`kernel/native` implements `include/pbl/kernel` without FreeRTOS and is the
-default backend; `CONFIG_KERNEL_BACKEND_FREERTOS=y` selects the FreeRTOS shim
-in `kernel/freertos` instead.
+`kernel/native` implements `include/pbl/kernel`. It replaced a FreeRTOS shim;
+the comparison and benchmark sections below record how the two compared
+while both existed.
 
 ## Layout
 

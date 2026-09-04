@@ -42,9 +42,6 @@ static bool s_mutex_locked;
 void pbl_mutex_init(struct pbl_mutex *m) {
 }
 
-void pbl_mutex_kobj_init(void *m) {
-}
-
 int pbl_mutex_lock_lr(struct pbl_mutex *m, pbl_timeout_t timeout, uintptr_t lr) {
   cl_assert_equal_b(s_mutex_locked, false);
   s_mutex_locked = true;

@@ -59,11 +59,6 @@ void pbl_sem_init(struct pbl_sem *s, uint32_t initial, uint32_t limit) {
   fake->limit = limit;
 }
 
-void pbl_sem_kobj_init(void *s) {
-  struct pbl_sem *sem = s;
-  pbl_sem_init(sem, sem->initial, sem->limit);
-}
-
 void pbl_sem_deinit(struct pbl_sem *s) {
   FakeSem *fake = prv_fake_sem_get(s);
   list_remove((ListNode *)fake, (ListNode **)&s_fake_sem_list, NULL);

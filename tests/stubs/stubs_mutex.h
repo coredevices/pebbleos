@@ -8,9 +8,6 @@
 void pbl_mutex_init(struct pbl_mutex *m) {
 }
 
-void pbl_mutex_kobj_init(void *m) {
-}
-
 void pbl_mutex_deinit(struct pbl_mutex *m) {
 }
 

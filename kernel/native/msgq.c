@@ -13,11 +13,6 @@ void pbl_msgq_init(struct pbl_msgq *q, void *buf, size_t msg_size, uint32_t max_
   *q = (struct pbl_msgq)PBL_MSGQ_INITIALIZER(buf, msg_size, max_msgs);
 }
 
-void pbl_msgq_kobj_init(void *obj) {
-  struct pbl_msgq *q = obj;
-  pbl_msgq_init(q, q->buf, q->msg_size, q->max_msgs);
-}
-
 void pbl_msgq_deinit(struct pbl_msgq *q) { KERNEL_ASSERT(q->group == NULL); }
 
 static uint8_t *prv_slot(struct pbl_msgq *q, uint32_t index) {
