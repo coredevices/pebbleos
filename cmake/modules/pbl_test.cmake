@@ -58,8 +58,7 @@ set(PBL_TEST_INCLUDES_TAIL
   tests/test_includes
   tests
   include
-  kernel/native/include
-  kernel/native/arch/posix/include
+  kernel/arch/posix/include
   subsys
   src/core
   src/fw

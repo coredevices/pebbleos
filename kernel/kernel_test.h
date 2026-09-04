@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-//! Host-only harness for the native kernel on the POSIX arch.
+//! Host-only harness for the kernel on the POSIX arch.
 
 //! Runs the scheduler with the threads created so far until a thread calls
 //! pbl_test_kernel_stop(); then tears every thread down.

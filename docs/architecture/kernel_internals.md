@@ -1,6 +1,6 @@
 # Kernel internals
 
-`kernel/native` implements `include/pbl/kernel`. It replaced a FreeRTOS shim;
+`kernel/` implements `include/pbl/kernel`. It replaced a FreeRTOS shim;
 the comparison and benchmark sections below record how the two compared
 while both existed.
 
@@ -92,7 +92,7 @@ passes when the kernel would switch. Interrupts are simulated: a test wraps
 calls in `pbl_test_isr_enter()`/`exit()` and delivers ticks with
 `pbl_test_tick()`. When every thread is blocked, the idle hook jumps the
 clock to the next timeout. This makes the scheduling decisions exactly
-reproducible, so `tests/kernel/test_native_kernel.c` can assert trace
+reproducible, so `tests/kernel/test_kernel.c` can assert trace
 strings such as "lhLHMd" for the priority-inheritance scenario.
 
 ## Compared with other kernels
@@ -179,7 +179,7 @@ Reading the numbers:
   `CONFIG_KERNEL_TICK_HZ`.
 - `thread_create_exit` sleeps a tick every 16 iterations (excluded from the
   measurement) so that FreeRTOS's idle task can reclaim deleted TCBs; the
-  native backend needs no reclamation since the thread object is static.
+  kernel needs no reclamation since the thread object is static.
 
 Code size of the kernel library alone (`arm-none-eabi-size`, `-Os`):
 
@@ -193,7 +193,7 @@ comes out of the FreeRTOS heap instead.
 
 ## Verification
 
-- `tests/kernel/test_native_kernel`: 18 host tests on the POSIX arch.
+- `tests/kernel/test_kernel`: 18 host tests on the POSIX arch.
 - qemu_gabbro and qemu_flint: boot to the watchface, launch an app from the
   launcher and back out, a gdb breakpoint sweep on every assert and fault
   entry point, and the benchmark suite. Not yet run on real hardware.

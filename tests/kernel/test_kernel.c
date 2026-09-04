@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// The native kernel on the POSIX arch: threads are pthreads that run one at
+// The kernel on the POSIX arch: threads are pthreads that run one at
 // a time under the kernel's scheduling decisions, and time only moves when a
 // test delivers ticks or every thread is blocked.
 
@@ -55,12 +55,12 @@ static struct pbl_thread *prv_spawn(int i, const char *name, pbl_prio_t prio,
   return &s_threads[i];
 }
 
-void test_native_kernel__initialize(void) {
+void test_kernel__initialize(void) {
   s_trace[0] = '\0';
   memset(s_threads, 0, sizeof(s_threads));
 }
 
-void test_native_kernel__cleanup(void) {
+void test_kernel__cleanup(void) {
 }
 
 // ---- scheduling -------------------------------------------------------------
@@ -76,7 +76,7 @@ static void prv_hi_entry(void *arg) {
   prv_trace('h');
 }
 
-void test_native_kernel__priority_preempts(void) {
+void test_kernel__priority_preempts(void) {
   prv_spawn(0, "lo", 1, prv_lo_entry, NULL);
   prv_spawn(1, "hi", 3, prv_hi_entry, NULL);
   pbl_test_kernel_run();
@@ -93,7 +93,7 @@ static void prv_sleep_then_stop(void *arg) {
   pbl_test_kernel_stop();
 }
 
-void test_native_kernel__sleep_advances_virtual_time(void) {
+void test_kernel__sleep_advances_virtual_time(void) {
   prv_spawn(0, "sleeper", 2, prv_sleep_then_stop, NULL);
   pbl_test_kernel_run();
   cl_assert_equal_s(s_trace, "S");
@@ -110,7 +110,7 @@ static void prv_rr_entry(void *arg) {
   }
 }
 
-void test_native_kernel__yield_round_robins_equal_priority(void) {
+void test_kernel__yield_round_robins_equal_priority(void) {
   prv_spawn(0, "a", 2, prv_rr_entry, (void *)'A');
   prv_spawn(1, "b", 2, prv_rr_entry, (void *)'B');
   pbl_test_kernel_run();
@@ -129,7 +129,7 @@ static void prv_spin_entry(void *arg) {
   }
 }
 
-void test_native_kernel__tick_time_slices(void) {
+void test_kernel__tick_time_slices(void) {
   prv_spawn(0, "a", 2, prv_spin_entry, (void *)'A');
   prv_spawn(1, "b", 2, prv_spin_entry, (void *)'B');
   pbl_test_kernel_run();
@@ -156,7 +156,7 @@ static void prv_giver(void *arg) {
   prv_trace('G');
 }
 
-void test_native_kernel__semaphore_handoff_and_timeout(void) {
+void test_kernel__semaphore_handoff_and_timeout(void) {
   pbl_sem_init(&s_sem, s_sem.initial, s_sem.limit);
   prv_spawn(0, "taker", 3, prv_taker, NULL);
   prv_spawn(1, "giver", 2, prv_giver, NULL);
@@ -181,7 +181,7 @@ static void prv_isr_giver(void *arg) {
   prv_trace('r');
 }
 
-void test_native_kernel__semaphore_give_from_isr(void) {
+void test_kernel__semaphore_give_from_isr(void) {
   pbl_sem_init(&s_sem, s_sem.initial, s_sem.limit);
   prv_spawn(0, "taker", 3, prv_isr_taker, NULL);
   prv_spawn(1, "giver", 2, prv_isr_giver, NULL);
@@ -189,7 +189,7 @@ void test_native_kernel__semaphore_give_from_isr(void) {
   cl_assert_equal_s(s_trace, "igT");
 }
 
-void test_native_kernel__semaphore_counts_to_limit(void) {
+void test_kernel__semaphore_counts_to_limit(void) {
   struct pbl_sem s;
   pbl_sem_init(&s, 0, 2);
   pbl_sem_give(&s);
@@ -233,7 +233,7 @@ static void prv_pi_high(void *arg) {
   pbl_test_kernel_stop();
 }
 
-void test_native_kernel__mutex_priority_inheritance(void) {
+void test_kernel__mutex_priority_inheritance(void) {
   pbl_mutex_init(&s_mutex);
   prv_spawn(0, "low", 1, prv_pi_low, NULL);
   prv_spawn(1, "med", 2, prv_pi_medium, NULL);
@@ -255,7 +255,7 @@ static void prv_recursive(void *arg) {
   pbl_test_kernel_stop();
 }
 
-void test_native_kernel__mutex_recursive(void) {
+void test_kernel__mutex_recursive(void) {
   pbl_mutex_init(&s_mutex);
   prv_spawn(0, "r", 2, prv_recursive, NULL);
   pbl_test_kernel_run();
@@ -277,7 +277,7 @@ static void prv_timed_locker(void *arg) {
   pbl_test_kernel_stop();
 }
 
-void test_native_kernel__mutex_timeouts(void) {
+void test_kernel__mutex_timeouts(void) {
   pbl_mutex_init(&s_mutex);
   prv_spawn(0, "holder", 2, prv_holder, NULL);
   prv_spawn(1, "locker", 3, prv_timed_locker, NULL);
@@ -310,7 +310,7 @@ static void prv_consumer(void *arg) {
   pbl_test_kernel_stop();
 }
 
-void test_native_kernel__msgq_blocks_full_and_empty(void) {
+void test_kernel__msgq_blocks_full_and_empty(void) {
   pbl_msgq_init(&s_q, s_q.buf, s_q.msg_size, s_q.max_msgs);
   prv_spawn(0, "producer", 2, prv_producer, NULL);
   prv_spawn(1, "consumer", 3, prv_consumer, NULL);
@@ -320,7 +320,7 @@ void test_native_kernel__msgq_blocks_full_and_empty(void) {
   cl_assert_equal_s(s_trace, "12abc3d4");
 }
 
-void test_native_kernel__msgq_front_peek_purge(void) {
+void test_kernel__msgq_front_peek_purge(void) {
   int buf[3];
   struct pbl_msgq q;
   pbl_msgq_init(&q, buf, sizeof(int), 3);
@@ -368,7 +368,7 @@ static void prv_poll_poster(void *arg) {
   pbl_msgq_put(&s_qb, &v, PBL_NO_WAIT);
 }
 
-void test_native_kernel__poll_group(void) {
+void test_kernel__poll_group(void) {
   pbl_msgq_init(&s_qa, s_qa.buf, s_qa.msg_size, s_qa.max_msgs);
   pbl_msgq_init(&s_qb, s_qb.buf, s_qb.msg_size, s_qb.max_msgs);
   pbl_poll_group_init(&s_group);
@@ -405,7 +405,7 @@ static void prv_controller(void *arg) {
   pbl_test_kernel_stop();
 }
 
-void test_native_kernel__suspend_resume_abort(void) {
+void test_kernel__suspend_resume_abort(void) {
   struct pbl_thread *victim = prv_spawn(0, "victim", 2, prv_victim, NULL);
   prv_spawn(1, "ctl", 3, prv_controller, victim);
   pbl_test_kernel_run();
@@ -423,7 +423,7 @@ static void prv_watcher(void *arg) {
   pbl_test_kernel_stop();
 }
 
-void test_native_kernel__thread_exit_on_return(void) {
+void test_kernel__thread_exit_on_return(void) {
   prv_spawn(0, "short", 3, prv_short_lived, NULL);
   prv_spawn(1, "watch", 2, prv_watcher, NULL);
   pbl_test_kernel_run();
@@ -446,7 +446,7 @@ static void prv_stats_entry(void *arg) {
   pbl_test_kernel_stop();
 }
 
-void test_native_kernel__stats_and_stack_info(void) {
+void test_kernel__stats_and_stack_info(void) {
   prv_spawn(0, "stats", 2, prv_stats_entry, NULL);
   pbl_test_kernel_run();
 }
@@ -464,7 +464,7 @@ static void prv_raised(void *arg) {
   cl_assert_equal_i(pbl_thread_prio_get(pbl_thread_current()), 4);
 }
 
-void test_native_kernel__prio_set_preempts(void) {
+void test_kernel__prio_set_preempts(void) {
   struct pbl_thread *other = prv_spawn(0, "other", 1, prv_raised, NULL);
   prv_spawn(1, "raiser", 3, prv_prio_raiser, other);
   pbl_test_kernel_run();
@@ -487,7 +487,7 @@ static void prv_sched_waiter(void *arg) {
   prv_trace('W');
 }
 
-void test_native_kernel__sched_lock_defers_switch(void) {
+void test_kernel__sched_lock_defers_switch(void) {
   pbl_sem_init(&s_sem, s_sem.initial, s_sem.limit);
   prv_spawn(0, "waiter", 3, prv_sched_waiter, NULL);
   prv_spawn(1, "locker", 2, prv_sched_locked, NULL);

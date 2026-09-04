@@ -3,15 +3,16 @@
 `kernel/` owns every RTOS primitive the firmware uses. The public API lives in
 `include/pbl/kernel/` and is the only threading interface the rest of the tree
 may use. The implementation is PebbleOS's own; its internals are described in
-[kernel internals](kernel_native.md).
+[kernel internals](kernel_internals.md).
 
 ## Layout
 
 ```
 include/pbl/kernel/     public API: types, irq, thread, mutex, sem, msgq, poll, sched, idle, debug
-kernel/                 backend-independent code: tick conversion
-kernel/native/          scheduler, objects and the Cortex-M and POSIX ports
-kernel/native/include/pbl/kernel/backend.h   per-object private state
+include/pbl/kernel/backend.h   per-object private state the public structs embed
+kernel/                 scheduler, objects, tick conversion
+kernel/arch/arm/        Cortex-M port: context switch, SVC, MPU, SysTick, idle
+kernel/arch/posix/      host port for the unit tests
 ```
 
 ## Objects
