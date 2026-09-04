@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "quick_launch.h"
+#include "shell/normal/button_lock.h"
 #include "shell/normal/quick_launch.h"
 #include "shell/normal/watchface.h"
 #include "shell/normal/prefs_sync.h"
@@ -317,6 +318,10 @@ static GColor s_theme_highlight_color = GColorVividCerulean;
 #define PREF_KEY_MUSIC_SHOW_VOLUME_CONTROLS "musicShowVolumeControls"
 #define PREF_KEY_MUSIC_SHOW_PROGRESS_BAR "musicShowProgressBar"
 #define PREF_KEY_MUSIC_SHOW_ALBUM_ART "musicShowAlbumArt"
+#define PREF_KEY_BUTTON_LOCK_HOLD_MS "buttonLockHoldMs"
+
+//! Hold duration for the button lock combo; 0 disables the feature.
+static uint32_t s_button_lock_hold_ms = 0;
 
 static bool s_menu_scroll_wrap_around = false;
 static MenuScrollVibeBehavior s_menu_scroll_vibe_behavior = MenuScrollNoVibe;
@@ -455,7 +460,11 @@ static bool prv_set_s_touch_enabled(bool *enabled) {
 #endif
   s_touch_enabled = *enabled;
 #ifdef CONFIG_TOUCH
-  touch_service_set_globally_enabled(*enabled);
+  // While the button lock holds touch disabled, only update the persisted pref (e.g. on a
+  // phone-side write); unlocking restores the touch service from it.
+  if (!button_lock_is_locked()) {
+    touch_service_set_globally_enabled(*enabled);
+  }
   if (prv_touch_navigation_effective() != was_effective) {
     touch_nav_set_enabled(prv_touch_navigation_effective());
   } else if (was_on != *enabled) {
@@ -858,6 +867,21 @@ static bool prv_set_s_theme_highlight_color(GColor *color) {
   return true;
 }
 #endif
+
+static bool prv_set_s_button_lock_hold_ms(uint32_t *hold_ms) {
+  switch (*hold_ms) {
+    case 0:
+    case 1000:
+    case 2000:
+    case 3000:
+    case 5000:
+    case 10000:
+      s_button_lock_hold_ms = *hold_ms;
+      return true;
+    default:
+      return false;
+  }
+}
 
 static bool prv_set_s_menu_scroll_wrap_around(bool *enabled) {
   s_menu_scroll_wrap_around = *enabled;
@@ -2135,6 +2159,14 @@ void shell_prefs_set_theme_highlight_color(GColor color) {
 #ifdef CONFIG_THEMING
   prv_pref_set(PREF_KEY_THEME_HIGHLIGHT_COLOR, &color, sizeof(GColor));
 #endif
+}
+
+uint32_t shell_prefs_get_button_lock_hold_ms(void) {
+  return s_button_lock_hold_ms;
+}
+
+void shell_prefs_set_button_lock_hold_ms(uint32_t hold_ms) {
+  prv_pref_set(PREF_KEY_BUTTON_LOCK_HOLD_MS, &hold_ms, sizeof(uint32_t));
 }
 
 bool shell_prefs_get_menu_scroll_wrap_around_enable(void) {

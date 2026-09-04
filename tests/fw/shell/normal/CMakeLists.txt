@@ -29,3 +29,9 @@ pbl_clar_test(test_battery_ui_fsm_percent
   DEFINES CONFIG_BATTERY_WARNING_FIRST_PERCENT=12 CONFIG_BATTERY_WARNING_SECOND_PERCENT=8
   OVERRIDES dummy_board
 )
+
+pbl_clar_test(test_button_lock
+  SOURCES
+    src/fw/shell/normal/button_lock.c
+  DEFINES CONFIG_TOUCH
+)

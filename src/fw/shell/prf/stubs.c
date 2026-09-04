@@ -20,6 +20,7 @@
 #include "pbl/services/notifications/do_not_disturb.h"
 #include "pbl/services/notifications/alerts_private.h"
 #include "pbl/services/persist.h"
+#include "shell/normal/button_lock.h"
 #include "shell/prefs.h"
 #include "shell/system_theme.h"
 
@@ -46,6 +47,14 @@ void watchface_set_default_install_id(AppInstallId id) {
 }
 
 void watchface_handle_button_event(PebbleEvent *e) {
+}
+
+bool button_lock_handle_button_event(PebbleEvent *e) {
+  return false;
+}
+
+bool button_lock_is_locked(void) {
+  return false;
 }
 
 void app_idle_timeout_refresh(void) {

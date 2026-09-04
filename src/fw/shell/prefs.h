@@ -258,6 +258,10 @@ void shell_prefs_set_theme_highlight_color(GColor color);
 bool shell_prefs_get_menu_scroll_wrap_around_enable(void);
 void shell_prefs_set_menu_scroll_wrap_around_enable(bool enable);
 
+//! Hold duration for the button lock combo in ms; 0 means the feature is disabled.
+uint32_t shell_prefs_get_button_lock_hold_ms(void);
+void shell_prefs_set_button_lock_hold_ms(uint32_t hold_ms);
+
 typedef enum MenuScrollVibeBehavior {
   MenuScrollNoVibe,
   MenuScrollVibeOnWrapAround,
