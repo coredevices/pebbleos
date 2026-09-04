@@ -56,6 +56,7 @@ typedef enum {
   HRMonitoringInterval_30Min,
   HRMonitoringInterval_1Hour,
   HRMonitoringInterval_Disabled,
+  HRMonitoringInterval_5Min,
   HRMonitoringIntervalCount,
 } HRMonitoringInterval;
 

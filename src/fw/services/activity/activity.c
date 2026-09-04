@@ -72,6 +72,8 @@ static bool prv_activity_allowed_to_be_enabled(void) {
 // Get the HRM measurement period in seconds based on the user's setting
 static uint32_t prv_get_hrm_period_sec(void) {
   switch (activity_prefs_get_hrm_measurement_interval()) {
+    case HRMonitoringInterval_5Min:
+      return 5 * SECONDS_PER_MINUTE;
     case HRMonitoringInterval_30Min:
       return 30 * SECONDS_PER_MINUTE;
     case HRMonitoringInterval_1Hour:
