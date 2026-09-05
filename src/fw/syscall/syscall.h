@@ -218,6 +218,9 @@ bool sys_pebblekit_is_connected_debounced(void);
 bool sys_touch_service_is_enabled(void);
 void sys_touch_reset(void);
 
+// ! Synthesize a Liftoff for an in-progress touch (a no-op when no finger is down), without ! clearing the last coordinates. Used by subscribers that tear down or reclaim the touch slot ! mid-gesture, so the gesture ends cleanly instead of leaking its backlight hold.
+void sys_touch_release_active(void);
+
 //! Read the system and app-twin touch-navigation gates. The dispatcher runs on the app task,
 //! which is unprivileged for third-party apps, so these reads cannot touch the service's mutex
 //! and statics directly. Not exported to the SDK.

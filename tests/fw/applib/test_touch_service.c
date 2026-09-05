@@ -53,8 +53,17 @@ TouchServiceState *kernel_applib_get_touch_service_state(void) {
 }
 
 static int s_touch_reset_count;
+static int s_touch_reset_seq;
+static int s_touch_release_seq;
+// Global sequence position shared by the ordering probes.
+static int s_seq;
 void sys_touch_reset(void) {
   s_touch_reset_count++;
+  s_touch_reset_seq = ++s_seq;
+}
+
+void sys_touch_release_active(void) {
+  s_touch_release_seq = ++s_seq;
 }
 
 static bool s_raw_subscribed;
@@ -97,7 +106,6 @@ static void prv_raw_handler(const TouchEvent *event, void *context) {
 }
 
 // Ordering probes: record the global sequence position at which each fires.
-static int s_seq;
 static int s_system_seq;
 static int s_raw_seq;
 
@@ -228,8 +236,7 @@ void test_touch_service__subscription_created_once(void) {
   cl_assert_equal_i(s_unsubscribe_count, 1);
 }
 
-// touch_service_unsubscribe with only the system slot occupied is a no-op on
-// the subscription and never clears the system slot.
+// touch_service_unsubscribe with only the system slot occupied is a no-op on the subscription and never clears the system slot.
 void test_touch_service__unsubscribe_keeps_system_slot(void) {
   touch_service_set_system_handler(prv_system_handler, &s_system_marker);
   cl_assert_equal_i(s_subscribe_count, 1);
@@ -238,4 +245,17 @@ void test_touch_service__unsubscribe_keeps_system_slot(void) {
   cl_assert(s_state.system_handler == prv_system_handler);
   cl_assert(s_state.subscribed);
   cl_assert_equal_i(s_unsubscribe_count, 0);
+}
+
+// Subscribing (re)claims the raw slot and resets the kernel touch state so a previous window's gesture cannot leak into this one. The reset must release an active touch first: with a finger down, a bare reset swallows the gesture's Liftoff (the eventual lift reports FingerUp against the already-reset FingerUp state and emits nothing), so the Touchdown's backlight hold leaks.
+void test_touch_service__subscribe_releases_active_touch_before_reset(void) {
+  s_seq = 0;
+  s_touch_release_seq = 0;
+  s_touch_reset_seq = 0;
+
+  touch_service_subscribe(prv_raw_handler, &s_raw_marker);
+
+  cl_assert(s_touch_release_seq > 0);
+  cl_assert(s_touch_reset_seq > 0);
+  cl_assert(s_touch_release_seq < s_touch_reset_seq);
 }

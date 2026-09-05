@@ -178,6 +178,10 @@ DEFINE_SYSCALL(void, sys_touch_reset, void) {
   touch_reset();
 }
 
+DEFINE_SYSCALL(void, sys_touch_release_active, void) {
+  touch_release_active();
+}
+
 void touch_set_backlight_enabled(bool enabled) {
   pbl_mutex_lock(&s_touch_mutex, PBL_FOREVER);
   if (enabled && !s_backlight_subscribed) {
