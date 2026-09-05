@@ -2549,23 +2549,39 @@ void test_activity__hrm_ignore(void) {
   prv_advance_time_hr(1 /*sec*/, 120 /*hr*/, HRMQuality_Good, true /*force_continuous*/);
   cl_assert_equal_i(s_num_hr_events, 1);
 
-  // Should fire off an event. OffWrist, tell clients
+  // Should fire off an event. OffWrist, tell clients. Even a nonzero bpm
+  // must not survive into the peekable raw metric while off-wrist.
   prv_advance_time_hr(1 /*sec*/, 120 /*hr*/, HRMQuality_OffWrist, true /*force_continuous*/);
   cl_assert_equal_i(s_num_hr_events, 2);
   cl_assert_equal_i(s_last_hr_event.data.heart_rate_update.current_bpm, 0);
   cl_assert_equal_i(s_last_hr_event.data.heart_rate_update.quality, HRMQuality_OffWrist);
+  int32_t raw_bpm;
+  int32_t raw_quality;
+  activity_get_metric(ActivityMetricHeartRateRawBPM, 1, &raw_bpm);
+  activity_get_metric(ActivityMetricHeartRateRawQuality, 1, &raw_quality);
+  cl_assert_equal_i(raw_bpm, 0);
+  cl_assert_equal_i(raw_quality, HRMQuality_OffWrist);
 
   // Should fire off an event. OffWrist, tell clients
   prv_advance_time_hr(1 /*sec*/, 0 /*hr*/, HRMQuality_OffWrist, true /*force_continuous*/);
   cl_assert_equal_i(s_num_hr_events, 3);
   cl_assert_equal_i(s_last_hr_event.data.heart_rate_update.current_bpm, 0);
   cl_assert_equal_i(s_last_hr_event.data.heart_rate_update.quality, HRMQuality_OffWrist);
+  activity_get_metric(ActivityMetricHeartRateRawBPM, 1, &raw_bpm);
+  activity_get_metric(ActivityMetricHeartRateRawQuality, 1, &raw_quality);
+  cl_assert_equal_i(raw_bpm, 0);
+  cl_assert_equal_i(raw_quality, HRMQuality_OffWrist);
 
   // Should fire off an event. Good HR and Good Quality
   prv_advance_time_hr(1 /*sec*/, 120 /*hr*/, HRMQuality_Excellent, true /*force_continuous*/);
   cl_assert_equal_i(s_num_hr_events, 4);
   cl_assert_equal_i(s_last_hr_event.data.heart_rate_update.current_bpm, 120);
   cl_assert_equal_i(s_last_hr_event.data.heart_rate_update.quality, HRMQuality_Excellent);
+  // A valid on-wrist reading restores the raw metric.
+  activity_get_metric(ActivityMetricHeartRateRawBPM, 1, &raw_bpm);
+  activity_get_metric(ActivityMetricHeartRateRawQuality, 1, &raw_quality);
+  cl_assert_equal_i(raw_bpm, 120);
+  cl_assert_equal_i(raw_quality, HRMQuality_Excellent);
 
   // Should not fire off an event. Bad HR reading
   prv_advance_time_hr(1 /*sec*/, 20 /*hr*/, HRMQuality_Excellent, true /*force_continuous*/);

@@ -533,6 +533,12 @@ void activity_metrics_prv_add_median_hr_sample(PebbleHRMEvent *hrm_event, time_t
 //! @param[in] is_offwrist true if the event's HRMQuality was HRMQuality_OffWrist
 void activity_metrics_prv_set_hrm_worn_status(time_t now_utc, bool is_offwrist);
 
+//! Invalidate the current (peekable) raw HR reading because the HRM reports
+//! the watch is off-wrist: ActivityMetricHeartRateRawBPM reads 0 until a valid
+//! on-wrist reading arrives. Called once per off-wrist BPM event.
+//! @param[in] now_utc current UTC time
+void activity_metrics_prv_set_raw_hr_offwrist(time_t now_utc);
+
 //! Returns true if the HRM has recently reported the watch is off-wrist. The most recent BPM
 //! event must have been HRMQuality_OffWrist and must have arrived within the last
 //! ACTIVITY_HRM_OFFWRIST_STALE_SEC seconds, otherwise this returns false.

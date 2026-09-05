@@ -608,6 +608,18 @@ void activity_metrics_prv_set_hrm_worn_status(time_t now_utc, bool is_offwrist) 
 }
 
 // --------------------------------------------------------------------------------------------
+void activity_metrics_prv_set_raw_hr_offwrist(time_t now_utc) {
+  ActivityState *state = activity_private_state();
+  mutex_lock_recursive(state->mutex);
+  {
+    state->hr.metrics.current_bpm = 0;
+    state->hr.metrics.current_quality = HRMQuality_OffWrist;
+    state->hr.metrics.current_update_time_utc = now_utc;
+  }
+  mutex_unlock_recursive(state->mutex);
+}
+
+// --------------------------------------------------------------------------------------------
 bool activity_metrics_prv_is_hrm_offwrist(time_t now_utc) {
   ActivityState *state = activity_private_state();
   bool offwrist = false;
