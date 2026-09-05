@@ -5,11 +5,13 @@
 #include "option_menu.h"
 #include "window.h"
 
+#include "applib/ui/dialogs/actionable_dialog.h"
 #include "applib/ui/option_menu_window.h"
 #include "kernel/pbl_malloc.h"
 #include "process_state/app_state/app_state.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/activity/activity.h"
+#include "resource/resource_ids.auto.h"
 #include "shell/prefs.h"
 #include "system/passert.h"
 #include "pbl/util/size.h"
@@ -24,12 +26,30 @@ static const char *s_units_distance_labels[] = {
 };
 
 #ifdef CONFIG_HRM
+static const HRMonitoringInterval s_hrm_intervals[] = {
+    HRMonitoringInterval_5Min,
+    HRMonitoringInterval_10Min,
+    HRMonitoringInterval_30Min,
+    HRMonitoringInterval_1Hour,
+    HRMonitoringInterval_Disabled,
+};
+
 static const char *s_hrm_interval_labels[] = {
+    i18n_noop("5 Minutes"),
     i18n_noop("10 Minutes"),
     i18n_noop("30 Minutes"),
     i18n_noop("1 Hour"),
     i18n_noop("Disabled"),
 };
+
+static int prv_hrm_interval_to_index(HRMonitoringInterval interval) {
+    for (size_t i = 0; i < ARRAY_LENGTH(s_hrm_intervals); i++) {
+        if (s_hrm_intervals[i] == interval) {
+            return (int)i;
+        }
+    }
+    return prv_hrm_interval_to_index(HRMonitoringInterval_10Min);
+}
 #endif
 
 enum SettingsHealthItem {
@@ -46,13 +66,67 @@ enum SettingsHealthItem {
 // HRM Interval option menu
 /////////////////////////////
 
+static void prv_5min_warning_confirm_cb(ClickRecognizerRef recognizer, void *context) {
+    ActionableDialog *a_dialog = (ActionableDialog *)context;
+    OptionMenu *option_menu = (OptionMenu *)actionable_dialog_get_user_data(a_dialog);
+
+    activity_prefs_set_hrm_measurement_interval(HRMonitoringInterval_5Min);
+    actionable_dialog_pop(a_dialog);
+    if (option_menu) {
+        app_window_stack_remove(&option_menu->window, false /*animated*/);
+    }
+    settings_menu_reload_data(SettingsMenuItemHealth);
+    settings_menu_mark_dirty(SettingsMenuItemHealth);
+}
+
+static void prv_5min_warning_back_cb(ClickRecognizerRef recognizer, void *context) {
+    ActionableDialog *a_dialog = (ActionableDialog *)context;
+    OptionMenu *option_menu = (OptionMenu *)actionable_dialog_get_user_data(a_dialog);
+    if (option_menu) {
+        int current_idx = prv_hrm_interval_to_index(activity_prefs_get_hrm_measurement_interval());
+        option_menu_set_choice(option_menu, current_idx);
+    }
+    actionable_dialog_pop(a_dialog);
+}
+
+static void prv_5min_warning_click_config(void *context) {
+    window_single_click_subscribe(BUTTON_ID_SELECT, prv_5min_warning_confirm_cb);
+    window_single_click_subscribe(BUTTON_ID_BACK, prv_5min_warning_back_cb);
+}
+
+static void prv_hrm_interval_warning_push(OptionMenu *option_menu) {
+    ActionableDialog *a_dialog = actionable_dialog_create("HR Warning");
+    Dialog *dialog = actionable_dialog_get_dialog(a_dialog);
+
+    actionable_dialog_set_action_bar_type(a_dialog, DialogActionBarConfirm, NULL);
+    actionable_dialog_set_user_data(a_dialog, option_menu);
+    actionable_dialog_set_click_config_provider(a_dialog, prv_5min_warning_click_config);
+
+    dialog_set_background_color(dialog, PBL_IF_COLOR_ELSE(GColorOrange, GColorWhite));
+    dialog_set_text_color(dialog, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
+    dialog_set_text(dialog, i18n_get("This option will decrease battery considerably faster.", a_dialog));
+    dialog_set_icon(dialog, RESOURCE_ID_GENERIC_WARNING_SMALL);
+
+    i18n_free_all(a_dialog);
+
+    app_actionable_dialog_push(a_dialog);
+}
+
 static void prv_hrm_interval_menu_select(OptionMenu *option_menu, int selection, void *context) {
-    activity_prefs_set_hrm_measurement_interval((HRMonitoringInterval)selection);
+    if (selection < 0 || (size_t)selection >= ARRAY_LENGTH(s_hrm_intervals)) {
+        return;
+    }
+    HRMonitoringInterval interval = s_hrm_intervals[selection];
+    if (interval == HRMonitoringInterval_5Min) {
+        prv_hrm_interval_warning_push(option_menu);
+        return;
+    }
+    activity_prefs_set_hrm_measurement_interval(interval);
     app_window_stack_remove(&option_menu->window, true /*animated*/);
 }
 
 static void prv_hrm_interval_menu_push(SettingsHealthData *data) {
-    const int index = (int)activity_prefs_get_hrm_measurement_interval();
+    const int index = prv_hrm_interval_to_index(activity_prefs_get_hrm_measurement_interval());
     const OptionMenuCallbacks callbacks = {
         .select = prv_hrm_interval_menu_select,
     };
@@ -102,11 +176,8 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
         case SettingsHealthHRMonitoringInterval: {
             title = i18n_noop("HR Monitoring");
             HRMonitoringInterval interval = activity_prefs_get_hrm_measurement_interval();
-            if (interval >= HRMonitoringIntervalCount) {
-                subtitle = i18n_noop("Unknown");
-            } else {
-                subtitle = s_hrm_interval_labels[interval];
-            }
+            int idx = prv_hrm_interval_to_index(interval);
+            subtitle = s_hrm_interval_labels[idx];
             break;
         }
         case SettingsHealthHRActivityTracking: {
