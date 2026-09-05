@@ -81,7 +81,8 @@ static void prv_menu_draw_row(OptionMenu *option_menu, GContext* ctx, const Laye
   QuickLaunchAppMenuData *data = context;
   const char *text = NULL;
   if (row == 0) {
-    text = i18n_get("Disable", data);
+    /// Shown in Quick Launch Settings when no action or app is bound to the button.
+    text = i18n_get("Unassigned", data);
   } else {
     AppMenuNode *node = app_menu_data_source_get_node_at_index(&data->data_source,
                                                                row - NUM_CUSTOM_CELLS);

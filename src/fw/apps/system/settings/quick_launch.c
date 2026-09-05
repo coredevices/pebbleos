@@ -57,8 +57,8 @@ static const char *s_row_titles[NUM_ROWS] = {
 static void prv_get_subtitle_string(AppInstallId app_id, QuickLaunchData *data,
                                     char *buffer, uint8_t buf_len) {
   if (app_id == INSTALL_ID_INVALID) {
-    /// Shown in Quick Launch Settings when the button is disabled.
-    i18n_get_with_buffer("Disabled", buffer, buf_len);
+    /// Shown in Quick Launch Settings when no action or app is bound to the button.
+    i18n_get_with_buffer("Unassigned", buffer, buf_len);
     return;
   } else {
     AppInstallEntry entry;
