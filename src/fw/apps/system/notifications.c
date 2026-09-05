@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "notifications.h"
+#include "notifications_history.h"
 
 #include <time.h>
 
@@ -21,8 +22,11 @@
 #include "popups/notifications/notification_window.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
+#include "pbl/drivers/rtc.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/blob_db/pin_db.h"
+#include "pbl/services/clock.h"
+#include "pbl/services/notifications/alerts_preferences_private.h"
 #include "pbl/services/notifications/notification_storage.h"
 #include "pbl/services/timeline/notification_layout.h"
 #include "shell/prefs.h"
@@ -30,6 +34,7 @@
 #include "system/passert.h"
 #include "pbl/util/list.h"
 #include "pbl/util/string.h"
+#include "util/time/time.h"
 
 typedef struct LoadedNotificationNode {
   ListNode node;
@@ -38,23 +43,33 @@ typedef struct LoadedNotificationNode {
   bool icon_is_default;
 } LoadedNotificationNode;
 
-typedef struct NotificationNode {
-  ListNode node;
-  Uuid id;
-} NotificationNode;
+typedef struct NotificationGroupWindow NotificationGroupWindow;
 
 typedef struct NotificationsData {
   Window window;
   MenuLayer menu_layer;
   TextLayer text_layer;
-  NotificationNode *notification_list;
+  NotificationHistory history;
   LoadedNotificationNode *loaded_notification_list;
   EventServiceInfo notification_event_info;
   ActionableDialog *actionable_dialog;
+  char *group_title;
+  size_t group_title_size;
+  NotificationGroupWindow *group_window;
 #if PBL_ROUND
   StatusBarLayer status_bar_layer;
 #endif
 } NotificationsData;
+
+struct NotificationGroupWindow {
+  Window window;
+  MenuLayer menu_layer;
+  NotificationsData *notifications_data;
+  Uuid *notification_ids;
+  uint16_t count;
+  char *sender;
+  char time_buffer[16];
+};
 
 static NotificationsData *s_data = NULL;
 
@@ -66,18 +81,6 @@ static bool prv_loaded_notification_list_filter_cb(ListNode *node, void *data) {
   return uuid_equal(&loaded_notification->notification.header.id, id);
 }
 
-static bool prv_notification_list_filter_cb(ListNode *node, void *data) {
-  NotificationNode *notification = (NotificationNode *)node;
-  Uuid *id = data;
-  return uuid_equal(&notification->id, id);
-}
-
-static NotificationNode *prv_find_notification(NotificationNode *list, Uuid *id) {
-  return (NotificationNode *)list_find((ListNode *)list,
-                                       prv_notification_list_filter_cb,
-                                       id);
-}
-
 static LoadedNotificationNode *prv_find_loaded_notification(LoadedNotificationNode *list,
                                                             Uuid *id) {
   return (LoadedNotificationNode *)list_find((ListNode *)list,
@@ -85,49 +88,29 @@ static LoadedNotificationNode *prv_find_loaded_notification(LoadedNotificationNo
                                              id);
 }
 
-static NotificationNode *prv_notification_list_add_notification_by_id(
-    NotificationNode **notification_list, Uuid *id) {
-  NotificationNode *new_node = app_malloc_check(sizeof(NotificationNode));
-
-  list_init((ListNode*) new_node);
-  new_node->id = *id;
-
-  *notification_list = (NotificationNode*) list_prepend((ListNode*) *notification_list,
-      (ListNode*) new_node);
-
-  return new_node;
-}
-
-static void prv_notification_list_remove_notification_by_id(
-    NotificationNode **notification_list, Uuid *id) {
-
-  NotificationNode *node = prv_find_notification(*notification_list, id);
-  list_remove((ListNode *)node, (ListNode **)notification_list, NULL);
-}
-
-static NotificationNode *prv_add_notification(NotificationsData *data, Uuid *id) {
-  NotificationNode *node = prv_notification_list_add_notification_by_id(&data->notification_list,
-                                                                        id);
-  return node;
-}
-
-static void prv_remove_notification(NotificationsData *data, Uuid *id) {
-  prv_notification_list_remove_notification_by_id(&data->notification_list, id);
-}
-
 static bool prv_notif_iterator_callback(void *data, SerializedTimelineItemHeader *header) {
-  return (prv_add_notification(data, &header->common.id) != NULL);
+  NotificationsData *notifications_data = data;
+  notifications_history_add_header(&notifications_data->history, &header->common);
+  return true;
+}
+
+static bool prv_notif_item_iterator_callback(void *data, const CommonTimelineItemHeader *header,
+                                             const TimelineItem *item) {
+  NotificationsData *notifications_data = data;
+  if (item) {
+    notifications_history_add_item(&notifications_data->history, item);
+  } else {
+    notifications_history_add_header(&notifications_data->history, header);
+  }
+  return true;
 }
 
 static void prv_load_notification_storage(NotificationsData *data) {
-  notification_storage_iterate(&prv_notif_iterator_callback, data);
-}
-
-static void prv_notification_list_deinit(NotificationNode *notification_list) {
-  while (notification_list) {
-    NotificationNode *node = notification_list;
-    notification_list = (NotificationNode*) list_pop_head((ListNode*) notification_list);
-    app_free(node);
+  if (data->history.group_by_sender) {
+    notification_storage_iterate_items_after(data->history.grouping_cutoff,
+                                             prv_notif_item_iterator_callback, data);
+  } else {
+    notification_storage_iterate(&prv_notif_iterator_callback, data);
   }
 }
 
@@ -138,18 +121,18 @@ static void prv_unload_loaded_notification(LoadedNotificationNode *loaded_notif)
 }
 
 static NOINLINE LoadedNotificationNode *prv_loaded_notification_list_load_item(
-    LoadedNotificationNode **loaded_list, NotificationNode *node) {
-  if (node == NULL) {
+    LoadedNotificationNode **loaded_list, const Uuid *id) {
+  if (id == NULL) {
     return NULL;
   }
 
-  LoadedNotificationNode *loaded_node = prv_find_loaded_notification(*loaded_list, &node->id);
+  LoadedNotificationNode *loaded_node = prv_find_loaded_notification(*loaded_list, (Uuid *)id);
   if (loaded_node) {
     return loaded_node;
   }
 
   // unload old notifications
-  if (list_count((ListNode*) *loaded_list) > MAX_ACTIVE_NOTIFICATIONS) {
+  if (list_count((ListNode *)*loaded_list) >= MAX_ACTIVE_NOTIFICATIONS) {
     LoadedNotificationNode *old_node = (LoadedNotificationNode*) list_get_tail(
         (ListNode*) *loaded_list);
     list_remove((ListNode*) old_node, (ListNode**) loaded_list, NULL);
@@ -158,7 +141,7 @@ static NOINLINE LoadedNotificationNode *prv_loaded_notification_list_load_item(
 
   // load the notification
   TimelineItem notification;
-  if (!notification_storage_get(&node->id, &notification)) {
+  if (!notification_storage_get((Uuid *)id, &notification)) {
     return NULL;
   }
 
@@ -205,9 +188,155 @@ static void prv_loaded_notification_list_deinit(LoadedNotificationNode *loaded_l
   }
 }
 
+static void prv_notifications_history_init(NotificationsData *data) {
+  const NotificationGroupingRange range = alerts_preferences_get_notification_grouping_range();
+  time_t cutoff = 0;
+  time_t window = 0;
+
+  if (range == NotificationGroupingRange_OneDay) {
+    window = SECONDS_PER_DAY;
+  } else if (range == NotificationGroupingRange_OneWeek) {
+    window = 7 * SECONDS_PER_DAY;
+  }
+
+  if (window > 0) {
+    const time_t now = rtc_get_time();
+    cutoff = (now > window) ? now - window : 0;
+  }
+
+  notifications_history_init(&data->history, range != NotificationGroupingRange_Never, cutoff);
+}
+
+static bool prv_push_single_notification_window(const Uuid *id) {
+  notification_window_init_history(false);
+  if (notification_window_is_modal()) {
+    return false;
+  }
+
+  notification_window_add_notification_by_id((Uuid *)id);
+  notification_window_show();
+  notification_window_focus_notification((Uuid *)id, false);
+  return true;
+}
+
+static uint16_t prv_group_window_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
+                                              void *context) {
+  NotificationGroupWindow *group_window = context;
+  return group_window->count;
+}
+
+static int16_t prv_group_window_get_header_height(MenuLayer *menu_layer, uint16_t section_index,
+                                                  void *context) {
+  return MENU_CELL_BASIC_HEADER_HEIGHT;
+}
+
+static int16_t prv_group_window_get_cell_height(MenuLayer *menu_layer, MenuIndex *cell_index,
+                                                void *context) {
+  return menu_cell_basic_cell_height();
+}
+
+static void prv_group_window_draw_header(GContext *ctx, const Layer *cell_layer,
+                                         uint16_t section_index, void *context) {
+  NotificationGroupWindow *group_window = context;
+  menu_cell_basic_header_draw(ctx, cell_layer, group_window->sender);
+}
+
+static void prv_group_window_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
+                                      void *context) {
+  NotificationGroupWindow *group_window = context;
+  if (cell_index->row >= group_window->count) {
+    return;
+  }
+
+  LoadedNotificationNode *loaded_node = prv_loaded_notification_list_load_item(
+      &group_window->notifications_data->loaded_notification_list,
+      &group_window->notification_ids[cell_index->row]);
+  if (!loaded_node) {
+    return;
+  }
+
+  TimelineItem *notification = &loaded_node->notification;
+  const char *message = attribute_get_string(&notification->attr_list, AttributeIdBody, "");
+  if (IS_EMPTY_STRING(message)) {
+    message = attribute_get_string(&notification->attr_list, AttributeIdSubtitle, "");
+  }
+  if (IS_EMPTY_STRING(message)) {
+    message = attribute_get_string(&notification->attr_list, AttributeIdTitle, "[Empty]");
+  }
+
+  clock_copy_time_string_timestamp(group_window->time_buffer, sizeof(group_window->time_buffer),
+                                   notification->header.timestamp);
+  menu_cell_basic_draw(ctx, cell_layer, message, group_window->time_buffer, NULL);
+}
+
+static void prv_group_window_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
+  NotificationGroupWindow *group_window = context;
+  if (cell_index->row < group_window->count) {
+    prv_push_single_notification_window(&group_window->notification_ids[cell_index->row]);
+  }
+}
+
+static void prv_group_window_load(Window *window) {
+  NotificationGroupWindow *group_window = window_get_user_data(window);
+  MenuLayer *menu_layer = &group_window->menu_layer;
+  menu_layer_init(menu_layer, &window->layer.bounds);
+  menu_layer_set_callbacks(menu_layer, group_window,
+                           &(MenuLayerCallbacks){
+                               .get_num_rows = prv_group_window_get_num_rows,
+                               .get_header_height = prv_group_window_get_header_height,
+                               .get_cell_height = prv_group_window_get_cell_height,
+                               .draw_header = prv_group_window_draw_header,
+                               .draw_row = prv_group_window_draw_row,
+                               .select_click = prv_group_window_select,
+                           });
+  menu_layer_set_normal_colors(menu_layer, GColorWhite, GColorBlack);
+  menu_layer_set_highlight_colors(
+      menu_layer, PBL_IF_COLOR_ELSE(DEFAULT_NOTIFICATION_COLOR, GColorBlack), GColorWhite);
+  menu_layer_set_click_config_onto_window(menu_layer, window);
+  menu_layer_set_scroll_wrap_around(menu_layer, false);
+  layer_add_child(&window->layer, menu_layer_get_layer(menu_layer));
+  menu_layer_set_selected_index(menu_layer, MenuIndex(0, 0), MenuRowAlignTop, false);
+}
+
+static void prv_group_window_unload(Window *window) {
+  NotificationGroupWindow *group_window = window_get_user_data(window);
+  menu_layer_deinit(&group_window->menu_layer);
+  group_window->notifications_data->group_window = NULL;
+  app_free(group_window->notification_ids);
+  app_free(group_window->sender);
+  app_free(group_window);
+}
+
+static void prv_push_group_window(NotificationsData *data, const NotificationHistoryRow *row) {
+  NotificationGroupWindow *group_window = app_zalloc_check(sizeof(*group_window));
+  group_window->notifications_data = data;
+  group_window->count = row->group.count;
+  const size_t sender_size = strlen(row->group.sender) + 1;
+  group_window->sender = app_malloc_check(sender_size);
+  memcpy(group_window->sender, row->group.sender, sender_size);
+  group_window->notification_ids = app_malloc_check(sizeof(Uuid) * group_window->count);
+
+  NotificationHistoryMember *member = row->group.members;
+  for (uint16_t i = 0; i < group_window->count; i++) {
+    group_window->notification_ids[i] = member->id;
+    member = (NotificationHistoryMember *)list_get_next(&member->node);
+  }
+
+  window_init(&group_window->window, WINDOW_NAME("Notification Group"));
+  window_set_user_data(&group_window->window, group_window);
+  window_set_window_handlers(&group_window->window, &(WindowHandlers){
+                                                        .load = prv_group_window_load,
+                                                        .unload = prv_group_window_unload,
+                                                    });
+  data->group_window = group_window;
+  app_window_stack_push(&group_window->window, true);
+}
+
 // Return true if successful
-static bool prv_push_notification_window(NotificationsData *data) {
-  notification_window_init(false /*is_modal*/);
+static bool prv_push_notification_window(NotificationsData *data,
+                                         NotificationHistoryRow *selected_row) {
+  const bool has_collapsed_groups = notifications_history_has_collapsed_groups(&data->history);
+  notification_window_init_history(!has_collapsed_groups);
 
   // Bail if a notification came in ahead of us and created a modal window
   // before we had a chance to react to the select button event.
@@ -215,12 +344,17 @@ static bool prv_push_notification_window(NotificationsData *data) {
     return false;
   }
 
-  // iterate over visible items as visible (including the groups) in reverse order
-  // since notification_window shows each newly added notification first
-  NotificationNode *node = (NotificationNode*)list_get_tail(&data->notification_list->node);
-  while (node) {
-    notification_window_add_notification_by_id(&node->id);
-    node = (NotificationNode*)list_get_prev(&node->node);
+  if (has_collapsed_groups) {
+    notification_window_add_notification_by_id(
+        (Uuid *)notifications_history_row_get_latest_id(selected_row));
+  } else {
+    NotificationHistoryRow *row =
+        (NotificationHistoryRow *)list_get_tail(&data->history.rows->node);
+    while (row) {
+      notification_window_add_notification_by_id(
+          (Uuid *)notifications_history_row_get_latest_id(row));
+      row = (NotificationHistoryRow *)list_get_prev(&row->node);
+    }
   }
 
   notification_window_show();
@@ -240,8 +374,8 @@ static void prv_confirmed_handler(ClickRecognizerRef recognizer, void *context) 
   notification_storage_reset_and_init();
   prv_loaded_notification_list_deinit(data->loaded_notification_list);
   data->loaded_notification_list = NULL;
-  prv_notification_list_deinit(data->notification_list);
-  data->notification_list = NULL;
+  notifications_history_deinit(&data->history);
+  prv_notifications_history_init(data);
   prv_load_notification_storage(data);
   actionable_dialog_pop(data->actionable_dialog);
 
@@ -464,7 +598,7 @@ static void prv_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index,
                                 void *data) {
   NotificationsData *notifications_data = data;
 
-  if ((notifications_data->notification_list) && (cell_index->row == 0))  {
+  if (notifications_data->history.rows && (cell_index->row == 0)) {
     // Clear All button selected
     prv_settings_clear_history_window_push(notifications_data);
     return;
@@ -473,33 +607,39 @@ static void prv_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index,
   // shift index since the first one is hard coded to Clear
   int16_t notif_idx = cell_index->row - 1;
 
-  NotificationNode *node = (NotificationNode*) list_get_at(
-      (ListNode*) notifications_data->notification_list, notif_idx);
-  if (!node) {
+  NotificationHistoryRow *row =
+      notifications_history_get_row(&notifications_data->history, notif_idx);
+  if (!row) {
     return;
   }
 
-  bool success = prv_push_notification_window(notifications_data);
+  if (notifications_history_row_is_collapsed_group(row)) {
+    prv_push_group_window(notifications_data, row);
+    return;
+  }
+
+  bool success = prv_push_notification_window(notifications_data, row);
   if (!success) {
     // Bail if a notification came in ahead of us and created a modal window
     // before we had a chance to react to the select button event.
     return;
   }
   const bool animated = false;
-  notification_window_focus_notification(&node->id, animated);
+  notification_window_focus_notification((Uuid *)notifications_history_row_get_latest_id(row),
+                                         animated);
 }
 
 static uint16_t prv_get_num_rows_callback(struct MenuLayer *menu_layer, uint16_t section_index,
                                           void *data) {
   NotificationsData *notifications_data = data;
-  NotificationNode *node = notifications_data->notification_list;
+  NotificationHistoryRow *row = notifications_data->history.rows;
   // There's no notifications, don't draw anything
-  if (!node) {
+  if (!row) {
     return 0;
   }
 
   // add one for the CLEAR ALL at the top
-  return list_count((ListNode *)notifications_data->notification_list) + 1;
+  return notifications_history_get_row_count(&notifications_data->history) + 1;
 }
 
 static int16_t prv_get_cell_height(struct MenuLayer *menu_layer, MenuIndex *cell_index,
@@ -526,6 +666,30 @@ static int16_t prv_get_cell_height(struct MenuLayer *menu_layer, MenuIndex *cell
     //! @note this is the same as Large until ExtraLarge is designed
     [PreferredContentSizeExtraLarge] = menu_cell_basic_cell_height(),
   })[runtime_platform_content_size];
+}
+
+static const char *prv_get_group_title(NotificationsData *data, const NotificationHistoryRow *row) {
+  const char *sender = row->group.sender;
+  /// Notification sender followed by the number of grouped notifications
+  const char *format = i18n_get("%s (%u)", data);
+  const int title_length = snprintf(NULL, 0, format, sender, (unsigned int)row->group.count);
+  if (title_length < 0) {
+    return sender;
+  }
+
+  const size_t required_size = (size_t)title_length + 1;
+  if (required_size > data->group_title_size) {
+    char *group_title = app_realloc(data->group_title, required_size);
+    if (!group_title) {
+      return sender;
+    }
+    data->group_title = group_title;
+    data->group_title_size = required_size;
+  }
+
+  snprintf(data->group_title, data->group_title_size, format, sender,
+           (unsigned int)row->group.count);
+  return data->group_title;
 }
 
 static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
@@ -561,14 +725,14 @@ static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIn
   // shift index since the first one is hard coded to Clear
   const int16_t notif_idx = cell_index->row - 1;
 
-  NotificationNode *node = (NotificationNode*) list_get_at(
-      (ListNode*) notifications_data->notification_list, notif_idx);
-  if (!node) {
+  NotificationHistoryRow *row =
+      notifications_history_get_row(&notifications_data->history, notif_idx);
+  if (!row) {
     return;
   }
 
   LoadedNotificationNode *loaded_node = prv_loaded_notification_list_load_item(
-      &notifications_data->loaded_notification_list, node);
+      &notifications_data->loaded_notification_list, notifications_history_row_get_latest_id(row));
   if (!loaded_node) {
     return;
   }
@@ -607,15 +771,20 @@ static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIn
     WTF;
   }
 
+  if (notifications_history_row_is_collapsed_group(row)) {
+    title = prv_get_group_title(notifications_data, row);
+    subtitle = !IS_EMPTY_STRING(body) ? body : subtitle;
+  }
+
   draw_cell(ctx, cell_layer, title, subtitle, loaded_node->icon);
 }
 
 // Display the appropriate layer
 static void prv_update_text_layer_visibility(NotificationsData *data) {
-  NotificationNode *node = data->notification_list;
+  NotificationHistoryRow *row = data->history.rows;
 
   // Toggle which layer is visible
-  if (node == NULL) {
+  if (row == NULL) {
     layer_set_hidden((Layer *) &data->menu_layer, true);
     layer_set_hidden((Layer *) &data->text_layer, false);
   } else {
@@ -624,13 +793,80 @@ static void prv_update_text_layer_visibility(NotificationsData *data) {
   }
 }
 
+static void prv_group_window_remove_notification(NotificationsData *data, const Uuid *id) {
+  NotificationGroupWindow *group_window = data->group_window;
+  if (!group_window) {
+    return;
+  }
+
+  for (uint16_t i = 0; i < group_window->count; i++) {
+    if (!uuid_equal(&group_window->notification_ids[i], id)) {
+      continue;
+    }
+
+    group_window->count--;
+    memmove(&group_window->notification_ids[i], &group_window->notification_ids[i + 1],
+            sizeof(Uuid) * (group_window->count - i));
+    if (group_window->count <= 1) {
+      app_window_stack_remove(&group_window->window, false);
+      return;
+    }
+
+    menu_layer_reload_data(&group_window->menu_layer);
+    const uint16_t selected_row = (i < group_window->count) ? i : group_window->count - 1;
+    menu_layer_set_selected_index(&group_window->menu_layer, MenuIndex(0, selected_row),
+                                  MenuRowAlignCenter, false);
+    return;
+  }
+}
+
+static void prv_group_window_add_notification(NotificationsData *data, const Uuid *id) {
+  NotificationGroupWindow *group_window = data->group_window;
+  if (!group_window) {
+    return;
+  }
+
+  NotificationHistoryRow *row = data->history.rows;
+  while (row) {
+    if (row->is_group && strcmp(row->group.sender, group_window->sender) == 0) {
+      NotificationHistoryMember *member = row->group.members;
+      uint16_t member_index = 0;
+      while (member) {
+        if (uuid_equal(&member->id, id)) {
+          Uuid *notification_ids =
+              app_realloc(group_window->notification_ids, sizeof(Uuid) * (group_window->count + 1));
+          if (!notification_ids) {
+            return;
+          }
+
+          group_window->notification_ids = notification_ids;
+          memmove(&group_window->notification_ids[member_index + 1],
+                  &group_window->notification_ids[member_index],
+                  sizeof(Uuid) * (group_window->count - member_index));
+          group_window->notification_ids[member_index] = *id;
+          group_window->count++;
+          menu_layer_reload_data(&group_window->menu_layer);
+          menu_layer_set_selected_index(&group_window->menu_layer, MenuIndex(0, member_index),
+                                        MenuRowAlignCenter, false);
+          return;
+        }
+        member = (NotificationHistoryMember *)list_get_next(&member->node);
+        member_index++;
+      }
+    }
+    row = (NotificationHistoryRow *)list_get_next(&row->node);
+  }
+}
+
 static void prv_handle_notification_removed(Uuid *id) {
-  prv_remove_notification(s_data, id);
+  prv_group_window_remove_notification(s_data, id);
+  notifications_history_remove(&s_data->history, id);
   app_notification_window_remove_notification_by_id(id);
 }
 
 static void prv_handle_notification_acted_upon(Uuid *id) {
-  prv_remove_notification(s_data, id);
+  prv_group_window_remove_notification(s_data, id);
+  notifications_history_remove(&s_data->history, id);
   app_notification_window_remove_notification_by_id(id);
 }
 
@@ -640,13 +876,13 @@ static void prv_handle_notification_added(Uuid *id) {
     return;
   }
 
-  prv_add_notification(s_data, id);
+  notifications_history_add_item(&s_data->history, &notification);
+  prv_group_window_add_notification(s_data, id);
+  timeline_item_free_allocated_buffer(&notification);
 
-  // NOTE: To avoid having two flash reads, we only read and validate the notification once.
-  //       We do it here, instead of in the function call below. If the above
-  //       notification_storage validation above is removed, then we should at least validate
-  //       it in the function call below.
-  app_notification_window_add_new_notification_by_id(id);
+  if (!notifications_history_has_collapsed_groups(&s_data->history)) {
+    app_notification_window_add_new_notification_by_id(id);
+  }
 }
 
 static void prv_handle_notification(PebbleEvent *e, void *context) {
@@ -667,7 +903,8 @@ static void prv_handle_notification(PebbleEvent *e, void *context) {
         if (action_result &&
             (action_result->type == ActionResultTypeSuccess ||
              action_result->type == ActionResultTypeSuccessANCSDismiss)) {
-          prv_remove_notification(s_data, &action_result->id);
+          prv_group_window_remove_notification(s_data, &action_result->id);
+          notifications_history_remove(&s_data->history, &action_result->id);
           app_notification_window_remove_notification_by_id(&action_result->id);
         }
         break;
@@ -775,6 +1012,7 @@ static void prv_handle_init(void) {
     .handler = prv_handle_notification,
   };
   event_service_client_subscribe(&data->notification_event_info);
+  prv_notifications_history_init(data);
   prv_load_notification_storage(data);
 
   prv_push_window(data);
@@ -788,7 +1026,8 @@ static void prv_handle_deinit(void) {
   menu_layer_deinit(&data->menu_layer);
   event_service_client_unsubscribe(&data->notification_event_info);
   prv_loaded_notification_list_deinit(data->loaded_notification_list);
-  prv_notification_list_deinit(data->notification_list);
+  notifications_history_deinit(&data->history);
+  app_free(data->group_title);
 
   i18n_free_all(data);
   app_free(data);

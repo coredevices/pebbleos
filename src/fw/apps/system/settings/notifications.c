@@ -34,6 +34,7 @@ enum NotificationsItem {
 #endif
   NotificationsItemVibeDelay,
   NotificationsItemBacklight,
+  NotificationsItemGroupBySender,
   NotificationsItemStatusBarStyle,
   NotificationsItem_Count,
 };
@@ -259,6 +260,41 @@ static void prv_status_bar_style_menu_push(SettingsNotificationsData *data) {
       s_status_bar_style_labels, data);
 }
 
+// Group by Sender
+////////////////////////
+
+static const char *s_notification_grouping_range_labels[] = {
+    /// Disable notification grouping
+    [NotificationGroupingRange_Never] = i18n_noop("Never"),
+    /// Group notifications received within one day
+    [NotificationGroupingRange_OneDay] = i18n_noop("1 Day"),
+    /// Group notifications received within one week
+    [NotificationGroupingRange_OneWeek] = i18n_noop("1 Week"),
+    /// Group all notifications
+    [NotificationGroupingRange_All] = i18n_noop("All"),
+};
+
+_Static_assert(ARRAY_LENGTH(s_notification_grouping_range_labels) == NotificationGroupingRangeCount,
+               "");
+
+static void prv_notification_grouping_range_menu_select(OptionMenu *option_menu, int selection,
+                                                        void *context) {
+  alerts_preferences_set_notification_grouping_range((NotificationGroupingRange)selection);
+  app_window_stack_remove(&option_menu->window, true /* animated */);
+}
+
+static void prv_notification_grouping_range_menu_push(SettingsNotificationsData *data) {
+  const OptionMenuCallbacks callbacks = {
+      .select = prv_notification_grouping_range_menu_select,
+  };
+  /// Title for the notification sender grouping settings screen
+  const char *title = i18n_noop("Group by Sender");
+  settings_option_menu_push(title, OptionMenuContentType_SingleLine,
+                            alerts_preferences_get_notification_grouping_range(), &callbacks,
+                            ARRAY_LENGTH(s_notification_grouping_range_labels),
+                            true /* icons_enabled */, s_notification_grouping_range_labels, data);
+}
+
 // Menu Layer Callbacks
 ////////////////////////
 
@@ -304,6 +340,13 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
                  i18n_noop("On") : i18n_noop("Off");
       break;
     }
+    case NotificationsItemGroupBySender: {
+      /// Notification settings item for grouping notifications by sender
+      title = i18n_noop("Group by Sender");
+      subtitle = s_notification_grouping_range_labels
+          [alerts_preferences_get_notification_grouping_range()];
+      break;
+    }
     case NotificationsItemStatusBarStyle: {
       /// String within Settings->Notifications that selects the notification status bar style
       title = i18n_noop("Status Bar");
@@ -345,6 +388,9 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       // Toggle backlight directly without submenu
       alerts_preferences_set_notification_backlight(
           !alerts_preferences_get_notification_backlight());
+      break;
+    case NotificationsItemGroupBySender:
+      prv_notification_grouping_range_menu_push(data);
       break;
     case NotificationsItemStatusBarStyle:
       prv_status_bar_style_menu_push(data);

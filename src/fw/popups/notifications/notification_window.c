@@ -891,7 +891,7 @@ static ActionMenuLevel *prv_create_action_menu_for_item(TimelineItem *item,
                       !uuid_equal(&(Uuid)UUID_REMINDERS_DATA_SOURCE, &items_originator_id) &&
                       reminders_can_snooze(item));
 
-  const bool has_dismiss_all_action = ((dismiss_action) &&
+  const bool has_dismiss_all_action = (window_data->allow_dismiss_all && (dismiss_action) &&
                                        (notifications_presented_list_count() > 1));
   const bool has_quiet_time_action = true; // Always true
   const bool has_ancs_mute_action = prv_has_mute_action(item);
@@ -1061,8 +1061,11 @@ static void prv_back_button_single_click_handler(ClickRecognizerRef recognizer, 
 }
 
 static void prv_click_config_provider(void *data) {
+  NotificationWindowData *window_data = data;
   window_single_click_subscribe(BUTTON_ID_SELECT, prv_select_single_click_handler);
-  window_long_click_subscribe(BUTTON_ID_SELECT, 1000, prv_select_long_click_handler, NULL);
+  if (window_data->allow_dismiss_all) {
+    window_long_click_subscribe(BUTTON_ID_SELECT, 1000, prv_select_long_click_handler, NULL);
+  }
   window_set_click_context(BUTTON_ID_SELECT, data);
 
   window_single_click_subscribe(BUTTON_ID_BACK, prv_back_button_single_click_handler);
@@ -1299,7 +1302,7 @@ static bool prv_action_button_touch_transparent(const Layer *layer, const GPoint
 }
 #endif
 
-static void prv_init_notification_window(bool is_modal) {
+static void prv_init_notification_window(bool is_modal, bool allow_dismiss_all) {
   NotificationWindowData *data = &s_notification_window_data;
 
   // init_notification_window() can be called from KernelMain when displaying an incoming
@@ -1313,6 +1316,7 @@ static void prv_init_notification_window(bool is_modal) {
   s_in_use = true;
   data->pop_timer_is_final = false;
   data->is_modal = is_modal;
+  data->allow_dismiss_all = allow_dismiss_all;
   data->notification_app_id = UUID_INVALID;
   data->peek_layer_timer = EVENTED_TIMER_INVALID_ID;
   data->peek_animation = NULL;
@@ -1408,7 +1412,7 @@ fail:
 }
 
 void notification_window_init(bool is_modal) {
-  prv_init_notification_window(is_modal);
+  prv_init_notification_window(is_modal, true);
 
   if (is_modal && notification_window_is_modal()) {
     // If we didn't ask for a modal window, it means some other task already created it,
@@ -1416,6 +1420,10 @@ void notification_window_init(bool is_modal) {
     modal_window_push(&s_notification_window_data.window,
                       NOTIFICATION_PRIORITY, true /* animated */);
   }
+}
+
+void notification_window_init_history(bool allow_dismiss_all) {
+  prv_init_notification_window(false, allow_dismiss_all);
 }
 
 void notification_window_show() {
@@ -1578,7 +1586,7 @@ static void prv_handle_notification_added_common(Uuid *id, NotificationType type
   }
 
   // will fail and return early if already init'ed.
-  prv_init_notification_window(true /*is_modal*/);
+  prv_init_notification_window(true /*is_modal*/, true /*allow_dismiss_all*/);
 
   if (!data->is_modal) {
     return;

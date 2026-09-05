@@ -18,6 +18,7 @@ typedef struct NotificationWindowData {
   bool pop_timer_is_final; // true, if pop_timer_id cannot be rescheduled anymore
 
   bool is_modal;
+  bool allow_dismiss_all;
   bool window_frozen; // Don't pop when performing an action via a hotkey until the action completes
   bool first_notif_loaded;
 
