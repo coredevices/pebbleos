@@ -1,0 +1,34 @@
+{
+  "comments": "Heartbeat",
+  "notes": [
+    {
+      "id": "lub",
+      "vibe_duration_ms": 80,
+      "brake_duration_ms": 10,
+      "strength": 55
+    },
+    {
+      "id": "pause_short",
+      "vibe_duration_ms": 90,
+      "brake_duration_ms": 0,
+      "strength": 0
+    },
+    {
+      "id": "dub",
+      "vibe_duration_ms": 140,
+      "brake_duration_ms": 10,
+      "strength": 85
+    },
+    {
+      "id": "pause_long",
+      "vibe_duration_ms": 500,
+      "brake_duration_ms": 0,
+      "strength": 0
+    }
+  ],
+  "pattern": [
+    "lub", "pause_short", "dub", "pause_long",
+    "lub", "pause_short", "dub"
+  ],
+  "repeat_delay_ms": 1000
+}

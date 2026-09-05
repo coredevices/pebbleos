@@ -1,0 +1,65 @@
+{
+  "comments": "Wave",
+  "notes": [
+    {
+      "id": "w20",
+      "vibe_duration_ms": 60,
+      "brake_duration_ms": 0,
+      "strength": 20
+    },
+    {
+      "id": "w35",
+      "vibe_duration_ms": 60,
+      "brake_duration_ms": 0,
+      "strength": 35
+    },
+    {
+      "id": "w55",
+      "vibe_duration_ms": 60,
+      "brake_duration_ms": 0,
+      "strength": 55
+    },
+    {
+      "id": "w75",
+      "vibe_duration_ms": 60,
+      "brake_duration_ms": 0,
+      "strength": 75
+    },
+    {
+      "id": "w100",
+      "vibe_duration_ms": 80,
+      "brake_duration_ms": 0,
+      "strength": 100
+    },
+    {
+      "id": "w80",
+      "vibe_duration_ms": 60,
+      "brake_duration_ms": 0,
+      "strength": 80
+    },
+    {
+      "id": "w60",
+      "vibe_duration_ms": 60,
+      "brake_duration_ms": 0,
+      "strength": 60
+    },
+    {
+      "id": "w40",
+      "vibe_duration_ms": 60,
+      "brake_duration_ms": 0,
+      "strength": 40
+    },
+    {
+      "id": "pause",
+      "vibe_duration_ms": 150,
+      "brake_duration_ms": 0,
+      "strength": 0
+    }
+  ],
+  "pattern": [
+    "w20", "w35", "w55", "w75", "w100", "w80", "w60", "w40", "w20",
+    "pause",
+    "w20", "w35", "w55", "w75", "w100", "w80", "w60", "w40", "w20"
+  ],
+  "repeat_delay_ms": 1000
+}
