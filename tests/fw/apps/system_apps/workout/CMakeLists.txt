@@ -28,7 +28,7 @@ pbl_clar_test(test_workout_summary
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
@@ -134,7 +134,7 @@ pbl_clar_test(test_workout_active
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
@@ -238,7 +238,7 @@ pbl_clar_test(test_workout_dialog
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
@@ -341,7 +341,7 @@ pbl_clar_test(test_workout_selection
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c

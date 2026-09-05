@@ -65,7 +65,7 @@ pbl_clar_test(test_status_bar_layer
     src/fw/applib/graphics/graphics_circle.c
     src/fw/applib/graphics/graphics_line.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/utf8.c
     src/fw/applib/graphics/text_render.c
@@ -281,7 +281,7 @@ pbl_clar_test(test_menu_layer_system_cells
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
@@ -354,7 +354,7 @@ pbl_clar_test(test_action_menu_window
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
@@ -436,7 +436,7 @@ pbl_clar_test(test_notification_window
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
@@ -531,7 +531,7 @@ pbl_clar_test(test_simple_dialog
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
@@ -618,7 +618,7 @@ pbl_clar_test(test_emoji_fonts
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
@@ -688,7 +688,7 @@ pbl_clar_test(test_expandable_dialog
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
@@ -785,7 +785,7 @@ pbl_clar_test(test_selection_windows
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
@@ -881,7 +881,7 @@ pbl_clar_test(test_timeline_peek
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
@@ -979,7 +979,7 @@ pbl_clar_test(test_option_menu_window
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/graphics/perimeter.c
     src/fw/applib/graphics/text_layout.c
-    src/fw/applib/graphics/rtl_support.c
+    src/fw/applib/graphics/bidi.c
     src/fw/applib/graphics/arabic_shaping.c
     src/fw/applib/graphics/text_render.c
     src/fw/applib/graphics/text_resources.c
