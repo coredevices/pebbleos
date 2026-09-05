@@ -75,6 +75,38 @@ struct saved_context {
 #define NUM_EXTRA_FP_REGS 16
 #define NUM_BASIC_FP_REGS 18
 
+//! Read by tools/qemu/qemu_gdb_proxy.py to walk the thread list and decode
+//! saved contexts without hard-coded offsets. Little-endian 16-bit fields.
+struct pbl_kernel_debug_layout {
+  uint16_t version;
+  uint16_t thread_sp;
+  uint16_t thread_all_next;
+  uint16_t thread_state;
+  uint16_t thread_id;
+  uint16_t thread_name;
+  uint16_t thread_name_len;
+  uint16_t ctx_control;
+  uint16_t ctx_r4;
+  uint16_t ctx_exc_return;
+  uint16_t ctx_hw;        // hardware frame when no FP context is stacked
+  uint16_t ctx_fp_extra;  // bytes of s16-s31 that precede it otherwise
+};
+
+const struct pbl_kernel_debug_layout pbl_kernel_debug_layout __attribute__((used)) = {
+  .version = 1,
+  .thread_sp = offsetof(struct pbl_thread, backend.sp),
+  .thread_all_next = offsetof(struct pbl_thread, backend.all_next),
+  .thread_state = offsetof(struct pbl_thread, backend.state),
+  .thread_id = offsetof(struct pbl_thread, id),
+  .thread_name = offsetof(struct pbl_thread, name),
+  .thread_name_len = PBL_THREAD_NAME_LEN,
+  .ctx_control = offsetof(struct saved_context, control),
+  .ctx_r4 = offsetof(struct saved_context, r4_r11),
+  .ctx_exc_return = offsetof(struct saved_context, exc_return),
+  .ctx_hw = offsetof(struct saved_context, r0),
+  .ctx_fp_extra = NUM_EXTRA_FP_REGS * sizeof(uint32_t),
+};
+
 _Static_assert(offsetof(struct pbl_thread, backend.sp) == 0, "saved SP must be first");
 _Static_assert(offsetof(struct pbl_thread, backend.arch.mpu) == 4, "MPU words must follow the SP");
 _Static_assert(NUM_MPU_REGIONS == PBL_THREAD_MAX_MEM_REGIONS, "region count mismatch");

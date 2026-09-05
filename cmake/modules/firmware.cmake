@@ -42,6 +42,8 @@ function(pbl_link_firmware)
   target_link_options(pebbleos PRIVATE
     ${map_options}
     -Wl,--gc-sections
+    # The QEMU gdb proxy reads this to walk the thread list.
+    -Wl,--undefined=pbl_kernel_debug_layout
     -Wl,--build-id=sha1
     -Wl,--sort-section=alignment
     -Wl,--print-memory-usage
