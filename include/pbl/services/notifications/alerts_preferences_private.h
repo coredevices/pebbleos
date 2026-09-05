@@ -14,6 +14,13 @@
 #define NOTIF_WINDOW_TIMEOUT_INFINITE ((uint32_t)~0)
 #define NOTIF_WINDOW_TIMEOUT_DEFAULT (3 * MS_PER_MINUTE)
 
+typedef enum {
+  NotificationSortNewestFirst = 0,
+  NotificationSortOldestFirst,
+  NotificationSortAlphabetical,
+  NotificationSortModeCount,
+} NotificationSortMode;
+
 void alerts_preferences_init(void);
 
 AlertMask alerts_preferences_get_alert_mask(void);
@@ -50,6 +57,11 @@ typedef enum {
 NotificationStatusBarStyle alerts_preferences_get_notification_status_bar_style(void);
 
 void alerts_preferences_set_notification_status_bar_style(NotificationStatusBarStyle style);
+
+NotificationSortMode alerts_preferences_get_notification_sort_mode(void);
+void alerts_preferences_set_notification_sort_mode(NotificationSortMode mode);
+bool alerts_preferences_get_notification_grouping(void);
+void alerts_preferences_set_notification_grouping(bool enable);
 
 bool alerts_preferences_get_vibrate(void);
 
@@ -92,4 +104,3 @@ void alerts_preferences_unlock(void);
 //! new value that was placed into the backing store.
 //! @param[in] event pointer to the blob DB event
 void alerts_preferences_handle_blob_db_event(PebbleBlobDBEvent *event);
-

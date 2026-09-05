@@ -481,6 +481,29 @@ msgstr "Start"
 msgid "End"
 msgstr "End"
 
+
+#: ../src/fw/apps/system/settings/notifications.c:54
+msgid "Newest first"
+msgstr "Nieuwste eerst"
+
+#: ../src/fw/apps/system/settings/notifications.c:54
+msgid "Oldest first"
+msgstr "Oudste eerst"
+
+#: ../src/fw/apps/system/settings/notifications.c:54
+msgid "Alphabetical"
+msgstr "Alfabetisch"
+
+#: ../src/fw/apps/system/settings/notifications.c:64
+#: ../src/fw/apps/system/settings/notifications.c:309
+msgid "Sort Order"
+msgstr "Sorteervolgorde"
+
+#: ../src/fw/apps/system/settings/notifications.c:313
+msgid "Group Notifications"
+msgstr "Meldingen groeperen"
+
+
 #: ../src/fw/applib/voice/voice_window.c:200
 msgid "Dictation is not available."
 msgstr "Dictation is not available."
