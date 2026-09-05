@@ -345,6 +345,7 @@ void ancs_notifications_handle_message(uint32_t uid,
   notification->header.type = TimelineItemTypeNotification;
   notification->header.layout = LayoutIdNotification;
   notification->header.ancs_notif = true;
+  notification->header.silent = ((properties & ANCSProperty_Silent) != 0);
 
   notification_storage_lock();
   // filter out duplicate notifications

@@ -51,6 +51,11 @@ NotificationStatusBarStyle alerts_preferences_get_notification_status_bar_style(
 
 void alerts_preferences_set_notification_status_bar_style(NotificationStatusBarStyle style);
 
+//! Whether notifications delivered silently on the phone get quiet delivery on the watch
+bool alerts_preferences_get_respect_phone_silence(void);
+
+void alerts_preferences_set_respect_phone_silence(bool enable);
+
 bool alerts_preferences_get_vibrate(void);
 
 void alerts_preferences_set_vibrate(bool enable);

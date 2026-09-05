@@ -230,4 +230,5 @@ typedef enum {
   ANCSProperty_VoiceMail = (1 << 2),
   ANCSProperty_MultiMedia = (1 << 3),
   ANCSProperty_iOS9 = (1 << 4),
+  ANCSProperty_Silent = (1 << 5),
 } ANCSProperty;

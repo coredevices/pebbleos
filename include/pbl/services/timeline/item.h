@@ -38,8 +38,9 @@ typedef enum {
   TimelineItemFlagFromWatch = 1 << 3,
   TimelineItemFlagFromANCS = 1 << 4,
   TimelineItemFlagPersistent = 1 << 5,
+  TimelineItemFlagSilent = 1 << 6,
   // This should always be the bitmask for unused bits.
-  TimelineItemFlagUnused = ~((1 << 6) - 1)
+  TimelineItemFlagUnused = ~((1 << 7) - 1)
 } TimelineItemFlag;
 
 //! Enumeration of the different types of actions a TimelineItem can have.
@@ -132,6 +133,11 @@ typedef struct PACKED {
       uint8_t from_watch:1;
       //! Indicates that this notification was added by ANCS (iOS)
       uint8_t ancs_notif:1;
+      //! Reserved: mirrors TimelineItemFlagPersistent, set by the phone. Not used on the watch.
+      uint8_t persistent_flag:1;
+      //! Indicates the notification was delivered silently on the phone (iOS ANCS EventFlagSilent,
+      //! or set by a companion app on the wire flags byte).
+      uint8_t silent:1;
     };
     uint8_t flags;
   };

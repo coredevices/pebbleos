@@ -144,6 +144,79 @@ void test_ancs_notifications__handle_phone_call_message(void) {
   cl_assert_equal_i(event.phone.source, PhoneCallSource_ANCS_Legacy);
 }
 
+static void prv_send_social_message(uint32_t uid, ANCSProperty properties) {
+  static const uint8_t app_id[] = {
+      0x00,
+      17, 0x00,
+      'c', 'o', 'm', '.', 't', 'e', 's', 't', 's', '.',
+      'F', 'a', 'k', 'e', 'A', 'p', 'p',
+  };
+  static const uint8_t title[] = {
+      0x01,
+      5, 0x00,
+      'T', 'i', 't', 'l', 'e',
+  };
+  static const uint8_t subtitle[] = {
+      0x02,
+      0x00, 0x00,
+  };
+  static const uint8_t message[] = {
+      0x03,
+      5, 0x00,
+      'H', 'e', 'l', 'l', 'o',
+  };
+  static const uint8_t date[] = {
+      0x05,
+      0x00, 0x00,
+  };
+  static const uint8_t positive_action[] = {
+      0x06,
+      0x00, 0x00,
+  };
+  static const uint8_t negative_action[] = {
+      0x07,
+      0x00, 0x00,
+  };
+
+  ANCSAttribute *notif_attributes[] = {
+    [FetchedNotifAttributeIndexAppID] = (ANCSAttribute *)&app_id,
+    [FetchedNotifAttributeIndexTitle] = (ANCSAttribute *)&title,
+    [FetchedNotifAttributeIndexSubtitle] = (ANCSAttribute *)&subtitle,
+    [FetchedNotifAttributeIndexMessage] = (ANCSAttribute *)&message,
+    [FetchedNotifAttributeIndexDate]= (ANCSAttribute *)&date,
+    [FetchedNotifAttributeIndexPositiveActionLabel] = (ANCSAttribute *)&positive_action,
+    [FetchedNotifAttributeIndexNegativeActionLabel] = (ANCSAttribute *)&negative_action,
+  };
+
+  static const uint8_t app_display_name[] = {
+    0x00,
+    7, 0x0,
+    'F', 'a', 'k', 'e', 'A', 'p', 'p',
+  };
+
+  ANCSAttribute *app_attributes[] = {
+    [FetchedAppAttributeIndexDisplayName] = (ANCSAttribute *)&app_display_name,
+  };
+
+  ancs_notifications_handle_message(uid, properties, notif_attributes, app_attributes);
+}
+
+void test_ancs_notifications__silent_property_sets_silent_header(void) {
+  // Force the "update existing" path so the stored item is captured by the fake storage
+  fake_notification_storage_set_existing_ancs_notification(&(Uuid)UUID_SYSTEM, UINT32_MAX);
+
+  // Without ANCSProperty_Silent the stored notification is not marked silent
+  prv_send_social_message(37, ANCSProperty_None);
+  cl_assert_equal_i(fake_notification_storage_get_store_count(), 1);
+  cl_assert_equal_i(fake_notification_storage_get_last_notification()->header.silent, 0);
+
+  // With ANCSProperty_Silent the stored notification is marked silent
+  prv_send_social_message(38, ANCSProperty_Silent);
+  cl_assert_equal_i(fake_notification_storage_get_store_count(), 2);
+  cl_assert_equal_i(fake_notification_storage_get_last_notification()->header.silent, 1);
+  cl_assert_equal_i(fake_notification_storage_get_last_notification()->header.ancs_notif, 1);
+}
+
 void test_ancs_notifications__handle_phone_call_removed(void) {
   const uint32_t uid = 5;
 

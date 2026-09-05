@@ -8,6 +8,7 @@
 #include "apps/system/settings/notifications_private.h"
 #include "popups/notifications/notification_window.h"
 #include "popups/notifications/notification_window_private.h"
+#include "popups/notifications/notifications_presented_list.h"
 #include "resource/timeline_resource_ids.auto.h"
 #include "pbl/services/timeline/notification_layout.h"
 #include "pbl/util/trig.h"
@@ -19,7 +20,7 @@
 
 #include "stubs_action_menu.h"
 #include "stubs_alarm_layout.h"
-#include "stubs_alerts.h"
+// stubs_alerts.h intentionally omitted; see local replacements below
 // stubs_alerts_preferences.h intentionally omitted; see local replacements below
 #include "stubs_analytics.h"
 #include "stubs_ancs_filtering.h"
@@ -51,7 +52,7 @@
 #include "stubs_menu_cell_layer.h"
 #include "stubs_modal_manager.h"
 #include "stubs_mutex.h"
-#include "stubs_notification_storage.h"
+// stubs_notification_storage.h intentionally omitted; see local replacements below
 #include "stubs_passert.h"
 #include "stubs_pbl_malloc.h"
 #include "stubs_pebble_process_info.h"
@@ -123,6 +124,107 @@ bool alerts_preferences_dnd_get_auto_dismiss(void) {
 bool alerts_preferences_get_notification_vibe_delay(void) {
   return false;
 }
+
+static bool s_respect_phone_silence;
+
+bool alerts_preferences_get_respect_phone_silence(void) {
+  return s_respect_phone_silence;
+}
+
+// Local replacements for stubs_alerts.h so the notification-added path can be
+// exercised and the vibe gate observed per test.
+#include "pbl/services/notifications/alerts_private.h"
+
+static AlertMask s_alert_mask;
+static bool s_should_notify;
+static bool s_should_vibrate;
+static int s_should_vibrate_call_count;
+
+AlertMask alerts_get_mask(void) {
+  return s_alert_mask;
+}
+
+void alerts_set_mask(AlertMask mask) {
+  s_alert_mask = mask;
+}
+
+uint32_t alerts_get_notification_window_timeout_ms(void) {
+  return 0;
+}
+
+void alerts_incoming_alert_analytics(void) {}
+
+void alerts_set_notification_vibe_timestamp(void) {}
+
+bool alerts_should_enable_backlight_for_type(AlertType type) {
+  return false;
+}
+
+bool alerts_should_notify_for_type(AlertType type) {
+  return s_should_notify;
+}
+
+bool alerts_should_vibrate_for_type(AlertType type) {
+  s_should_vibrate_call_count++;
+  return s_should_vibrate;
+}
+
+// Local replacements for stubs_notification_storage.h so a stored item can be
+// read back by the quiet-delivery check.
+#include "pbl/services/notifications/notification_storage.h"
+
+static TimelineItem s_stored_notification;
+static bool s_has_stored_notification;
+static int s_notification_remove_count;
+
+void notification_storage_init(void) {}
+
+void notification_storage_lock(void) {}
+
+void notification_storage_unlock(void) {}
+
+void notification_storage_store(TimelineItem *notification) {}
+
+bool notification_storage_notification_exists(const Uuid *id) {
+  return false;
+}
+
+size_t notification_storage_get_len(const Uuid *uuid) {
+  return 0;
+}
+
+bool notification_storage_get(const Uuid *id, TimelineItem *item_out) {
+  if (!s_has_stored_notification || !uuid_equal(id, &s_stored_notification.header.id)) {
+    return false;
+  }
+  *item_out = s_stored_notification;
+  return true;
+}
+
+void notification_storage_set_status(const Uuid *id, uint8_t status) {}
+
+bool notification_storage_get_status(const Uuid *id, uint8_t *status) {
+  return false;
+}
+
+void notification_storage_remove(const Uuid *id) {
+  s_notification_remove_count++;
+}
+
+bool notification_storage_find_ancs_notification_id(uint32_t ancs_uid, Uuid *uuid_out) {
+  return false;
+}
+
+bool notification_storage_find_ancs_notification_by_timestamp(
+    TimelineItem *notification, CommonTimelineItemHeader *header_out) {
+  return false;
+}
+
+void notification_storage_rewrite(void (*iter_callback)(TimelineItem *notification,
+    SerializedTimelineItemHeader *header, void *data), void *data) {}
+
+void notification_storage_iterate(
+    bool (*iter_callback)(void *data, SerializedTimelineItemHeader *header_id), void *data) {}
 
 int16_t interpolate_int16(int32_t normalized, int16_t from, int16_t to) {
   return to;
@@ -334,6 +436,14 @@ void test_notification_window__initialize(void) {
   attribute_list_destroy_list(&s_test_data.statics.attr_list);
   s_test_data = (NotificationWindowTestData) {};
   s_notification_status_bar_style = NotificationStatusBarStyle_Default;
+  s_respect_phone_silence = false;
+  s_should_notify = false;
+  s_should_vibrate = false;
+  s_should_vibrate_call_count = 0;
+  s_stored_notification = (TimelineItem) {};
+  s_has_stored_notification = false;
+  s_notification_remove_count = 0;
+  notifications_presented_list_init();
   // Reset the notification window so each test gets a fresh prv_init_notification_window
   // call with the correct status-bar style.  Without this, s_in_use=true from a previous
   // test (e.g. big_bold setting LargeBold mode) would prevent re-initialization and leave
@@ -495,6 +605,86 @@ void test_notification_window__body_icon(void) {
   };
   prv_prepare_canvas_and_render_notification_windows(0 /* num_down_scrolls */);
   FAKE_GRAPHICS_CONTEXT_CHECK_DEST_BITMAP_FILE();
+}
+
+// Quiet delivery (phone-silent ANCS notifications)
+//////////////////////
+
+static const Uuid s_quiet_notif_id = {0x6b, 0x03, 0x2c, 0xd8, 0x0a, 0x2e, 0x4e, 0x5a,
+                                      0x92, 0x22, 0x71, 0x8e, 0x4b, 0xb2, 0x8e, 0x11};
+
+//! Store a notification and dispatch a NotificationAdded event for it.
+static void prv_store_and_add_notification(const Uuid *id, bool ancs_notif, bool silent) {
+  s_stored_notification = (TimelineItem) {
+    .header = (CommonTimelineItemHeader) {
+      .id = *id,
+      .type = TimelineItemTypeNotification,
+      .layout = LayoutIdNotification,
+      .ancs_notif = ancs_notif,
+      .silent = silent,
+    },
+  };
+  s_has_stored_notification = true;
+
+  PebbleSysNotificationEvent event = {
+    .type = NotificationAdded,
+    .notification_id = (Uuid *)id,
+  };
+  notification_window_handle_notification(&event);
+}
+
+static void prv_setup_quiet_delivery_test(void) {
+  s_should_notify = true;
+  s_should_vibrate = true;
+  // Content for the layout created when the window loads the notification
+  s_test_data = (NotificationWindowTestData) {
+    .icon_id = TIMELINE_RESOURCE_NOTIFICATION_GENERIC,
+    .title = "Quiet",
+    .body = "Delivered silently on the phone",
+  };
+}
+
+void test_notification_window__silent_ancs_suppressed_when_pref_on(void) {
+  prv_setup_quiet_delivery_test();
+  s_respect_phone_silence = true;
+
+  // Platform-neutral: suppression works from header.silent alone, even without ancs_notif
+  // (the companion-app / Android wire-flag case).
+  prv_store_and_add_notification(&s_quiet_notif_id, false /* ancs_notif */, true /* silent */);
+
+  // No popup: the window was never initialized and nothing was presented
+  cl_assert(!s_in_use);
+  cl_assert_equal_i(notifications_presented_list_count(), 0);
+  // No vibe: the vibe gate was never consulted
+  cl_assert_equal_i(s_should_vibrate_call_count, 0);
+  // The item remains in storage
+  TimelineItem item = {};
+  cl_assert(notification_storage_get(&s_quiet_notif_id, &item));
+  cl_assert_equal_i(s_notification_remove_count, 0);
+}
+
+void test_notification_window__non_silent_ancs_shown_when_pref_on(void) {
+  prv_setup_quiet_delivery_test();
+  s_respect_phone_silence = true;
+
+  prv_store_and_add_notification(&s_quiet_notif_id, true /* ancs_notif */, false /* silent */);
+
+  cl_assert(s_in_use);
+  cl_assert_equal_i(notifications_presented_list_count(), 1);
+  cl_assert(uuid_equal(notifications_presented_list_current(), &s_quiet_notif_id));
+  cl_assert(s_should_vibrate_call_count > 0);
+}
+
+void test_notification_window__silent_ancs_shown_when_pref_off(void) {
+  prv_setup_quiet_delivery_test();
+  s_respect_phone_silence = false;
+
+  prv_store_and_add_notification(&s_quiet_notif_id, true /* ancs_notif */, true /* silent */);
+
+  cl_assert(s_in_use);
+  cl_assert_equal_i(notifications_presented_list_count(), 1);
+  cl_assert(uuid_equal(notifications_presented_list_current(), &s_quiet_notif_id));
+  cl_assert(s_should_vibrate_call_count > 0);
 }
 
 void test_notification_window__big_bold(void) {

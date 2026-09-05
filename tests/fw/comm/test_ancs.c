@@ -562,6 +562,23 @@ void test_ancs__notification_parsing(void) {
   prv_cmp_last_received_notification(&s_unknown_app_unique_title_parsed_item);
 }
 
+// EventFlagSilent must be propagated as ANCSProperty_Silent and end up as
+// header.silent on the stored notification
+void test_ancs__silent_event_flag(void) {
+  // Without the Silent flag the stored notification must not be marked silent
+  prv_send_notification((uint8_t *)&s_complete_dict);
+  cl_assert_equal_i(fake_kernel_services_notifications_ancs_notifications_count(), 1);
+  TimelineItem *notification = fake_notification_storage_get_last_notification();
+  cl_assert_equal_i(notification->header.silent, 0);
+
+  // With the Silent flag the stored notification must be marked silent
+  prv_send_notification_with_event_flags((uint8_t *)&s_complete_dict, EventFlagSilent);
+  cl_assert_equal_i(fake_kernel_services_notifications_ancs_notifications_count(), 2);
+  notification = fake_notification_storage_get_last_notification();
+  cl_assert_equal_i(notification->header.silent, 1);
+  cl_assert_equal_i(notification->header.ancs_notif, 1);
+}
+
 // Make sure we send an ANCS_DISCONNECTED event whenever our session goes away
 void test_ancs__disconnection(void) {
   // Simulate a disconnection/reconnection

@@ -1063,6 +1063,10 @@ static void prv_handle_ns_notification(uint32_t length, const uint8_t *notificat
     properties |= ANCSProperty_MultiMedia;
   }
 
+  if (nsnotification->event_flags & EventFlagSilent) {
+    properties |= ANCSProperty_Silent;
+  }
+
   if (s_ancs_client->version >= ANCSVersion_iOS9OrNewer) {
     properties |= ANCSProperty_iOS9;
   }

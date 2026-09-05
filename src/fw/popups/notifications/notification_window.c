@@ -1563,6 +1563,18 @@ static void prv_do_notification_vibe(NotificationWindowData *data, Uuid *id) {
   }
 }
 
+// Returns true if the stored notification was delivered silently by the phone
+// (iOS via ANCS EventFlagSilent, or a companion app that set the silent flag).
+static bool prv_notification_is_phone_silent(Uuid *id) {
+  TimelineItem item = {};
+  if (!notification_storage_get(id, &item)) {
+    return false;
+  }
+  const bool is_phone_silent = item.header.silent;
+  timeline_item_free_allocated_buffer(&item);
+  return is_phone_silent;
+}
+
 static void prv_handle_notification_added_common(Uuid *id, NotificationType type) {
   NotificationWindowData *data = &s_notification_window_data;
 
@@ -1574,6 +1586,12 @@ static void prv_handle_notification_added_common(Uuid *id, NotificationType type
 
   if (do_not_disturb_is_active() && 
       alerts_preferences_dnd_get_show_notifications() == DndNotificationModeHide) {
+    return;
+  }
+
+  // Quiet delivery: keep phone-silent notifications out of the popup/vibe/backlight path
+  if (type == NotificationMobile && alerts_preferences_get_respect_phone_silence() &&
+      prv_notification_is_phone_silent(id)) {
     return;
   }
 
