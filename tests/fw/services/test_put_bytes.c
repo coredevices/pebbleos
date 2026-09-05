@@ -865,6 +865,27 @@ void test_put_bytes__install_message_cookie_mismatch(void) {
   assert_nack_count(1);
 }
 
+// The phone matches a response to the request it sent, and the commit that precedes an install has
+// already cleaned the transfer state up, so the install's own token is the only one left to answer
+// with.
+void test_put_bytes__install_ack_carries_the_install_token(void) {
+  prv_receive_init_put_and_commit_fw_object();
+  const uint32_t install_token = s_last_response_cookie;
+
+  prv_receive_install(install_token);
+  assert_ack_count(1);
+  cl_assert_equal_i(s_last_response_cookie, install_token);
+}
+
+void test_put_bytes__install_nack_carries_the_install_token(void) {
+  prv_receive_init_put_and_commit_fw_object();
+  const uint32_t unknown_token = ~s_last_response_cookie;
+
+  prv_receive_install(unknown_token);
+  assert_nack_count(1);
+  cl_assert_equal_i(s_last_response_cookie, unknown_token);
+}
+
 void test_put_bytes__install_message_prf_boot_bit_set(void) {
   prv_receive_init_put_commit_and_install(ObjectRecovery);
   assert_ack_count(1);
