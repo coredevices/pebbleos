@@ -342,6 +342,7 @@ enum SettingsBacklightItem {
   SettingsBacklightMotionWake,
 #ifdef CONFIG_TOUCH
   SettingsBacklightTouchWake,
+  SettingsBacklightPalmSleep,
 #endif
   SettingsBacklightTimeout,
   NumSettingsBacklightItems
@@ -354,10 +355,11 @@ static bool prv_backlight_item_is_visible(uint16_t item) {
       // Always shown, even when the backlight is off.
       return true;
 #ifdef CONFIG_TOUCH
-    // The wake-on-touch row is only relevant when global touch is enabled.
-    // It gets hidden dynamically (not just gated at compile time) so users
-    // don't see a dangling backlight option that can't do anything.
+    // The touch rows are only relevant when global touch is enabled. They get
+    // hidden dynamically (not just gated at compile time) so users don't see a
+    // dangling backlight option that can't do anything.
     case SettingsBacklightTouchWake:
+    case SettingsBacklightPalmSleep:
       return backlight_is_enabled() && touch_is_globally_enabled();
 #endif
     default:
@@ -391,6 +393,9 @@ static void prv_backlight_select_click_cb(SettingsCallbacks *context, uint16_t r
 #ifdef CONFIG_TOUCH
     case SettingsBacklightTouchWake:
       prv_touch_wake_menu_push(data);
+      break;
+    case SettingsBacklightPalmSleep:
+      backlight_set_palm_sleep_enabled(!backlight_is_palm_sleep_enabled());
       break;
 #endif
     case SettingsBacklightAmbientSensor:
@@ -447,6 +452,10 @@ static void prv_backlight_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
     case SettingsBacklightTouchWake:
       title = i18n_noop("Wake on touch");
       subtitle = s_touch_wake_labels[backlight_get_touch_wake()];
+      break;
+    case SettingsBacklightPalmSleep:
+      title = i18n_noop("Palm to sleep");
+      subtitle = backlight_is_palm_sleep_enabled() ? i18n_noop("On") : i18n_noop("Off");
       break;
 #endif
     case SettingsBacklightAmbientSensor:

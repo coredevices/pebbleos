@@ -44,6 +44,11 @@ void light_touch_up(void);
 void light_enable(bool enable);
 
 //! @internal
+//! Drop the backlight now, as if its timeout had expired. Unlike
+//! light_enable(false), does not claim app control of the light.
+void light_off_now(void);
+
+//! @internal
 //! light_enable that adheres to user's backlight setting.
 void light_enable_respect_settings(bool enable);
 

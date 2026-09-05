@@ -117,6 +117,10 @@ typedef enum BacklightTouchWake {
 BacklightTouchWake backlight_get_touch_wake(void);
 void backlight_set_touch_wake(BacklightTouchWake wake);
 
+// Whether covering the screen with a palm turns the backlight off.
+bool backlight_is_palm_sleep_enabled(void);
+void backlight_set_palm_sleep_enabled(bool enable);
+
 // Global touch input kill-switch. When false, the kernel touch service
 // drops events at the source, powers the sensor down, and the applib
 // touch_service_is_enabled() query returns false to apps.

@@ -9,6 +9,7 @@
 typedef enum GestureEventType {
   GestureEvent_Tap,
   GestureEvent_DoubleTap,
+  GestureEvent_Palm,
 } GestureEventType;
 
 //! Gesture event data, carried directly in PebbleGestureEvent

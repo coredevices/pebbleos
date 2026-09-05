@@ -73,6 +73,13 @@ BacklightTouchWake backlight_get_touch_wake(void) {
 void backlight_set_touch_wake(BacklightTouchWake wake) {
 }
 
+bool backlight_is_palm_sleep_enabled(void) {
+  return false;
+}
+
+void backlight_set_palm_sleep_enabled(bool enable) {
+}
+
 bool touch_is_globally_enabled(void) {
   return true;
 }

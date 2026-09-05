@@ -41,6 +41,7 @@ PBL_LOG_MODULE_DEFINE(driver_touch_cst816, CONFIG_DRIVER_TOUCH_LOG_LEVEL);
 #define CST816_GESTURE_CLICK          0x05
 #define CST816_GESTURE_DOUBLE_CLICK   0x0B
 #define CST816_GESTURE_LONG_PRESS     0x0C
+#define CST816_GESTURE_PALM           0xAA
 
 #define CST816_BOOT_MODE_REG          0xA001
 #define CST816_BOOT_MODE_CMD          0xAB
@@ -67,6 +68,7 @@ PBL_LOG_MODULE_DEFINE(driver_touch_cst816, CONFIG_DRIVER_TOUCH_LOG_LEVEL);
 #define CST816_WAKE_SPACING_MS        2000
 
 static bool s_callback_scheduled = false;
+static bool s_palm_down = false;
 static bool s_enabled = false;
 static bool s_reset_scheduled = false;
 static bool s_activity_since_check = false;
@@ -340,7 +342,18 @@ static void prv_process_pending_messages(void* context) {
       break;
   }
 
-  if (press == 0x01) {
+  // The gesture register holds its last value, so a palm reads back as one on
+  // every sample it produces, its liftoff included; latch it instead.
+  if (press != 0x01) {
+    s_palm_down = false;
+  } else if (id == CST816_GESTURE_PALM && !s_palm_down) {
+    s_palm_down = true;
+    touch_handle_gesture(TouchGesture_Palm, point.x, point.y);
+  }
+
+  // A palm also reports a contact at its centroid, which would take the
+  // backlight the gesture just dropped and land as a tap underneath it.
+  if (press == 0x01 && !s_palm_down) {
     touch_handle_update(TouchState_FingerDown, point.x, point.y);
   } else {
     touch_handle_update(TouchState_FingerUp, point.x, point.y);
@@ -388,6 +401,7 @@ static void prv_watchdog_cb(void *data) {
 
 void touch_sensor_set_enabled(bool enabled) {
   cst816_hw_reset();
+  s_palm_down = false;
 
   if (enabled) {
     exti_enable(CST816->int_exti);
