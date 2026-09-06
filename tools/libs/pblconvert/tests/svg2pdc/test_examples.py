@@ -60,7 +60,7 @@ class RenderExamplesTest(unittest.TestCase):
 
             annotated_png_path = os.path.splitext(annotated_path)[0] + ".png"
             with open(annotated_png_path, "wb") as f:
-                annotated_png_data = surface.render_annoations_on_top(png_path)
+                annotated_png_data = surface.render_annotations_on_top(png_path)
                 f.write(annotated_png_data)
 
             if not os.path.exists(expected_dir):

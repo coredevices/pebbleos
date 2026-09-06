@@ -180,7 +180,7 @@ def dehash_str(hashed_info, lookup_dict):
                 str(int(match.group("hash_key"), 16)), hashed_info
             )
 
-        # For each argument, substitute a C-style format specififier in the string
+        # For each argument, substitute a C-style format specified in the string
         for arg in parse_args(match.group("arg_list")):
             formatted_string = FORMAT_TAG_PATTERN.sub(arg, formatted_string, 1)
 

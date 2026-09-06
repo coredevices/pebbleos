@@ -197,7 +197,7 @@ class PDCSurface(cairosvg.surface.PNGSurface):
 
         return etree.ElementTree(self.svg_tree.node)
 
-    def render_annoations_on_top(self, png_path):
+    def render_annotations_on_top(self, png_path):
         surface, ctx = cairo_from_png(png_path)
 
         def iterate(elem):

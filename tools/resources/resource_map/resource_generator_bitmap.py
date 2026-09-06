@@ -50,7 +50,7 @@ class BitmapResourceGenerator(ResourceGenerator):
             )
         if definition.storage_format == "png" and memory_format == "1bit":
             task.generator.bld.fatal(
-                f"{definition.name}: PNG storage does not support non-palettised 1-bit images."
+                f"{definition.name}: PNG storage does not support non-palettized 1-bit images."
             )
 
         # If storage_format is not specified, it is completely determined by space_optimization.
@@ -109,7 +109,7 @@ class BitmapResourceGenerator(ResourceGenerator):
                 )
             )
 
-        # "smallest" is always palettised, unless the image has too many colours, in which case it
+        # "smallest" is always palettized, unless the image has too many colours, in which case it
         # cannot be.
         if memory_format == "smallest":
             if bitdepth <= 4:
@@ -122,7 +122,7 @@ class BitmapResourceGenerator(ResourceGenerator):
                 # If they asked for "smallestpalette", replace that with its actual value.
                 if bitdepth > 4:
                     task.generator.bld.fatal(
-                        f"{definition.name} has too many colours for a palettised image"
+                        f"{definition.name} has too many colours for a palettized image"
                         "(max 16), but 'SmallestPalette' specified."
                     )
                 else:

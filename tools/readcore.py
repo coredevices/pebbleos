@@ -224,9 +224,9 @@ class Coredump:
             e_type=ENUM_E_TYPE["ET_CORE"], e_machine=ENUM_E_MACHINE["EM_ARM"]
         )
 
-        # We want to do this all in one pass: figure out where everythign is
+        # We want to do this all in one pass: figure out where everything is
         # going to go, then update some internal variables with where things
-        # actually ended up, and then actually generate the strcuts and
+        # actually ended up, and then actually generate the structs and
         # splatter them out later.  `position` is the thing that measures
         # where we expect to put bytes, and `callbacks` will actually go
         # generate the bytes later.

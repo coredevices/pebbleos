@@ -10,7 +10,7 @@ BIT DEPTH exactly (decoded gbitmap RAM layout unchanged); shrinks by
     alpha entries to opaque),
   - per-scanline filter search, and
   - zopfli (fallback: zlib-9 across strategies) for the IDAT stream.
-Output is deterministic (pbpack content-dedup keeps working) and always
+Output is deterministic (pbpack content-dedupe keeps working) and always
 single-IDAT + non-interlaced (uPNG requirements). optimize_png_bytes() verifies
 its own output round-trips to the identical index grid and returns the ORIGINAL
 bytes on any surprise, so the build can never regress correctness.

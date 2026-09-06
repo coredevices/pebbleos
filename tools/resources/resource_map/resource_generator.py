@@ -21,7 +21,7 @@ class ResourceGeneratorMetaclass(type):
             _ResourceGenerators[cls.type] = cls
 
 
-# Instatiate the metaclass into a baseclass we can use elsewhere.
+# Instantiate the metaclass into a baseclass we can use elsewhere.
 ResourceGeneratorBase = ResourceGeneratorMetaclass("ResourceGenerator", (object,), {})
 
 
@@ -40,7 +40,7 @@ class ResourceGenerator(ResourceGeneratorBase):
         }
         resources = [resource]
 
-        # Now generate ResourceDefintion objects for each resource
+        # Now generate ResourceDefinition objects for each resource
         target_platforms = definition_dict.get("targetPlatforms", None)
         aliases = definition_dict.get("aliases", [])
         builtin = (
