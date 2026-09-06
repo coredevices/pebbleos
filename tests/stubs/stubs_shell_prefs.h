@@ -16,14 +16,14 @@ void WEAK shell_prefs_set_clock_24h_style(bool is_24h) {
   s_clock_24h= is_24h;
 }
 
-static bool s_clock_timeezone_manual;
+static bool s_clock_timezone_manual;
 
 bool WEAK shell_prefs_is_timezone_source_manual(void) {
-  return s_clock_timeezone_manual;
+  return s_clock_timezone_manual;
 }
 
 void WEAK shell_prefs_set_timezone_source_manual(bool manual) {
-  s_clock_timeezone_manual = manual;
+  s_clock_timezone_manual = manual;
 }
 
 static bool s_clock_time_source_manual;

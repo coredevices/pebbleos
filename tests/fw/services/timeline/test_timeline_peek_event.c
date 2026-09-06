@@ -733,7 +733,7 @@ void test_timeline_peek_event__one_persistent_event_lifecycle(void) {
   CHECK_NO_EVENTS( .count = 6 );
 }
 
-void test_timeline_peek_event__upcoming_priotized_over_persistent_event_lifecycle(void) {
+void test_timeline_peek_event__upcoming_prioritized_over_persistent_event_lifecycle(void) {
   TimelineItem item =
       DEFINE_EVENT( .id = 0x01, .timestamp  = 20 * SECONDS_PER_MINUTE, .duration = 70,
                     .persistent = true );
@@ -760,7 +760,7 @@ void test_timeline_peek_event__upcoming_priotized_over_persistent_event_lifecycl
                .time_type = TimelinePeekTimeType_ShowStarted, .is_first_event = true );
   prv_invoke_timer(timeout_s);
   timeout_s = TIMELINE_PEEK_DEFAULT_SHOW_BEFORE_TIME_S;
-  // The upcoming non-persistent item2 is prioritised for display while both items peek, but
+  // The upcoming non-persistent item2 is prioritized for display while both items peek, but
   // is_first_event reflects the earliest event in the future direction (prv_peek_filter tracks
   // first_header separately from the displayed item). The persistent item1 has the earlier
   // timestamp and is still within its peeking window, so item1 remains the first event and the

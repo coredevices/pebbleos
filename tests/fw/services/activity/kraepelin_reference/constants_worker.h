@@ -2,10 +2,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* +++++++++++++++ PERSISTANT STORAGE KEYS +++++++++++++++ */
+/* +++++++++++++++ PERSISTENT STORAGE KEYS +++++++++++++++ */
 
 // +++++++ RESERVED KEYS
-// REMEMBER!!! keys 1-20 are reserved for the actigraphy keys
+// REMEMBER!!! keys 1-20 are reserved for the actigraph keys
 
 // +++++++ intra-app messaging
 static const int16_t WORKER_START_FORE_APP_REASON_PERSIST_KEY = 120;
@@ -24,8 +24,8 @@ static const int16_t PK_VERSION_PERSIST_KEY = 183;
 
 
 // +++++++ Interaction Data
-static const int16_t PIRPS_B1_PERSIST_KEY = 190; // Patient Response Pesistant Storage, Block 1
-static const int16_t PIRPS_B2_PERSIST_KEY = 191; // Patient Response Pesistant Storage, Block 2
+static const int16_t PIRPS_B1_PERSIST_KEY = 190; // Patient Response Persistent Storage, Block 1
+static const int16_t PIRPS_B2_PERSIST_KEY = 191; // Patient Response Persistent Storage, Block 2
 
 
 // +++++++ Continuous Data
@@ -120,7 +120,7 @@ enum ActivityClassLearnFeatures {
 //   person said that they arose, AND the DAY to which these minutes
 //   are assigned is the one that the 16 hours ENDED ON.
 // uint16_t daily_arise_time_min;
-//   time when person said getitng up for the day, triggered by a sudden
+//   time when person said getting up for the day, triggered by a sudden
 //   increase in the number od steps
 //   counts
 

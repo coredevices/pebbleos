@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 This license is taken to apply to any other files in the Project Kraepelin
-Pebble App roject.
+Pebble App project.
 */
 
 
@@ -41,7 +41,7 @@ static const int16_t SIZE_BLK_TIME = 4; // # of bytes for storing timestamp
 static const int16_t SIZE_SUMM = 2; // number of bytes in individual summary
 static const int16_t N_BLK_PERSIST = 12; // 12 < 14, # blocks, ie: # key-value pairs in persist storage
 static const int16_t N_SUMM_BLK = 120; // 120, number of summaries in a appmessage block
-                    // ^-->NEEDS TO BE DIVISABLE by N_STEPC_BLK
+                    // ^-->NEEDS TO BE DIVISIBLE by N_STEPC_BLK
 
 static const int16_t N_STEPC_BLK = 10; // 4 number of step count recording per block
 static const int16_t N_MIN_VMC_0_NONWEAR = 60; // 4 number of step count recording per block
@@ -51,9 +51,9 @@ static const int16_t N_MIN_VMC_0_NONWEAR = 60; // 4 number of step count recordi
 static const int16_t LVL_SCL = 8; // the number of milligs between discrete levels
 static const int16_t LVL_SHIFT = 3; // 2^LVL_SHIFT = LVL_SCL
 static const uint8_t N_ANG = 16; // for orient_encode, # of angles possible chosen
-/* FFT_SCL reduces the data size so doesnt overflow on the transforms. Divide by 4 to
+/* FFT_SCL reduces the data size so doesn't overflow on the transforms. Divide by 4 to
 * get max at 125, and divide by 2 to get  fourier DC to max at 512*125/2 = 32000 < 32768 the
-* overflow boundry for 16 bit *signed* ints */
+* overflow boundary for 16 bit *signed* ints */
 static const int16_t FFT_SCL = 2; // 125*500/2 = 25000 prevent overflow on the transforms, assuming +-250
 static const int16_t MAX_VM = 1000; // make smaller to prevent overflow on the FFT
 static const uint32_t VMCPM_SCL = 10; // scaled needed to prevent overflow in adding
@@ -68,7 +68,7 @@ static const uint32_t STEPC_SCL = 25; // step resolution, scale count to stuff i
 static const int16_t N_AXIS = 3;
 
 /* BEHAVIOUR CONSTS */
-// REMEMEBER, CURRENTLY THIS IS ONLY CHECKED ONCE PER EACH BLOCK, SO IT WANT
+// REMEMBER, CURRENTLY THIS IS ONLY CHECKED ONCE PER EACH BLOCK, SO IT WANT
 // CHECKED MORE OFTEN THEN MUST PUT IN MINUTE HANDLER!!
 static const uint16_t SUMM_BTWN_TRANSMIT_SERVER = 120; // 300 = 5 hours
 static const uint16_t SUMM_BTWN_WEAR_REMINDER = 60; // 60 = 1 hours
@@ -160,11 +160,11 @@ static void reset_daily_metrics(){
 }
 
 
-/* APPMESSAGE MANANGMENT VIA PERSISTENT DATA */
+/* APPMESSAGE MANAGEMENT VIA PERSISTENT DATA */
 
 static void write_blk_buf_to_persist(){
   /* the persist_read_int(I_BLK_PERSIST_KEY) is NOT a count, it is the current index
-  * but 1-indexced, so 1 is the first block and zero is the empty state */
+  * but 1-indexed, so 1 is the first block and zero is the empty state */
 
   if(persist_read_int(I_BLK_PERSIST_KEY) < N_BLK_PERSIST){
     // set the index of the current block
@@ -240,11 +240,11 @@ static void summ_datalog(){
   // >> Write the step counts : finish a section of summaries, write stepc
   // we write the steps directly here because we dont want to have another
   // array to track the size, etc, and add extra indirection. Moreover
-  // it keeps the theme of writing regular occuring data in this seciont.
+  // it keeps the theme of writing regular occurring data in this section.
   //  > (i_summ_blk + 1)%(N_SUMM_BLK/N_STEPC_BLK) == 0) --> that
   //  N_SUMM_BLK/N_STEPC_BLK is # of SUMMaries between writing the
   //  step_count to the BLK.
-  //  > Hence N_SUMM_BLK must be divisable by N_STEPC_BLK. Also
+  //  > Hence N_SUMM_BLK must be divisible by N_STEPC_BLK. Also
   //  (i_summ_blk + 1) accounts for the 0 indexing.
   //   Hence, at the START, where
   //      i_summ_blk = 0, we have
@@ -325,7 +325,7 @@ static void epoch_analysis(){
 
   /* CALCULATE ACCELERATION MAGNITUDE METRICS */
   // NOTE, we store acceleration magnitude in work vector, original pt_ary
-  // arrays are unmodifed for future use.
+  // arrays are unmodified for future use.
   vm_accel(pt_ary, work_ary, MAX_VM, i_smp); // write vm into work_ary
 
   /* CALCULATE STEP COUNT FOR 5-SEC TERM, UPDATE PERSIST */
@@ -372,7 +372,7 @@ static void epoch_analysis(){
 }
 
 #if PEBBLE_APP
-void tick_summ_datalog_second_hander(struct tm *tick_time, TimeUnits units_changed){
+void tick_summ_datalog_second_handler(struct tm *tick_time, TimeUnits units_changed){
   static int8_t cur_min = -1; // this tracks the current min, 0-59 values
   // this is to protect against summ_datalog() being called more than once a min
 
@@ -424,7 +424,7 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples ){
 /* BLUETOOTH CONNECTION SERVICE HANDLER*/
 void worker_bt_service_handler(bool connected){
   if(connected){
-    // set the foreground app start by worker info persistant storage id
+    // set the foreground app start by worker info persistent storage id
     // try to send all data to phone
     persist_write_int(WORKER_START_FORE_APP_REASON_PERSIST_KEY,
       WFAWR_PUSH_ALL_DATA_TO_SERVER);
@@ -443,7 +443,7 @@ static void init_mem_log(){
   }
   /* initialize the work array */
   work_ary = (int16_t*) calloc(SIZE_EPOCH, sizeof(int16_t));
-  /* initalize the block buffer here */
+  /* initialize the block buffer here */
   blk_buf = (uint8_t*) calloc(((SIZE_SUMM*N_SUMM_BLK)+SIZE_BLK_HEAD), sizeof(uint8_t));
 #if PEBBLE_APP
   /* save the size of the block buffer (# of bytes long) to persistent storage */
@@ -464,7 +464,7 @@ static void init() {
   // NOTE : we need to be sure to have second-level accuracy, so given the bugs
   // with the MINUTE_UNIT timer, we assume that we need to call every second
   // NOTE! we use SECOND_UNIT, SECOND_UNIT is CORRECT!!
-  tick_timer_service_subscribe(SECOND_UNIT, tick_summ_datalog_second_hander);
+  tick_timer_service_subscribe(SECOND_UNIT, tick_summ_datalog_second_handler);
 
   // subscribe to the accelerometer handler
   accel_data_service_subscribe(SMP_HZ, accel_data_handler);
@@ -533,7 +533,7 @@ void ref_minute_stats(uint8_t *orientation, uint8_t *vmc) {
 
 
 //
-// void tick_summ_datalog_hander(struct tm *tick_time, TimeUnits units_changed){
+// void tick_summ_datalog_handler(struct tm *tick_time, TimeUnits units_changed){
 //   static int8_t cur_min = -1; // this tracks the current min, 0-59 values
 //   // this is to protect against summ_datalog() being called more than once a min
 //

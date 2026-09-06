@@ -184,7 +184,7 @@ void test_scroll_layer_touch__registered_and_deregistered(void) {
   cl_assert(s_touch_nav_state.scroll_head == NULL);
 }
 
-// Init->init without deinit stays a single entry (dedup by address); double deinit is a no-op.
+// Init->init without deinit stays a single entry (dedupe by address); double deinit is a no-op.
 void test_scroll_layer_touch__double_init_and_double_deinit(void) {
   prv_touch_nav_setup();
   ScrollLayer sl;

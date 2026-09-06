@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 This license is taken to apply to any other files in the Project Kraepelin
-Pebble App roject.
+Pebble App project.
 */
 
 
@@ -35,18 +35,18 @@ void fft_2radix_real(int16_t *d, int16_t dlenpwr){
   /* +++++++++++ REAL-VALUED, IN-PLACE, 2-RADIX FOURIER TRANSFORM +++++++++++
   *
   *   This implementation of the fourier transform is taken directly from
-  *   Henrik V. Sorensen's 1987 paper "Real-valued Fast Fourier Tranform
+  *   Henrik V. Sorensen's 1987 paper "Real-valued Fast Fourier Transform
   *   Algorithms" with slight modifications to allow use of Pebble's cos and
   *   sin lookup functions with input range of 0 to 2*pi angle scaled to
   *   0 to 65536 and output range of -1 to 1 scaled to -65535 to 65536. This
-  *   descretization introduces some discrepancies between the results of this
+  *   discretization introduces some discrepancies between the results of this
   *   function and the floating point equivalents that are not important for its
-  *   use here, but nonetheless documented in the accompaning Julia test code.
+  *   use here, but nonetheless documented in the accompanying Julia test code.
   *   INPUT
   *     d = input signal array pointer
   *     dlenpwr = the exponent of the array length, ie: array length = 2^dlenpwr
   *   OUTPUT
-  *     d = fourier tranformed array pointer, with array of real coefficents of form
+  *     d = fourier transformed array pointer, with array of real coefficients of form
   *       [Re(0), Re(1),..., Re(N/2-1), Re(N/2), Im(N/2-1),..., Im(1)]
   */
 

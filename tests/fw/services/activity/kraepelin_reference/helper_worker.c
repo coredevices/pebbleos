@@ -15,7 +15,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
     This license is taken to apply to any other files in the Project Kraepelin
-    Pebble App roject.
+    Pebble App project.
 */
 
 // #include <pebble_worker.h>
@@ -136,7 +136,7 @@ void fft_mag(int16_t *d, int16_t dlenpwr){
   // NOTE! this function modifies the input array
   int16_t dlen = pow_int(2,dlenpwr);
 
-  // evaluate the fourier coefficent magnitude
+  // evaluate the fourier coefficient magnitude
   // NOTE: coeff @ index 0 and dlen/2 only have real components
   //    so their magnitude is exactly that
   for(int16_t i = 1; i < (dlen/2); i++){
