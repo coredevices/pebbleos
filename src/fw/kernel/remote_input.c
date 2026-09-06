@@ -221,7 +221,7 @@ RemoteInputResult remote_input_button_set(uint8_t buttons) {
 // keeps the newest 3 samples for its velocity estimate, so a handful is plenty.
 #define REMOTE_INPUT_SWIPE_STEPS 5
 
-// Fraction of the travelled axis the finger covers, as numerator/denominator (60%). Must clear the
+// Fraction of the traveled axis the finger covers, as numerator/denominator (60%). Must clear the
 // recognizer's minimum length on every board.
 #define REMOTE_INPUT_SWIPE_TRAVEL_NUM 3
 #define REMOTE_INPUT_SWIPE_TRAVEL_DEN 5

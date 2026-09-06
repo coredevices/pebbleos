@@ -638,7 +638,7 @@ static void prv_start_reset(PPoGATTClient *client) {
 
 static void prv_handle_reset_request(PPoGATTClient *client) {
   if (client->state == StateConnectedClosedAwaitingResetCompleteSelfInitiatedReset) {
-    // Already in self-initated reset procedure, client should ignore the request from the server.
+    // Already in self-initiated reset procedure, client should ignore the request from the server.
     PBL_LOG_INFO("Ignoring reset request because local client already requested.");
     return;
   }

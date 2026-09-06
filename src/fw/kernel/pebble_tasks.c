@@ -329,7 +329,7 @@ void pbl_thread_stack_overflow(struct pbl_thread *thread, const char *name) {
   PebbleTask task = pebble_task_get_task_for_thread(thread);
 
   // If the task is application or worker, ignore this hook. We have a memory protection region
-  // setup at the bottom of those stacks and the code that catches MPU violiations to that
+  // setup at the bottom of those stacks and the code that catches MPU violations to that
   // area in fault_handling.c has the logic to safely kill those user tasks without forcing
   // a reboot.
   if ((task != PebbleTask_App) && (task != PebbleTask_Worker)) {

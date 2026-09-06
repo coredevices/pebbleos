@@ -684,7 +684,7 @@ static bool prv_should_show_action_in_action_menu(NotificationWindowData *data,
     } else {
       // If we are in the notifications app, only show non ANCS actions. Pre iOS9 we can't really
       // know if the notification is still in the notification center or not, so we play it safe
-      // and only show non ACNS actions. Once iOS9 is more widespread we can look at updating this
+      // and only show non ANCS actions. Once iOS9 is more widespread we can look at updating this
       return !timeline_item_action_is_ancs(action);
     }
   } else { // Android
@@ -1435,7 +1435,7 @@ void notification_window_add_notification_by_id(Uuid *id) {
   prv_notification_window_add_notification(id, NotificationMobile);
 }
 
-//! The animate mode slides the notificaiton in from the top as if it was a new notification.
+//! The animate mode slides the notification in from the top as if it was a new notification.
 void notification_window_focus_notification(Uuid *id, bool animated) {
   NotificationWindowData *data = &s_notification_window_data;
 
@@ -1480,7 +1480,7 @@ void notification_window_service_init(void) {
 
 
 //////////////////
-// Event Handers
+// Event Handlers
 //////////////////
 
 static void prv_handle_action_result(PebbleSysNotificationActionResult *action_result) {
@@ -1608,7 +1608,7 @@ static void prv_handle_notification_added_common(Uuid *id, NotificationType type
       const bool should_animate = !do_not_disturb_is_active();
       notification_window_focus_notification(id, should_animate);
     } else {
-      // If we are inserting into the middle of this list, just reaload the swap layer so the
+      // If we are inserting into the middle of this list, just reload the swap layer so the
       // number of notifications displayed is correct
       prv_reload_swap_layer(data);
     }

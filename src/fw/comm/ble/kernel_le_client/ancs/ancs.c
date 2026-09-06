@@ -1072,7 +1072,7 @@ static void prv_handle_ns_notification(uint32_t length, const uint8_t *notificat
     case EventIDNotificationAdded:
       // In iOS 8.2 several apps (especially mail.app) seem to be setting the pre-existing flag
       // when they shouldn't. This appeared to be fixed in iOS 9 beta 1.
-      // By skipping the pre-existing check we will re-recieve all the notifications
+      // By skipping the pre-existing check we will re-receive all the notifications
       // we got in the past 2 hours. To get past this ignore notifications for the first couple
       // seconds after connecting
       if (s_just_connected && (nsnotification->event_flags & EventFlagPreExisting)) {
@@ -1243,7 +1243,7 @@ void ancs_handle_ios9_or_newer_detected(void) {
 }
 
 // -------------------------------------------------------------------------------------------------
-// Lifecyle
+// Lifecycle
 
 void ancs_create(void) {
   PBL_ASSERTN(s_ancs_client == NULL);

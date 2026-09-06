@@ -672,7 +672,7 @@ static void prv_test_steps(void *context) {
   // Reset all stored data
   activity_test_reset(true /*reset_settings*/, true /*tracking_on*/, NULL, NULL);
 
-  // Fill the steps pipleine then capture step count before
+  // Fill the steps pipeline then capture step count before
   activity_test_feed_samples(s_walk_30_steps, ARRAY_LENGTH(s_walk_30_steps));
   int32_t before;
   activity_get_metric(ActivityMetricStepCount, 1, &before);

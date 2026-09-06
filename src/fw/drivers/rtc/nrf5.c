@@ -236,7 +236,7 @@ const char *time_t_to_string(char *buffer, time_t t) {
 }
 
 //! We attempt to save registers by placing both the timezone abbreviation
-//! timezone index and the daylight_savingtime into the same register set
+//! timezone index and the daylight_savings_time into the same register set
 void rtc_set_timezone(TimezoneInfo *tzinfo) {
   uint32_t *raw = (uint32_t*)tzinfo;
   _Static_assert(sizeof(TimezoneInfo) <= 5 * sizeof(uint32_t),
