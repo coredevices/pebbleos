@@ -33,6 +33,25 @@ config BATTERY_WARNING_SECOND_PERCENT
       Battery percentage for the second warning. A value of 0 uses the
       default time-based threshold of 12 hours remaining.
 
+config BATTERY_GAUGE_DIAG_LOG
+    bool "Periodic fuel gauge diagnostic logging"
+    default n
+    help
+      Log a structured line with the raw fuel gauge inputs and outputs
+      (SOC, voltage, current, temperature, TTE/TTF, charger state) at a
+      fixed interval, regardless of charge activity. Intended for
+      validating state-of-charge estimation on development devices, for
+      example under charge regimes that never reach full. Off for
+      production builds.
+
+config BATTERY_GAUGE_DIAG_LOG_INTERVAL_S
+    int "Fuel gauge diagnostic log interval (seconds)"
+    depends on BATTERY_GAUGE_DIAG_LOG
+    range 60 3600
+    default 900
+    help
+      Interval between fuel gauge diagnostic log lines.
+
 module = SERVICE_BATTERY
 module-str = Battery
 source "subsys/logging/Kconfig.template.log_level"

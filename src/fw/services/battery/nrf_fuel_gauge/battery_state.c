@@ -85,6 +85,9 @@ static void prv_track_soc_min(void) {
 static uint32_t s_last_tte;
 static uint32_t s_last_ttf;
 static RtcTicks s_last_log;
+#if defined(CONFIG_BATTERY_GAUGE_DIAG_LOG)
+static RtcTicks s_last_diag_log;
+#endif
 static bool s_charger_enabled;
 
 #if FUEL_GAUGE_STATEFUL
@@ -420,6 +423,17 @@ static void prv_update_state(void *force_update) {
     prv_battery_state_put_change_event(s_last_battery_charge_state);
     s_last_log = now;
   }
+
+#if defined(CONFIG_BATTERY_GAUGE_DIAG_LOG)
+  if ((now - s_last_diag_log) / RTC_TICKS_HZ >= CONFIG_BATTERY_GAUGE_DIAG_LOG_INTERVAL_S) {
+    s_last_diag_log = now;
+    PBL_LOG_INFO("gauge diag: soc_cpct=%" PRIu32 " v_mv=%" PRId32 " i_ua=%" PRId32
+            " t_mc=%" PRId32 " tte_s=%" PRIu32 " ttf_s=%" PRIu32 " state=%s",
+            s_last_soc_cpct, constants.v_mv, constants.i_ua, constants.t_mc, s_last_tte,
+            s_last_ttf,
+            is_charging ? "charging" : (is_plugged ? "plugged" : "unplugged"));
+  }
+#endif
 
   // Enable battery charging after fuel gauge state has been updated for the first time
   if (!s_charger_enabled) {
