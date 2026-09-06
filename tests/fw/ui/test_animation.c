@@ -146,7 +146,7 @@ static uint64_t prv_now_ms(void) {
 static void prv_advance_by_ms_no_timers(uint64_t ms_delta) {
   uint64_t target_ms = prv_now_ms() + ms_delta;
 
-  // Comppensate for rounding errors
+  // Compensate for rounding errors
   uint64_t new_ticks = rtc_get_ticks() + (ms_delta * RTC_TICKS_HZ + 500 ) / 1000;
   uint64_t new_ms = (new_ticks * 1000 + RTC_TICKS_HZ / 2) / RTC_TICKS_HZ;
   if (new_ms == target_ms - 1) {
@@ -1113,7 +1113,7 @@ void test_animation__property_gcolor8(void) {
 
 // --------------------------------------------------------------------------------------
 // Test that the schedule/unschedule calls work correctly.
-// We should be able to unschedule an amimation parthway through
+// We should be able to unschedule an animation pathway through
 void test_animation__unschedule(void) {
 #ifdef TEST_INCLUDE_BASIC
   PropertyAnimation *prop_h;

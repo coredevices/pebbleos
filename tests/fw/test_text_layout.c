@@ -105,7 +105,7 @@ void test_text_layout__cache_vert_overflow(void) {
   cl_assert(layout.box.size.w == box.size.w);
   cl_assert_equal_i(layout.max_used_size.w, 4 * HORIZ_ADVANCE_PX);
 
-  cl_assert_equal_i(layout.max_used_size.h, 3 * FONT_HEIGHT); // 3 lines - one line extra being layed out so that it will clip ("Jr\nWho-\npper")
+  cl_assert_equal_i(layout.max_used_size.h, 3 * FONT_HEIGHT); // 3 lines - one line extra being laid out so that it will clip ("Jr\nWho-\npper")
 
   graphics_text_layout_get_max_used_size(&gcontext, "JR Whopper 123", font, box, GTextOverflowModeWordWrap, GTextAlignmentLeft, (void*)&layout);
 
@@ -126,7 +126,7 @@ void test_text_layout__cache_vert_overflow_first_line(void) {
     .alignment = GTextAlignmentLeft,
     .max_used_size = (GSize) { 0, 0 }
   };
-  // In all cases, the first line should be layed out (not truncated)
+  // In all cases, the first line should be laid out (not truncated)
 
   graphics_text_layout_get_max_used_size(&gcontext, "JR Whopper", font, box, GTextOverflowModeFill, GTextAlignmentLeft, (void*)&layout);
 
@@ -165,7 +165,7 @@ void test_text_layout__cache_vert_overflow_with_newline(void) {
   graphics_text_layout_get_max_used_size(&gcontext, "JR\n\nWhop", font, box, GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, (void*)&layout);
 
   cl_assert_equal_i(layout.box.size.w, box.size.w);
-  cl_assert_equal_i(layout.max_used_size.w, 2 * HORIZ_ADVANCE_PX); // only the JR, since Whop is not being layed out
+  cl_assert_equal_i(layout.max_used_size.w, 2 * HORIZ_ADVANCE_PX); // only the JR, since Whop is not being laid out
 
   cl_assert_equal_i(layout.max_used_size.h, 2 * FONT_HEIGHT); // Nothing - save for the first line - will be rendered below the box
 
@@ -174,14 +174,14 @@ void test_text_layout__cache_vert_overflow_with_newline(void) {
   cl_assert_equal_i(layout.box.size.w, box.size.w);
   cl_assert_equal_i(layout.max_used_size.w, 4 * HORIZ_ADVANCE_PX); // Includes Whop - as it may be partially rendered at the bottom of the box
 
-  cl_assert_equal_i(layout.max_used_size.h, 3 * FONT_HEIGHT); // The blank line before Whop is still being layed out, however, so it is still included in the height
+  cl_assert_equal_i(layout.max_used_size.h, 3 * FONT_HEIGHT); // The blank line before Whop is still being laid out, however, so it is still included in the height
 
   graphics_text_layout_get_max_used_size(&gcontext, "JR\n\n\nWhop", font, box, GTextOverflowModeWordWrap, GTextAlignmentLeft, (void*)&layout);
 
   cl_assert_equal_i(layout.box.size.w, box.size.w);
-  cl_assert_equal_i(layout.max_used_size.w, 2 * HORIZ_ADVANCE_PX); // Back to only JR - as the line being layed out from y=20-30px is empty (and the line from 30-40, Whop, is truncated as it can never appear)
+  cl_assert_equal_i(layout.max_used_size.w, 2 * HORIZ_ADVANCE_PX); // Back to only JR - as the line being laid out from y=20-30px is empty (and the line from 30-40, Whop, is truncated as it can never appear)
 
-  cl_assert_equal_i(layout.max_used_size.h, 3 * FONT_HEIGHT); // Same as above - the blank line is still layed out
+  cl_assert_equal_i(layout.max_used_size.h, 3 * FONT_HEIGHT); // Same as above - the blank line is still laid out
 
   graphics_text_layout_get_max_used_size(&gcontext, "JR\n\n\nWhop", font, box, GTextOverflowModeFill, GTextAlignmentLeft, (void*)&layout);
 
@@ -342,7 +342,7 @@ void test_text_layout__delta(void) {
   graphics_text_layout_get_max_used_size(&gcontext, "JR Whopper", font, box, GTextOverflowModeWordWrap, GTextAlignmentLeft, (void*)&layout);
   cl_assert(layout.box.size.w == box.size.w);
   cl_assert_equal_i(layout.max_used_size.w, 4 * HORIZ_ADVANCE_PX);
-  // 3 lines - one line extra being layed out so that it will clip ("Jr\nWho-\npper")
+  // 3 lines - one line extra being laid out so that it will clip ("Jr\nWho-\npper")
   cl_assert_equal_i(layout.max_used_size.h, 3 * (FONT_HEIGHT + FONT_LINE_DELTA));
 
   graphics_text_layout_get_max_used_size(&gcontext, "JR Whopper 123", font, box, GTextOverflowModeWordWrap, GTextAlignmentLeft, (void*)&layout);

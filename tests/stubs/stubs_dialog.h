@@ -29,7 +29,7 @@ void dialog_set_text_color(Dialog *dialog, GColor text_color) {
   return;
 }
 
-void ddialog_set_vibe(Dialog *dialog, bool vibe_on_show) {
+void dialog_set_vibe(Dialog *dialog, bool vibe_on_show) {
   return;
 }
 

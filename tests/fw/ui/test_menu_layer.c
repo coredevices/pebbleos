@@ -937,7 +937,7 @@ void test_menu_layer__touch_tap_selected_activates(void) {
 // The "tapped == selection" check keys off the committed selection INDEX, not the on-screen
 // position: a selection committed off-centre (button nav, MenuRowAlignNone commits) must still
 // activate when tapped.
-void test_menu_layer__touch_tap_selected_offcentre_activates(void) {
+void test_menu_layer__touch_tap_selected_offcenter_activates(void) {
   MenuLayer l;
   menu_layer_init(&l, &GRect(0, 0, 144, 180));
   prv_set_touch_callbacks(&l);
@@ -1306,7 +1306,7 @@ void test_menu_layer__touch_double_init_and_double_deinit(void) {
   MenuLayer l;
   menu_layer_init(&l, &GRect(0, 0, 144, 180));
   prv_set_touch_callbacks(&l);
-  // Re-init the same menu without deinit: the registry stays a single entry (dedup by address).
+  // Re-init the same menu without deinit: the registry stays a single entry (dedupe by address).
   menu_layer_init(&l, &GRect(0, 0, 144, 180));
   prv_set_touch_callbacks(&l);
   cl_assert(s_touch_nav_state.menu_head != NULL);

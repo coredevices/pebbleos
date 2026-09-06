@@ -716,8 +716,8 @@ void test_touch_nav__tier1_widget_wins(void) {
   cl_assert_equal_i(prv_state(s_state.swipe), RecognizerState_Failed);
 }
 
-// Registry dedup: re-adding the same node is a no-op (still a single entry), and remove unlinks it.
-void test_touch_nav__registry_dedup_and_remove(void) {
+// Registry dedupe: re-adding the same node is a no-op (still a single entry), and remove unlinks it.
+void test_touch_nav__registry_dedupe_and_remove(void) {
   static TouchNavWidgetNode node;
   node = (TouchNavWidgetNode){0};
   touch_nav_registry_add(&s_state, TouchNavWidgetType_Menu, &node, &s_child_layer, NULL, NULL);

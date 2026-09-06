@@ -71,7 +71,7 @@ void test_ams_util__float_string_parse_negative_number_nothing_before_separator(
   assert_float_parse("-.1", 30, true, -3);
 }
 
-void test_ams_util__float_string_parse_multiple_minusses(void) {
+void test_ams_util__float_string_parse_multiple_minuses(void) {
   // "--.1" * 30
   assert_float_parse("--.1", 30, false, 0);
 }
@@ -241,7 +241,7 @@ void test_ams_util__csv_buffer_not_zero_terminated(void) {
   const char one_value[] = "ABCDEF";
   cl_assert(sizeof(one_value) > 2);
   const uint8_t count = ams_util_csv_parse(one_value,
-                                           sizeof(one_value) - 1 /* omit zero teminator */, NULL,
+                                           sizeof(one_value) - 1 /* omit zero terminator */, NULL,
                                            prv_result_callback);
   cl_assert_equal_i(s_results_count, 1);
   cl_assert_equal_i(count, 1);

@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 This license is taken to apply to any other files in the Project Kraepelin
-Pebble App roject.
+Pebble App project.
 */
 
 
@@ -71,7 +71,7 @@ static __inline__ sfxp fxp_mul(sfxp a, sfxp b){
   bf = (uint32_t) b; // ibid
 
   // have to add all the elements as unsigned types, because otherwise
-  // C will try to interpert the high bit of the low 32 bits of the fractional
+  // C will try to interpret the high bit of the low 32 bits of the fractional
   // segment as a sign, and cause substraction, when all we really want is to
   // assume all elements are positive, and then encode the sign as the highest
   // bit of var "si",
@@ -91,7 +91,7 @@ static __inline__ sfxp fxp_mul(sfxp a, sfxp b){
 }
 
 
-// we statically encode the coefficents because we only need this
+// we statically encode the coefficients because we only need this
 // filter to run fast. ALSO, MUST initialize to 0
 static sfxp yt[4][3] = {{0,0,0},{0,0,0},{0,0,0},{0,0,0}};
 static sfxp xt[5][3] = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}};
@@ -134,8 +134,8 @@ void pim_filt_prime(int16_t *d, int16_t dlen, int16_t axis) {
 // // TEST : PASSED
 uint32_t pim_filt(int16_t *d, int16_t dlen, int16_t axis){
 // uint32_t pim_filt(int16_t *d, int16_t dlen, int16_t axis){
-  // we use a butterworth second order digital fitler with a bandpass
-  // design of 0.25 to 2 hz, with coefficents double *ca_d,double *cb_dof
+  // we use a butterworth second order digital filter with a bandpass
+  // design of 0.25 to 2 hz, with coefficients double *ca_d,double *cb_dof
 
   // and, we calculate all of these by multiplying by 100000x
   int32_t x1000_thres = 3750; // this is calibrated to pebble, 125 = 1G
@@ -188,8 +188,8 @@ uint32_t calc_scaled_vmc(uint32_t *pim_ary){
   // epoch.
   // INPUTS
   //   *pim_ary -> the actual array of cpm for each axis
-  //   oflw_scl -> dividing factor to reduce pim_ary so doesnt overflow
-  // PARAMTERS
+  //   oflw_scl -> dividing factor to reduce pim_ary so doesn't overflow
+  // PARAMETERS
   //   oflw_cap -> cap to prevent overflow when pim_ary[:].^2 is summed
   // OUTPUT
   //  @ return -> the sqrt of the scaled vmcpm
@@ -326,7 +326,7 @@ uint8_t compressed_stepc(uint32_t stepc, int16_t num_min){
   // This function simply takes in the number of steps in a given number of
   // minutes. Then, we calculate the maximum number of steps possible in num_min
   // given a max of 4hz running speed. Then, that max is turned in a scaling
-  // factor that the step count is premultiplied by, and then the squrt is taken
+  // factor that the step count is premultiplied by, and then the sqrt is taken
   uint32_t max_stepc = 4*60*num_min; // @ 4hz * 60secs * num_min
   return (uint8_t) isqrt( (stepc*65535)/max_stepc) ;
 }
@@ -343,7 +343,7 @@ void vm_accel(int16_t **d, int16_t *w, int16_t max_vm, int16_t dlen){
   /* EVALUATE THE VECTOR ACCELERATION MAGNITUDE, WRITE TO first array */
   // NOTE: we can look at the entire array, because we only write to
   // the first N_SMP_EPOCH, the remainder being 0's, which will
-  // evalulate to a vector mag of 0
+  // evaluate to a vector mag of 0
   for(int16_t i = 0; i < dlen; i++){
     // evaluate the vector mag of acceleration, write to work array w
     w[i] = (int16_t) isqrt( d[0][i]*d[0][i] + d[1][i]*d[1][i] + d[2][i]*d[2][i] );
@@ -358,7 +358,7 @@ void vm_accel_xy(int16_t **d, int16_t *w, int16_t max_vm, int16_t dlen){
   /* EVALUATE THE VECTOR ACCELERATION MAGNITUDE, WRITE TO first array */
   // NOTE: we can look at the entire array, because we only write to
   // the first N_SMP_EPOCH, the remainder being 0's, which will
-  // evalulate to a vector mag of 0
+  // evaluate to a vector mag of 0
   for(int16_t i = 0; i < dlen; i++){
     // evaluate the vector mag of acceleration, write to work array w
     w[i] = (int16_t) isqrt( d[0][i]*d[0][i] + d[1][i]*d[1][i]);
@@ -658,7 +658,7 @@ int16_t calc_stepc_5sec(int16_t *work_ary, int16_t dlen_smp, int16_t dlenpwr_ary
 // // TEST : PASSED
 // int32_t pim_filt(int16_t *d, int16_t dlen){
 //   /* This function calculates the pim of the given array, single axis
-//   * constuction and application of filters are contained with the function */
+//   * construction and application of filters are contained with the function */
 //   int32_t pim_local = 0;
 //
 //   /* calculate the filter */
@@ -682,8 +682,8 @@ int16_t calc_stepc_5sec(int16_t *work_ary, int16_t dlen_smp, int16_t dlenpwr_ary
 //   // epoch.
 //   // INPUTS
 //   //   *pim_ary -> the actual array of cpm for each axis
-//   //   oflw_scl -> dividing factor to reduce pim_ary so doesnt overflow
-//   // PARAMTERS
+//   //   oflw_scl -> dividing factor to reduce pim_ary so doesn't overflow
+//   // PARAMETERS
 //   //   oflw_cap -> cap to prevent overflow when pim_ary[:].^2 is summed
 //   // OUTPUT
 //   //  @ return -> the sqrt of the scaled vmcpm
@@ -792,7 +792,7 @@ int16_t calc_stepc_5sec(int16_t *work_ary, int16_t dlen_smp, int16_t dlenpwr_ary
 //   /* EVALUATE THE VECTOR ACCELERATION MAGNITUDE, WRITE TO first array */
 //   // NOTE: we can look at the entire array, because we only write to
 //   // the first N_SMP_EPOCH, the remainder being 0's, which will
-//   // evalulate to a vector mag of 0
+//   // evaluate to a vector mag of 0
 //   for(int16_t i = 0; i < dlen; i++){
 //     // evaluate the vector mag of acceleration, write to work array w
 //     w[i] = (int16_t) isqrt( d[0][i]*d[0][i] + d[1][i]*d[1][i] + d[2][i]*d[2][i] );
@@ -970,7 +970,7 @@ int16_t calc_stepc_5sec(int16_t *work_ary, int16_t dlen_smp, int16_t dlenpwr_ary
 // // TEST : PASSED
 // int32_t pim_filt(int16_t *d, int16_t dlen){
 //   /* This function calculates the pim of the given array, single axis
-//   * constuction and application of filters are contained with the function */
+//   * construction and application of filters are contained with the function */
 //   int32_t pim_local = 0;
 
 //   /* calculate the filter */

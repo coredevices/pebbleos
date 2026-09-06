@@ -229,7 +229,7 @@ void test_bitblt__8bit_comptint_blend(void) {
                                     GPointZero, GCompOpAssign, GColorWhite);
   }
 
-  // RGB value should be discarded later on adding them here might relveal bugs.
+  // RGB value should be discarded later on adding them here might reveal bugs.
   // .a is the important part
   GColor8 test_blend_colors[] = {
     (GColor8){.a = 0, .r = 3, .g = 2, .b = 1},
