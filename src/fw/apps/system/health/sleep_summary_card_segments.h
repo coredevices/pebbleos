@@ -19,7 +19,7 @@
 #define X_SHIFT (((DISP_COLS - LEGACY_2X_DISP_COLS) / 2) + PBL_IF_ROUND_ELSE(23, PBL_IF_BW_ELSE(1, 0)))
 #define Y_SHIFT (((DISP_ROWS - LEGACY_2X_DISP_ROWS) / 2) + PBL_IF_ROUND_ELSE(8, PBL_IF_BW_ELSE(3, 0)))
 
-// Used to shrink the thinkness of the bars
+// Used to shrink the thickness of the bars
 #define X_SHRINK (PBL_IF_BW_ELSE(2, 0))
 
 // These are used to shrink the shape for round

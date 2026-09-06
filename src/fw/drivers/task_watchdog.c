@@ -354,7 +354,7 @@ static void prv_task_watchdog_feed(void) {
     s_ticks_since_successful_feed = 0;
 
     if (s_last_warning_message_tick_time) {
-      // We logged a warning message, clear this state as we apparently recoved.
+      // We logged a warning message, clear this state as we apparently recovered.
 
       reboot_reason_clear();
       // Trigger our lower priority interrupt to fire. If it fires when reboot reason is not RebootReasonCode_Watchdog,

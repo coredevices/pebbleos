@@ -93,7 +93,7 @@ static void prv_queue_dump(struct pbl_msgq *queue) {
 #endif
 
 void events_init(void) {
-  // This assert is to make sure we don't accidentally bloat our PebbleEvent unecessarily. If you hit this
+  // This assert is to make sure we don't accidentally bloat our PebbleEvent unnecessarily. If you hit this
   // assert and you have a good reason for making the event bigger, feel free to relax the restriction.
   //PBL_LOG_DBG("PebbleEvent size is %u", sizeof(PebbleEvent));
   // FIXME:

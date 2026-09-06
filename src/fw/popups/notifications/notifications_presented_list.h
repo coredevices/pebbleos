@@ -59,7 +59,7 @@ void notifications_presented_list_init(void);
 
 typedef void (*NotificationListEachCallback)(Uuid *id, NotificationType type, void *cb_data);
 
-//! Executes the specified callback for each notificaiton in the presented list
+//! Executes the specified callback for each notification in the presented list
 //! @param callback If null this function is a no-op
 //! @param cb_data Context passed to the callback
 void notifications_presented_list_each(NotificationListEachCallback callback, void *cb_data);

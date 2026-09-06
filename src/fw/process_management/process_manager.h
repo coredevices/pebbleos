@@ -98,7 +98,7 @@ void process_manager_init(void);
 void process_manager_init_context(ProcessContext* context,
                                   const PebbleProcessMd *app_md, const void *args);
 
-//! Checks if the app refered to by the given AppInstallId is SDK compatible
+//! Checks if the app referred to by the given AppInstallId is SDK compatible
 //! Returns true if it is compatible, false otherwise
 //! Shows an error dialog if it is not compatible
 bool process_manager_check_SDK_compatible(const AppInstallId id);

@@ -144,7 +144,7 @@ static void prv_rtc_cal_timer_cb(void* data) {
     delta = rtc_b - s_rtc_a;
     // Calculate accurate rtc_b
     rtc_cal = delta * ref_cycle / s_rtc_cycle_count_init + s_rtc_a;
-    // Detla time of accurrate rtc_b and current rtc_b
+    // Delta time of accurate rtc_b and current rtc_b
     delta = rtc_cal - rtc_b;
 
     // Accumulate error

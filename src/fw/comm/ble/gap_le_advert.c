@@ -46,7 +46,7 @@ PBL_LOG_MODULE_DECLARE(bt, CONFIG_BT_LOG_LEVEL);
 //! To-Do's:
 //! --------
 //! - ble_discoverability/pairability.c
-//! - Use private addresses for privacy / harder tracebility.
+//! - Use private addresses for privacy / harder traceability.
 
 // Advertising interval parameters in ms, indexed by GAPLEAdvertisingInterval.
 // Values comply with Apple Accessory Design Guidelines.

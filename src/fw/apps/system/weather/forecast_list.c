@@ -358,7 +358,7 @@ static void prv_scroll_to(int target) {
 
 // Shared animation boilerplate: create + duration + curve + impl + optional stopped
 // handler + schedule. Every moook here runs a manual curve in its update proc, so
-// the wrapper just parameterizes the pieces that differ. (Shared region: used by
+// the wrapper just parametrizes the pieces that differ. (Shared region: used by
 // both the rect-only squash block below and the round+rect transitions further down.)
 static Animation *prv_start_anim(uint32_t dur_ms, AnimationCurve curve,
                                  const AnimationImplementation *impl,

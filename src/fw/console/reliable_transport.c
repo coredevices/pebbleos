@@ -213,7 +213,7 @@ void pulse2_reliable_transport_on_command_packet(
         }
       } else {
         PBL_LOG_DBG("Received truncated or corrupt info packet "
-                "field (expeced %" PRIu16 ", got %" PRIu16 " data bytes). "
+                "field (expected %" PRIu16 ", got %" PRIu16 " data bytes). "
                 "Discarding.", ntoh16(packet->i.length), (uint16_t)length);
         return;
       }

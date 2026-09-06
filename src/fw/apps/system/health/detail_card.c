@@ -174,7 +174,7 @@ static void prv_draw_progress_bar_in_zone(GContext *ctx, const GRect *zone_rect,
 
   HealthProgressSegment segments[] = {
     {
-      // Left side vertical line (needed for the draw outline function to draw the verticle lines)
+      // Left side vertical line (needed for the draw outline function to draw the vertical lines)
       .type = HealthProgressSegmentType_Corner,
       .points = {
         {progress_bar_x, progress_bar_y},
@@ -184,7 +184,7 @@ static void prv_draw_progress_bar_in_zone(GContext *ctx, const GRect *zone_rect,
       },
     },
     {
-      // Right side vertical line (needed for the draw outline function to draw the verticle lines)
+      // Right side vertical line (needed for the draw outline function to draw the vertical lines)
       .type = HealthProgressSegmentType_Corner,
       .points = {
         {progress_bar_x + progress_bar_width, progress_bar_y},

@@ -1197,7 +1197,7 @@ static void prv_draw_bottom_half_text(const WeatherAppLayout *layout, GPoint *cu
 
 #if PBL_ROUND
 // Round's day-flip disc size for the SCALER layer. Gabbro now rests a 35px
-// circle in the footer slot, so the travelling disc must land on it: it lerps
+// circle in the footer slot, so the traveling disc must land on it: it lerps
 // between the footer disc and the today disc across the icon's own width range.
 // (Emery keeps collapsing to zero -- its footer bitmap is bare, so there is
 // nothing there for the disc to become.)

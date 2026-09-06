@@ -262,7 +262,7 @@ static void prv_draw_steps_and_shoe(GContext *ctx, const char *steps_buffer, GFo
   icon_bounds.origin.x += 23; // icon left offset
   icon_bounds.origin.y += 9; // icon top offset
 #elif EMERY_SCREEN_RES
-  icon_bounds.origin.y += (46 - icon_bounds.size.h); // icon top offest
+  icon_bounds.origin.y += (46 - icon_bounds.size.h); // icon top offset
 #elif SNOWY_SCREEN_RES
   icon_bounds.origin.x = screen_is_obstructed ? bounds.origin.x // icon_left offset
                                               : (bounds.size.w / 2) - (icon_bounds.size.w / 2);
@@ -440,7 +440,7 @@ static void prv_base_layer_update_proc(Layer *layer, GContext *ctx) {
 #if EMERY_SCREEN_RES
   bounds = grect_inset(bounds, GEdgeInsets(0, 25));
 
-  // draw deperator
+  // draw separator
   if (!screen_is_obstructed) {
     prv_draw_seperator(ctx, bounds, GColorWhite);
   }
@@ -466,7 +466,7 @@ static void prv_update_steps_buffer(KickstartData *data) {
   const int thousands = data->current_steps / 1000;
   const int hundreds = data->current_steps % 1000;
   if (thousands) {
-    /// Step count greater than 1000 with a thousands seperator
+    /// Step count greater than 1000 with a thousands separator
     snprintf(data->steps_buffer, sizeof(data->steps_buffer), i18n_get("%d,%03d", data),
              thousands, hundreds);
   } else {

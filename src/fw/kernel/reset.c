@@ -40,7 +40,7 @@ NORETURN system_reset(void) {
     reboot_reason_set_restarted_safely();
   }
 
-  // If a software failure occcured, do a core dump before resetting
+  // If a software failure occurred, do a core dump before resetting
   if (failure_occurred) {
     core_dump_reset(false /* don't force overwrite */);
   } else {
