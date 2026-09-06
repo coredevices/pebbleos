@@ -7,12 +7,67 @@
 #include <pbl/drivers/flash/qspi_flash.h>
 #include <pbl/drivers/flash/qspi_flash_part_definitions.h>
 #include "flash_region/flash_region.h"
+#include "flash_table.h"
 #include "kernel/pbl_malloc.h"
 #include "pbl/mcu/cache.h"
 #include "system/passert.h"
 #include "system/status_codes.h"
 
 #define SEC_ADDR_TO_IDX(addr) (((addr) >> 12U) - 1U)
+
+static void prv_init_xip_flash_handle(QSPIFlash *dev, QSPIFlashPart *part,
+                                      bool coredump_mode) {
+  QSPIPortState *state = dev->qspi->state;
+  QSPI_FLASH_CTX_T *ctx = &state->ctx;
+  FLASH_HandleTypeDef *hflash = &ctx->handle;
+  const uint32_t id = part->qspi_id_value;
+  const uint8_t fid = id & 0xff;
+  const uint8_t type = (id >> 8) & 0xff;
+  const uint8_t did = (id >> 16) & 0xff;
+  const uint32_t table_size = (uint32_t)spi_flash_get_size_by_id(fid, did, type);
+
+  ctx->dev_id = id;
+  ctx->flash_mode = state->cfg.SpiMode;
+  ctx->cache_flag = 2;
+  ctx->base_addr = state->cfg.base;
+  ctx->total_size = part->size;
+
+  hflash->Instance = state->cfg.Instance;
+  hflash->ErrorCode = 0;
+  hflash->ctable = spi_flash_get_cmd_by_id(fid, did, type);
+  PBL_ASSERT(hflash->ctable != NULL && table_size == part->size, "Unsupported flash part");
+  hflash->base = state->cfg.base;
+  hflash->size = part->size;
+  hflash->Mode = state->cfg.line;
+  hflash->Lock = HAL_UNLOCKED;
+  hflash->State = HAL_FLASH_STATE_READY;
+  hflash->isNand = 0;
+  hflash->dualFlash = 0;
+  hflash->buf_mode = 0;
+  hflash->otp_base = spi_flash_get_otp_base(fid, did, type);
+  hflash->ext_cfg = spi_nor_get_ext_cfg_by_id(fid, did, type);
+  if (hflash->ext_cfg) {
+    hflash->otp_base = ((const nor_ext_cfg_t *)hflash->ext_cfg)->otp_base;
+  }
+
+  state->hdma.Instance = state->dma.Instance;
+  state->hdma.Init.Request = state->dma.request;
+  state->hdma.Init.Direction = DMA_MEMORY_TO_PERIPH;
+  state->hdma.Init.PeriphInc = DMA_PINC_DISABLE;
+  state->hdma.Init.MemInc = DMA_MINC_ENABLE;
+  state->hdma.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+  state->hdma.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+  state->hdma.Init.Mode = DMA_NORMAL;
+  state->hdma.Init.Priority = DMA_PRIORITY_MEDIUM;
+  state->hdma.Init.BurstSize = 0;
+
+  hflash->dma = coredump_mode ? NULL : &state->hdma;
+  if (!coredump_mode) {
+    portENTER_CRITICAL();
+    HAL_FLASH_SET_TXSLOT(hflash, 1);
+    portEXIT_CRITICAL();
+  }
+}
 
 static bool prv_blank_check_poll(uint32_t addr, bool is_subsector) {
   const uint32_t size_bytes = is_subsector ? SUBSECTOR_SIZE_BYTES : SECTOR_SIZE_BYTES;
@@ -186,8 +241,6 @@ status_t qspi_flash_lock_sector(QSPIFlash *dev, uint32_t addr) { return S_SUCCES
 status_t qspi_flash_unlock_all(QSPIFlash *dev) { return S_SUCCESS; }
 
 void qspi_flash_init(QSPIFlash *dev, QSPIFlashPart *part, bool coredump_mode) {
-  HAL_StatusTypeDef res;
-
   if (dev->qspi->state->initialized) {
     if (coredump_mode) {
       dev->qspi->state->ctx.handle.dma = NULL;
@@ -201,11 +254,8 @@ void qspi_flash_init(QSPIFlash *dev, QSPIFlashPart *part, bool coredump_mode) {
   dev->state->part = part;
   dev->qspi->state->ctx.dual_mode = 1;
 
-  res = HAL_FLASH_Init(&dev->qspi->state->ctx, &dev->qspi->state->cfg,
-                       &dev->qspi->state->hdma, &dev->qspi->state->dma,
-                       dev->qspi->clk_div);
-
-  PBL_ASSERT(res == HAL_OK, "HAL_FLASH_Init failed");
+  // pblboot already configured this controller for the XIP flash we are executing from.
+  prv_init_xip_flash_handle(dev, part, coredump_mode);
 
   qspi_flash_check_whoami(dev);
 
