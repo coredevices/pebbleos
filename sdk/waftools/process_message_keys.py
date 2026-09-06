@@ -153,8 +153,9 @@ def process_message_keys(task_gen):
     )
     header_task.message_keys = message_keys
     # Track the MESSAGE_KEYS env var so the file is regenerated whenever the
-    # keys change. dep_vars must be a list of env variable names.
-    header_task.dep_vars = ["MESSAGE_KEYS"]
+    # keys change. vars must be a list of env variable names.
+    # https://waf.io/book/#_values
+    header_task.vars = ["MESSAGE_KEYS"]
 
     if bld.env.BUILD_TYPE == "lib" or not message_keys:
         return
@@ -167,7 +168,7 @@ def process_message_keys(task_gen):
         ),
     )
     definitions_task.message_keys = message_keys
-    definitions_task.dep_vars = ["MESSAGE_KEYS"]
+    definitions_task.vars = ["MESSAGE_KEYS"]
 
     # Create a JSON file for apps to require
     bld.path.get_bld().make_node("js").mkdir()
@@ -178,7 +179,7 @@ def process_message_keys(task_gen):
         ),
     )
     json_task.message_keys = message_keys
-    json_task.dep_vars = ["MESSAGE_KEYS"]
+    json_task.vars = ["MESSAGE_KEYS"]
 
 
 class message_key_header(Task.Task):
