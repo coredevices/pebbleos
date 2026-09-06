@@ -57,7 +57,7 @@ int ceil_log_two(uint32_t n);
 int32_t integer_sqrt(int64_t x);
 
 /*
- * The -Wtype-limits flag generated an error with the previous IS_SIGNED maco.
+ * The -Wtype-limits flag generated an error with the previous IS_SIGNED macro.
  * If an unsigned number was passed in the macro would check if the unsigned number was less than 0.
  */
 //! Determine whether a variable is signed or not.
@@ -88,7 +88,7 @@ static inline int distance_to_mod_boundary(int32_t i, uint16_t n) {
 }
 
 /**
- * Compute the next backoff interval using a bounded binary expoential backoff formula.
+ * Compute the next backoff interval using a bounded binary exponential backoff formula.
  *
  * @param[in,out] attempt The number of retries performed so far. This count will be incremented by the function.
  * @param[in] initial_value The inital backoff interval. Subsequent backoff attempts will be this number multiplied by a power of 2.

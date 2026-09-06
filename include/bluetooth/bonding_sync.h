@@ -51,7 +51,7 @@ void bt_driver_handle_host_added_cccd(const BleCCCD *cccd);
 //! Called by the FW when a CCCD entry is removed.
 void bt_driver_handle_host_removed_cccd(const BleCCCD *cccd);
 
-//! Called by the BT driver after succesfully pairing a new device.
+//! Called by the BT driver after successfully pairing a new device.
 //! @param bonding The newly created bonding.
 //! @param addr The address that is used to refer to the connection. This is used to associate
 //! the bonding with the GAPLEConnection.

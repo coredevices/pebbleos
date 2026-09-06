@@ -39,7 +39,7 @@ typedef enum {
   // A restful period, these will always be inside of a ActivityType_Sleep session
   KAlgActivityType_RestfulSleep,
 
-  // A "sigificant" length walk
+  // A "significant" length walk
   KAlgActivityType_Walk,
 
   // A run

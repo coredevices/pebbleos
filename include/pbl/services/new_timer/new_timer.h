@@ -17,7 +17,7 @@
 //! callback to send an event to another thread with evented_timer.h. In the future these other
 //! threads will probably use their own TaskTimerManager instances instead and this thread will
 //! will get a whole lot less busy and reserved for only high priority work. At that time this
-//! thread will probably get renamed something like KernelHighPriortity.
+//! thread will probably get renamed something like KernelHighPriority.
 
 typedef void (*NewTimerCallback)(void *data);
 
@@ -49,7 +49,7 @@ TimerID new_timer_create(void);
 //! @param[in] cb pointer to the user's callback procedure
 //! @param[in] cb_data reference data for the callback
 //! @param[in] flags one or more TIMER_START_FLAG_.* flags
-//! @return True if succesful, false if timer was not rescheduled. Note that it will never return
+//! @return True if successful, false if timer was not rescheduled. Note that it will never return
 //!     false if none of the FAIL_IF_* flags are set.
 bool new_timer_start(TimerID timer, uint32_t timeout_ms, NewTimerCallback cb, void *cb_data, 
                      uint32_t flags);

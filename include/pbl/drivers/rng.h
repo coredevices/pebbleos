@@ -7,5 +7,5 @@
 #include <stdbool.h>
 
 //! @param rand_out Storage for the 32-bit random number generated
-//! @return True if a random number was succesfully generated
+//! @return True if a random number was successfully generated
 bool rng_rand(uint32_t *rand_out);

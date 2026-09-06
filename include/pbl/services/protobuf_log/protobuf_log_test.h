@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 // ---------------------------------------------------------------------------------------------
-// Decode an encoded payload with measurementsets. Used for debugging and unit tests.
+// Decode an encoded payload with MeasurementSets. Used for debugging and unit tests.
 // @param[in] encoded_buf pointer to encoded data
 // @param[in] encoded_buf_size size of encoded data
 // @param[out] payload_sender_type returned payload sender type string
