@@ -661,11 +661,6 @@
     },
     {
       "type": "pdc",
-      "name": "GOOGLE_HANGOUTS_NOTIFICATION_TINY",
-      "file": "normal/base/images/Pebble_25x25_Google_Hangouts_notification.svg"
-    },
-    {
-      "type": "pdc",
       "name": "GMAIL_NOTIFICATION_TINY",
       "file": "normal/base/images/Pebble_25x25_Gmail_notification.svg"
     },
@@ -736,11 +731,6 @@
     },
     {
       "type": "pdc",
-      "name": "BLACKBERRY_MESSENGER_NOTIFICATION_TINY",
-      "file": "normal/base/images/Pebble_25x25_Blackberry_messenger.svg"
-    },
-    {
-      "type": "pdc",
       "name": "CAR_RENTAL_TINY",
       "file": "normal/base/images/Pebble_25x25_Car_rental.svg"
     },
@@ -799,11 +789,6 @@
         "Ensure that if this is moved to resources, images are allocated up front when",
         "a dictation session is started"
       ]
-    },
-    {
-      "type": "pdc",
-      "name": "GOOGLE_INBOX_NOTIFICATION_TINY",
-      "file": "normal/base/images/Pebble_25x25_Google_inbox_notification.svg"
     },
     {
       "type": "pdc",
@@ -932,11 +917,6 @@
     },
     {
       "type": "pdc",
-      "name": "BLACKBERRY_MESSENGER_NOTIFICATION_SMALL",
-      "file": "normal/base/images/Pebble_50x50_Blackberry_messenger.svg"
-    },
-    {
-      "type": "pdc",
       "name": "TIMELINE_CALENDAR_SMALL",
       "file": "normal/base/images/Pebble_50x50_Calendar.svg"
     },
@@ -1034,16 +1014,6 @@
       "type": "pdc",
       "name": "GMAIL_NOTIFICATION_SMALL",
       "file": "normal/base/images/Pebble_50x50_Gmail_notification.svg"
-    },
-    {
-      "type": "pdc",
-      "name": "GOOGLE_HANGOUTS_NOTIFICATION_SMALL",
-      "file": "normal/base/images/Pebble_50x50_Google_Hangouts_notification.svg"
-    },
-    {
-      "type": "pdc",
-      "name": "GOOGLE_INBOX_NOTIFICATION_SMALL",
-      "file": "normal/base/images/Pebble_50x50_Google_inbox_notification.svg"
     },
     {
       "type": "pdc",
@@ -1147,11 +1117,6 @@
     },
     {
       "type": "pdc",
-      "name": "GOOGLE_HANGOUTS_NOTIFICATION_LARGE",
-      "file": "normal/base/images/Pebble_80x80_Google_Hangouts_notification.svg"
-    },
-    {
-      "type": "pdc",
       "name": "WHATSAPP_NOTIFICATION_LARGE",
       "file": "normal/base/images/Pebble_80x80_WhatsApp_notification.svg"
     },
@@ -1174,11 +1139,6 @@
       "type": "pdc",
       "name": "BIRTHDAY_EVENT_LARGE",
       "file": "normal/base/images/Pebble_80x80_Birthday_event.svg"
-    },
-    {
-      "type": "pdc",
-      "name": "BLACKBERRY_MESSENGER_NOTIFICATION_LARGE",
-      "file": "normal/base/images/Pebble_80x80_Blackberry_messenger.svg"
     },
     {
       "type": "pdc",
@@ -1326,11 +1286,6 @@
       "type": "pdc",
       "name": "GMAIL_NOTIFICATION_LARGE",
       "file": "normal/base/images/Pebble_80x80_Gmail_notification.svg"
-    },
-    {
-      "type": "pdc",
-      "name": "GOOGLE_INBOX_NOTIFICATION_LARGE",
-      "file": "normal/base/images/Pebble_80x80_Google_inbox_notification.svg"
     },
     {
       "type": "pdc",
@@ -1560,21 +1515,6 @@
     },
     {
       "type": "pdc",
-      "name": "NOTIFICATION_SKYPE_TINY",
-      "file": "normal/base/images/Pebble_25x25_Skype.svg"
-    },
-    {
-      "type": "pdc",
-      "name": "NOTIFICATION_SKYPE_SMALL",
-      "file": "normal/base/images/Pebble_50x50_Skype.svg"
-    },
-    {
-      "type": "pdc",
-      "name": "NOTIFICATION_SKYPE_LARGE",
-      "file": "normal/base/images/Pebble_80x80_Skype.svg"
-    },
-    {
-      "type": "pdc",
       "name": "NOTIFICATION_SNAPCHAT_TINY",
       "file": "normal/base/images/Pebble_25x25_Snapchat.svg"
     },
@@ -1687,21 +1627,6 @@
       "type": "pdc",
       "name": "OUTGOING_CALL_LARGE",
       "file": "normal/base/images/Pebble_80x80_Outgoing_call.svg"
-    },
-    {
-      "type": "pdc",
-      "name": "NOTIFICATION_HIPCHAT_TINY",
-      "file": "normal/base/images/Pebble_25x25_Hipchat.svg"
-    },
-    {
-      "type": "pdc",
-      "name": "NOTIFICATION_HIPCHAT_SMALL",
-      "file": "normal/base/images/Pebble_50x50_Hipchat.svg"
-    },
-    {
-      "type": "pdc",
-      "name": "NOTIFICATION_HIPCHAT_LARGE",
-      "file": "normal/base/images/Pebble_80x80_Hipchat.svg"
     },
     {
       "type": "pdc",
@@ -2788,15 +2713,6 @@
       }
     },
     {
-      "name": "NOTIFICATION_GOOGLE_HANGOUTS",
-      "id": 8,
-      "sizes": {
-        "tiny": "RESOURCE_ID_GOOGLE_HANGOUTS_NOTIFICATION_TINY",
-        "small": "RESOURCE_ID_GOOGLE_HANGOUTS_NOTIFICATION_SMALL",
-        "large": "RESOURCE_ID_GOOGLE_HANGOUTS_NOTIFICATION_LARGE"
-      }
-    },
-    {
       "name": "NOTIFICATION_GMAIL",
       "id": 9,
       "sizes": {
@@ -3214,14 +3130,6 @@
       }
     },
     {
-      "name": "NOTIFICATION_BLACKBERRY_MESSENGER",
-      "id": 58,
-      "sizes": {
-        "tiny": "RESOURCE_ID_BLACKBERRY_MESSENGER_NOTIFICATION_TINY",
-        "large": "RESOURCE_ID_BLACKBERRY_MESSENGER_NOTIFICATION_LARGE"
-      }
-    },
-    {
       "name": "NOTIFICATION_INSTAGRAM",
       "id": 59,
       "sizes": {
@@ -3237,15 +3145,6 @@
         "tiny": "RESOURCE_ID_MAILBOX_NOTIFICATION_TINY",
         "small": "RESOURCE_ID_MAILBOX_NOTIFICATION_SMALL",
         "large": "RESOURCE_ID_MAILBOX_NOTIFICATION_LARGE"
-      }
-    },
-    {
-      "name": "NOTIFICATION_GOOGLE_INBOX",
-      "id": 61,
-      "sizes": {
-        "tiny": "RESOURCE_ID_GOOGLE_INBOX_NOTIFICATION_TINY",
-        "small": "RESOURCE_ID_GOOGLE_INBOX_NOTIFICATION_SMALL",
-        "large": "RESOURCE_ID_GOOGLE_INBOX_NOTIFICATION_LARGE"
       }
     },
     {
@@ -3300,15 +3199,6 @@
         "tiny": "RESOURCE_ID_NOTIFICATION_LINE_TINY",
         "small": "RESOURCE_ID_NOTIFICATION_LINE_SMALL",
         "large": "RESOURCE_ID_NOTIFICATION_LINE_LARGE"
-      }
-    },
-    {
-      "name": "NOTIFICATION_SKYPE",
-      "id": 68,
-      "sizes": {
-        "tiny": "RESOURCE_ID_NOTIFICATION_SKYPE_TINY",
-        "small": "RESOURCE_ID_NOTIFICATION_SKYPE_SMALL",
-        "large": "RESOURCE_ID_NOTIFICATION_SKYPE_LARGE"
       }
     },
     {
@@ -3381,15 +3271,6 @@
         "tiny": "RESOURCE_ID_NOTIFICATION_GOOGLE_MESSENGER_TINY",
         "small": "RESOURCE_ID_NOTIFICATION_GOOGLE_MESSENGER_SMALL",
         "large": "RESOURCE_ID_NOTIFICATION_GOOGLE_MESSENGER_LARGE"
-      }
-    },
-    {
-      "name": "NOTIFICATION_HIPCHAT",
-      "id": 77,
-      "sizes": {
-        "tiny": "RESOURCE_ID_NOTIFICATION_HIPCHAT_TINY",
-        "small": "RESOURCE_ID_NOTIFICATION_HIPCHAT_SMALL",
-        "large": "RESOURCE_ID_NOTIFICATION_HIPCHAT_LARGE"
       }
     },
     {
