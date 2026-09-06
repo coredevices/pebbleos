@@ -36,7 +36,7 @@ static status_t prv_open(SettingsFile *file, const char *name, uint8_t flags,
   // max_space_total == alloc_used_space, then if the file is full, changing a
   // single value would force the whole file to be rewritten- every single
   // time! It's probably worth it to "waste" a bit of flash space to avoid
-  // this pathalogical case.
+  // this pathological case.
   int max_space_total = pfs_sector_optimal_size(alloc_used_space * 12 / 10, strlen(name));
 
   int fd = pfs_open(name, flags, FILE_TYPE_STATIC, max_space_total);
@@ -170,10 +170,10 @@ static bool flag_is_set(SettingsRecordHeader *hdr, uint8_t flags) {
 //     the entire record has not been completely written yet. Records in this
 //     state are removed on bootup, since they are in an indeterminate state.
 // - written: The typical state for a record. == !partially_written
-// - partially_overwritten: This record has been superceeded by another, which
+// - partially_overwritten: This record has been superseded by another, which
 //     we are currently in the process of writing out to flash. Records in
 //     this state are restored on bootup.
-// - overwritten: This record has been superceeded by another, which has been
+// - overwritten: This record has been superseded by another, which has been
 //     completely written out to flash. We skip over and ignore overwritten
 //     records.
 static bool partially_written(SettingsRecordHeader *hdr) {
@@ -288,7 +288,7 @@ status_t settings_file_rewrite_filtered(
   settings_file_close(file);
   // We have to close and reopen the new_file so that it's temp flag is cleared.
   // Before the close succeeds, if we reboot, we will just end up reading the
-  // old file. After the close suceeds, we will end up reading the new
+  // old file. After the close succeeds, we will end up reading the new
   // (compacted) file.
   int alloc_used_space = new_file.alloc_used_space;
   int min_alloc_used_space = new_file.min_alloc_used_space;
@@ -717,7 +717,7 @@ status_t settings_file_rewrite(SettingsFile *file,
   settings_file_close(file);
   // We have to close and reopen the new_file so that it's temp flag is cleared.
   // Before the close succeeds, if we reboot, we will just end up reading the
-  // old file. After the close suceeds, we will end up reading the new
+  // old file. After the close succeeds, we will end up reading the new
   // (compacted) file.
   int alloc_used_space = new_file.alloc_used_space;
   int min_alloc_used_space = new_file.min_alloc_used_space;

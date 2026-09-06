@@ -94,7 +94,7 @@ size_t comm_session_send_queue_get_read_pointer(const CommSession *session,
 }
 
 void comm_session_send_queue_consume(CommSession *session, size_t remaining_length) {
-  // The data has sucessfully been sent out at this point
+  // The data has successfully been sent out at this point
   PBL_ASSERTN(session->send_queue_head);
   SessionSendQueueJob *job = session->send_queue_head;
   while (job && remaining_length) {

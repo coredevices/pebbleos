@@ -183,7 +183,7 @@ static int32_t s_vibe_strength = VIBE_STRENGTH_OFF;
 // Tick at which the motor was last active (turned on or last transitioned off).
 // Used to suppress vibration-induced false shake/tap detections. 0 = never.
 static RtcTicks s_last_vibe_active_tick = 0;
-// s_vibe_strength_default is the vibrations trength of the motor used when one is not specified
+// s_vibe_strength_default is the vibrations strength of the motor used when one is not specified
 // explicitly, and can be changed in the notification vibration strength setting.
 static int32_t s_vibe_strength_default = VIBE_STRENGTH_MAX;
 

@@ -666,7 +666,7 @@ static bool prv_setup_storage_for_init_request(const InitRequest *request, uint3
     case ObjectSysResources:
       // Clear out, in case a prior, non-installed FW or sys resources transfer was still dangling:
       s_ready_to_install[request->type - 1].type = 0;
-      /* FALLTHRU */
+      /* FALLTHROUGH */
     default: {
       storage_info = kernel_malloc_check(sizeof(PutBytesStorageInfo));
       storage_info->index = request->index;

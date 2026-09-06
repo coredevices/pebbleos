@@ -63,7 +63,7 @@ static void system_task_main(void* paramater) {
     // Get event from the activated queue
     bool result = (pbl_msgq_get(activated_queue, &event, PBL_NO_WAIT) == 0);
 
-    // I believe its possible that we just reset the queue and accidently
+    // I believe its possible that we just reset the queue and accidentally
     // pended an extra event to the queue set so handle that case gracefully
     if (result) {
       s_system_task_idle = false;
