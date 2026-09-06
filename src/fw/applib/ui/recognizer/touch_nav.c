@@ -65,7 +65,7 @@ void touch_nav_registry_add(TouchNavState *state, TouchNavWidgetType type, Touch
     return;
   }
   TouchNavWidgetNode **head = prv_registry_head(state, type);
-  // Dedup by address: a re-add is a WARN and a no-op. Walk with a predecessor so we never touch a
+  // Dedupe by address: a re-add is a WARN and a no-op. Walk with a predecessor so we never touch a
   // node that isn't already threaded onto this list (robust to *_init zeroing the node).
   for (TouchNavWidgetNode *cur = *head; cur; cur = cur->next) {
     if (cur == node) {

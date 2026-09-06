@@ -655,7 +655,7 @@ typedef struct {
 #define GEdgeInsets(...) \
   GEdgeInsetsN(__VA_ARGS__, GEdgeInsets4, GEdgeInsets3, GEdgeInsets2, GEdgeInsets1)(__VA_ARGS__)
 
-//! Returns a rectangle that is shrinked or expanded by the given edge insets.
+//! Returns a rectangle that is shrunk or expanded by the given edge insets.
 //! @note The rectangle is standardized and then the inset parameters are applied.
 //! If the resulting rectangle would have a negative height or width, a GRectZero is returned.
 //! @param rect The rectangle that will be inset
@@ -1047,7 +1047,7 @@ GBitmap *gbitmap_create_with_resource_system(ResAppNum app_num, uint32_t resourc
 //! @internal
 //! @see gbitmap_init_with_resource
 //! @param app_num The app's resource bank number
-//! @return true if we were sucessful, false otherwise
+//! @return true if we were successful, false otherwise
 bool gbitmap_init_with_resource_system(GBitmap* bitmap, ResAppNum app_num, uint32_t resource_id);
 
 //! @internal
@@ -1328,7 +1328,7 @@ typedef struct PACKED {
 typedef Fixed_S32_16 GTransformNumber;
 
 //! @internal
-//! Data structure that contains the internal representation of a 3x3 tranformation matrix
+//! Data structure that contains the internal representation of a 3x3 transformation matrix
 //! The transformation matrix will be expressed as follows:
 //! [ a  b  0 ]
 //! [ c  d  0 ]

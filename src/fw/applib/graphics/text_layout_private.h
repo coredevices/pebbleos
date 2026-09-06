@@ -45,7 +45,7 @@ typedef struct {
 //!   - Word end points to codepoint after the last printable codepoint in a word,
 //!     excluding whitespace (eg, end of word, exclusive); note this codepoint may
 //!     not be valid since it may be the end of the string
-//!   - The preceeding whitespace of a word is trimmed if the word wraps
+//!   - The preceding whitespace of a word is trimmed if the word wraps
 //!   - Reserved codepoints are skipped
 //!   - Newlines are treated as stand-alone words so as to not mess up the height
 //!     and width word metrics

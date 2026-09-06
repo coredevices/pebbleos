@@ -69,7 +69,7 @@ static GPointPrecise prv_get_rotated_precise_point_for_ellipsis(GPointPrecise ce
     }
   }
 
-  // This algorthm operates on angle starting at our 90° mark, so we add 90°
+  // This algorithm operates on angle starting at our 90° mark, so we add 90°
   // and flip x/y coordinates (see last line of this function)
   angle = (angle + (TRIG_MAX_ANGLE / 4)) % TRIG_MAX_ANGLE;
 
@@ -169,7 +169,7 @@ static void prv_plot4(GBitmap *fb, GRect *clip_box, GPoint center, GPoint offset
    *        |
    *
    *    +  center point
-   *    -  x coordiante mirror line
+   *    -  x coordinate mirror line
    *    |  y coordinate mirror line
    *    x  given offset point
    *    xn mirrored points
@@ -199,7 +199,7 @@ static void prv_plot8(GBitmap *fb, GRect *clip_box, GPoint center, GPoint offset
    *   /  x5| x4 \
    *
    *    +  center point
-   *    -  x coordiante mirror line
+   *    -  x coordinate mirror line
    *    |  y coordinate mirror line
    *    /  45 degree mirror line
    *    \  135 degree mirror line
@@ -217,7 +217,7 @@ T_STATIC void graphics_circle_quadrant_draw_1px_aa(GContext* ctx, GPoint p, uint
                                                    GCornerMask quadrant) {
   /* This will draw antialiased circle with width of 1px, can be drawn in quadrants
    * Based on wu-xiang line drawing, will draw circle in two steps
-   * 1. Calculate point on the edge of eighth of the cricle and plot it around by mirroring
+   * 1. Calculate point on the edge of eighth of the circle and plot it around by mirroring
    *    - if point is matching pixel perfectly thats going to be on fully colored pixel
    *    - if theres fraction, two pixels will be colored accordingly
    * 2. Fill special case pixels (pixels that are between mirrored eighths)
@@ -225,7 +225,7 @@ T_STATIC void graphics_circle_quadrant_draw_1px_aa(GContext* ctx, GPoint p, uint
    *    - three pixels calculated for circle with radius > 6
    *    - two pixels calculated for circle with radius < 6
    *
-   * Theres also special case for the radius of 3, where algorithm couldnt stop at right
+   * Theres also special case for the radius of 3, where algorithm couldn't stop at right
    *   point and wasn't drawing two pixels on each quadrant
    *
    * Here's quadrant example:
@@ -245,7 +245,7 @@ T_STATIC void graphics_circle_quadrant_draw_1px_aa(GContext* ctx, GPoint p, uint
    *   x               -
    *
    *      |  original calculated pixels for plotting
-   *      -  mirrored eight of the circle (will mirror more of them if neccessary)
+   *      -  mirrored eight of the circle (will mirror more of them if necessary)
    *      o  special case pixels
    *      x  center of the circle
    */
@@ -292,7 +292,7 @@ T_STATIC void graphics_circle_quadrant_draw_1px_aa(GContext* ctx, GPoint p, uint
   // Note: magic numbers explained in main comment for this function
   int special_case_pixels = 3;
 
-  // Acommpanied by magic number 7 (not 6, we increased radius at beginning of this function)
+  // Accompanied by magic number 7 (not 6, we increased radius at beginning of this function)
   if (radius < 7) {
     // And sometimes magic number 2
     special_case_pixels = 2;
@@ -370,7 +370,7 @@ inline void prv_hline_quadrant(GCornerMask quadrant, GCornerMask desired, GConte
 
 static void prv_stroke_circle_quadrant_full(GContext* ctx, GPoint p, uint16_t radius,
                                             uint8_t stroke_width, GCornerMask quadrant) {
-  // This algorithm will draw stroked circle with vairable width (only odd numbers for now)
+  // This algorithm will draw stroked circle with variable width (only odd numbers for now)
   const uint8_t half_stroke_width = stroke_width / 2;
   const int16_t inner_radius = radius - half_stroke_width;
   const uint8_t outer_radius = radius + half_stroke_width;
@@ -425,7 +425,7 @@ static void prv_stroke_circle_quadrant_full_override_aa(GContext* ctx, GPoint p,
 }
 
 #if PBL_COLOR
-//! Draws anit-aliased stroked quadrant of a circle
+//! Draws antialiased stroked quadrant of a circle
 //! @internal
 T_STATIC void graphics_circle_quadrant_draw_stroked_aa(GContext* ctx, GPoint p, uint16_t radius,
                                                        uint8_t stroke_width, GCornerMask quadrant) {
@@ -450,7 +450,7 @@ void graphics_circle_quadrant_draw(GContext* ctx, GPoint p, uint16_t radius, GCo
       graphics_circle_quadrant_draw_stroked_aa(ctx, p, radius, stroke_width, quadrant);
       return;
     } else {
-      // Antialiased and Stroke Width == 1 (not suppported on 1-bit color)
+      // Antialiased and Stroke Width == 1 (not supported on 1-bit color)
       graphics_circle_quadrant_draw_1px_aa(ctx, p, radius, quadrant);
       return;
     }
@@ -507,7 +507,7 @@ void graphics_draw_circle(GContext* ctx, GPoint p, uint16_t radius) {
   }
 
   if (radius == 0) {
-    // Special case radius 0 to fill a circle with radius eqaul to half the stroke width
+    // Special case radius 0 to fill a circle with radius equal to half the stroke width
     // Backup the fill color and set that to the current stroke color since the fill color
     // is what is used for fill circle. Restore the fill color afterwards.
     GColor backup_fill_color = ctx->draw_state.fill_color;
@@ -853,7 +853,7 @@ static void prv_fill_oval_precise(GContext *ctx, GPointPrecise center,
                                                  radius_inner_x.raw_value, radius_inner_y.raw_value,
                                                  config.end_quadrant.angle);
 
-  // Swapping top/bottom offset points if neccesary
+  // Swapping top/bottom offset points if necessary
   if (start_top.y.raw_value > start_bottom.y.raw_value) {
     prv_swap_precise_points(&start_top, &start_bottom);
   } else if (start_top.y.raw_value == start_bottom.y.raw_value &&
@@ -870,15 +870,15 @@ static void prv_fill_oval_precise(GContext *ctx, GPointPrecise center,
     prv_swap_precise_points(&end_top, &end_bottom);
   }
 
-  // Range for scanline, since scanlines are mirred from the middle of the circle this is also
+  // Range for scanline, since scanlines are mirrored from the middle of the circle this is also
   //   indicated from the middle, therefore initialised with 0 (as middle) and
-  //   radius_y (as scalines are on y axis)
+  //   radius_y (as scanlines are on y axis)
   int draw_min = 0;
   int draw_max = radius_outer_y.integer;
 
   // Adjust to drawing_box offset
   int adjusted_center = center.y.integer + ctx->draw_state.drawing_box.origin.y;
-  // We add one to compenaste in case of odd line needs to be drawn
+  // We add one to compensate in case of odd line needs to be drawn
   int adjusted_top = adjusted_center - radius_outer_y.integer - 1;
   int adjusted_bottom = adjusted_center + radius_outer_y.integer + 1;
 
@@ -1198,7 +1198,7 @@ MOCKABLE void graphics_draw_arc_precise_internal(GContext *ctx, GPointPrecise ce
   center.x.raw_value -= center.x.raw_value % (FIXED_S16_3_ONE.raw_value / 2);
   center.y.raw_value -= center.y.raw_value % (FIXED_S16_3_ONE.raw_value / 2);
 
-  // To maintain compability we have to adjust from integral points where given point means
+  // To maintain compatibility we have to adjust from integral points where given point means
   //    center of the point
   center.x.raw_value += 4;
   center.y.raw_value += 4;
@@ -1256,7 +1256,7 @@ void graphics_draw_arc_internal(GContext *ctx, GPoint center, uint16_t radius, i
   // We're just casting this to precise points
   GPointPrecise fixed_center;
 
-  // GPointPreciseFromGPoint doesnt work for unit tests (!!!)
+  // GPointPreciseFromGPoint doesn't work for unit tests (!!!)
   fixed_center.x.integer = center.x;
   fixed_center.y.integer = center.y;
   fixed_center.x.fraction = 0;

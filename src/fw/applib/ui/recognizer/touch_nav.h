@@ -231,7 +231,7 @@ void touch_nav_set_action_bar(TouchNavState *state, const GRect *frame, uint8_t 
 ButtonId touch_nav_action_bar_zone_button(const TouchNavActionBar *bar, GPoint point,
                                           bool require_icon_zone);
 
-//! Register a Tier-1 widget node under the given registry. Dedup-by-address (a re-add WARNs and is
+//! Register a Tier-1 widget node under the given registry. Dedupe-by-address (a re-add WARNs and is
 //! a no-op). Robust to a node zeroed by the widget's *_init. \a ops and \a widget are the migrated
 //! widget's apply-vtable and opaque self pointer (both NULL for an un-migrated widget still driven
 //! by its own recognizer set); they are re-applied on a re-add so an init-without-deinit keeps

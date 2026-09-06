@@ -57,7 +57,7 @@ typedef struct {
 //! of points given
 //!
 //! @param max_points Size of the points buffer
-//! @return A pointer to GPathBuilder. NULL if object couldnt be created
+//! @return A pointer to GPathBuilder. NULL if object couldn't be created
 GPathBuilder *gpath_builder_create(uint32_t max_points);
 
 //! Destroys GPathBuilder previously created with gpath_builder_create()

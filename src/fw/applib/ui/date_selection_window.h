@@ -51,5 +51,5 @@ void date_selection_window_init(DateSelectionWindowData *window, const char *lab
                                 GColor color, DateSelectionCompleteCallback complete,
                                 void *context);
 
-//! Deinitialise the date selection window.
+//! Deinitialize the date selection window.
 void date_selection_window_deinit(DateSelectionWindowData *window);
