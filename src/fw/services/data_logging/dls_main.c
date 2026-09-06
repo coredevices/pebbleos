@@ -151,7 +151,7 @@ static void prv_send_all_sessions_system_task_cb(void *empty_all_data) {
 static void prv_check_all_sessions_timer_cb(void *data) {
   // If sends are not enabled, do nothing
   if (!prv_sends_enabled()) {
-    PBL_LOG_INFO("Not sending sessions beause sending is disabled");
+    PBL_LOG_INFO("Not sending sessions because sending is disabled");
     return;
   }
 
@@ -202,7 +202,7 @@ bool dls_private_send_session(DataLoggingSession *logging_session, bool empty) {
 
   // If sends are not enabled, ignore
   if (!prv_sends_enabled()) {
-    PBL_LOG_INFO("Not sending session beause sending is disabled");
+    PBL_LOG_INFO("Not sending session because sending is disabled");
     return true;
   }
 
@@ -363,7 +363,7 @@ static bool prv_inactivate_sessions_each_cb(DataLoggingSession *session, void *d
 void dls_send_all_sessions(void) {
   // If sends are not enabled, do nothing
   if (!prv_sends_enabled()) {
-    PBL_LOG_INFO("Not sending sessions beause sending is disabled");
+    PBL_LOG_INFO("Not sending sessions because sending is disabled");
     return;
   }
   system_task_add_callback(prv_send_all_sessions_system_task_cb, (void*) true);

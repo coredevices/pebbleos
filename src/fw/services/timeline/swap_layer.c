@@ -1066,7 +1066,7 @@ void swap_layer_touch_register(SwapLayer *swap_layer) {
   }
 
   // Register the swap layer as a migrated Tier-1 widget: the unified widget set drives it through
-  // s_swap_touch_nav_ops. The registry add dedups by address and re-applies the ops/layer, so a
+  // s_swap_touch_nav_ops. The registry add dedupes by address and re-applies the ops/layer, so a
   // repeated init/re-show on the same swap layer (no intervening deinit) keeps routing to and
   // driving it.
   touch_nav_registry_add(state, TouchNavWidgetType_Swap,
