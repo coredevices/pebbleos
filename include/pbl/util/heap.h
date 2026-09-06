@@ -30,9 +30,9 @@ typedef struct Heap {
   HeapInfo_t *begin;
   HeapInfo_t *end;
 
-  //! Number of allocated bytes, including beginers
+  //! Number of allocated bytes, including beginners
   unsigned int current_size;
-  //! Peak number of allocated bytes, including beginers
+  //! Peak number of allocated bytes, including beginners
   unsigned int high_water_mark;
 
   HeapLockImpl lock_impl;
@@ -68,7 +68,7 @@ void heap_set_corruption_handler(Heap *heap, CorruptionHandler corruption_handle
 
 //! Allocate a fragment of memory on the given heap. Tries to avoid
 //! fragmentation by obtaining memory requests larger than LARGE_SIZE from the
-//! endo of the buffer, while small fragments are taken from the start of the
+//! end of the buffer, while small fragments are taken from the start of the
 //! buffer.
 //! @note heap_init() must be called prior to using heap_malloc().
 //! @param heap The heap to allocate from

@@ -54,17 +54,17 @@ typedef void (*BlobDBInitImpl)(void);
 
 //! Implements the insert API. Note that this function should be blocking.
 //! \param key a pointer to the key data
-//! \param key_len the lenght of the key, in bytes
+//! \param key_len the length of the key, in bytes
 //! \param val a pointer to the value data
 //! \param val_len the length of the value, in bytes
-//! \returns S_SUCCESS if the key/val pair was succesfully inserted
+//! \returns S_SUCCESS if the key/val pair was successfully inserted
 //! and an error code otherwise (See \ref StatusCode)
 typedef status_t (*BlobDBInsertImpl)
     (const uint8_t *key, int key_len, const uint8_t *val, int val_len);
 
 //! Implements the get length API.
 //! \param key a pointer to the key data
-//! \param key_len the lenght of the key, in bytes
+//! \param key_len the length of the key, in bytes
 //! \returns the length in bytes of the value for key on success
 //! and an error code otherwise (See \ref StatusCode)
 typedef int (*BlobDBGetLenImpl)
@@ -72,24 +72,24 @@ typedef int (*BlobDBGetLenImpl)
 
 //! Implements the read API. Note that this function should be blocking.
 //! \param key a pointer to the key data
-//! \param key_len the lenght of the key, in bytes
+//! \param key_len the length of the key, in bytes
 //! \param[out] val_out a pointer to a buffer of size val_len
 //! \param val_len the length of the value to be copied, in bytes
-//! \returns S_SUCCESS if the value for key was succesfully read,
+//! \returns S_SUCCESS if the value for key was successfully read,
 //! and an error code otherwise (See \ref StatusCode)
 typedef status_t (*BlobDBReadImpl)
     (const uint8_t *key, int key_len, uint8_t *val_out, int val_len);
 
 //! Implements the delete API. Note that this function should be blocking.
 //! \param key a pointer to the key data
-//! \param key_len the lenght of the key, in bytes
-//! \returns S_SUCCESS if the key/val pair was succesfully deleted
+//! \param key_len the length of the key, in bytes
+//! \returns S_SUCCESS if the key/val pair was successfully deleted
 //! and an error code otherwise (See \ref StatusCode)
 typedef status_t (*BlobDBDeleteImpl)
     (const uint8_t *key, int key_len);
 
 //! Implements the flush API. Note that this function should be blocking.
-//! \returns S_SUCCESS if all key/val pairs were succesfully deleted
+//! \returns S_SUCCESS if all key/val pairs were successfully deleted
 //! and an error code otherwise (See \ref StatusCode)
 typedef status_t (*BlobDBFlushImpl)(void);
 
@@ -106,7 +106,7 @@ typedef BlobDBDirtyItem *(*BlobDBGetDirtyListImpl)(void);
 
 //! Implements the MarkSynced API.
 //! \param key a pointer to the key data
-//! \param key_len the lenght of the key, in bytes
+//! \param key_len the length of the key, in bytes
 //! \returns S_SUCCESS if the item was marked synced, an error code otherwise
 typedef status_t (*BlobDBMarkSyncedImpl)(const uint8_t *key, int key_len);
 
@@ -143,7 +143,7 @@ void blob_db_get_dirty_dbs(uint8_t *ids, uint8_t *num_ids);
 //! See \ref BlobDBReadImpl
 //! \param db_id the ID of the blob DB
 //! \param key a pointer to the key data
-//! \param key_len the lenght of the key, in bytes
+//! \param key_len the length of the key, in bytes
 //! \param val a pointer to the value data
 //! \param val_len the length of the value, in bytes
 status_t blob_db_insert(BlobDBId db_id,
@@ -153,14 +153,14 @@ status_t blob_db_insert(BlobDBId db_id,
 //! See \ref BlobDBGetLenImpl
 //! \param db_id the ID of the blob DB
 //! \param key a pointer to the key data
-//! \param key_len the lenght of the key, in bytes
+//! \param key_len the length of the key, in bytes
 int blob_db_get_len(BlobDBId db_id,
     const uint8_t *key, int key_len);
 
 //! Get the value of length val_len for a given key
 //! \param db_id the ID of the blob DB
 //! \param key a pointer to the key data
-//! \param key_len the lenght of the key, in bytes
+//! \param key_len the length of the key, in bytes
 //! \param val_out a buffer to store the value data
 //! \param val_len the length of the value, in bytes
 //! See \ref BlobDBReadImpl
@@ -170,7 +170,7 @@ status_t blob_db_read(BlobDBId db_id,
 //! Delete the key/val pair in a blob DB for a given key
 //! \param db_id the ID of the blob DB
 //! \param key a pointer to the key data
-//! \param key_len the lenght of the key, in bytes
+//! \param key_len the length of the key, in bytes
 //! See \ref BlobDBDeleteImpl
 status_t blob_db_delete(BlobDBId db_id,
     const uint8_t *key, int key_len);
@@ -191,6 +191,6 @@ BlobDBDirtyItem *blob_db_get_dirty_list(BlobDBId db_id);
 //! \note This API is used upon receiving an ACK from the phone during sync
 //! \param db_id the ID of the blob DB
 //! \param key a pointer to the key data
-//! \param key_len the lenght of the key, in bytes
+//! \param key_len the length of the key, in bytes
 //! \see BlobDBMarkSyncedImpl
 status_t blob_db_mark_synced(BlobDBId db_id, uint8_t *key, int key_len);

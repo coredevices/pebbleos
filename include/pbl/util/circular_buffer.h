@@ -48,7 +48,7 @@ uint16_t circular_buffer_write_prepare(CircularBuffer *buffer, uint8_t **data_ou
 //! To be used after circular_buffer_write_prepare(), to make the CircularBuffer update the length
 //! of the data it contains.
 //! @param buffer The circular buffer that was written to.
-//! @param written_length The length that has just been writted at the pointer provided by
+//! @param written_length The length that has just been written at the pointer provided by
 //! circular_buffer_write_prepare().
 void circular_buffer_write_finish(CircularBuffer *buffer, uint16_t written_length);
 
@@ -57,10 +57,10 @@ void circular_buffer_write_finish(CircularBuffer *buffer, uint16_t written_lengt
 //!
 //! If the circular buffer wraps in the middle of the requested data, this function call will return true but will
 //! provide fewer bytes that requested. When this happens, the length_out parameter will be set to a value smaller
-//! than length. A second read call can be made with the remaining smaller length to retreive the rest.
+//! than length. A second read call can be made with the remaining smaller length to retrieve the rest.
 //!
 //! The reason this read doesn't consume is to avoid having to copy out the data. The data_out pointer should be
-//! stable until you explicitely ask for it to be consumed with circular_buffer_consume.
+//! stable until you explicitly ask for it to be consumed with circular_buffer_consume.
 //!
 //! @param buffer The buffer to read from
 //! @param length How many bytes to read

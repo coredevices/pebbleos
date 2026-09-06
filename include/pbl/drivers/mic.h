@@ -18,7 +18,7 @@ typedef void (*MicDataHandlerCB)(int16_t *samples, size_t sample_count, void *co
 //! Initialize microphone driver. Should be called on boot
 void mic_init(MicDevice *this);
 
-//! Set the mic volume.  This must be called afer mic_init, and not while the mic is running.
+//! Set the mic volume.  This must be called after mic_init, and not while the mic is running.
 void mic_set_volume(MicDevice *this, uint16_t volume);
 
 //! Start the microphone. The driver will fill the specified buffer with up to the specified size
