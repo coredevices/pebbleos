@@ -18,6 +18,9 @@ static bool prv_get_state(void *context) {
 
 static void prv_set_state(bool enabled, void *context) {
   PBL_LOG_DBG("Manual DND toggle: %s", enabled ? "enabled" : "disabled");
+  if (!enabled) {
+    do_not_disturb_set_until_wake_enabled(false);
+  }
   do_not_disturb_set_manually_enabled(enabled);
 }
 

@@ -158,6 +158,7 @@ void shell_event_loop_handle_event(PebbleEvent *e) {
       return;
 
     case PEBBLE_ACTIVITY_EVENT:
+      do_not_disturb_handle_activity_event(&e->activity_event);
       workout_service_activity_event_handler(&e->activity_event);
       return;
 

@@ -4,6 +4,7 @@
 #include "pbl/services/notifications/do_not_disturb.h"
 
 #include "applib/ui/action_toggle.h"
+#include "pbl/services/activity/activity.h"
 #include "kernel/events.h"
 #include "resource/resource.h"
 #include "pbl/services/new_timer/new_timer.h"
@@ -46,8 +47,13 @@
 #include "fake_spi_flash.h"
 
 #define PREF_KEY_DND_MANUALLY_ENABLED "dndManuallyEnabled"
+#define PREF_KEY_DND_SLEEP_ENABLED "dndSleepEnabled"
+#define PREF_KEY_DND_UNTIL_WAKE_STATE "dndUntilWakeState"
 
 static int s_num_dnd_events_put = 0;
+static bool s_last_dnd_event_active = false;
+static bool s_is_activity_tracking = true;
+static ActivitySleepState s_activity_sleep_state = ActivitySleepStateAwake;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! Fakes
@@ -60,7 +66,19 @@ bool system_task_add_callback(SystemTaskEventCallback cb, void *data) {
 void event_put(PebbleEvent* event) {
   if (event->type == PEBBLE_DO_NOT_DISTURB_EVENT) {
     s_num_dnd_events_put++;
+    s_last_dnd_event_active = event->do_not_disturb.is_active;
   }
+}
+
+bool activity_tracking_on(void) {
+  return s_is_activity_tracking;
+}
+
+bool activity_get_metric(ActivityMetric metric, uint32_t history_len, int32_t *history) {
+  cl_assert_equal_i(metric, ActivityMetricSleepState);
+  cl_assert_equal_i(history_len, 1);
+  *history = s_activity_sleep_state;
+  return true;
 }
 
 // Thursday, March 12, 2015, 00:00 UTC
@@ -126,6 +144,15 @@ static void prv_assert_manually_dnd_setting_val(bool expected_value) {
                             (void*)&expected_value, sizeof(bool));
 }
 
+static void prv_send_sleep_state(ActivitySleepState sleep_state) {
+  s_activity_sleep_state = sleep_state;
+  PebbleActivityEvent event = {
+    .type = PebbleActivityEvent_SleepStateChanged,
+    .sleep_state = sleep_state,
+  };
+  do_not_disturb_handle_activity_event(&event);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! Tests
 
@@ -135,7 +162,11 @@ void test_do_not_disturb__initialize(void) {
   pfs_format(false);
 
   rtc_set_time(s_thursday_00_00);
+  s_is_activity_tracking = true;
+  s_activity_sleep_state = ActivitySleepStateAwake;
   alerts_preferences_init();
+  alerts_preferences_dnd_set_sleep_enabled(false);
+  alerts_preferences_dnd_set_until_wake_state(DndUntilWakeStateDisabled);
   do_not_disturb_init();
 
   do_not_disturb_set_manually_enabled(false);
@@ -149,6 +180,7 @@ void test_do_not_disturb__initialize(void) {
 
   s_event_ongoing = false;
   s_num_dnd_events_put = 0;
+  s_last_dnd_event_active = false;
 }
 
 void test_do_not_disturb__cleanup(void) {
@@ -156,6 +188,10 @@ void test_do_not_disturb__cleanup(void) {
   do_not_disturb_set_manually_enabled(false);
   do_not_disturb_set_schedule_enabled(WeekdaySchedule, false);
   do_not_disturb_set_schedule_enabled(WeekendSchedule, false);
+  if (do_not_disturb_is_sleep_dnd_enabled()) {
+    do_not_disturb_toggle_sleep_dnd();
+  }
+  do_not_disturb_set_until_wake_enabled(false);
   set_dnd_timer_id(TIMER_INVALID_ID);
 }
 
@@ -214,6 +250,177 @@ void test_do_not_disturb__manual_pref_synced_from_phone(void) {
   prv_sync_bool_pref_from_phone(PREF_KEY_DND_MANUALLY_ENABLED, false);
   cl_assert(do_not_disturb_is_manually_enabled() == false);
   cl_assert(do_not_disturb_is_active() == false);
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__sleep_dnd(void) {
+  cl_assert(!do_not_disturb_is_sleep_dnd_enabled());
+  cl_assert(!do_not_disturb_is_active());
+
+  prv_send_sleep_state(ActivitySleepStateLightSleep);
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 0);
+
+  do_not_disturb_toggle_sleep_dnd();
+  cl_assert(do_not_disturb_is_sleep_dnd_enabled());
+  cl_assert(do_not_disturb_is_active());
+  cl_assert(s_last_dnd_event_active);
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+  prv_assert_settings_value(PREF_KEY_DND_SLEEP_ENABLED, strlen(PREF_KEY_DND_SLEEP_ENABLED),
+                            &(bool){true}, sizeof(bool));
+
+  prv_send_sleep_state(ActivitySleepStateRestfulSleep);
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+
+  do_not_disturb_set_manually_enabled(false);
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert(!s_last_dnd_event_active);
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+
+  prv_send_sleep_state(ActivitySleepStateLightSleep);
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+
+  prv_send_sleep_state(ActivitySleepStateAwake);
+  cl_assert(!do_not_disturb_is_active());
+  prv_send_sleep_state(ActivitySleepStateLightSleep);
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 3);
+
+  do_not_disturb_set_manually_enabled(true);
+  prv_send_sleep_state(ActivitySleepStateAwake);
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 3);
+
+  do_not_disturb_set_manually_enabled(false);
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 4);
+}
+
+void test_do_not_disturb__sleep_pref_synced_from_phone(void) {
+  prv_send_sleep_state(ActivitySleepStateLightSleep);
+  prv_sync_bool_pref_from_phone(PREF_KEY_DND_SLEEP_ENABLED, true);
+  cl_assert(do_not_disturb_is_sleep_dnd_enabled());
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+
+  prv_sync_bool_pref_from_phone(PREF_KEY_DND_SLEEP_ENABLED, false);
+  cl_assert(!do_not_disturb_is_sleep_dnd_enabled());
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__sleep_dnd_tracks_activity_service(void) {
+  do_not_disturb_toggle_sleep_dnd();
+  prv_send_sleep_state(ActivitySleepStateLightSleep);
+  cl_assert(do_not_disturb_is_active());
+
+  s_is_activity_tracking = false;
+  PebbleActivityEvent event = {
+    .type = PebbleActivityEvent_TrackingStopped,
+  };
+  do_not_disturb_handle_activity_event(&event);
+  cl_assert(!do_not_disturb_is_active());
+
+  s_is_activity_tracking = true;
+  event.type = PebbleActivityEvent_TrackingStarted;
+  do_not_disturb_handle_activity_event(&event);
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 3);
+}
+
+void test_do_not_disturb__until_wake(void) {
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
+
+  do_not_disturb_set_until_wake_enabled(true);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+  prv_assert_settings_value(PREF_KEY_DND_UNTIL_WAKE_STATE,
+                            strlen(PREF_KEY_DND_UNTIL_WAKE_STATE),
+                            &(DndUntilWakeState){DndUntilWakeStateWaitingForSleep},
+                            sizeof(DndUntilWakeState));
+
+  prv_send_sleep_state(ActivitySleepStateAwake);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  prv_send_sleep_state(ActivitySleepStateLightSleep);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  prv_assert_settings_value(PREF_KEY_DND_UNTIL_WAKE_STATE,
+                            strlen(PREF_KEY_DND_UNTIL_WAKE_STATE),
+                            &(DndUntilWakeState){DndUntilWakeStateWaitingForWake},
+                            sizeof(DndUntilWakeState));
+
+  prv_send_sleep_state(ActivitySleepStateRestfulSleep);
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+
+  prv_send_sleep_state(ActivitySleepStateAwake);
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__until_wake_enabled_while_asleep(void) {
+  prv_send_sleep_state(ActivitySleepStateLightSleep);
+  do_not_disturb_set_until_wake_enabled(true);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  prv_assert_settings_value(PREF_KEY_DND_UNTIL_WAKE_STATE,
+                            strlen(PREF_KEY_DND_UNTIL_WAKE_STATE),
+                            &(DndUntilWakeState){DndUntilWakeStateWaitingForWake},
+                            sizeof(DndUntilWakeState));
+
+  prv_send_sleep_state(ActivitySleepStateAwake);
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__until_wake_preserves_manual_dnd(void) {
+  do_not_disturb_set_manually_enabled(true);
+  do_not_disturb_set_until_wake_enabled(true);
+  prv_send_sleep_state(ActivitySleepStateLightSleep);
+  prv_send_sleep_state(ActivitySleepStateAwake);
+
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(do_not_disturb_is_manually_enabled());
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+
+  do_not_disturb_set_manually_enabled(false);
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__until_wake_tracks_activity_service(void) {
+  do_not_disturb_set_until_wake_enabled(true);
+
+  s_is_activity_tracking = false;
+  PebbleActivityEvent event = {
+    .type = PebbleActivityEvent_TrackingStopped,
+  };
+  do_not_disturb_handle_activity_event(&event);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  cl_assert(do_not_disturb_is_active());
+
+  s_is_activity_tracking = true;
+  s_activity_sleep_state = ActivitySleepStateLightSleep;
+  event.type = PebbleActivityEvent_TrackingStarted;
+  do_not_disturb_handle_activity_event(&event);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+
+  s_is_activity_tracking = false;
+  event.type = PebbleActivityEvent_TrackingStopped;
+  do_not_disturb_handle_activity_event(&event);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+
+  s_is_activity_tracking = true;
+  s_activity_sleep_state = ActivitySleepStateAwake;
+  event.type = PebbleActivityEvent_TrackingStarted;
+  do_not_disturb_handle_activity_event(&event);
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
   cl_assert_equal_i(s_num_dnd_events_put, 2);
 }
 
