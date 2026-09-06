@@ -18,7 +18,7 @@ from ..util import stm32_crc
 
 class PebbleFirmwareBinaryInfo:
     V1_STRUCT_VERSION = 1
-    V1_STRUCT_DEFINTION: ClassVar = [
+    V1_STRUCT_DEFINITION: ClassVar = [
         ("20s", "build_id"),
         ("L", "version_timestamp"),
         ("32s", "version_tag"),
@@ -62,7 +62,7 @@ class PebbleFirmwareBinaryInfo:
 
     def _get_footer_struct(self):
         fmt = "<" + reduce(
-            lambda s, t: s + t[0], PebbleFirmwareBinaryInfo.V1_STRUCT_DEFINTION, ""
+            lambda s, t: s + t[0], PebbleFirmwareBinaryInfo.V1_STRUCT_DEFINITION, ""
         )
         return struct.Struct(fmt)
 
@@ -75,7 +75,7 @@ class PebbleFirmwareBinaryInfo:
 
     def _parse_footer_data(self, footer_data):
         z = zip(
-            PebbleFirmwareBinaryInfo.V1_STRUCT_DEFINTION,
+            PebbleFirmwareBinaryInfo.V1_STRUCT_DEFINITION,
             self.struct.unpack(footer_data),
         )
         return {entry[1]: data for entry, data in z}

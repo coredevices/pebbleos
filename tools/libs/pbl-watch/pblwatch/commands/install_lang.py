@@ -3,7 +3,7 @@ from pebble_tool.commands.base import PebbleCommand
 from progressbar import Bar, FileTransferSpeed, Percentage, ProgressBar, Timer
 
 
-class InstallLangCcommand(PebbleCommand):
+class InstallLangCommand(PebbleCommand):
     """Install a language pack on a watch"""
 
     command = "install-lang"

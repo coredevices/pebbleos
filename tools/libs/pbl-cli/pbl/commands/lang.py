@@ -118,7 +118,7 @@ class _LangCommand(PblCommand):
         for entry in resource_map["fonts"]:
             name = entry["name"]
             if "alias" in entry:
-                # Aliases reuse another resource's bytes; the pbpack dedups.
+                # Aliases reuse another resource's bytes; the pbpack dedupes.
                 self.inf(f"aliasing {entry['alias']} to {name}")
                 resources[name] = resources[entry["alias"]]
             elif entry["file"] == "":

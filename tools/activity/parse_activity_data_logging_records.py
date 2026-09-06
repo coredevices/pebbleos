@@ -155,7 +155,7 @@ class JIRASupport:
         watch_logs = []
         got_device_logs = False
         for path in sorted(local_attachment_paths):
-            # iOS uses "watch_logs...", Android <2.1 uses "pebble.log", and Androind >=2.1 (Holo)
+            # iOS uses "watch_logs...", Android <2.1 uses "pebble.log", and Android >=2.1 (Holo)
             #  uses "device-logs.log"
             if (
                 "watch_logs" not in path
@@ -529,7 +529,7 @@ class ParseMinuteStatsFile:
                 )
                 print(f"  //> TEST_NAME {self.sample_prefix}")
                 print(SLEEP_DEFAULT_EXPECTED_TEXT)
-                print("  // list of: {steps, orientation, vmc, ligh}")
+                print("  // list of: {steps, orientation, vmc, light}")
                 print("  static AlgDlsMinuteData samples[] = {")
 
             else:

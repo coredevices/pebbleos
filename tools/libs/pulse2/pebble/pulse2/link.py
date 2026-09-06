@@ -93,7 +93,7 @@ class Interface:
         return socket
 
     def unregister_socket(self, protocol):
-        """Used by InterfaceSocket objets to unregister themselves when
+        """Used by InterfaceSocket objects to unregister themselves when
         closing.
         """
         try:

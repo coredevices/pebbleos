@@ -28,7 +28,7 @@ PRESERVE_SYMBOLS = [
     "app_crashed",
 ]
 
-# I have NO idea why we need to preserve `g_default_draw_implementation`, but we do. It's bizzare.
+# I have NO idea why we need to preserve `g_default_draw_implementation`, but we do. It's bizarre.
 # We can at least obfuscate the name.
 OBFUSCATE_SYMBOLS = [
     "g_default_draw_implementation",
@@ -58,10 +58,10 @@ class ELFFileHeader(ELFObjectBase):
     elf_class = None  # The class of the ELF file (whether it's 32-bit or 64-bit)
     data = None  # The format of the data in the ELF file (endianness)
     version = None  # The version of the ELF file format
-    osabi = None  # The OS- or ABI-specific extensios used in this ELF file
+    osabi = None  # The OS- or ABI-specific extensions used in this ELF file
     abi_version = None  # The version of the ABI this file is targeted for
     type = None  # The object file type
-    machine = None  # The machine artictecture
+    machine = None  # The machine architecture
     entry = None  # The program entry point
     ph_offset = None  # The offset of the program header table in bytes
     sh_offset = None  # The offset of the section header table in bytes
@@ -81,7 +81,7 @@ class ELFFileHeader(ELFObjectBase):
         assert self.elf_class == self.CLASS_32_BIT
         # we only support little-endian files
         assert self.data == self.DATA_2_LSB
-        # current ELF verison
+        # current ELF version
         assert self.version == self.VERSION
         assert self.osabi == self.OS_ABI
         assert self.abi_version == self.ABI_VERSION
@@ -522,7 +522,7 @@ def obfuscate(src_path, dst_path, no_text):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pebble Firmware ELF Obfuscation")
-    parser.add_argument("input_elf", help="The source ELF file to be obfuscaated")
+    parser.add_argument("input_elf", help="The source ELF file to be obfuscated")
     parser.add_argument("output_elf", help="Output file path")
     parser.add_argument(
         "--no-text", help="Removes the .text section", action="store_true"
