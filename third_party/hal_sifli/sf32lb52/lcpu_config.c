@@ -10,7 +10,7 @@
 #define NVDS_BUFF_START 0x2040FE00
 
 static const uint8_t s_ble_slp_default[] = {
-    // Control pre-wakeup time for the sleep of BT subsysm in LCPU.
+    // Control pre-wakeup time for the sleep of BT subsytem in LCPU.
     // See SiFli-SDK EXT_WAKEUP_TIME_LXT32K/EXT_WAKEUP_TIME_RC10K for details.
     // RC10K -> 4500us (0x1194)
     // LXT32K -> 3500us (0x0DAC)
@@ -22,8 +22,8 @@ static const uint8_t s_ble_slp_default[] = {
     // Control maximum sleep duration of BT subsystem.
     // The last 0x01 means 10s in BLE only and 30s in dual mode. 0 means 500ms
     0x12, 0x01, 0x01,
-    // Control the log in contoller
-    // Changed to 0x20, 0x00, 0x09, 0x00 will enable HCI logs by defaut
+    // Control the log in controller
+    // Changed to 0x20, 0x00, 0x09, 0x00 will enable HCI logs by default
     0x2F, 0x04, 0x20, 0x00, 0x00, 0x00,
     // Internal usage, for scheduling
     0x15, 0x01, 0x01,
