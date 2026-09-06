@@ -19,7 +19,7 @@ typedef struct {
 
 } RotBmpPairLayer;
 
-//! white and black *must* have the same dimensions, and *shouldn't* have any overlapp of eachother
+//! white and black *must* have the same dimensions, and *shouldn't* have any overlap of each other
 void rotbmp_pair_layer_init(RotBmpPairLayer *pair, GBitmap *white, GBitmap *black);
 
 void rotbmp_pair_layer_deinit(RotBmpPairLayer *pair);

@@ -33,7 +33,7 @@ typedef void (*AppFocusHandler)(bool in_focus);
 //! 2) A notification comes in and the animation to show the notification starts. The will_focus
 //! handler is called with in_focus set to false.
 //! 3) The animation completes and the notification is in focus, with the app being completely
-//! covered. The did_focus hander is called with in_focus set to false.
+//! covered. The did_focus handler is called with in_focus set to false.
 //! 4) The notification is dismissed and the animation to return to the app starts. The will_focus
 //! handler is called with in_focus set to true.
 //! 5) The animation completes and the app is in focus. The did_focus handler is called with

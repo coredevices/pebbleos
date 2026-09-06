@@ -52,7 +52,7 @@ typedef struct QRCode {
 //!
 //! The QR code is automatically marked dirty after this operation.
 //! @param qr_code The QRCode to initialize
-//! @param frame The frame with which to initialze the QRCode
+//! @param frame The frame with which to initialize the QRCode
 void qr_code_init(QRCode *qr_code, const GRect *frame);
 
 //! Creates a new QRCode on the heap and initializes it with the default values.
@@ -62,7 +62,7 @@ void qr_code_init(QRCode *qr_code, const GRect *frame);
 //! * Foreground color: \ref GColorBlack
 //! * Background color: \ref GColorWhite
 //!
-//! @param frame The frame with which to initialze the QRCode
+//! @param frame The frame with which to initialize the QRCode
 //! @return A pointer to the QRCode. `NULL` if the QRCode could not be created
 QRCode* qr_code_create(GRect frame);
 

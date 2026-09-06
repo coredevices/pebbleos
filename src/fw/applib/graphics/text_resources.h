@@ -84,7 +84,7 @@ typedef struct FontCache {
   int offset_table_id;
   uint16_t offset_table_size;
   //! The currently loaded font's offset table.
-  //! @note this needs to be able to accomodate legacy fonts
+  //! @note this needs to be able to accommodate legacy fonts
   union {
     OffsetTableEntry_2_2 offsets_buffer_2_2[OFFSET_TABLE_MAX_SIZE / sizeof(OffsetTableEntry_2_2)];
     OffsetTableEntry_2_4 offsets_buffer_2_4[OFFSET_TABLE_MAX_SIZE / sizeof(OffsetTableEntry_2_4)];

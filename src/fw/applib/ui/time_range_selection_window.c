@@ -127,7 +127,7 @@ void time_range_selection_window_init(TimeRangeSelectionWindowData *time_range_s
   const int from_top_offset = config->top_origin + config->selection_y_offset;
   const int to_top_offset = from_top_offset + config->start_end_y_offset;
 
-  // FROM selection layer steup
+  // FROM selection layer setup
   SelectionLayer *from_selection_layer = &time_range_selection_window->from_selection_layer;
   GRect frame = GRect(left_offset, from_top_offset, width, selection_layer_default_cell_height());
   selection_layer_init(from_selection_layer, &frame, num_cells);
@@ -145,7 +145,7 @@ void time_range_selection_window_init(TimeRangeSelectionWindowData *time_range_s
     .decrement = prv_handle_from_dec,
   });
 
-  // TO selection layer steup
+  // TO selection layer setup
   SelectionLayer *to_selection_layer = &time_range_selection_window->to_selection_layer;
   frame.origin.y = to_top_offset;
   selection_layer_init(to_selection_layer, &frame, num_cells);

@@ -119,7 +119,7 @@ T_STATIC GColor get_bitmap_color(GBitmap *bmp, int x, int y) {
                      (format == GBitmapFormat2BitPalette) ||
                      (format == GBitmapFormat4BitPalette));
   if (palletized) {
-    // Look up color in pallete if palletized
+    // Look up color in palette if palletized
     const GColor *palette = bmp->palette;
     src_color = palette[cindex];
   }
@@ -175,7 +175,7 @@ void graphics_draw_rotated_bitmap(GContext* ctx, GBitmap *src, GPoint src_ic, in
       background = GColorWhite;
       break;
     default:
-      PBL_ASSERT(0, "unknown coposting mode %d", compositing_mode);
+      PBL_ASSERT(0, "unknown compositing mode %d", compositing_mode);
       return;
   }
 #endif
@@ -201,7 +201,7 @@ void graphics_draw_rotated_bitmap(GContext* ctx, GBitmap *src, GPoint src_ic, in
     const int32_t width = 2 * (max_width + 1);   // Add one more pixel in case on the edge
     const int32_t height = 2 * (max_height + 1); // Add one more pixel in case on the edge
 
-    // add two pixels just in case of rounding isssues
+    // add two pixels just in case of rounding issues
     const int32_t max_distance = integer_sqrt((width * width) + (height * height)) + 2;
     const int32_t min_x = src_ic.x - max_distance;
     const int32_t min_y = src_ic.y - max_distance;
@@ -301,7 +301,7 @@ void graphics_draw_rotated_bitmap(GContext* ctx, GBitmap *src, GPoint src_ic, in
             break;
           }
         }
-        /* FALLTHRU */
+        /* FALLTHROUGH */
         case GCompOpAssign:
         default:
           // Do assign by default
